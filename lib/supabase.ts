@@ -15,6 +15,7 @@ export const supabaseAdmin = (() => {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
         // Fallback to anon key if service role not available (client-side)
+        console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY is missing! `supabaseAdmin` is falling back to the anon key. RLS policies will apply.');
         return supabase;
     }
     _adminClient = createClient(supabaseUrl, serviceRoleKey);

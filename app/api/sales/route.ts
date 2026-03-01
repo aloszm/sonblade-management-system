@@ -104,9 +104,9 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(saleData, { status: 201 });
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error al crear venta';
+    } catch (err: any) {
+        const message = err?.message || 'Error al crear venta';
         console.error('POST /api/sales error:', err);
-        return NextResponse.json({ error: message }, { status: 500 });
+        return NextResponse.json({ error: message, details: err }, { status: 500 });
     }
 }
