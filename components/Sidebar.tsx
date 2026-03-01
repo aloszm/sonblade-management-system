@@ -85,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             className="w-9 h-9 rounded-full border-2 border-sonblade-primary object-cover"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">Marcus Blade</p>
+            <p className="text-sm font-medium text-white truncate">Alonso Miranda</p>
             <p className="text-xs text-blue-200 truncate">Administrador</p>
           </div>
         </div>

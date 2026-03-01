@@ -69,7 +69,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
               alt="User"
               className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-sonblade-primary/50 transition-all"
             />
-            <span className="hidden md:block text-sm font-medium text-gray-700 group-hover:text-sonblade-primary transition-colors">Marcus B.</span>
+            <span className="hidden md:block text-sm font-medium text-gray-700 group-hover:text-sonblade-primary transition-colors">Alonso M.</span>
             <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-sonblade-primary" />
           </button>
         </div>

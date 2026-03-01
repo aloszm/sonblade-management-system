@@ -23,10 +23,10 @@ describe('Sidebar — Traducción al Español', () => {
         expect(screen.getByText('Perfil del Negocio')).toBeInTheDocument();
     });
 
-    it('muestra el rol de usuario como "Administrador"', () => {
+    it('muestra el nombre del administrador', () => {
         render(<Sidebar isOpen={true} />);
 
-        expect(screen.getByText('Administrador')).toBeInTheDocument();
+        expect(screen.getByText('Alonso Miranda')).toBeInTheDocument();
     });
 
     it('NO contiene texto en inglés (Dashboard, Settings, Manager, etc.)', () => {
