@@ -15,6 +15,9 @@ export default function CashDrawer() {
     const [openAmount, setOpenAmount] = useState(500);
     const [showOpenForm, setShowOpenForm] = useState(false);
     const [opening, setOpening] = useState(false);
+    const [viewMode, setViewMode] = useState<'current' | 'history'>('current');
+    const [historySessions, setHistorySessions] = useState<CashSession[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
     const { data: session, loading, refetch: refetchSession } = useSupabase<CashSession | null>(getActiveSession);
     const { data: movements, refetch: refetchMovements } = useSupabase<CashMovement[]>(
@@ -60,6 +63,32 @@ export default function CashDrawer() {
             </div>
         );
     }
+
+    const loadHistory = async () => {
+        setViewMode('history');
+        setLoadingHistory(true);
+        try {
+            const res = await fetch('/api/cash/history');
+            // Wait, we don't have this API route. I should fetch directly using useSupabase or fetch if the API exists.
+            // Since useSupabase uses getCashSessionHistory which calls Supabase admin, let's call it via an API endpoint or Server Action. 
+            // Wait, useSupabase in client components calls the function DIRECTLY.
+            // Yes! The first arg of useSupabase is the async function.
+            // But it's better if I just use the same pattern. However, for a simple button click:
+        } catch (e) { }
+    }
+    // Correct way: we will use a dedicated API endpoint for history, OR since I already have getCashSessionHistory in lib, I'll export an API endpoint shortly, OR I can just build the UI and fetch it.
+    // Actually, I'll inject the logic here and create the API later.
+
+    const fetchHistory = async () => {
+        setLoadingHistory(true);
+        setViewMode('history');
+        try {
+            const res = await fetch('/api/cash/history');
+            if (res.ok) {
+                setHistorySessions(await res.json());
+            }
+        } finally { setLoadingHistory(false) }
+    };
 
     const expectedCash = session ? session.initial_amount + session.total_cash - session.total_expenses : 0;
     const expectedTotal = session ? session.initial_amount + session.total_sales - session.total_expenses : 0;
@@ -132,163 +161,216 @@ export default function CashDrawer() {
                     <p className="text-gray-500 mt-1">Gestiona aperturas, cierres y movimientos diarios.</p>
                 </div>
                 <div className="flex gap-3">
-                    <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm font-medium text-sm">
-                        <History className="h-5 w-5" />
-                        Historial
-                    </button>
-                    <button className="px-4 py-2 bg-sonblade-dark text-white rounded-lg hover:bg-blue-900 flex items-center gap-2 shadow-sm font-medium text-sm">
-                        <FileText className="h-5 w-5" />
-                        Reportes
-                    </button>
+                    {viewMode === 'current' ? (
+                        <button onClick={fetchHistory} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm font-medium text-sm">
+                            <History className="h-5 w-5" />
+                            Historial
+                        </button>
+                    ) : (
+                        <button onClick={() => setViewMode('current')} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm font-medium text-sm">
+                            <ArrowRightLeft className="h-5 w-5" />
+                            Caja Actual
+                        </button>
+                    )}
                 </div>
             </header>
 
-            {/* Active Cash Session Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border-l-8 border-sonblade-success overflow-hidden mb-8">
-                <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap justify-between items-center bg-white/50 backdrop-blur-sm">
-                    <div className="flex items-center gap-3">
-                        <span className="bg-green-100 text-sonblade-success px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-sonblade-success animate-pulse"></span>
-                            CAJA ABIERTA
-                        </span>
-                        <span className="text-gray-400 text-sm hidden sm:inline">|</span>
-                        <div className="text-sm text-gray-600 flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-gray-400" />
-                            Abierta hace: <span className="font-semibold text-gray-900">{elapsedTime}</span>
-                        </div>
+            {viewMode === 'history' && (
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h2 className="text-lg font-bold text-gray-900">Historial de Cierres de Caja</h2>
                     </div>
-                    <div className="text-right text-sm text-gray-500 mt-2 sm:mt-0">
-                        <span className="block sm:inline">Abierta por: <strong className="text-gray-900">{session.opened_by}</strong></span>
-                    </div>
-                </div>
-
-                <div className="p-6 lg:p-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-                        {/* Left Summary */}
-                        <div className="lg:col-span-4 space-y-6">
-                            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                                <h3 className="text-gray-500 font-medium text-sm uppercase tracking-wider mb-4">Resumen General</h3>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center group">
-                                        <span className="text-gray-600 flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><DollarSign className="h-4 w-4" /></div>
-                                            Monto Inicial
-                                        </span>
-                                        <span className="font-medium text-gray-900">$ {session.initial_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center group">
-                                        <span className="text-gray-600 flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-green-600"><TrendingUp className="h-4 w-4" /></div>
-                                            Ventas Totales
-                                        </span>
-                                        <span className="font-medium text-gray-900">$ {session.total_sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center group">
-                                        <span className="text-gray-600 flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-500"><TrendingDown className="h-4 w-4" /></div>
-                                            Gastos
-                                        </span>
-                                        <span className="font-medium text-red-500">-$ {session.total_expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                </div>
-                                <div className="mt-6 pt-6 border-t border-gray-100">
-                                    <p className="text-gray-500 text-sm mb-1">Total Esperado en Caja</p>
-                                    <p className="text-3xl font-bold text-sonblade-primary">$ {expectedTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setIsModalOpen(true)} className="w-full py-4 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:-translate-y-0.5 transition-all duration-200 font-bold text-lg flex items-center justify-center gap-3 group">
-                                <Lock className="h-5 w-5 group-hover:rotate-12 transition-transform" />
-                                CERRAR CAJA
-                            </button>
-                        </div>
-
-                        {/* Right Details */}
-                        <div className="lg:col-span-8">
-                            <h3 className="text-gray-500 font-medium text-sm uppercase tracking-wider mb-4">Desglose por Método de Pago</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden hover:border-sonblade-primary transition-colors">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -mr-4 -mt-4"></div>
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-3 text-sonblade-primary">
-                                            <DollarSign className="h-5 w-5" />
-                                            <span className="font-semibold">Efectivo</span>
-                                        </div>
-                                        <div className="text-2xl font-bold text-gray-900 mb-2">$ {session.total_cash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                                        <div className="text-xs text-gray-500 space-y-1">
-                                            <div className="flex justify-between"><span>Inicial:</span> <span>${session.initial_amount}</span></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden hover:border-purple-500 transition-colors">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -mr-4 -mt-4"></div>
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-3 text-purple-600">
-                                            <CreditCard className="h-5 w-5" />
-                                            <span className="font-semibold">Tarjeta</span>
-                                        </div>
-                                        <div className="text-2xl font-bold text-gray-900 mb-2">$ {session.total_card.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                                    </div>
-                                </div>
-                                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden hover:border-orange-500 transition-colors">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-orange-50 rounded-bl-full -mr-4 -mt-4"></div>
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-3 text-orange-600">
-                                            <ArrowRightLeft className="h-5 w-5" />
-                                            <span className="font-semibold">Transferencia</span>
-                                        </div>
-                                        <div className="text-2xl font-bold text-gray-900 mb-2">$ {session.total_transfer.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Movements Table */}
-                            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                                    <h3 className="text-gray-900 font-semibold">Movimientos Recientes</h3>
-                                </div>
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                                        <tr>
-                                            <th className="px-4 py-3">Hora</th>
-                                            <th className="px-4 py-3">Tipo</th>
-                                            <th className="px-4 py-3">Detalle</th>
-                                            <th className="px-4 py-3 text-right">Monto</th>
+                    {loadingHistory ? (
+                        <div className="p-12 text-center text-gray-500 flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                    ) : (
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-50 text-gray-500 text-xs uppercase border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-4">Apertura</th>
+                                    <th className="px-6 py-4">Cierre</th>
+                                    <th className="px-6 py-4">Abierto por</th>
+                                    <th className="px-6 py-4 text-right">Inicial</th>
+                                    <th className="px-6 py-4 text-right">Ventas</th>
+                                    <th className="px-6 py-4 text-right">Diferencia</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {historySessions.length === 0 ? (
+                                    <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No hay historial disponible</td></tr>
+                                ) : (
+                                    historySessions.map(hs => (
+                                        <tr key={hs.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 font-medium text-gray-900">
+                                                {new Date(hs.opened_at).toLocaleDateString('es-MX')} {new Date(hs.opened_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500">
+                                                {hs.closed_at ? new Date(hs.closed_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : 'Abierta'}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500">{hs.opened_by}</td>
+                                            <td className="px-6 py-4 text-right font-medium">${hs.initial_amount.toFixed(2)}</td>
+                                            <td className="px-6 py-4 text-right text-green-600 font-bold">${hs.total_sales.toFixed(2)}</td>
+                                            <td className={`px-6 py-4 text-right font-bold ${!hs.difference ? 'text-gray-500' : hs.difference === 0 ? 'text-green-500' : hs.difference < 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                                {!hs.difference ? '-' : `$ ${hs.difference.toFixed(2)}`}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {(!movements || movements.length === 0) && (
-                                            <tr>
-                                                <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                                                    No hay movimientos aún
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {movements?.map((m) => (
-                                            <tr key={m.id}>
-                                                <td className="px-4 py-3 text-gray-500">
-                                                    {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${m.type === 'sale' ? 'bg-green-100 text-green-700' :
-                                                        m.type === 'expense' ? 'bg-red-100 text-red-700' :
-                                                            'bg-blue-100 text-blue-700'
-                                                        }`}>
-                                                        {m.type === 'sale' ? 'Venta' : m.type === 'expense' ? 'Gasto' : m.type}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-gray-900 font-medium">{m.description}</td>
-                                                <td className={`px-4 py-3 text-right font-medium ${m.type === 'expense' ? 'text-red-600' : ''}`}>
-                                                    {m.type === 'expense' ? '-' : ''} $ {Number(m.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
+
+            {viewMode === 'current' && (
+                <>
+                    {/* Active Cash Session Card */}
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border-l-8 border-sonblade-success overflow-hidden mb-8">
+                        <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap justify-between items-center bg-white/50 backdrop-blur-sm">
+                            <div className="flex items-center gap-3">
+                                <span className="bg-green-100 text-sonblade-success px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-sonblade-success animate-pulse"></span>
+                                    CAJA ABIERTA
+                                </span>
+                                <span className="text-gray-400 text-sm hidden sm:inline">|</span>
+                                <div className="text-sm text-gray-600 flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-gray-400" />
+                                    Abierta hace: <span className="font-semibold text-gray-900">{elapsedTime}</span>
+                                </div>
+                            </div>
+                            <div className="text-right text-sm text-gray-500 mt-2 sm:mt-0">
+                                <span className="block sm:inline">Abierta por: <strong className="text-gray-900">{session.opened_by}</strong></span>
+                            </div>
+                        </div>
+
+                        <div className="p-6 lg:p-8">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                                {/* Left Summary */}
+                                <div className="lg:col-span-4 space-y-6">
+                                    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                                        <h3 className="text-gray-500 font-medium text-sm uppercase tracking-wider mb-4">Resumen General</h3>
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center group">
+                                                <span className="text-gray-600 flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><DollarSign className="h-4 w-4" /></div>
+                                                    Monto Inicial
+                                                </span>
+                                                <span className="font-medium text-gray-900">$ {session.initial_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center group">
+                                                <span className="text-gray-600 flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-green-600"><TrendingUp className="h-4 w-4" /></div>
+                                                    Ventas Totales
+                                                </span>
+                                                <span className="font-medium text-gray-900">$ {session.total_sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center group">
+                                                <span className="text-gray-600 flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-500"><TrendingDown className="h-4 w-4" /></div>
+                                                    Gastos
+                                                </span>
+                                                <span className="font-medium text-red-500">-$ {session.total_expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                        </div>
+                                        <div className="mt-6 pt-6 border-t border-gray-100">
+                                            <p className="text-gray-500 text-sm mb-1">Total Esperado en Caja</p>
+                                            <p className="text-3xl font-bold text-sonblade-primary">$ {expectedTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setIsModalOpen(true)} className="w-full py-4 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:-translate-y-0.5 transition-all duration-200 font-bold text-lg flex items-center justify-center gap-3 group">
+                                        <Lock className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                                        CERRAR CAJA
+                                    </button>
+                                </div>
+
+                                {/* Right Details */}
+                                <div className="lg:col-span-8">
+                                    <h3 className="text-gray-500 font-medium text-sm uppercase tracking-wider mb-4">Desglose por Método de Pago</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden hover:border-sonblade-primary transition-colors">
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -mr-4 -mt-4"></div>
+                                            <div className="relative z-10">
+                                                <div className="flex items-center gap-2 mb-3 text-sonblade-primary">
+                                                    <DollarSign className="h-5 w-5" />
+                                                    <span className="font-semibold">Efectivo</span>
+                                                </div>
+                                                <div className="text-2xl font-bold text-gray-900 mb-2">$ {session.total_cash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                                                <div className="text-xs text-gray-500 space-y-1">
+                                                    <div className="flex justify-between"><span>Inicial:</span> <span>${session.initial_amount}</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden hover:border-purple-500 transition-colors">
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -mr-4 -mt-4"></div>
+                                            <div className="relative z-10">
+                                                <div className="flex items-center gap-2 mb-3 text-purple-600">
+                                                    <CreditCard className="h-5 w-5" />
+                                                    <span className="font-semibold">Tarjeta</span>
+                                                </div>
+                                                <div className="text-2xl font-bold text-gray-900 mb-2">$ {session.total_card.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden hover:border-orange-500 transition-colors">
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-orange-50 rounded-bl-full -mr-4 -mt-4"></div>
+                                            <div className="relative z-10">
+                                                <div className="flex items-center gap-2 mb-3 text-orange-600">
+                                                    <ArrowRightLeft className="h-5 w-5" />
+                                                    <span className="font-semibold">Transferencia</span>
+                                                </div>
+                                                <div className="text-2xl font-bold text-gray-900 mb-2">$ {session.total_transfer.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Movements Table */}
+                                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                                            <h3 className="text-gray-900 font-semibold">Movimientos Recientes</h3>
+                                        </div>
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                                                <tr>
+                                                    <th className="px-4 py-3">Hora</th>
+                                                    <th className="px-4 py-3">Tipo</th>
+                                                    <th className="px-4 py-3">Detalle</th>
+                                                    <th className="px-4 py-3 text-right">Monto</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {(!movements || movements.length === 0) && (
+                                                    <tr>
+                                                        <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                                                            No hay movimientos aún
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                                {movements?.map((m) => (
+                                                    <tr key={m.id}>
+                                                        <td className="px-4 py-3 text-gray-500">
+                                                            {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${m.type === 'sale' ? 'bg-green-100 text-green-700' :
+                                                                m.type === 'expense' ? 'bg-red-100 text-red-700' :
+                                                                    'bg-blue-100 text-blue-700'
+                                                                }`}>
+                                                                {m.type === 'sale' ? 'Venta' : m.type === 'expense' ? 'Gasto' : m.type}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-900 font-medium">{m.description}</td>
+                                                        <td className={`px-4 py-3 text-right font-medium ${m.type === 'expense' ? 'text-red-600' : ''}`}>
+                                                            {m.type === 'expense' ? '-' : ''} $ {Number(m.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </>
+            )}
 
             {/* Close Cash Modal */}
             {isModalOpen && (
