@@ -9,8 +9,9 @@ const config: Config = {
         extend: {
             colors: {
                 sonblade: {
-                    dark: '#1F4E78',
-                    primary: '#2E75B6',
+                    dark: '#000000',      // Used for sidebar bg or very deep backgrounds
+                    primary: '#000000',   // Primary buttons (Black)
+                    gold: '#D4AF37',      // Text, borders, highlights
                     light: '#F8F9FA',
                     success: '#70AD47',
                     warning: '#F39C12',

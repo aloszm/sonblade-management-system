@@ -44,7 +44,8 @@ const BarberDashboard: React.FC = () => {
         );
     }
 
-    const progressPercent = barber.total_cuts ? Math.min(100, (barber.total_cuts / 200) * 100) : 0;
+    const weeklyCuts = stats?.weeklyStats?.cuts || 0;
+    const progressPercent = Math.min(100, (weeklyCuts / 60) * 100);
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
@@ -97,42 +98,42 @@ const BarberDashboard: React.FC = () => {
                 <>
                     {/* Stats */}
                     <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-primary transition-colors cursor-pointer group">
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-gold/50 transition-colors cursor-pointer group">
                             <div className="flex justify-between items-start mb-4">
-                                <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors"><DollarSign className="text-sonblade-primary h-6 w-6" /></div>
+                                <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-gray-100 transition-colors"><DollarSign className="text-black h-6 w-6" /></div>
                             </div>
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Generado</h3>
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Generado (Semana)</h3>
                             <div className="text-3xl font-bold text-gray-900">
-                                $ {(stats?.totalGenerated || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                $ {(stats?.weeklyStats?.totalGenerated || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </div>
                         </div>
-                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-primary transition-colors cursor-pointer group">
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-gold/50 transition-colors cursor-pointer group">
                             <div className="flex justify-between items-start mb-4">
-                                <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-indigo-100 transition-colors"><TrendingUp className="text-indigo-600 h-6 w-6" /></div>
+                                <div className="p-2 bg-yellow-50 rounded-lg group-hover:bg-yellow-100 transition-colors"><TrendingUp className="text-sonblade-gold h-6 w-6" /></div>
                             </div>
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Mi Comisión</h3>
-                            <div className="text-3xl font-bold text-sonblade-primary">
-                                $ {(stats?.commission || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Mi Comisión (Semana)</h3>
+                            <div className="text-3xl font-bold text-sonblade-gold">
+                                $ {(stats?.weeklyStats?.commission || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </div>
-                            <div className="mt-2"><span className="text-xs font-medium text-white bg-sonblade-primary px-2 py-0.5 rounded">Tasa: {barber.commission_rate}%</span></div>
+                            <div className="mt-2"><span className="text-xs font-medium text-black bg-sonblade-gold px-2 py-0.5 rounded">Tasa Actual: {stats?.tier?.current || 35}%</span></div>
                         </div>
-                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-primary transition-colors">
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-gold/50 transition-colors">
                             <div className="flex justify-between items-start mb-2">
                                 <div className="p-2 bg-gray-100 rounded-lg"><Scissors className="text-gray-800 h-6 w-6" /></div>
                             </div>
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Cortes Hoy</h3>
                             <div className="flex items-baseline gap-2 mb-1">
-                                <div className="text-4xl font-bold text-sonblade-primary">{stats?.servicesCount || 0}</div>
+                                <div className="text-4xl font-bold text-black">{stats?.todayStats?.cuts || 0}</div>
                                 <span className="text-sm text-gray-500">servicios</span>
                             </div>
                         </div>
-                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-success transition-colors group cursor-pointer">
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-green-500 transition-colors group cursor-pointer">
                             <div className="flex justify-between items-start mb-4">
-                                <div className="p-2 bg-green-50 rounded-lg group-hover:bg-green-100 transition-colors"><Gift className="text-sonblade-success h-6 w-6" /></div>
+                                <div className="p-2 bg-green-50 rounded-lg group-hover:bg-green-100 transition-colors"><Gift className="text-green-600 h-6 w-6" /></div>
                             </div>
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Propinas Hoy</h3>
-                            <div className="text-3xl font-bold text-sonblade-success">
-                                $ {(stats?.totalTips || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            <div className="text-3xl font-bold text-green-600">
+                                $ {(stats?.todayStats?.tips || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </div>
                         </div>
                     </section>
@@ -158,10 +159,10 @@ const BarberDashboard: React.FC = () => {
                                 )}
                             </div>
                             <div className="relative pt-6 pb-2 z-10">
-                                <div className="flex justify-between text-xs font-medium text-gray-500 mb-2 px-1"><span>0</span><span>50</span><span>100</span><span>150</span><span>200+</span></div>
+                                <div className="flex justify-between text-xs font-medium text-gray-500 mb-2 px-1"><span>0</span><span>20</span><span>40</span><span>60+</span></div>
                                 <div className="relative h-8 bg-gray-200 rounded-full w-full overflow-hidden shadow-inner">
-                                    <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-sonblade-primary to-blue-400 rounded-full flex items-center justify-end pr-3 transition-all duration-700" style={{ width: `${progressPercent}%` }}>
-                                        <span className="text-white text-xs font-bold drop-shadow-md">{barber.total_cuts} Cortes</span>
+                                    <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-black to-gray-700 rounded-full flex items-center justify-end pr-3 transition-all duration-700" style={{ width: `${progressPercent}%` }}>
+                                        <span className="text-sonblade-gold text-xs font-bold drop-shadow-md">{weeklyCuts} Cortes</span>
                                     </div>
                                 </div>
                             </div>
@@ -185,12 +186,12 @@ const BarberDashboard: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {(!stats?.sales || stats.sales.length === 0) && (
+                                    {(!stats?.todayStats?.sales || stats.todayStats.sales.length === 0) && (
                                         <tr>
                                             <td colSpan={5} className="p-8 text-center text-gray-400">No hay ventas hoy</td>
                                         </tr>
                                     )}
-                                    {stats?.sales?.map((sale) => (
+                                    {stats?.todayStats?.sales?.map((sale) => (
                                         <tr key={sale.id} className="hover:bg-gray-50">
                                             <td className="p-4 font-medium text-gray-900">
                                                 {new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}

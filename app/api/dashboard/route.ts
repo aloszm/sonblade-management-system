@@ -1,87 +1,154 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getBarbers, getBarberStats } from '@/lib/services/barber';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const searchParams = request.nextUrl.searchParams;
+        const period = searchParams.get('period') || 'today'; // 'today', 'week', 'month'
 
-        // 1. Get Today's Revenue & Total Appointments (simplified as 'Nuevos Clientes' for now since we have no client table)
-        const { data: salesToday, error: salesError } = await supabase
+        const now = new Date();
+        let startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+
+        let endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
+
+        // Date logic
+        if (period === 'week') {
+            const dayOfWeek = now.getDay();
+            startDate.setDate(now.getDate() - dayOfWeek);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            endDate.setHours(23, 59, 59, 999);
+        } else if (period === 'month') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        }
+
+        // 1. Fetch Sales for the selected period
+        const { data: salesPeriod, error: salesError } = await supabase
             .from('sales')
-            .select('total')
-            .gte('created_at', today.toISOString());
+            .select('*, items:sale_items(*)')
+            .gte('created_at', startDate.toISOString())
+            .lte('created_at', endDate.toISOString());
 
         if (salesError) throw salesError;
 
-        const todayRevenue = salesToday?.reduce((sum, sale) => sum + Number(sale.total), 0) || 0;
-        const totalSalesCount = salesToday?.length || 0; // Using this as proxy for 'Nuevos Clientes' or walk-ins for now
+        // Calculate KPIs
+        let totalRevenue = 0;
+        let totalTips = 0;
+        let totalCuts = 0;
+        let cashMethod = 0;
+        let cardMethod = 0;
+        let transferMethod = 0;
 
-        // 2. Get Appointments for Today
-        const { data: aptsToday, error: aptsError } = await supabase
-            .from('appointments')
-            .select('*')
-            .gte('scheduled_at', today.toISOString())
-            .order('scheduled_at', { ascending: true });
+        salesPeriod?.forEach(sale => {
+            totalRevenue += Number(sale.total);
+            totalTips += Number(sale.tip || 0);
 
-        if (aptsError) throw aptsError;
-        const upcomingAppointments = aptsToday || [];
-
-        // 3. Get Low Stock Products
-        const { data: lowStock, error: stockError } = await supabase
-            .from('products')
-            .select('id')
-            .lt('stock', 5); // Assuming < 5 is low stock, or we could use min_stock
-
-        if (stockError) throw stockError;
-        const lowStockCount = lowStock?.length || 0;
-
-        // 4. Get Revenue for the last 7 days for the chart
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
-
-        const { data: weeklySales, error: weeklyError } = await supabase
-            .from('sales')
-            .select('created_at, total')
-            .gte('created_at', sevenDaysAgo.toISOString());
-
-        if (weeklyError) throw weeklyError;
-
-        // Group by day for the chart
-        const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-        const chartDataMap = new Map();
-
-        // Initialize last 7 days
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dayName = days[d.getDay()];
-            // If duplicate day name in the loop (like 7 days), the map overwrites, 
-            // but for 7 days it's fine. We use a Date string key to be safe.
-            const dateKey = d.toISOString().split('T')[0];
-            chartDataMap.set(dateKey, { name: dayName, revenue: 0 });
-        }
-
-        weeklySales?.forEach(sale => {
-            const dateKey = new Date(sale.created_at).toISOString().split('T')[0];
-            if (chartDataMap.has(dateKey)) {
-                const existing = chartDataMap.get(dateKey);
-                existing.revenue += Number(sale.total);
+            // Methods
+            if (sale.payment_method === 'cash') cashMethod += Number(sale.total);
+            else if (sale.payment_method === 'card') cardMethod += Number(sale.total);
+            else if (sale.payment_method === 'transfer') transferMethod += Number(sale.total);
+            else {
+                // mixed
+                cashMethod += Number(sale.cash_amount || 0);
+                cardMethod += Number(sale.card_amount || 0);
+                transferMethod += Number(sale.transfer_amount || 0);
             }
+
+            sale.items?.forEach(i => {
+                if (i.item_type === 'service') totalCuts++;
+            });
         });
 
-        const revenueChart = Array.from(chartDataMap.values());
+        // Fetch Expenses 
+        const { data: expensesPeriod } = await supabase
+            .from('cash_session_movements')
+            .select('amount')
+            .eq('type', 'expense')
+            .gte('created_at', startDate.toISOString())
+            .lte('created_at', endDate.toISOString());
+
+        const totalExpenses = expensesPeriod?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+
+        // 2. Fetch Weekly Barbers (always weekly per requirements)
+        const barbers = await getBarbers();
+        const barbersTable = [];
+        for (const b of barbers) {
+            const stats = await getBarberStats(b.id);
+            if (stats) {
+                barbersTable.push({
+                    id: b.id,
+                    name: b.name,
+                    avatar_url: b.avatar_url,
+                    cuts: stats.weeklyStats.cuts,
+                    revenue: stats.weeklyStats.totalGenerated,
+                    commission: stats.weeklyStats.commission,
+                    rate: stats.tier.current
+                });
+            }
+        }
+        barbersTable.sort((a, b) => b.revenue - a.revenue);
+
+        // 3. Charts Data
+
+        // A. Week Bar Chart (Mon-Sun or Sun-Sat of current week)
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+
+        const { data: weekSales } = await supabase
+            .from('sales')
+            .select('created_at, total')
+            .gte('created_at', weekStart.toISOString());
+
+        const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const weekBar = days.map(d => ({ name: d, revenue: 0 }));
+        weekSales?.forEach(s => {
+            const dIdx = new Date(s.created_at).getDay();
+            weekBar[dIdx].revenue += Number(s.total);
+        });
+
+        // B. Month Line Chart (Last 4 weeks)
+        const monthLine = [];
+        for (let i = 3; i >= 0; i--) {
+            const wStart = new Date(now);
+            wStart.setDate(wStart.getDate() - (wStart.getDay() + (i * 7)));
+            wStart.setHours(0, 0, 0, 0);
+
+            const wEnd = new Date(wStart);
+            wEnd.setDate(wStart.getDate() + 6);
+            wEnd.setHours(23, 59, 59, 999);
+
+            const { data: wSl } = await supabase
+                .from('sales')
+                .select('total')
+                .gte('created_at', wStart.toISOString())
+                .lte('created_at', wEnd.toISOString());
+
+            const rev = wSl?.reduce((sum, s) => sum + Number(s.total), 0) || 0;
+            monthLine.push({ name: i === 0 ? 'Esta Sem' : \`Hace \${i} Sem\`, revenue: rev });
+        }
 
         return NextResponse.json({
-            stats: {
-                totalAppointments: upcomingAppointments.length, // total apts today
-                todayRevenue,
-                newClients: totalSalesCount, // proxy
-                lowStockProducts: lowStockCount
+            kpis: {
+                revenue: totalRevenue,
+                cuts: totalCuts,
+                tips: totalTips,
+                expenses: totalExpenses
             },
-            revenueChart,
-            upcomingAppointments
+            barbersTable,
+            charts: {
+                weekBar,
+                monthLine,
+                paymentDonut: [
+                    { name: 'Efectivo', value: cashMethod },
+                    { name: 'Tarjeta', value: cardMethod },
+                    { name: 'Transferencia', value: transferMethod }
+                ]
+            }
         });
 
     } catch (err: any) {

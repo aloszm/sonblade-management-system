@@ -49,9 +49,23 @@ export async function getBarber(barberId: string): Promise<Barber | null> {
     return data;
 }
 
-export async function getBarberTodaySales(barberId: string): Promise<Sale[]> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+export function getWeeklyDateRange() {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+
+    const start = new Date(now);
+    start.setDate(now.getDate() - dayOfWeek);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
+}
+
+export async function getBarberWeeklySales(barberId: string): Promise<Sale[]> {
+    const { start, end } = getWeeklyDateRange();
 
     const { data, error } = await supabase
         .from('sales')
@@ -60,7 +74,8 @@ export async function getBarberTodaySales(barberId: string): Promise<Sale[]> {
       items:sale_items(*)
     `)
         .eq('barber_id', barberId)
-        .gte('created_at', today.toISOString())
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -68,43 +83,80 @@ export async function getBarberTodaySales(barberId: string): Promise<Sale[]> {
 }
 
 export async function getBarberStats(barberId: string) {
-    const sales = await getBarberTodaySales(barberId);
+    const weeklySales = await getBarberWeeklySales(barberId);
     const barber = await getBarber(barberId);
 
     if (!barber) return null;
 
-    let totalServiceGenerated = 0;
-    let totalProductGenerated = 0;
+    let weeklyServiceGenerated = 0;
+    let weeklyProductGenerated = 0;
+    let weeklyCuts = 0;
 
-    sales.forEach(s => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    let todayServiceGenerated = 0;
+    let todayProductGenerated = 0;
+    let todayCuts = 0;
+    let todayTips = 0;
+    const todaySales: Sale[] = [];
+
+    weeklySales.forEach(s => {
+        const isToday = s.created_at.startsWith(todayStr);
+        if (isToday) todaySales.push(s);
+
+        let srvVal = 0;
+        let prdVal = 0;
+        let srvCount = 0;
+
         s.items?.forEach(i => {
             const amount = Number(i.item_price) * (i.quantity || 1);
-            if (i.item_type === 'service') totalServiceGenerated += amount;
-            if (i.item_type === 'product') totalProductGenerated += amount;
+            if (i.item_type === 'service') {
+                srvVal += amount;
+                srvCount += 1;
+            }
+            if (i.item_type === 'product') {
+                prdVal += amount;
+            }
         });
+
+        weeklyServiceGenerated += srvVal;
+        weeklyProductGenerated += prdVal;
+        weeklyCuts += srvCount;
+
+        if (isToday) {
+            todayServiceGenerated += srvVal;
+            todayProductGenerated += prdVal;
+            todayCuts += srvCount;
+            todayTips += Number(s.tip || 0);
+        }
     });
 
-    const totalTips = sales.reduce((sum, s) => sum + Number(s.tip || 0), 0);
-    const commissionRate = barber.commission_rate / 100;
+    const weeklyTips = weeklySales.reduce((sum, s) => sum + Number(s.tip || 0), 0);
+    const tier = getCommissionTier(weeklyCuts);
+    const commissionRate = tier.current / 100;
 
     // Rules: Service base (35-50%), Product (20%), Tips (100%)
-    const serviceCommission = totalServiceGenerated * commissionRate;
-    const productCommission = totalProductGenerated * 0.20;
-    const totalGenerated = totalServiceGenerated + totalProductGenerated;
-    const commission = serviceCommission + productCommission + totalTips;
+    const serviceCommission = weeklyServiceGenerated * commissionRate;
+    const productCommission = weeklyProductGenerated * 0.20;
 
-    const servicesCount = sales.reduce((sum, s) => {
-        const serviceItems = s.items?.filter(i => i.item_type === 'service') || [];
-        return sum + serviceItems.length;
-    }, 0);
+    const weeklyCommission = serviceCommission + productCommission + weeklyTips;
+    const weeklyGenerated = weeklyServiceGenerated + weeklyProductGenerated;
 
     return {
         barber,
-        totalGenerated,
-        commission,
-        servicesCount,
-        totalTips,
-        sales,
+        weeklyStats: {
+            cuts: weeklyCuts,
+            totalGenerated: weeklyGenerated,
+            commission: weeklyCommission,
+            tips: weeklyTips,
+        },
+        todayStats: {
+            cuts: todayCuts,
+            totalGenerated: todayServiceGenerated + todayProductGenerated,
+            tips: todayTips,
+            sales: todaySales
+        },
+        tier
     };
 }
 
@@ -112,9 +164,9 @@ export async function getBarberStats(barberId: string) {
 export function getCommissionTier(totalCuts: number): { current: number; next: number; cutsForNext: number } {
     const tiers = [
         { minCuts: 0, rate: 35 },
-        { minCuts: 50, rate: 40 },
-        { minCuts: 100, rate: 45 },
-        { minCuts: 150, rate: 50 },
+        { minCuts: 20, rate: 40 },
+        { minCuts: 40, rate: 45 },
+        { minCuts: 60, rate: 50 },
     ];
 
     let currentTier = tiers[0];

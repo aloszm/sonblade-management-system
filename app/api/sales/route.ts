@@ -85,34 +85,8 @@ export async function POST(request: NextRequest) {
         }
 
         // 4. Update barber's total cuts & commission rate
-        if (sale.barber_id) {
-            const serviceItems = sale.items.filter(i => i.item_type === 'service');
-            if (serviceItems.length > 0) {
-                const { data: barber } = await supabase
-                    .from('barbers')
-                    .select('total_cuts, commission_rate')
-                    .eq('id', sale.barber_id)
-                    .single();
-
-                if (barber) {
-                    const newTotalCuts = barber.total_cuts + serviceItems.length;
-
-                    // Calculate automatic commission tiers based on cuts
-                    let newRate = 35; // base
-                    if (newTotalCuts >= 50) newRate = 40;
-                    if (newTotalCuts >= 100) newRate = 45;
-                    if (newTotalCuts >= 150) newRate = 50;
-
-                    await supabase
-                        .from('barbers')
-                        .update({
-                            total_cuts: newTotalCuts,
-                            commission_rate: Math.max(barber.commission_rate, newRate) // Never downgrade automatically, only upgrade
-                        })
-                        .eq('id', sale.barber_id);
-                }
-            }
-        }
+        // We no longer update total_cuts statically in the barbers table,
+        // because we compute it dynamically by week (Sun-Sat) in the barber service tier calculation!
 
         // 5. Register in active Cash Session (Caja)
         let cash = sale.cash_amount || 0;

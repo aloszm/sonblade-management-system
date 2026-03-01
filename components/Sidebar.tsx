@@ -38,8 +38,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     <aside className="w-64 bg-sonblade-dark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl">
       <div className="h-16 flex items-center px-6 bg-black/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-sonblade-primary rounded flex items-center justify-center font-bold">S</div>
-          <span className="font-bold text-xl tracking-tight">SONBLADE</span>
+          <div className="w-8 h-8 bg-sonblade-gold text-black rounded flex items-center justify-center font-bold">S</div>
+          <span className="font-bold text-xl tracking-tight text-white">SONBLADE</span>
         </div>
       </div>
 
@@ -51,12 +51,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               key={item.href}
               href={item.href}
               className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
-                ? 'bg-sonblade-primary text-white shadow-md'
-                : 'text-blue-100 hover:bg-white/10 hover:text-white'
+                ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white'
                 }`}
             >
               <item.icon
-                className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-blue-200 group-hover:text-white'
+                className={`mr-3 h-5 w-5 ${isActive ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'
                   }`}
               />
               {item.label}
@@ -65,13 +65,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         })}
 
         <div className="pt-4 mt-4 border-t border-white/10">
-          <h3 className="px-3 text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Configuración</h3>
-          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-white shadow-md' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
-            <Store className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-white' : 'text-blue-200 group-hover:text-white'}`} />
+          <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Configuración</h3>
+          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+            <Store className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'}`} />
             Perfil del Negocio
           </Link>
-          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-white shadow-md' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
-            <Settings className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-white' : 'text-blue-200 group-hover:text-white'}`} />
+          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+            <Settings className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'}`} />
             Configuración
           </Link>
         </div>
@@ -82,11 +82,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           <img
             src="https://picsum.photos/100/100"
             alt="Admin"
-            className="w-9 h-9 rounded-full border-2 border-sonblade-primary object-cover"
+            className="w-9 h-9 rounded-full border-2 border-sonblade-gold object-cover"
           />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">Alonso Miranda</p>
-            <p className="text-xs text-blue-200 truncate">Administrador</p>
+            <p className="text-xs text-sonblade-gold truncate">Administrador</p>
           </div>
         </div>
       </div>

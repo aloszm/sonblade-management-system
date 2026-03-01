@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Scissors, DollarSign, CreditCard, Smartphone, Check, Search, Save, Loader2, ShoppingBag, Trash2, Coins } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { getServices } from '@/lib/services/sales';
 import { getBarbers } from '@/lib/services/barber';
 import { getProducts } from '@/lib/services/products';
@@ -64,6 +65,7 @@ const POS: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastSaleTotal, setLastSaleTotal] = useState(0);
+    const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
 
     // Fetch data from Supabase
     const { data: barbers, loading: loadingBarbers } = useSupabase<Barber[]>(getBarbers);
@@ -72,6 +74,7 @@ const POS: React.FC = () => {
 
     // Fetch today's sales via API route
     const [todaySales, setTodaySales] = useState<Sale[]>([]);
+    // Filtered services for search dropdown
     const fetchTodaySales = useCallback(async () => {
         try {
             const res = await fetch('/api/sales');
@@ -88,7 +91,53 @@ const POS: React.FC = () => {
         fetchTodaySales();
     }, [fetchTodaySales]);
 
-    // Filtered services for search dropdown
+    // Check for Edit Mode
+    useEffect(() => {
+        const loadEditSale = async () => {
+            if (typeof window === 'undefined') return;
+            const params = new URLSearchParams(window.location.search);
+            const editId = params.get('edit');
+            if (!editId || !barbers || !services || !products) return;
+
+            try {
+                const { data: sale, error } = await supabaseAdmin
+                    .from('sales')
+                    .select('*, items:sale_items(*)')
+                    .eq('id', editId)
+                    .single();
+
+                if (sale && !error) {
+                    setEditingSaleId(editId);
+                    const b = barbers.find(x => x.id === sale.barber_id);
+                    if (b) setSelectedBarber(b);
+
+                    setTip(Number(sale.tip || 0));
+                    const method = sale.payment_method === 'mixed' ? 'cash' : (sale.payment_method as PaymentType);
+                    setServicePayment(method);
+                    setProductPayment(method);
+                    setTipPayment(method);
+
+                    const newCart: CartItem[] = (sale.items || []).map((i: any) => ({
+                        id: `${i.item_type}-${i.id}`,
+                        name: i.item_name,
+                        price: Number(i.item_price),
+                        type: i.item_type,
+                        quantity: i.quantity || 1,
+                        product_id: i.product_id,
+                        service_id: i.service_id
+                    }));
+                    setCart(newCart);
+
+                    // Remove param from URL without reload so it doesn't refetch
+                    window.history.replaceState({}, '', '/caja');
+                }
+            } catch (e) { console.error('Error loading edit sale', e); }
+        };
+
+        if (barbers && barbers.length > 0 && services && products) {
+            loadEditSale();
+        }
+    }, [barbers, services, products]);
     const filteredServices = useMemo(() => {
         if (!services || !serviceSearch) return [];
         return services.filter(s =>
@@ -186,6 +235,11 @@ const POS: React.FC = () => {
 
         setSubmitting(true);
         try {
+            if (editingSaleId) {
+                // Delete the previous sale first functionally as essentially a deep modification
+                await fetch(`/api/sales/${editingSaleId}`, { method: 'DELETE' });
+            }
+
             const { cashAmount, cardAmount, transferAmount, paymentMethod } = computePaymentAmounts();
 
             const res = await fetch('/api/sales', {
@@ -222,6 +276,7 @@ const POS: React.FC = () => {
             setTipPayment('cash');
             setProductPayment('cash');
             setLastSaleTotal(total);
+            setEditingSaleId(null);
             setShowSuccess(true);
             fetchTodaySales();
             setTimeout(() => setShowSuccess(false), 3000);
@@ -402,150 +457,116 @@ const POS: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 5. Cart Summary */}
-                <div className="bg-gray-50 border-2 border-sonblade-primary rounded-xl p-6 relative overflow-hidden">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Resumen de la Venta</h3>
+            </section>
 
+            {/* Right Sidebar: Cart Summary & Submit */}
+            <aside className="w-[380px] bg-white border border-gray-200 rounded-xl flex flex-col hidden lg:flex shadow-sm h-full shrink-0 relative">
+                <div className="p-5 border-b border-gray-100 bg-gray-50 rounded-t-xl shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4 text-sonblade-gold" />
+                        Ticket de Venta
+                    </h3>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
                     {cart.length === 0 ? (
-                        <p className="text-gray-400 text-sm py-4 text-center">Agrega servicios o productos para comenzar</p>
+                        <div className="text-center py-10 opacity-50">
+                            <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                            <p className="text-gray-500 text-sm">Agrega servicios o productos<br />para comenzar</p>
+                        </div>
                     ) : (
-                        <div className="space-y-3 mb-4">
+                        <div className="space-y-4">
                             {/* Services */}
                             {serviceItems.length > 0 && (
                                 <div>
                                     <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Servicios</p>
                                     {serviceItems.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center text-sm py-1">
+                                        <div key={item.id} className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0">
                                             <div className="flex items-center gap-2">
                                                 <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
-                                                <span className="font-medium text-gray-900">✂️ {item.name}</span>
+                                                <span className="font-medium text-gray-900 truncate max-w-[150px]" title={item.name}>{item.name}</span>
                                             </div>
-                                            <span className="font-semibold">${(item.price * item.quantity).toFixed(2)}</span>
+                                            <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
                                         </div>
                                     ))}
                                     <div className="mt-2 pl-6">
-                                        <PaymentSelector
-                                            label="Pago:"
-                                            value={servicePayment}
-                                            onChange={setServicePayment}
-                                        />
+                                        <PaymentSelector label="Pago:" value={servicePayment} onChange={setServicePayment} />
                                     </div>
                                 </div>
                             )}
 
                             {/* Products */}
                             {productItems.length > 0 && (
-                                <div className="pt-2 border-t border-gray-100">
-                                    <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Productos</p>
+                                <div className="pt-2 border-t border-gray-100 mt-2">
+                                    <p className="text-xs font-semibold text-gray-400 uppercase mb-2 mt-2">Productos</p>
                                     {productItems.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center text-sm py-1">
+                                        <div key={item.id} className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0">
                                             <div className="flex items-center gap-2">
                                                 <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
-                                                <span className="font-medium text-gray-900">
-                                                    📦 {item.name}
-                                                    {item.quantity > 1 && <span className="text-gray-500"> x{item.quantity}</span>}
-                                                </span>
+                                                <span className="font-medium text-gray-900 truncate max-w-[130px]" title={item.name}>{item.name} {item.quantity > 1 && <span className="text-gray-400 font-normal">x{item.quantity}</span>}</span>
                                             </div>
-                                            <span className="font-semibold">${(item.price * item.quantity).toFixed(2)}</span>
+                                            <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
                                         </div>
                                     ))}
                                     <div className="mt-2 pl-6">
-                                        <PaymentSelector
-                                            label="Pago:"
-                                            value={productPayment}
-                                            onChange={setProductPayment}
-                                        />
+                                        <PaymentSelector label="Pago:" value={productPayment} onChange={setProductPayment} />
                                     </div>
                                 </div>
                             )}
 
                             {/* Tip */}
                             {tip > 0 && (
-                                <div className="border-t border-gray-100 pt-3">
-                                    <div className="flex justify-between items-center text-sm py-1">
-                                        <span className="font-medium text-gray-900">💰 Propina</span>
-                                        <span className="font-semibold">${tip.toFixed(2)}</span>
+                                <div className="border-t border-gray-100 pt-3 mt-2">
+                                    <div className="flex justify-between items-center text-sm mb-2">
+                                        <span className="font-medium text-gray-900 flex items-center gap-1"><Coins className="h-3.5 w-3.5 text-sonblade-gold" /> Propina</span>
+                                        <span className="font-bold text-gray-900">${tip.toFixed(2)}</span>
                                     </div>
-                                    <div className="mt-1 pl-6">
-                                        <PaymentSelector
-                                            label="Pago:"
-                                            value={tipPayment}
-                                            onChange={setTipPayment}
-                                        />
+                                    <div className="pl-6">
+                                        <PaymentSelector label="Pago:" value={tipPayment} onChange={setTipPayment} />
                                     </div>
                                 </div>
                             )}
                         </div>
                     )}
+                </div>
 
-                    <div className="flex justify-between items-end border-t-2 border-gray-200 pt-4 mb-6 mt-4">
-                        <div>
-                            <p className="text-sm text-gray-500 mb-1">Total a Cobrar</p>
+                {/* Subtotals & Submit */}
+                <div className="p-5 bg-gray-50 border-t border-gray-200 rounded-b-xl shrink-0">
+                    <div className="space-y-1 mb-4 text-sm">
+                        <div className="flex justify-between text-gray-500">
+                            <span>Subtotal</span>
+                            <span>${subtotal.toFixed(2)}</span>
                         </div>
-                        <span className="text-5xl font-bold text-sonblade-primary tracking-tight">${total.toFixed(2)}</span>
+                        {tip > 0 && (
+                            <div className="flex justify-between text-gray-500">
+                                <span>Propina</span>
+                                <span>${tip.toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-end pt-2 border-t border-gray-200 mt-2">
+                            <span className="font-bold text-gray-800">Total a Cobrar</span>
+                            <span className="text-3xl font-black text-black tracking-tight">${total.toFixed(2)}</span>
+                        </div>
                     </div>
 
-                    {/* Submit Button */}
                     <button
                         onClick={handleSubmit}
                         disabled={submitting || cart.length === 0 || !selectedBarber}
-                        className="w-full h-16 rounded-xl bg-gradient-to-r from-sonblade-primary to-blue-600 text-white font-bold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                        className="w-full h-14 rounded-xl bg-black text-sonblade-gold font-bold shadow-md hover:shadow-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
                     >
                         {submitting ? (
-                            <><Loader2 className="h-6 w-6 animate-spin" /> REGISTRANDO...</>
+                            <><Loader2 className="h-5 w-5 animate-spin" /> PROCESANDO...</>
                         ) : (
-                            <><Save className="h-6 w-6" /> REGISTRAR VENTA</>
+                            <><Check className="h-5 w-5 text-sonblade-gold" /> {editingSaleId ? 'GUARDAR EDICIÓN' : 'CONFIRMAR Y COBRAR'}</>
                         )}
                     </button>
-                </div>
-
-            </section>
-
-            {/* Right Sidebar: Recent Sales */}
-            <aside className="w-[350px] bg-white border border-gray-200 rounded-xl flex-col hidden lg:flex">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-xl sticky top-0 z-10">
-                    <h2 className="font-bold text-gray-800 text-lg">Ventas de Hoy</h2>
-                    <span className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-lg">
-                        ${todayTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
-                    {todaySales.length === 0 && (
-                        <p className="text-gray-400 text-sm text-center py-8">No hay ventas hoy</p>
+                    {!selectedBarber && cart.length > 0 && (
+                        <p className="text-xs text-red-500 text-center mt-2 font-medium">Selecciona un barbero para continuar</p>
                     )}
-                    {todaySales.map((sale) => {
-                        const saleColors = ['rose', 'sky', 'emerald', 'violet', 'amber'];
-                        const colorIdx = sale.id.charCodeAt(0) % saleColors.length;
-                        const color = saleColors[colorIdx];
-                        return (
-                            <div key={sale.id} className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-sonblade-primary to-blue-400 flex items-center justify-center text-white text-xs font-bold`}>
-                                            {sale.barber?.name?.charAt(0) || '?'}
-                                        </div>
-                                        <span className="font-semibold text-gray-900 text-sm">
-                                            {sale.barber?.name || 'Barbero'}
-                                        </span>
-                                    </div>
-                                    <span className="text-xs text-gray-400">
-                                        {formatDistanceToNow(new Date(sale.created_at), { addSuffix: true, locale: es })}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-2 truncate">
-                                    {sale.items?.map(i => i.item_name).join(', ') || 'Venta'}
-                                </p>
-                                <div className="flex justify-between items-end border-t border-gray-100 pt-2">
-                                    <span className="text-xs text-gray-400">{sale.payment_method === 'cash' ? '💵' : sale.payment_method === 'card' ? '💳' : sale.payment_method === 'transfer' ? '📱' : '🔀'} {sale.payment_method}</span>
-                                    <span className="font-bold text-gray-900 text-lg">${Number(sale.total).toFixed(2)}</span>
-                                </div>
-                            </div>
-                        );
-                    })}
                 </div>
             </aside>
         </div>
