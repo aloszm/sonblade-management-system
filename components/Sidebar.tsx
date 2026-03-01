@@ -22,7 +22,7 @@ interface SidebarProps {
 const menuItems = [
   { href: '/', label: 'Panel', icon: LayoutDashboard },
   { href: '/pos', label: 'POS', icon: ShoppingCart },
-  { href: '/ventas', label: 'Ventas', icon: Receipt },
+  { href: '/citas', label: 'Citas', icon: Receipt },
   { href: '/inventario', label: 'Inventario', icon: Package },
   { href: '/caja', label: 'Caja', icon: Banknote },
   { href: '/equipo', label: 'Equipo', icon: Users },
