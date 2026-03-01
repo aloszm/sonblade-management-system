@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-    title: 'Sonblade — Barbershop Management',
+    title: 'Sonblade — Gestión de Barbería',
     description: 'ERP para gestión de barberías. Administra citas, POS, inventario, caja y equipo.',
 };
 

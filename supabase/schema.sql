@@ -152,35 +152,5 @@ FOR EACH ROW
 EXECUTE FUNCTION update_product_status();
 
 -- ======================================================
--- SEED DATA (Sample data to start with)
+-- NOTA: Los datos reales se insertan desde seed.sql
 -- ======================================================
-
--- Barbers
-INSERT INTO barbers (name, avatar_url, status, commission_rate, total_cuts) VALUES
-  ('Juan Pérez', 'https://picsum.photos/seed/barber1/100/100', 'busy', 40.00, 80),
-  ('Pedro Mendez', 'https://picsum.photos/seed/barber2/100/100', 'active', 35.00, 45),
-  ('Carlos López', 'https://picsum.photos/seed/barber3/100/100', 'active', 38.00, 62);
-
--- Services
-INSERT INTO services (name, price, duration_minutes) VALUES
-  ('Corte Clásico', 150.00, 30),
-  ('Corte + Barba', 230.00, 45),
-  ('Diseño de Barba', 120.00, 20),
-  ('Tratamiento Capilar', 300.00, 60),
-  ('Corte Infantil', 100.00, 20);
-
--- Products
-INSERT INTO products (name, sku, category, stock, min_stock, cost, price) VALUES
-  ('Cera Premium', 'CER-001', 'Ceras', 15, 5, 80.00, 120.00),
-  ('Pomada Mate', 'POM-002', 'Pomadas', 3, 5, 60.00, 90.00),
-  ('Gel Fijador', 'GEL-003', 'Geles', 22, 5, 40.00, 65.00),
-  ('Cera Mate - Fijación Fuerte', 'CER-004', 'Ceras', 12, 5, 70.00, 80.00),
-  ('Shampoo Profesional', 'SHA-005', 'Shampoos', 8, 5, 90.00, 140.00),
-  ('Aceite para Barba', 'ACE-006', 'Aceites', 2, 5, 50.00, 85.00);
-
--- Update product statuses
-UPDATE products SET stock = stock WHERE true;
-
--- Sample cash session
-INSERT INTO cash_sessions (opened_by, initial_amount, total_sales, total_expenses, total_cash, total_card, total_transfer, status) VALUES
-  ('Admin', 500.00, 4580.00, 220.00, 2110.00, 2530.00, 720.00, 'open');

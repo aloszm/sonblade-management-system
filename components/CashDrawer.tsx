@@ -234,7 +234,7 @@ export default function CashDrawer() {
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-2 mb-3 text-orange-600">
                                             <ArrowRightLeft className="h-5 w-5" />
-                                            <span className="font-semibold">Transfer</span>
+                                            <span className="font-semibold">Transferencia</span>
                                         </div>
                                         <div className="text-2xl font-bold text-gray-900 mb-2">$ {session.total_transfer.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                                     </div>

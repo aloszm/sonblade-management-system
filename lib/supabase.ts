@@ -6,11 +6,17 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 // Client-side Supabase client (safe for browser)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Server-side Supabase client (only use in server components / API routes)
-export const supabaseAdmin = () => {
+// Server-side Supabase client (bypasses RLS - use in services / API routes)
+// Cached singleton to avoid creating a new client on every call
+let _adminClient: ReturnType<typeof createClient> | null = null;
+
+export const supabaseAdmin = (() => {
+    if (_adminClient) return _adminClient;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
-        throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+        // Fallback to anon key if service role not available (client-side)
+        return supabase;
     }
-    return createClient(supabaseUrl, serviceRoleKey);
-};
+    _adminClient = createClient(supabaseUrl, serviceRoleKey);
+    return _adminClient;
+})();

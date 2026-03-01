@@ -9,8 +9,8 @@ interface HeaderProps {
 }
 
 const pageTitles: Record<string, string> = {
-  '/': 'Dashboard',
-  '/pos': 'Point of Sale',
+  '/': 'Panel',
+  '/pos': 'Punto de Venta',
   '/ventas': 'Ventas',
   '/inventario': 'Inventario',
   '/caja': 'Caja',
@@ -37,7 +37,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           <input
             type="text"
             className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-sonblade-primary focus:border-sonblade-primary sm:text-sm transition-colors"
-            placeholder="Search clients, bookings, or items..."
+            placeholder="Buscar clientes, citas o artículos..."
           />
           <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
             <kbd className="inline-flex items-center border border-gray-200 rounded px-2 text-xs font-sans font-medium text-gray-400">⌘K</kbd>
@@ -48,7 +48,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       <div className="flex items-center gap-2 sm:gap-4">
         <button className="hidden md:flex items-center gap-2 bg-sonblade-primary hover:bg-sonblade-dark text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
           <Plus className="h-4 w-4" />
-          New Appointment
+          Nueva Cita
         </button>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden md:block"></div>

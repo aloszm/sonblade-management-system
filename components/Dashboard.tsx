@@ -5,38 +5,38 @@ import { Calendar, DollarSign, Users, Package, TrendingUp, TrendingDown, MoreHor
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const data = [
-  { name: 'Mon', revenue: 400 },
-  { name: 'Tue', revenue: 300 },
-  { name: 'Wed', revenue: 550 },
-  { name: 'Thu', revenue: 450 },
-  { name: 'Fri', revenue: 700 },
-  { name: 'Sat', revenue: 850 },
-  { name: 'Sun', revenue: 600 },
+  { name: 'Lun', revenue: 400 },
+  { name: 'Mar', revenue: 300 },
+  { name: 'Mié', revenue: 550 },
+  { name: 'Jue', revenue: 450 },
+  { name: 'Vie', revenue: 700 },
+  { name: 'Sáb', revenue: 850 },
+  { name: 'Dom', revenue: 600 },
 ];
 
 const Dashboard: React.FC = () => {
   const stats = [
-    { label: 'Total Appointments', value: '124', change: '+12%', icon: Calendar, color: 'text-sonblade-primary', bg: 'bg-blue-50' },
-    { label: "Today's Revenue", value: '$1,280', change: '+5%', icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { label: 'New Clients', value: '8', change: '0%', icon: Users, color: 'text-orange-600', bg: 'bg-orange-50' },
-    { label: 'Low Stock Items', value: '4', change: '-2', icon: Package, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { label: 'Citas Totales', value: '124', change: '+12%', icon: Calendar, color: 'text-sonblade-primary', bg: 'bg-blue-50' },
+    { label: 'Ingresos de Hoy', value: '$1,280', change: '+5%', icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Nuevos Clientes', value: '8', change: '0%', icon: Users, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Productos con Stock Bajo', value: '4', change: '-2', icon: Package, color: 'text-blue-500', bg: 'bg-blue-50' },
   ];
 
   const appointments = [
-    { name: 'James Wilson', service: 'Haircut & Beard Trim', time: '10:00 AM', barber: 'Juan', color: 'bg-blue-100' },
-    { name: 'Robert Fox', service: 'Classic Shave', time: '11:30 AM', barber: 'Juan', color: 'bg-green-100' },
-    { name: 'Alex Lee', service: 'Fade & Line Up', time: '1:00 PM', barber: 'Pedro', color: 'bg-purple-100' },
+    { name: 'Carlos García', service: 'Corte y Barba', time: '10:00 AM', barber: 'Deya', color: 'bg-blue-100' },
+    { name: 'Miguel López', service: 'Afeitado Completo', time: '11:30 AM', barber: 'Deya', color: 'bg-green-100' },
+    { name: 'Roberto Díaz', service: 'Corte y Ceja', time: '1:00 PM', barber: 'Sonny', color: 'bg-purple-100' },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Resumen General</h1>
           <nav className="flex mt-1 text-sm text-gray-500">
-            <span>Home</span>
+            <span>Inicio</span>
             <span className="mx-2">/</span>
-            <span className="text-sonblade-primary font-medium">Dashboard</span>
+            <span className="text-sonblade-primary font-medium">Panel</span>
           </nav>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 flex items-center gap-2 text-sm text-gray-500 shadow-sm">
@@ -69,10 +69,10 @@ const Dashboard: React.FC = () => {
         {/* Chart */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-6 min-h-[400px]">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Revenue Overview</h2>
+            <h2 className="text-lg font-bold text-gray-900">Resumen de Ingresos</h2>
             <select className="bg-gray-50 border-none text-sm text-gray-600 rounded-md py-1 px-2 focus:ring-1 focus:ring-sonblade-primary cursor-pointer">
-              <option>This Week</option>
-              <option>Last Week</option>
+              <option>Esta Semana</option>
+              <option>Semana Pasada</option>
             </select>
           </div>
           <div className="h-[300px] w-full">
@@ -94,8 +94,8 @@ const Dashboard: React.FC = () => {
         {/* Upcoming Appointments */}
         <div className="lg:col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Upcoming Appointments</h2>
-            <a href="#" className="text-sonblade-primary text-sm font-medium hover:underline">View All</a>
+            <h2 className="text-lg font-bold text-gray-900">Próximas Citas</h2>
+            <a href="#" className="text-sonblade-primary text-sm font-medium hover:underline">Ver Todas</a>
           </div>
           <div className="space-y-4">
             {appointments.map((apt, idx) => (
@@ -109,13 +109,13 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="block text-xs font-bold text-sonblade-primary">{apt.time}</span>
-                  <span className="block text-[10px] text-gray-400">Today</span>
+                  <span className="block text-[10px] text-gray-400">Hoy</span>
                 </div>
               </div>
             ))}
           </div>
           <button className="w-full mt-6 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-            View Calendar
+            Ver Calendario
           </button>
         </div>
       </div>
