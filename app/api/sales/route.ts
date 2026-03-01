@@ -98,11 +98,10 @@ export async function POST(request: NextRequest) {
                     const newTotalCuts = barber.total_cuts + serviceItems.length;
 
                     // Calculate automatic commission tiers based on cuts
-                    let newRate = 30; // base
-                    if (newTotalCuts >= 50) newRate = 35;
-                    if (newTotalCuts >= 100) newRate = 40;
-                    if (newTotalCuts >= 150) newRate = 45;
-                    if (newTotalCuts >= 200) newRate = 50;
+                    let newRate = 35; // base
+                    if (newTotalCuts >= 50) newRate = 40;
+                    if (newTotalCuts >= 100) newRate = 45;
+                    if (newTotalCuts >= 150) newRate = 50;
 
                     await supabase
                         .from('barbers')

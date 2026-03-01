@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Package, Download, Plus, Search, MoreVertical, AlertTriangle, CheckCircle, X, DollarSign, Loader2 } from 'lucide-react';
+import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, X, DollarSign, Loader2, Edit2, Trash2 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
-import { getProducts, getProductStats, createProduct } from '@/lib/services/products';
 import type { Product, CreateProduct } from '@/types';
 
 const Inventory: React.FC = () => {
@@ -11,15 +10,28 @@ const Inventory: React.FC = () => {
     const [filter, setFilter] = useState<'all' | 'low'>('all');
     const [search, setSearch] = useState('');
     const [saving, setSaving] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form state for new product
     const [form, setForm] = useState<CreateProduct>({
         name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0,
     });
 
-    // Fetch data from Supabase
-    const { data: products, loading, error, refetch } = useSupabase<Product[]>(getProducts);
-    const { data: stats, refetch: refetchStats } = useSupabase(getProductStats);
+    // Fetch data from API routes
+    const fetchProducts = async () => {
+        const res = await fetch('/api/products');
+        if (!res.ok) throw new Error('Error al cargar productos');
+        return res.json();
+    };
+
+    const fetchStats = async () => {
+        const res = await fetch('/api/products/stats');
+        if (!res.ok) throw new Error('Error al cargar métricas');
+        return res.json();
+    };
+
+    const { data: products, loading, error, refetch } = useSupabase<Product[]>(fetchProducts);
+    const { data: stats, refetch: refetchStats } = useSupabase<any>(fetchStats);
 
     // Filter & search
     const filteredProducts = (products || [])
@@ -30,8 +42,18 @@ const Inventory: React.FC = () => {
         if (!form.name || !form.sku) return;
         setSaving(true);
         try {
-            await createProduct(form);
+            const url = editingId ? `/api/products/${editingId}` : '/api/products';
+            const method = editingId ? 'PATCH' : 'POST';
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form)
+            });
+            if (!res.ok) throw new Error('Error al guardar producto');
+
             setModalOpen(false);
+            setEditingId(null);
             setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
             refetch();
             refetchStats();
@@ -40,6 +62,33 @@ const Inventory: React.FC = () => {
             alert('Error al guardar producto');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleEditClick = (p: Product) => {
+        setForm({
+            name: p.name,
+            sku: p.sku,
+            category: p.category,
+            stock: p.stock,
+            min_stock: p.min_stock,
+            cost: p.cost,
+            price: p.price
+        });
+        setEditingId(p.id);
+        setModalOpen(true);
+    };
+
+    const handleDelete = async (id: string, name: string) => {
+        if (!confirm(`¿Estás seguro de que deseas eliminar el producto "${name}"?\nEsta acción es irreversible.`)) return;
+        try {
+            const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Error deleting product');
+            refetch();
+            refetchStats();
+        } catch (e) {
+            console.error(e);
+            alert('Ocurrió un error al eliminar el producto');
         }
     };
 
@@ -68,7 +117,11 @@ const Inventory: React.FC = () => {
                     <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
                         <Download className="h-4 w-4" /> Exportar
                     </button>
-                    <button onClick={() => setModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-sonblade-primary text-white rounded-lg text-sm font-medium shadow-sm hover:bg-sonblade-dark transition-colors">
+                    <button onClick={() => {
+                        setEditingId(null);
+                        setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
+                        setModalOpen(true);
+                    }} className="flex items-center gap-2 px-4 py-2 bg-sonblade-primary text-white rounded-lg text-sm font-medium shadow-sm hover:bg-sonblade-dark transition-colors">
                         <Plus className="h-5 w-5" /> Agregar Producto
                     </button>
                 </div>
@@ -215,9 +268,14 @@ const Inventory: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-right">
-                                            <button className="text-gray-400 hover:text-gray-600">
-                                                <MoreVertical className="h-5 w-5" />
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => handleEditClick(p)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar / Ajustar Stock">
+                                                    <Edit2 className="h-4 w-4" />
+                                                </button>
+                                                <button onClick={() => handleDelete(p.id, p.name)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -233,8 +291,8 @@ const Inventory: React.FC = () => {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[600px] max-h-[90vh] flex flex-col">
                         <div className="px-8 pt-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-2xl z-10">
                             <div className="flex items-center gap-3">
-                                <div className="bg-blue-50 p-2 rounded-lg"><Plus className="text-sonblade-primary h-6 w-6" /></div>
-                                <h2 className="text-xl font-bold text-gray-900">Agregar Nuevo Producto</h2>
+                                <div className="bg-blue-50 p-2 rounded-lg"><Package className="text-sonblade-primary h-6 w-6" /></div>
+                                <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Editar Producto' : 'Agregar Nuevo Producto'}</h2>
                             </div>
                             <button onClick={() => setModalOpen(false)}><X className="text-gray-400 hover:text-gray-600" /></button>
                         </div>

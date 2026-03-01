@@ -73,10 +73,26 @@ export async function getBarberStats(barberId: string) {
 
     if (!barber) return null;
 
-    const totalGenerated = sales.reduce((sum, s) => sum + Number(s.total), 0);
+    let totalServiceGenerated = 0;
+    let totalProductGenerated = 0;
+
+    sales.forEach(s => {
+        s.items?.forEach(i => {
+            const amount = Number(i.item_price) * (i.quantity || 1);
+            if (i.item_type === 'service') totalServiceGenerated += amount;
+            if (i.item_type === 'product') totalProductGenerated += amount;
+        });
+    });
+
     const totalTips = sales.reduce((sum, s) => sum + Number(s.tip || 0), 0);
     const commissionRate = barber.commission_rate / 100;
-    const commission = totalGenerated * commissionRate;
+
+    // Rules: Service base (35-50%), Product (20%), Tips (100%)
+    const serviceCommission = totalServiceGenerated * commissionRate;
+    const productCommission = totalProductGenerated * 0.20;
+    const totalGenerated = totalServiceGenerated + totalProductGenerated;
+    const commission = serviceCommission + productCommission + totalTips;
+
     const servicesCount = sales.reduce((sum, s) => {
         const serviceItems = s.items?.filter(i => i.item_type === 'service') || [];
         return sum + serviceItems.length;
@@ -95,11 +111,10 @@ export async function getBarberStats(barberId: string) {
 // Commission tiers
 export function getCommissionTier(totalCuts: number): { current: number; next: number; cutsForNext: number } {
     const tiers = [
-        { minCuts: 0, rate: 30 },
-        { minCuts: 50, rate: 35 },
-        { minCuts: 100, rate: 40 },
-        { minCuts: 150, rate: 45 },
-        { minCuts: 200, rate: 50 },
+        { minCuts: 0, rate: 35 },
+        { minCuts: 50, rate: 40 },
+        { minCuts: 100, rate: 45 },
+        { minCuts: 150, rate: 50 },
     ];
 
     let currentTier = tiers[0];
