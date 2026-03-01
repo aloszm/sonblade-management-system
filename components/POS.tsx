@@ -413,12 +413,19 @@ const POS: React.FC = () => {
                                             <span className="font-semibold">${(item.price * item.quantity).toFixed(2)}</span>
                                         </div>
                                     ))}
+                                    <div className="mt-2 pl-6">
+                                        <PaymentSelector
+                                            label="Pago:"
+                                            value={servicePayment}
+                                            onChange={setServicePayment}
+                                        />
+                                    </div>
                                 </div>
                             )}
 
                             {/* Products */}
                             {productItems.length > 0 && (
-                                <div>
+                                <div className="pt-2 border-t border-gray-100">
                                     <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Productos</p>
                                     {productItems.map((item) => (
                                         <div key={item.id} className="flex justify-between items-center text-sm py-1">
@@ -434,53 +441,41 @@ const POS: React.FC = () => {
                                             <span className="font-semibold">${(item.price * item.quantity).toFixed(2)}</span>
                                         </div>
                                     ))}
+                                    <div className="mt-2 pl-6">
+                                        <PaymentSelector
+                                            label="Pago:"
+                                            value={productPayment}
+                                            onChange={setProductPayment}
+                                        />
+                                    </div>
                                 </div>
                             )}
 
                             {/* Tip */}
                             {tip > 0 && (
-                                <div className="flex justify-between items-center text-sm py-1 border-t border-gray-200 pt-2">
-                                    <span className="font-medium text-gray-900">💰 Propina</span>
-                                    <span className="font-semibold">${tip.toFixed(2)}</span>
+                                <div className="border-t border-gray-100 pt-3">
+                                    <div className="flex justify-between items-center text-sm py-1">
+                                        <span className="font-medium text-gray-900">💰 Propina</span>
+                                        <span className="font-semibold">${tip.toFixed(2)}</span>
+                                    </div>
+                                    <div className="mt-1 pl-6">
+                                        <PaymentSelector
+                                            label="Pago:"
+                                            value={tipPayment}
+                                            onChange={setTipPayment}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    <div className="flex justify-between items-end border-t-2 border-gray-200 pt-4 mb-4">
+                    <div className="flex justify-between items-end border-t-2 border-gray-200 pt-4 mb-6 mt-4">
                         <div>
                             <p className="text-sm text-gray-500 mb-1">Total a Cobrar</p>
                         </div>
                         <span className="text-5xl font-bold text-sonblade-primary tracking-tight">${total.toFixed(2)}</span>
                     </div>
-
-                    {/* 6. Payment Methods per type */}
-                    {cart.length > 0 && (
-                        <div className="bg-white rounded-xl p-4 mb-4 space-y-3 border border-gray-200">
-                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Método de Pago</h4>
-                            {serviceTotal > 0 && (
-                                <PaymentSelector
-                                    label={`Servicio ($${serviceTotal.toFixed(0)})`}
-                                    value={servicePayment}
-                                    onChange={setServicePayment}
-                                />
-                            )}
-                            {tip > 0 && (
-                                <PaymentSelector
-                                    label={`Propina ($${tip.toFixed(0)})`}
-                                    value={tipPayment}
-                                    onChange={setTipPayment}
-                                />
-                            )}
-                            {productTotal > 0 && (
-                                <PaymentSelector
-                                    label={`Producto ($${productTotal.toFixed(0)})`}
-                                    value={productPayment}
-                                    onChange={setProductPayment}
-                                />
-                            )}
-                        </div>
-                    )}
 
                     {/* Submit Button */}
                     <button
