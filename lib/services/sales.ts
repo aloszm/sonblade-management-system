@@ -5,15 +5,6 @@ import type { Sale, CreateSale, Barber, Service } from '@/types';
 // SALES / POS service
 // ==============================================
 
-export async function getBarbers(): Promise<Barber[]> {
-    const { data, error } = await supabase
-        .from('barbers')
-        .select('*')
-        .order('name');
-
-    if (error) throw error;
-    return data || [];
-}
 
 export async function getServices(): Promise<Service[]> {
     const { data, error } = await supabase

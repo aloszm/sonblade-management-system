@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Scissors, DollarSign, CreditCard, Smartphone, Check, Search, Save, Loader2, ShoppingBag, Trash2, Coins } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
-import { getBarbers, getServices } from '@/lib/services/sales';
+import { getServices } from '@/lib/services/sales';
+import { getBarbers } from '@/lib/services/barber';
 import { getProducts } from '@/lib/services/products';
 import type { Barber, Service, Product, Sale } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -62,6 +63,7 @@ const POS: React.FC = () => {
     const [productSearch, setProductSearch] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [lastSaleTotal, setLastSaleTotal] = useState(0);
 
     // Fetch data from Supabase
     const { data: barbers, loading: loadingBarbers } = useSupabase<Barber[]>(getBarbers);
@@ -219,6 +221,7 @@ const POS: React.FC = () => {
             setServicePayment('cash');
             setTipPayment('cash');
             setProductPayment('cash');
+            setLastSaleTotal(total);
             setShowSuccess(true);
             fetchTodaySales();
             setTimeout(() => setShowSuccess(false), 3000);
@@ -244,15 +247,24 @@ const POS: React.FC = () => {
             {/* Main Workspace */}
             <section className="flex-1 overflow-y-auto pr-2 space-y-5">
 
-                {/* Success Banner */}
+                {/* Sliding Success Overlay */}
                 {showSuccess && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-bounce-once">
-                        <div className="bg-green-500 rounded-full p-1">
-                            <Check className="h-5 w-5 text-white" />
+                    <div className="fixed bottom-6 right-8 bg-green-500 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 z-50 animate-bounce-once" style={{ animation: 'slideInRight 0.4s ease-out forwards' }}>
+                        <div className="bg-white/20 rounded-full p-2">
+                            <DollarSign className="h-6 w-6 text-white" />
                         </div>
-                        <span className="font-semibold text-green-700">¡Venta registrada exitosamente! 🎉</span>
+                        <div>
+                            <p className="text-sm text-green-100 font-medium">Venta Registrada</p>
+                            <p className="font-bold text-xl">${lastSaleTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                        </div>
                     </div>
                 )}
+                <style>{`
+                    @keyframes slideInRight {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `}</style>
 
                 {/* 1. Barber Selection */}
                 <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">

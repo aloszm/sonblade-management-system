@@ -84,23 +84,87 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 4. Update barber's total cuts
+        // 4. Update barber's total cuts & commission rate
         if (sale.barber_id) {
             const serviceItems = sale.items.filter(i => i.item_type === 'service');
             if (serviceItems.length > 0) {
                 const { data: barber } = await supabase
                     .from('barbers')
-                    .select('total_cuts')
+                    .select('total_cuts, commission_rate')
                     .eq('id', sale.barber_id)
                     .single();
 
                 if (barber) {
+                    const newTotalCuts = barber.total_cuts + serviceItems.length;
+
+                    // Calculate automatic commission tiers based on cuts
+                    let newRate = 30; // base
+                    if (newTotalCuts >= 50) newRate = 35;
+                    if (newTotalCuts >= 100) newRate = 40;
+                    if (newTotalCuts >= 150) newRate = 45;
+                    if (newTotalCuts >= 200) newRate = 50;
+
                     await supabase
                         .from('barbers')
-                        .update({ total_cuts: barber.total_cuts + serviceItems.length })
+                        .update({
+                            total_cuts: newTotalCuts,
+                            commission_rate: Math.max(barber.commission_rate, newRate) // Never downgrade automatically, only upgrade
+                        })
                         .eq('id', sale.barber_id);
                 }
             }
+        }
+
+        // 5. Register in active Cash Session (Caja)
+        let cash = sale.cash_amount || 0;
+        let card = sale.card_amount || 0;
+        let transfer = sale.transfer_amount || 0;
+
+        if (sale.payment_method === 'cash' && cash === 0) cash = sale.total;
+        if (sale.payment_method === 'card' && card === 0) card = sale.total;
+        if (sale.payment_method === 'transfer' && transfer === 0) transfer = sale.total;
+
+        const { data: session } = await supabase
+            .from('cash_sessions')
+            .select('*')
+            .eq('status', 'open')
+            .order('opened_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (session) {
+            const movements = [];
+
+            // Add movements
+            if (cash > 0) {
+                movements.push({ session_id: session.id, type: 'sale', description: `Venta (Efectivo)`, amount: cash, payment_method: 'cash' });
+            }
+            if (card > 0) {
+                movements.push({ session_id: session.id, type: 'sale', description: `Venta (Tarjeta)`, amount: card, payment_method: 'card' });
+            }
+            if (transfer > 0) {
+                movements.push({ session_id: session.id, type: 'sale', description: `Venta (Transferencia)`, amount: transfer, payment_method: 'transfer' });
+            }
+            // Add tip as a movement if it exists
+            if (sale.tip && sale.tip > 0) {
+                // Determine tip payment method for movement log. For now defaulting to cash as standard logic or mixed logic.
+                movements.push({ session_id: session.id, type: 'sale', description: `Propina`, amount: sale.tip, payment_method: 'mixed' });
+            }
+
+            if (movements.length > 0) {
+                await supabase.from('cash_movements').insert(movements);
+            }
+
+            // Accumulate totals
+            await supabase
+                .from('cash_sessions')
+                .update({
+                    total_sales: Number(session.total_sales || 0) + Number(sale.total),
+                    total_cash: Number(session.total_cash || 0) + Number(cash),
+                    total_card: Number(session.total_card || 0) + Number(card),
+                    total_transfer: Number(session.total_transfer || 0) + Number(transfer)
+                })
+                .eq('id', session.id);
         }
 
         return NextResponse.json(saleData, { status: 201 });

@@ -66,14 +66,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
         <div className="pt-4 mt-4 border-t border-white/10">
           <h3 className="px-3 text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Configuración</h3>
-          <button className="w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition-all duration-200">
-            <Store className="mr-3 h-5 w-5 text-blue-200 group-hover:text-white" />
+          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-white shadow-md' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
+            <Store className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-white' : 'text-blue-200 group-hover:text-white'}`} />
             Perfil del Negocio
-          </button>
-          <button className="w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition-all duration-200">
-            <Settings className="mr-3 h-5 w-5 text-blue-200 group-hover:text-white" />
+          </Link>
+          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-white shadow-md' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}>
+            <Settings className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-white' : 'text-blue-200 group-hover:text-white'}`} />
             Configuración
-          </button>
+          </Link>
         </div>
       </nav>
 

@@ -1,31 +1,56 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Calendar, DollarSign, Users, Package, TrendingUp, TrendingDown, MoreHorizontal } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
-const data = [
-  { name: 'Lun', revenue: 400 },
-  { name: 'Mar', revenue: 300 },
-  { name: 'Mié', revenue: 550 },
-  { name: 'Jue', revenue: 450 },
-  { name: 'Vie', revenue: 700 },
-  { name: 'Sáb', revenue: 850 },
-  { name: 'Dom', revenue: 600 },
-];
+// Types
+interface DashboardData {
+  stats: {
+    totalAppointments: number;
+    todayRevenue: number;
+    newClients: number;
+    lowStockProducts: number;
+  };
+  revenueChart: { name: string; revenue: number }[];
+  upcomingAppointments: any[];
+}
 
 const Dashboard: React.FC = () => {
-  const stats = [
-    { label: 'Citas Totales', value: '124', change: '+12%', icon: Calendar, color: 'text-sonblade-primary', bg: 'bg-blue-50' },
-    { label: 'Ingresos de Hoy', value: '$1,280', change: '+5%', icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { label: 'Nuevos Clientes', value: '8', change: '0%', icon: Users, color: 'text-orange-600', bg: 'bg-orange-50' },
-    { label: 'Productos con Stock Bajo', value: '4', change: '-2', icon: Package, color: 'text-blue-500', bg: 'bg-blue-50' },
-  ];
+  const [data, setData] = React.useState<DashboardData | null>(null);
+  const [loading, setLoading] = React.useState(true);
 
-  const appointments = [
-    { name: 'Carlos García', service: 'Corte y Barba', time: '10:00 AM', barber: 'Deya', color: 'bg-blue-100' },
-    { name: 'Miguel López', service: 'Afeitado Completo', time: '11:30 AM', barber: 'Deya', color: 'bg-green-100' },
-    { name: 'Roberto Díaz', service: 'Corte y Ceja', time: '1:00 PM', barber: 'Sonny', color: 'bg-purple-100' },
+  React.useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const res = await fetch('/api/dashboard');
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, []);
+
+  if (loading || !data) {
+    return (
+      <div className="flex justify-center items-center h-full min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sonblade-primary"></div>
+      </div>
+    );
+  }
+
+  const stats = [
+    { label: 'Citas Hoy', value: data.stats.totalAppointments.toString(), change: '', icon: Calendar, color: 'text-sonblade-primary', bg: 'bg-blue-50' },
+    { label: 'Ingresos de Hoy', value: `$${data.stats.todayRevenue.toFixed(2)}`, change: '', icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Ventas de Hoy', value: data.stats.newClients.toString(), change: '', icon: Users, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Productos con Stock Bajo', value: data.stats.lowStockProducts.toString(), change: '', icon: Package, color: 'text-blue-500', bg: 'bg-blue-50' },
   ];
 
   return (
@@ -53,10 +78,8 @@ const Dashboard: React.FC = () => {
               <div className={`p-2 rounded-lg ${stat.bg}`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} />
               </div>
-              <span className={`text-xs font-semibold px-2 py-1 rounded ${stat.change.includes('+') ? 'text-green-600 bg-green-50' :
-                stat.change.includes('-') ? 'text-red-600 bg-red-50' : 'text-gray-500 bg-gray-50'
-                }`}>
-                {stat.change}
+              <span className={`text-xs font-semibold px-2 py-1 rounded text-gray-500 bg-gray-50`}>
+                Hoy
               </span>
             </div>
             <p className="text-gray-500 text-sm mb-1">{stat.label}</p>
@@ -77,7 +100,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
+              <BarChart data={data.revenueChart}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
@@ -95,28 +118,34 @@ const Dashboard: React.FC = () => {
         <div className="lg:col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900">Próximas Citas</h2>
-            <a href="#" className="text-sonblade-primary text-sm font-medium hover:underline">Ver Todas</a>
+            <Link href="/citas" className="text-sonblade-primary text-sm font-medium hover:underline">Ver Todas</Link>
           </div>
           <div className="space-y-4">
-            {appointments.map((apt, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group border border-transparent hover:border-gray-100">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-gray-600 ${apt.color}`}>
-                  {apt.name.charAt(0)}
+            {data.upcomingAppointments.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No hay citas para hoy</p>
+            ) : (
+              data.upcomingAppointments.map((apt: any) => (
+                <div key={apt.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group border border-transparent hover:border-gray-100">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-gray-600 bg-blue-100">
+                    {apt.client_name?.charAt(0) || 'C'}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-gray-900">{apt.client_name || 'Cliente sin nombre'}</h4>
+                    <p className="text-xs text-gray-500">{apt.status === 'pending' ? 'Pendiente' : apt.status}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-xs font-bold text-sonblade-primary">
+                      {new Date(apt.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="block text-[10px] text-gray-400">Hoy</span>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-gray-900">{apt.name}</h4>
-                  <p className="text-xs text-gray-500">{apt.service}</p>
-                </div>
-                <div className="text-right">
-                  <span className="block text-xs font-bold text-sonblade-primary">{apt.time}</span>
-                  <span className="block text-[10px] text-gray-400">Hoy</span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-          <button className="w-full mt-6 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <Link href="/citas" className="w-full mt-6 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center">
             Ver Calendario
-          </button>
+          </Link>
         </div>
       </div>
     </div>

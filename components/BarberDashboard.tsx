@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Clock, DollarSign, Scissors, Gift, TrendingUp, CreditCard, Banknote, Loader2, ChevronDown } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
-import { getBarbers } from '@/lib/services/sales';
+import { getBarbers } from '@/lib/services/barber';
 import { getBarberStats, getCommissionTier } from '@/lib/services/barber';
 import type { Barber } from '@/types';
 

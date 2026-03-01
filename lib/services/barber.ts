@@ -2,8 +2,41 @@ import { supabaseAdmin as supabase } from '@/lib/supabase';
 import type { Barber, Sale } from '@/types';
 
 // ==============================================
-// BARBER DASHBOARD service
+// BARBER DASHBOARD & MANAGEMENT service
 // ==============================================
+
+export async function getBarbers(): Promise<Barber[]> {
+    const { data, error } = await supabase
+        .from('barbers')
+        .select('*')
+        .order('name', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function createBarber(barberData: Partial<Barber>): Promise<Barber | null> {
+    const { data, error } = await supabase
+        .from('barbers')
+        .insert([barberData])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function updateBarber(id: string, barberData: Partial<Barber>): Promise<Barber | null> {
+    const { data, error } = await supabase
+        .from('barbers')
+        .update(barberData)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
 
 export async function getBarber(barberId: string): Promise<Barber | null> {
     const { data, error } = await supabase
