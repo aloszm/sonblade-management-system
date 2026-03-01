@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sonblade-dark: #1F4E78;
+  --color-sonblade-primary: #2E75B6;
+  --color-sonblade-light: #F8F9FA;
+  --color-sonblade-success: #70AD47;
+  --color-sonblade-warning: #F39C12;
+  --color-sonblade-danger: #E74C3C;
+
+  --font-sans: 'Inter', sans-serif;
+}
