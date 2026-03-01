@@ -160,12 +160,12 @@ export default function Dashboard() {
               <BarChart data={charts.weekBar} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12, fontWeight: 500 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => \`\$\${v}\`} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
                   cursor={{ fill: '#F3F4F6' }}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: number) => [\`$\${value.toFixed(2)}\`, 'Ingreso']}
-                                />
+                  formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Ingreso']}
+                />
                 <Bar dataKey="revenue" fill="#D4AF37" radius={[4, 4, 0, 0]} maxBarSize={50} />
               </BarChart>
             </ResponsiveContainer>
@@ -187,13 +187,13 @@ export default function Dashboard() {
                   dataKey="value"
                 >
                   {charts.paymentDonut.map((entry, index) => (
-                    <Cell key={\`cell-\${index}\`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                    ))}
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => \`$\${value.toFixed(2)}\`}
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                                />
+                  formatter={(value: any) => `$${Number(value).toFixed(2)}`}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -215,12 +215,12 @@ export default function Dashboard() {
               <LineChart data={charts.monthLine} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12, fontWeight: 500 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => \`\$\${v}\`} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
                   cursor={{ stroke: '#D4AF37', strokeWidth: 1, strokeDasharray: '3 3' }}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: number) => [\`$\${value.toFixed(2)}\`, 'Ingreso']}
-                                />
+                  formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Ingreso']}
+                />
                 <Line type="monotone" dataKey="revenue" stroke="#000000" strokeWidth={3} dot={{ r: 4, fill: '#D4AF37', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#D4AF37', stroke: '#000000', strokeWidth: 2 }} />
               </LineChart>
             </ResponsiveContainer>

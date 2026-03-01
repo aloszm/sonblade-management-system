@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
                 transferMethod += Number(sale.transfer_amount || 0);
             }
 
-            sale.items?.forEach(i => {
+            sale.items?.forEach((i: any) => {
                 if (i.item_type === 'service') totalCuts++;
             });
         });
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
                 .lte('created_at', wEnd.toISOString());
 
             const rev = wSl?.reduce((sum, s) => sum + Number(s.total), 0) || 0;
-            monthLine.push({ name: i === 0 ? 'Esta Sem' : \`Hace \${i} Sem\`, revenue: rev });
+            monthLine.push({ name: i === 0 ? 'Esta Sem' : `Hace ${i} Sem`, revenue: rev });
         }
 
         return NextResponse.json({
