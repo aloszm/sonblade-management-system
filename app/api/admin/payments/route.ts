@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { barber_id, amount, period_start, period_end } = body;
+        const { barber_id, amount, commission_amount, tips_amount, note, period_start, period_end } = body;
 
         if (!barber_id || !amount) {
             return NextResponse.json({ error: 'barber_id y amount son requeridos' }, { status: 400 });
@@ -12,7 +12,15 @@ export async function POST(request: NextRequest) {
 
         const { data, error } = await supabase
             .from('barber_payments')
-            .insert([{ barber_id, amount, period_start, period_end }])
+            .insert([{
+                barber_id,
+                amount,
+                commission_amount: commission_amount || 0,
+                tips_amount: tips_amount || 0,
+                note: note || '',
+                period_start,
+                period_end
+            }])
             .select()
             .single();
 

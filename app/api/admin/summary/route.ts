@@ -1,6 +1,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBarbers, getBarberStats } from '@/lib/services/barber';
+import { format } from 'date-fns';
 
 export async function GET(request: NextRequest) {
     try {
@@ -76,7 +77,8 @@ export async function GET(request: NextRequest) {
                     revenue: stats.weeklyStats.totalGenerated,
                     tips: stats.weeklyStats.tips,
                     rate: stats.tier.current,
-                    commission: Math.round(stats.weeklyStats.commission * 100) / 100
+                    commission: Math.round(stats.weeklyStats.commission * 100) / 100,
+                    serviceBreakdown: stats.weeklyStats.serviceBreakdown
                 });
             }
         }
@@ -109,6 +111,33 @@ export async function GET(request: NextRequest) {
             weeklyBreakdown.push({ week: `Semana ${w + 1}`, revenue: weekRev });
         }
 
+        // Hourly sales (for today)
+        const hourlySales = Array.from({ length: 14 }, (_, i) => ({ hour: `${i + 8}:00`, revenue: 0 }));
+        if (period === 'today') {
+            allSales?.forEach(s => {
+                const hour = new Date(s.created_at).getHours();
+                if (hour >= 8 && hour < 22) {
+                    hourlySales[hour - 8].revenue += Number(s.total);
+                }
+            });
+        }
+
+        // Daily sales (for week/month)
+        const dailySalesMap: Record<string, number> = {};
+        allSales?.forEach(s => {
+            const day = format(new Date(s.created_at), 'dd/MM');
+            dailySalesMap[day] = (dailySalesMap[day] || 0) + Number(s.total);
+        });
+        const dailySales = Object.entries(dailySalesMap).map(([day, revenue]) => ({ day, revenue }));
+
+        // Low stock products
+        const { data: lowStockProducts } = await supabase
+            .from('products')
+            .select('*')
+            .neq('status', 'ok')
+            .order('stock', { ascending: true })
+            .limit(5);
+
         return NextResponse.json({
             kpis: {
                 totalRevenue, totalTips, avgTicket: Math.round(avgTicket * 100) / 100,
@@ -120,7 +149,10 @@ export async function GET(request: NextRequest) {
             barberSummaries,
             serviceBreakdown,
             payments: payments || [],
-            weeklyBreakdown
+            weeklyBreakdown,
+            hourlySales,
+            dailySales,
+            lowStockProducts: lowStockProducts || []
         });
     } catch (err: any) {
         console.error('Admin summary error:', err);

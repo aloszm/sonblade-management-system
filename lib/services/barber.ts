@@ -135,6 +135,22 @@ export async function getBarberStats(barberId: string) {
     const tier = getCommissionTier(weeklyCuts);
     const commissionRate = tier.current / 100;
 
+    // Detailed service breakdown
+    const serviceBreakdownIdx: Record<string, { count: number; revenue: number }> = {};
+    weeklySales.forEach(s => {
+        s.items?.forEach(i => {
+            if (i.item_type === 'service') {
+                const amt = Number(i.item_price) * (i.quantity || 1);
+                if (!serviceBreakdownIdx[i.item_name]) serviceBreakdownIdx[i.item_name] = { count: 0, revenue: 0 };
+                serviceBreakdownIdx[i.item_name].count += (i.quantity || 1);
+                serviceBreakdownIdx[i.item_name].revenue += amt;
+            }
+        });
+    });
+    const serviceBreakdown = Object.entries(serviceBreakdownIdx)
+        .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
+        .sort((a, b) => b.revenue - a.revenue);
+
     // Rules: Service base (35-50%), Product (20%), Tips (100%)
     const serviceCommission = weeklyServiceGenerated * commissionRate;
     const productCommission = weeklyProductGenerated * 0.20;
@@ -149,6 +165,7 @@ export async function getBarberStats(barberId: string) {
             totalGenerated: weeklyGenerated,
             commission: weeklyCommission,
             tips: weeklyTips,
+            serviceBreakdown
         },
         todayStats: {
             cuts: todayCuts,

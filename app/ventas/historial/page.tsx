@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Download, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X, RefreshCw, Plus, Calendar, AlertTriangle } from 'lucide-react';
 import type { Barber, Service, Product, Sale } from '@/types';
-import { format } from 'date-fns';
-import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { es } from 'date-fns/locale';
+import CreateSaleModal from '@/components/CreateSaleModal';
 
 function PaymentBadge({ sale }: { sale: Sale }) {
     const cash = Number(sale.cash_amount || 0);
@@ -24,21 +26,40 @@ function PaymentBadge({ sale }: { sale: Sale }) {
     return <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${color}`}>{methodLabel} ${Number(sale.total).toFixed(0)}</span>;
 }
 
+type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
+
+function getDateRange(period: PeriodFilter): { start: string; end: string } {
+    const now = new Date();
+    if (period === 'today') {
+        return { start: format(startOfDay(now), 'yyyy-MM-dd'), end: format(endOfDay(now), 'yyyy-MM-dd') };
+    }
+    if (period === 'week') {
+        const ws = startOfWeek(now, { weekStartsOn: 1 });
+        const we = endOfWeek(now, { weekStartsOn: 1 });
+        return { start: format(ws, 'yyyy-MM-dd'), end: format(we, 'yyyy-MM-dd') };
+    }
+    if (period === 'month') {
+        return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
+    }
+    // custom — fallback to last 30 days
+    const d30 = new Date(now);
+    d30.setDate(d30.getDate() - 30);
+    return { start: format(d30, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+}
+
 export default function SalesHistoryPage() {
-    const router = useRouter();
     const [sales, setSales] = useState<Sale[]>([]);
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [services, setServices] = useState<Service[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
-    const lastFetchRef = useRef<string>('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
 
     // Filters
-    const [dateRange, setDateRange] = useState({
-        start: format(new Date(new Date().setDate(new Date().getDate() - 30)), 'yyyy-MM-dd'),
-        end: format(new Date(), 'yyyy-MM-dd')
-    });
+    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('today');
+    const [dateRange, setDateRange] = useState(getDateRange('today'));
     const [selectedBarber, setSelectedBarber] = useState('all');
     const [selectedService, setSelectedService] = useState('all');
     const [selectedProduct, setSelectedProduct] = useState('all');
@@ -46,6 +67,16 @@ export default function SalesHistoryPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
 
+    // Period filter change
+    const handlePeriodChange = (period: PeriodFilter) => {
+        setPeriodFilter(period);
+        if (period !== 'custom') {
+            setDateRange(getDateRange(period));
+        }
+        setCurrentPage(1);
+    };
+
+    // Init: load barbers, services, products
     useEffect(() => {
         const init = async () => {
             try {
@@ -60,7 +91,7 @@ export default function SalesHistoryPage() {
         init();
     }, []);
 
-    const fetchSales = async (silent = false) => {
+    const fetchSales = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
             const params = new URLSearchParams();
@@ -74,44 +105,49 @@ export default function SalesHistoryPage() {
             let data: Sale[] = await res.json();
 
             if (selectedService !== 'all') {
-                data = data.filter((s: any) => s.items?.some((i: any) => i.item_type === 'service' && i.item_name === selectedService));
+                data = data.filter((s: Sale) => s.items?.some(i => i.item_type === 'service' && i.item_name === selectedService));
             }
             if (selectedProduct !== 'all') {
-                data = data.filter((s: any) => s.items?.some((i: any) => i.item_type === 'product' && i.item_name === selectedProduct));
+                data = data.filter((s: Sale) => s.items?.some(i => i.item_type === 'product' && i.item_name === selectedProduct));
             }
 
-            // Check if data actually changed
-            const hash = JSON.stringify(data.map(s => s.id));
-            if (hash !== lastFetchRef.current) {
-                lastFetchRef.current = hash;
-                setSales(data);
-            }
+            setSales(data);
         } catch (e) { console.error(e); }
         finally { if (!silent) setLoading(false); }
-    };
-
-    // Initial fetch + polling every 10s
-    useEffect(() => { fetchSales(); }, [dateRange, selectedBarber, paymentMethod, selectedService, selectedProduct]);
-    useEffect(() => {
-        const interval = setInterval(() => fetchSales(true), 10000);
-        return () => clearInterval(interval);
     }, [dateRange, selectedBarber, paymentMethod, selectedService, selectedProduct]);
+
+    // Fetch on filter change
+    useEffect(() => { fetchSales(); }, [fetchSales]);
+
+    // Supabase Realtime subscription
+    useEffect(() => {
+        const channel = supabase
+            .channel('sales-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => {
+                // Refetch on any INSERT, UPDATE, DELETE
+                fetchSales(true);
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [fetchSales]);
 
     const clearFilters = () => {
         setSelectedBarber('all'); setSelectedService('all'); setSelectedProduct('all'); setPaymentMethod('all');
-        setDateRange({ start: format(new Date(new Date().setDate(new Date().getDate() - 30)), 'yyyy-MM-dd'), end: format(new Date(), 'yyyy-MM-dd') });
-        setCurrentPage(1);
+        handlePeriodChange('today');
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('¿Eliminar esta venta? Se revertirá inventario y caja.')) return;
         setDeletingId(id);
         try {
             const res = await fetch(`/api/sales/${id}`, { method: 'DELETE' });
-            if (res.ok) setSales(prev => prev.filter(s => s.id !== id));
-            else alert('Error al eliminar');
+            if (res.ok) {
+                setSales(prev => prev.filter(s => s.id !== id));
+            } else {
+                alert('Error al eliminar');
+            }
         } catch (e: any) { alert(e.message); }
-        finally { setDeletingId(null); }
+        finally { setDeletingId(null); setShowDeleteConfirm(null); }
     };
 
     const exportCSV = () => {
@@ -133,26 +169,44 @@ export default function SalesHistoryPage() {
     const serviceNames = [...new Set(services.map(s => s.name))];
     const productNames = [...new Set(products.map(p => p.name))];
 
+    const periodLabel = periodFilter === 'today' ? 'Hoy' : periodFilter === 'week' ? 'Esta Semana' : periodFilter === 'month' ? 'Este Mes' : 'Personalizado';
+
     return (
         <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><FileSpreadsheet className="text-sonblade-gold h-6 w-6" />Registro de Ventas</h1>
-                    <p className="text-gray-500 text-sm mt-1">Actualización automática cada 10s · {sales.length} ventas</p>
+                    <p className="text-gray-500 text-sm mt-1">Tiempo real · {sales.length} ventas ({periodLabel})</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => fetchSales()} className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"><RefreshCw className="h-4 w-4 text-gray-500" /></button>
-                    <button onClick={exportCSV} className="bg-black text-sonblade-gold px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 flex items-center gap-2">
-                        <Download className="h-4 w-4" />Exportar CSV
+                    <button onClick={() => setShowCreateModal(true)} className="bg-sonblade-gold text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-yellow-500 flex items-center gap-2">
+                        <Plus className="h-4 w-4" />Nueva Venta
                     </button>
+                    <button onClick={exportCSV} className="bg-black text-sonblade-gold px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 flex items-center gap-2">
+                        <Download className="h-4 w-4" />CSV
+                    </button>
+                </div>
+            </div>
+
+            {/* Period Quick Filters */}
+            <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+                    {(['today', 'week', 'month', 'custom'] as PeriodFilter[]).map(p => (
+                        <button key={p} onClick={() => handlePeriodChange(p)}
+                            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${periodFilter === p ? 'bg-black text-sonblade-gold shadow' : 'text-gray-500 hover:text-gray-900'}`}>
+                            {p === 'today' ? 'Diaria' : p === 'week' ? 'Semanal' : p === 'month' ? 'Mensual' : 'Rango'}
+                        </button>
+                    ))}
                 </div>
             </div>
 
             {/* Filters */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha Inicio</label><input type="date" value={dateRange.start} onChange={e => { setDateRange(p => ({ ...p, start: e.target.value })); setCurrentPage(1); }} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" /></div>
-                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha Fin</label><input type="date" value={dateRange.end} onChange={e => { setDateRange(p => ({ ...p, end: e.target.value })); setCurrentPage(1); }} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" /></div>
+                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha Inicio</label><input type="date" value={dateRange.start} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, start: e.target.value })); setCurrentPage(1); }} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" /></div>
+                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha Fin</label><input type="date" value={dateRange.end} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, end: e.target.value })); setCurrentPage(1); }} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" /></div>
                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Barbero</label><select value={selectedBarber} onChange={e => { setSelectedBarber(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm appearance-none"><option value="all">Todos</option>{barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Servicio</label><select value={selectedService} onChange={e => { setSelectedService(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm appearance-none"><option value="all">Todos</option>{serviceNames.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Producto</label><select value={selectedProduct} onChange={e => { setSelectedProduct(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm appearance-none"><option value="all">Todos</option>{productNames.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
@@ -188,7 +242,7 @@ export default function SalesHistoryPage() {
                             {loading ? (
                                 <tr><td colSpan={9} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-sonblade-gold" /></td></tr>
                             ) : page.length === 0 ? (
-                                <tr><td colSpan={9} className="p-8 text-center text-gray-400">Sin resultados</td></tr>
+                                <tr><td colSpan={9} className="p-8 text-center text-gray-400">Sin resultados para {periodLabel}</td></tr>
                             ) : page.map(sale => {
                                 const d = new Date(sale.created_at);
                                 const srvs = sale.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(', ') || '—';
@@ -204,12 +258,9 @@ export default function SalesHistoryPage() {
                                         <td className="p-4"><PaymentBadge sale={sale} /></td>
                                         <td className="p-4 text-right font-bold">${Number(sale.total).toFixed(2)}</td>
                                         <td className="p-4 text-center">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button onClick={() => router.push(`/pos?edit=${sale.id}`)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit className="h-4 w-4" /></button>
-                                                <button onClick={() => handleDelete(sale.id)} disabled={deletingId === sale.id} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50">
-                                                    {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                                </button>
-                                            </div>
+                                            <button onClick={() => setShowDeleteConfirm(sale.id)} disabled={deletingId === sale.id} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50">
+                                                {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                            </button>
                                         </td>
                                     </tr>
                                 );
@@ -228,6 +279,40 @@ export default function SalesHistoryPage() {
                     </div>
                 )}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                <AlertTriangle className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">¿Eliminar esta venta?</h3>
+                                <p className="text-sm text-gray-500">Se revertirá inventario y caja. Esta acción no se puede deshacer.</p>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setShowDeleteConfirm(null)} className="px-4 py-2 text-gray-600 font-medium hover:text-gray-900">Cancelar</button>
+                            <button onClick={() => handleDelete(showDeleteConfirm)} disabled={deletingId !== null}
+                                className="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
+                                {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Sale Modal */}
+            <CreateSaleModal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onCreated={() => fetchSales()}
+                barbers={barbers}
+                services={services}
+            />
         </div>
     );
 }

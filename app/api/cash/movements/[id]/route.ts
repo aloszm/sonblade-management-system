@@ -1,0 +1,20 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { deleteMovement } from '@/lib/services/cash';
+
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params;
+        const body = await request.json().catch(() => ({}));
+        const reason = body?.reason || '';
+        const deletedBy = body?.deleted_by || 'Admin';
+
+        await deleteMovement(id, deletedBy, reason);
+
+        return NextResponse.json({ success: true });
+    } catch (err: any) {
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}

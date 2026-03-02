@@ -42,8 +42,12 @@ export interface BarberPayment {
     id: string;
     barber_id: string;
     amount: number;
+    commission_amount: number;
+    tips_amount: number;
     period_start: string;
     period_end: string;
+    note: string;
+    status: 'paid' | 'pending';
     paid_at: string;
     created_at: string;
     barber?: Barber;
@@ -100,6 +104,7 @@ export interface CashMovement {
     description: string;
     amount: number;
     payment_method: string;
+    status: 'confirmed' | 'pending';
     created_at: string;
 }
 
@@ -114,6 +119,50 @@ export interface Appointment {
     // Joined
     service?: Service;
     barber?: Barber;
+}
+
+// ==============================================
+// New types for v2 features
+// ==============================================
+
+export interface AuditLog {
+    id: string;
+    user_id: string;
+    role: 'admin' | 'recepcion' | 'barbero' | 'system';
+    action: string;
+    entity: string;
+    entity_id: string | null;
+    details: Record<string, unknown>;
+    created_at: string;
+}
+
+export interface CashSessionArchive {
+    id: string;
+    original_session_id: string;
+    opened_by: string;
+    initial_amount: number;
+    total_sales: number;
+    total_expenses: number;
+    total_cash: number;
+    total_card: number;
+    total_transfer: number;
+    physical_count: number | null;
+    difference: number | null;
+    movements: Record<string, unknown>[];
+    opened_at: string;
+    closed_at: string | null;
+    archived_at: string;
+    archived_by: string;
+}
+
+export interface DeletedRecord {
+    id: string;
+    table_name: string;
+    record_id: string;
+    record_data: Record<string, unknown>;
+    deleted_by: string;
+    reason: string;
+    deleted_at: string;
 }
 
 // ==============================================

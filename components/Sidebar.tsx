@@ -31,6 +31,7 @@ const menuItems = [
   { href: '/equipo', label: 'Equipo', icon: Users },
   { href: '/barbero', label: 'Mi Panel (Barbero)', icon: UserCircle },
   { href: '/admin', label: 'Administrador', icon: ShieldCheck },
+  { href: '/admin/auditoria', label: 'Auditoría', icon: ShieldCheck },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
@@ -39,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   if (!isOpen) return null;
 
   return (
-    <aside className="w-64 bg-sonblade-dark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl">
+    <aside className="h-full bg-sonblade-dark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl w-64">
       <div className="h-16 flex items-center px-6 bg-black/10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-sonblade-gold text-black rounded flex items-center justify-center font-bold">S</div>
@@ -47,7 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-sonblade">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
           return (
