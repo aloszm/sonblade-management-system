@@ -164,6 +164,8 @@ export async function getBarberStats(barberId: string) {
             cuts: weeklyCuts,
             totalGenerated: weeklyGenerated,
             commission: weeklyCommission,
+            serviceCommission: serviceCommission,
+            productCommission: productCommission,
             tips: weeklyTips,
             serviceBreakdown
         },

@@ -128,7 +128,9 @@ export async function GET(
                 totalRevenue: serviceRevenue + productRevenue,
                 tips: totalTips,
                 commissionRate,
-                totalCommission: Math.round(totalCommission * 100) / 100
+                totalCommission: Math.round(totalCommission * 100) / 100,
+                serviceCommission: Math.round((serviceRevenue * commissionRate / 100) * 100) / 100,
+                productCommission: Math.round((productRevenue * 0.20) * 100) / 100
             },
             serviceBreakdown,
             movements

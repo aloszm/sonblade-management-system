@@ -78,6 +78,8 @@ export async function GET(request: NextRequest) {
                     tips: stats.weeklyStats.tips,
                     rate: stats.tier.current,
                     commission: Math.round(stats.weeklyStats.commission * 100) / 100,
+                    serviceCommission: Math.round(stats.weeklyStats.serviceCommission * 100) / 100,
+                    productCommission: Math.round(stats.weeklyStats.productCommission * 100) / 100,
                     serviceBreakdown: stats.weeklyStats.serviceBreakdown
                 });
             }

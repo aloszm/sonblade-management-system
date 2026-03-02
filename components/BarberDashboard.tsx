@@ -108,14 +108,28 @@ const BarberDashboard: React.FC = () => {
                             </div>
                         </div>
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-gold/50 transition-colors cursor-pointer group">
-                            <div className="flex justify-between items-start mb-4">
+                            <div className="flex justify-between items-start mb-2">
                                 <div className="p-2 bg-yellow-50 rounded-lg group-hover:bg-yellow-100 transition-colors"><TrendingUp className="text-sonblade-gold h-6 w-6" /></div>
                             </div>
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Mi Comisión (Semana)</h3>
-                            <div className="text-3xl font-bold text-sonblade-gold">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total a Pagar (Semana)</h3>
+                            <div className="text-3xl font-bold text-sonblade-gold mb-2">
                                 $ {(stats?.weeklyStats?.commission || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </div>
-                            <div className="mt-2"><span className="text-xs font-medium text-black bg-sonblade-gold px-2 py-0.5 rounded">Tasa Actual: {stats?.tier?.current || 35}%</span></div>
+                            <div className="space-y-1 mb-3">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-gray-500 text-[10px] uppercase font-bold">Comisión Serv.</span>
+                                    <span className="font-semibold text-gray-700">${(stats?.weeklyStats?.serviceCommission || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-gray-500 text-[10px] uppercase font-bold">Comisión Prod.</span>
+                                    <span className="font-semibold text-gray-700">${(stats?.weeklyStats?.productCommission || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-gray-500 text-[10px] uppercase font-bold">Propinas</span>
+                                    <span className="font-semibold text-blue-600">${(stats?.weeklyStats?.tips || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                            </div>
+                            <div><span className="text-[10px] font-bold text-black bg-sonblade-gold px-2 py-0.5 rounded uppercase">Tasa Servicios: {stats?.tier?.current || 35}%</span></div>
                         </div>
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-transparent hover:border-sonblade-gold/50 transition-colors">
                             <div className="flex justify-between items-start mb-2">

@@ -14,6 +14,7 @@ interface AdminData {
     barberSummaries: {
         id: string; name: string; status: string;
         cuts: number; revenue: number; tips: number; rate: number; commission: number;
+        serviceCommission: number; productCommission: number;
         serviceBreakdown?: { name: string; count: number; revenue: number }[];
     }[];
     payments: any[];
@@ -47,7 +48,7 @@ export default function AdminPage() {
 
     const handlePay = async (barberId: string, commission: number, tips: number, name: string) => {
         const total = commission + tips;
-        if (!window.confirm(`¿Confirmas pagar un total de $${total.toFixed(2)} ($${commission.toFixed(2)} comisión + $${tips.toFixed(2)} propinas) a ${name}?`)) return;
+        if (!window.confirm(`¿Confirmas pagar un total de $${total.toFixed(2)} ($${commission.toFixed(2)} comisión (servicios+productos) + $${tips.toFixed(2)} propinas) a ${name}?`)) return;
         setPayingId(barberId);
         try {
             const now = new Date();
@@ -265,7 +266,8 @@ export default function AdminPage() {
                                     <th className="p-4 text-xs uppercase font-semibold text-center">Cortes</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-right">Generado</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-center">Tasa</th>
-                                    <th className="p-4 text-xs uppercase font-semibold text-right">Comisión</th>
+                                    <th className="p-4 text-xs uppercase font-semibold text-right">Com. Serv.</th>
+                                    <th className="p-4 text-xs uppercase font-semibold text-right">Com. Prod.</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-right">Propinas</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-right">A Pagar</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-center">Detalle</th>
@@ -283,7 +285,8 @@ export default function AdminPage() {
                                             <td className="p-4 text-center font-bold">{b.cuts}</td>
                                             <td className="p-4 text-right">${b.revenue.toFixed(2)}</td>
                                             <td className="p-4 text-center"><span className="bg-sonblade-gold text-black px-2 py-0.5 rounded text-xs font-bold">{b.rate}%</span></td>
-                                            <td className="p-4 text-right font-bold text-gray-700">${b.commission.toFixed(2)}</td>
+                                            <td className="p-4 text-right font-bold text-gray-700">${b.serviceCommission?.toFixed(2) || '0.00'}</td>
+                                            <td className="p-4 text-right font-bold text-gray-700">${b.productCommission?.toFixed(2) || '0.00'}</td>
                                             <td className="p-4 text-right font-bold text-blue-600">${b.tips.toFixed(2)}</td>
                                             <td className="p-4 text-right font-black text-sonblade-gold text-base">${(b.commission + b.tips).toFixed(2)}</td>
                                             <td className="p-4 text-center">
