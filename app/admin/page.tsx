@@ -17,6 +17,7 @@ interface AdminData {
     }[];
     payments: any[];
     weeklyBreakdown: { week: string; revenue: number }[];
+    serviceBreakdown: { name: string; count: number; revenue: number }[];
 }
 
 export default function AdminPage() {
@@ -65,7 +66,7 @@ export default function AdminPage() {
 
     if (!data) return <div className="flex justify-center items-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-sonblade-gold" /></div>;
 
-    const { kpis, paymentBreakdown, barberSummaries, payments, weeklyBreakdown } = data;
+    const { kpis, paymentBreakdown, barberSummaries, payments, weeklyBreakdown, serviceBreakdown } = data;
     const periodLabel = period === 'today' ? 'Hoy' : period === 'week' ? 'Esta Semana' : 'Este Mes';
 
     return (
@@ -134,6 +135,38 @@ export default function AdminPage() {
                             <p className="text-2xl font-bold text-gray-700">${paymentBreakdown.transfer.toFixed(2)}</p>
                         </div>
                     </div>
+
+                    {/* Service Breakdown Table */}
+                    {serviceBreakdown && serviceBreakdown.length > 0 && (
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-100">
+                                <h2 className="font-bold text-gray-900">Resumen de Servicios ({periodLabel})</h2>
+                            </div>
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 text-gray-500">
+                                    <tr>
+                                        <th className="p-3 text-left text-xs uppercase font-semibold">Tipo de Servicio</th>
+                                        <th className="p-3 text-center text-xs uppercase font-semibold">Cantidad</th>
+                                        <th className="p-3 text-right text-xs uppercase font-semibold">Ingresos</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {serviceBreakdown.map(s => (
+                                        <tr key={s.name} className="hover:bg-gray-50">
+                                            <td className="p-3 font-medium text-gray-900">{s.name}</td>
+                                            <td className="p-3 text-center font-bold">{s.count}</td>
+                                            <td className="p-3 text-right font-bold">${s.revenue.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                    <tr className="bg-gray-50 font-bold">
+                                        <td className="p-3 text-gray-700">Total</td>
+                                        <td className="p-3 text-center">{serviceBreakdown.reduce((s, b) => s + b.count, 0)}</td>
+                                        <td className="p-3 text-right">${serviceBreakdown.reduce((s, b) => s + b.revenue, 0).toFixed(2)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
                     {/* Weekly Chart */}
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">

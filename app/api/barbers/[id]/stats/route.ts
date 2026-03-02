@@ -34,12 +34,10 @@ export async function GET(
             endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         }
 
-        // Fetch barber info
         const { data: barber, error: bErr } = await supabase
             .from('barbers').select('*').eq('id', id).single();
         if (bErr || !barber) return NextResponse.json({ error: 'Barbero no encontrado' }, { status: 404 });
 
-        // Fetch sales for the period
         const { data: sales } = await supabase
             .from('sales')
             .select('*, items:sale_items(*)')
@@ -52,6 +50,9 @@ export async function GET(
         let serviceRevenue = 0;
         let productRevenue = 0;
         let totalTips = 0;
+
+        // Service breakdown: { name: { count, revenue } }
+        const svcMap: Record<string, { count: number; revenue: number }> = {};
 
         const movements = (sales || []).map((sale: any) => {
             let srvNames: string[] = [];
@@ -66,6 +67,10 @@ export async function GET(
                     srvNames.push(i.item_name);
                     saleCuts++;
                     saleServiceRev += amt;
+                    // Aggregate service breakdown
+                    if (!svcMap[i.item_name]) svcMap[i.item_name] = { count: 0, revenue: 0 };
+                    svcMap[i.item_name].count += (i.quantity || 1);
+                    svcMap[i.item_name].revenue += amt;
                 } else {
                     prdNames.push(i.item_name);
                     saleProductRev += amt;
@@ -77,8 +82,6 @@ export async function GET(
             productRevenue += saleProductRev;
             totalTips += Number(sale.tip || 0);
 
-            // commission per sale
-            // Use the global cut count to determine rate at point of sale
             const tiers = [
                 { min: 0, rate: 35 }, { min: 20, rate: 40 },
                 { min: 40, rate: 45 }, { min: 60, rate: 50 }
@@ -93,21 +96,27 @@ export async function GET(
                 services: srvNames.join(', ') || '—',
                 products: prdNames.join(', ') || '—',
                 payment_method: sale.payment_method,
+                cash_amount: Number(sale.cash_amount || 0),
+                card_amount: Number(sale.card_amount || 0),
+                transfer_amount: Number(sale.transfer_amount || 0),
                 tip: Number(sale.tip || 0),
                 total: Number(sale.total),
                 commission: Math.round(saleCommission * 100) / 100
             };
         });
 
-        // Final commission calculation from accumulated totals
         const tiers = [
             { min: 0, rate: 35 }, { min: 20, rate: 40 },
             { min: 40, rate: 45 }, { min: 60, rate: 50 }
         ];
         let commissionRate = 35;
         for (const t of tiers) { if (totalCuts >= t.min) commissionRate = t.rate; }
-
         const totalCommission = (serviceRevenue * commissionRate / 100) + (productRevenue * 0.20) + totalTips;
+
+        // Build sorted service breakdown array
+        const serviceBreakdown = Object.entries(svcMap)
+            .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
+            .sort((a, b) => b.count - a.count);
 
         return NextResponse.json({
             barber,
@@ -121,6 +130,7 @@ export async function GET(
                 commissionRate,
                 totalCommission: Math.round(totalCommission * 100) / 100
             },
+            serviceBreakdown,
             movements
         });
     } catch (err: any) {
@@ -128,3 +138,4 @@ export async function GET(
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
+

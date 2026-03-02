@@ -45,6 +45,22 @@ export async function GET(request: NextRequest) {
             else { cash += Number(s.cash_amount || 0); card += Number(s.card_amount || 0); transfer += Number(s.transfer_amount || 0); }
         });
 
+        // Global service breakdown
+        const svcMap: Record<string, { count: number; revenue: number }> = {};
+        allSales?.forEach(s => {
+            s.items?.forEach((i: any) => {
+                if (i.item_type === 'service') {
+                    const amt = Number(i.item_price) * (i.quantity || 1);
+                    if (!svcMap[i.item_name]) svcMap[i.item_name] = { count: 0, revenue: 0 };
+                    svcMap[i.item_name].count += (i.quantity || 1);
+                    svcMap[i.item_name].revenue += amt;
+                }
+            });
+        });
+        const serviceBreakdown = Object.entries(svcMap)
+            .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
+            .sort((a, b) => b.count - a.count);
+
         // Per-barber with commissions
         const barbers = await getBarbers();
         const barberSummaries = [];
@@ -102,6 +118,7 @@ export async function GET(request: NextRequest) {
             },
             paymentBreakdown: { cash, card, transfer },
             barberSummaries,
+            serviceBreakdown,
             payments: payments || [],
             weeklyBreakdown
         });

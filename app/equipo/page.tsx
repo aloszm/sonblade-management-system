@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Users, Plus, Edit2, UserX, UserCheck, Scissors, DollarSign, Award, Loader2, TrendingUp, RefreshCw } from 'lucide-react';
+import CommissionBar from '@/components/CommissionBar';
 import type { Barber } from '@/types';
 
 interface BarberLive {
@@ -119,26 +120,16 @@ export default function TeamPage() {
                             </div>
 
                             {live && (
-                                <div className="grid grid-cols-3 gap-2 mt-auto pt-3 border-t border-gray-50">
-                                    <div className="bg-gray-50 p-2.5 rounded-lg text-center">
-                                        <div className="text-[10px] font-semibold text-gray-500 uppercase">Cortes</div>
-                                        <div className="font-black text-gray-900 text-lg">{live.cuts}</div>
+                                <div className="mt-auto pt-3 border-t border-gray-50 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-2xl font-black text-gray-900">{live.cuts} <span className="text-xs font-semibold text-gray-400">cortes</span></span>
+                                        <span className="text-sm font-bold text-sonblade-gold">${live.revenue.toFixed(0)}</span>
                                     </div>
-                                    <div className="bg-gray-50 p-2.5 rounded-lg text-center">
-                                        <div className="text-[10px] font-semibold text-gray-500 uppercase">Ingresos</div>
-                                        <div className="font-bold text-gray-900 text-sm">${live.revenue.toFixed(0)}</div>
+                                    <CommissionBar cuts={live.cuts} compact />
+                                    <div className="flex justify-between text-[10px] text-gray-400">
+                                        <span>Comisión: ${live.commission.toFixed(0)}</span>
+                                        <span>{live.rate}%</span>
                                     </div>
-                                    <div className="bg-gray-50 p-2.5 rounded-lg text-center">
-                                        <div className="text-[10px] font-semibold text-gray-500 uppercase">Comisión</div>
-                                        <div className="font-bold text-sonblade-gold text-sm">${live.commission.toFixed(0)}</div>
-                                    </div>
-                                </div>
-                            )}
-                            {live && (
-                                <div className="mt-2 flex justify-center">
-                                    <span className="inline-flex bg-sonblade-gold text-black px-2.5 py-0.5 rounded text-xs font-bold">
-                                        {live.rate}% Comisión
-                                    </span>
                                 </div>
                             )}
                         </div>
