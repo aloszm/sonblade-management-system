@@ -1,11 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabaseAdmin as supabase } from '@/lib/supabase';
-import { Calendar, User, CreditCard, Search, Download, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X, Scissors, ShoppingBag } from 'lucide-react';
-import { getBarbers } from '@/lib/services/barber';
-import { getServices } from '@/lib/services/sales';
-import { getProducts } from '@/lib/services/products';
+import { Download, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X } from 'lucide-react';
 import type { Barber, Service, Product, Sale } from '@/types';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
@@ -31,34 +27,50 @@ export default function SalesHistoryPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
 
+    // Fetch dropdown data via API routes
     useEffect(() => {
         const init = async () => {
-            const [b, s, p] = await Promise.all([getBarbers(), getServices(), getProducts()]);
-            setBarbers(b); setServices(s); setProducts(p);
+            try {
+                const [bRes, pRes] = await Promise.all([
+                    fetch('/api/barbers'),
+                    fetch('/api/products'),
+                ]);
+                if (bRes.ok) setBarbers(await bRes.json());
+                if (pRes.ok) setProducts(await pRes.json());
+                // Fetch unique services from settings or sales
+                const sRes = await fetch('/api/settings');
+                if (sRes.ok) {
+                    const settings = await sRes.json();
+                    if (settings.services) setServices(settings.services);
+                }
+            } catch (e) { console.error('Error loading filter data:', e); }
         };
         init();
     }, []);
 
+    // Fetch sales via API route
     const fetchSales = async () => {
         setLoading(true);
         try {
-            let query = supabase.from('sales').select('*, barber:barbers(*), items:sale_items(*)').order('created_at', { ascending: false });
-            if (dateRange.start) query = query.gte('created_at', `${dateRange.start}T00:00:00.000Z`);
-            if (dateRange.end) query = query.lte('created_at', `${dateRange.end}T23:59:59.999Z`);
-            if (selectedBarber !== 'all') query = query.eq('barber_id', selectedBarber);
-            if (paymentMethod !== 'all') query = query.eq('payment_method', paymentMethod);
-            const { data } = await query;
-            let filtered = data || [];
+            const params = new URLSearchParams();
+            params.set('from', dateRange.start);
+            params.set('to', dateRange.end);
+            if (selectedBarber !== 'all') params.set('barber_id', selectedBarber);
+            if (paymentMethod !== 'all') params.set('payment_method', paymentMethod);
+
+            const res = await fetch(`/api/sales?${params.toString()}`);
+            if (!res.ok) throw new Error('Error fetching sales');
+            let data: Sale[] = await res.json();
 
             // Client-side filter for service/product (need to check items)
             if (selectedService !== 'all') {
-                filtered = filtered.filter((s: any) => s.items?.some((i: any) => i.item_type === 'service' && i.item_name === selectedService));
+                data = data.filter((s: any) => s.items?.some((i: any) => i.item_type === 'service' && i.item_name === selectedService));
             }
             if (selectedProduct !== 'all') {
-                filtered = filtered.filter((s: any) => s.items?.some((i: any) => i.item_type === 'product' && i.item_name === selectedProduct));
+                data = data.filter((s: any) => s.items?.some((i: any) => i.item_type === 'product' && i.item_name === selectedProduct));
             }
-            setSales(filtered);
-        } catch (e) { console.error(e); }
+            setSales(data);
+        } catch (e) { console.error('Error fetching sales:', e); }
         finally { setLoading(false); }
     };
 
@@ -75,7 +87,11 @@ export default function SalesHistoryPage() {
         setDeletingId(id);
         try {
             const res = await fetch(`/api/sales/${id}`, { method: 'DELETE' });
-            if (res.ok) setSales(prev => prev.filter(s => s.id !== id));
+            if (res.ok) {
+                setSales(prev => prev.filter(s => s.id !== id));
+            } else {
+                alert('Error al eliminar la venta');
+            }
         } catch (e: any) { alert(e.message); }
         finally { setDeletingId(null); }
     };
@@ -217,7 +233,7 @@ export default function SalesHistoryPage() {
                                         <td className="p-4 text-right font-bold">${Number(sale.total).toFixed(2)}</td>
                                         <td className="p-4 text-center">
                                             <div className="flex items-center justify-center gap-1">
-                                                <button onClick={() => router.push(`/caja?edit=${sale.id}`)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit className="h-4 w-4" /></button>
+                                                <button onClick={() => router.push(`/pos?edit=${sale.id}`)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit className="h-4 w-4" /></button>
                                                 <button onClick={() => handleDelete(sale.id)} disabled={deletingId === sale.id} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50">
                                                     {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                                 </button>

@@ -2,21 +2,43 @@ import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import type { CreateSale } from '@/types';
 
-// GET /api/sales — Today's sales
-export async function GET() {
+// GET /api/sales — Sales with optional filters
+export async function GET(request: NextRequest) {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const params = request.nextUrl.searchParams;
+        const from = params.get('from');
+        const to = params.get('to');
+        const barberId = params.get('barber_id');
+        const paymentMethod = params.get('payment_method');
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('sales')
             .select(`
                 *,
                 barber:barbers(*),
                 items:sale_items(*)
             `)
-            .gte('created_at', today.toISOString())
             .order('created_at', { ascending: false });
+
+        if (from) {
+            query = query.gte('created_at', `${from}T00:00:00.000Z`);
+        } else {
+            // Default: today only
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            query = query.gte('created_at', today.toISOString());
+        }
+        if (to) {
+            query = query.lte('created_at', `${to}T23:59:59.999Z`);
+        }
+        if (barberId) {
+            query = query.eq('barber_id', barberId);
+        }
+        if (paymentMethod) {
+            query = query.eq('payment_method', paymentMethod);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         return NextResponse.json(data || []);
