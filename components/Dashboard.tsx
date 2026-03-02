@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Calendar, DollarSign, Scissors, TrendingDown, Gift, Loader2, Award } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
@@ -262,7 +263,7 @@ export default function Dashboard() {
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-black to-gray-700 flex items-center justify-center text-sonblade-gold font-bold text-xs ring-2 ring-sonblade-gold/20">
                           {barber.name.charAt(0)}
                         </div>
-                        <span className="font-bold text-gray-900">{barber.name}</span>
+                        <Link href={`/barberos/${barber.id}`} className="font-bold text-gray-900 hover:text-sonblade-gold underline decoration-dotted underline-offset-4 transition-colors">{barber.name}</Link>
                       </div>
                     </td>
                     <td className="p-4 text-center font-bold text-gray-800">

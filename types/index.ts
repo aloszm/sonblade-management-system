@@ -32,8 +32,21 @@ export interface Product {
     cost: number;
     price: number;
     status: 'ok' | 'low' | 'critical' | 'empty';
+    entry_date?: string;
+    exit_date?: string;
     created_at: string;
     updated_at: string;
+}
+
+export interface BarberPayment {
+    id: string;
+    barber_id: string;
+    amount: number;
+    period_start: string;
+    period_end: string;
+    paid_at: string;
+    created_at: string;
+    barber?: Barber;
 }
 
 export interface Sale {

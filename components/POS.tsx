@@ -298,9 +298,9 @@ const POS: React.FC = () => {
     }
 
     return (
-        <div className="flex h-[calc(100vh-8rem)] gap-6">
+        <div className="grid grid-cols-[1fr_380px] h-[calc(100vh-8rem)] gap-4 overflow-hidden">
             {/* Main Workspace */}
-            <section className="flex-1 overflow-y-auto pr-2 space-y-5">
+            <section className="overflow-y-auto pr-2 space-y-5 min-w-0">
 
                 {/* Sliding Success Overlay */}
                 {showSuccess && (

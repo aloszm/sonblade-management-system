@@ -13,8 +13,8 @@ const Inventory: React.FC = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form state for new product
-    const [form, setForm] = useState<CreateProduct>({
-        name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0,
+    const [form, setForm] = useState<CreateProduct & { entry_date?: string; exit_date?: string }>({
+        name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0, entry_date: '', exit_date: '',
     });
 
     // Fetch data from API routes
@@ -54,7 +54,7 @@ const Inventory: React.FC = () => {
 
             setModalOpen(false);
             setEditingId(null);
-            setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
+            setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0, entry_date: '', exit_date: '' });
             refetch();
             refetchStats();
         } catch (err) {
@@ -73,7 +73,9 @@ const Inventory: React.FC = () => {
             stock: p.stock,
             min_stock: p.min_stock,
             cost: p.cost,
-            price: p.price
+            price: p.price,
+            entry_date: p.entry_date || '',
+            exit_date: p.exit_date || ''
         });
         setEditingId(p.id);
         setModalOpen(true);
@@ -392,6 +394,21 @@ const Inventory: React.FC = () => {
                                                 onChange={(e) => setForm(f => ({ ...f, price: Number(e.target.value) }))}
                                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sonblade-primary focus:ring focus:ring-sonblade-primary focus:ring-opacity-50 sm:text-sm p-2 border font-bold text-sonblade-primary"
                                             />
+                                        </div>
+                                    </div>
+                                </section>
+                                <section>
+                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        📅 Fechas
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Fecha de Ingreso</label>
+                                            <input type="date" value={form.entry_date || ''} onChange={(e) => setForm(f => ({ ...f, entry_date: e.target.value }))} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sonblade-primary focus:ring focus:ring-sonblade-primary focus:ring-opacity-50 sm:text-sm p-2 border" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Fecha de Egreso (opcional)</label>
+                                            <input type="date" value={form.exit_date || ''} onChange={(e) => setForm(f => ({ ...f, exit_date: e.target.value }))} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sonblade-primary focus:ring focus:ring-sonblade-primary focus:ring-opacity-50 sm:text-sm p-2 border" />
                                         </div>
                                     </div>
                                 </section>

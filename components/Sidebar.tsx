@@ -13,6 +13,8 @@ import {
   Settings,
   Store,
   UserCircle,
+  ShieldCheck,
+  FileText,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -22,11 +24,13 @@ interface SidebarProps {
 const menuItems = [
   { href: '/', label: 'Panel', icon: LayoutDashboard },
   { href: '/pos', label: 'POS', icon: ShoppingCart },
+  { href: '/ventas/historial', label: 'Historial Ventas', icon: FileText },
   { href: '/citas', label: 'Citas', icon: Receipt },
   { href: '/inventario', label: 'Inventario', icon: Package },
   { href: '/caja', label: 'Caja', icon: Banknote },
   { href: '/equipo', label: 'Equipo', icon: Users },
   { href: '/barbero', label: 'Mi Panel (Barbero)', icon: UserCircle },
+  { href: '/admin', label: 'Administrador', icon: ShieldCheck },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
