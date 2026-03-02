@@ -41,11 +41,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
   return (
     <aside className="h-full bg-sonblade-dark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl w-64">
-      <div className="h-16 flex items-center px-6 bg-black/10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-sonblade-gold text-black rounded flex items-center justify-center font-bold">S</div>
-          <span className="font-bold text-xl tracking-tight text-white">SONBLADE</span>
-        </div>
+      <div className="h-20 flex items-center px-6 bg-black/10">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg group-hover:scale-110 transition-transform duration-200">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+          </div>
+          <span className="font-bold text-xl tracking-tighter text-white">SONBLADE</span>
+        </Link>
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-sonblade">
