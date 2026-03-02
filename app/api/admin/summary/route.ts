@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
                     id: b.id, name: b.name, status: b.status,
                     cuts: stats.weeklyStats.cuts,
                     revenue: stats.weeklyStats.totalGenerated,
+                    serviceRevenue: stats.weeklyStats.serviceRevenue,
                     tips: stats.weeklyStats.tips,
                     rate: stats.tier.current,
                     commission: Math.round(stats.weeklyStats.commission * 100) / 100,

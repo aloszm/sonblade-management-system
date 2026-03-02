@@ -13,7 +13,7 @@ interface AdminData {
     paymentBreakdown: { cash: number; card: number; transfer: number };
     barberSummaries: {
         id: string; name: string; status: string;
-        cuts: number; revenue: number; tips: number; rate: number; commission: number;
+        cuts: number; revenue: number; serviceRevenue: number; tips: number; rate: number; commission: number;
         serviceCommission: number; productCommission: number;
         serviceBreakdown?: { name: string; count: number; revenue: number }[];
     }[];
@@ -263,13 +263,11 @@ export default function AdminPage() {
                             <thead className="text-gray-500 border-b">
                                 <tr>
                                     <th className="p-4 text-xs uppercase font-semibold">Barbero</th>
-                                    <th className="p-4 text-xs uppercase font-semibold text-center">Cortes</th>
-                                    <th className="p-4 text-xs uppercase font-semibold text-right">Generado</th>
-                                    <th className="p-4 text-xs uppercase font-semibold text-center">Tasa</th>
-                                    <th className="p-4 text-xs uppercase font-semibold text-right">Com. Serv.</th>
-                                    <th className="p-4 text-xs uppercase font-semibold text-right">Com. Prod.</th>
+                                    <th className="p-4 text-xs uppercase font-semibold text-center">N° Cortes</th>
+                                    <th className="p-4 text-xs uppercase font-semibold text-right">Cortes ($)</th>
+                                    <th className="p-4 text-xs uppercase font-semibold text-right">Com. Cortes</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-right">Propinas</th>
-                                    <th className="p-4 text-xs uppercase font-semibold text-right">A Pagar</th>
+                                    <th className="p-4 text-xs uppercase font-semibold text-right">Total a Pagar</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-center">Detalle</th>
                                     <th className="p-4 text-xs uppercase font-semibold text-center">Acción</th>
                                 </tr>
@@ -282,11 +280,9 @@ export default function AdminPage() {
                                                 <div className="w-8 h-8 rounded-full bg-black text-sonblade-gold flex items-center justify-center text-xs font-bold">{b.name.charAt(0)}</div>
                                                 {b.name}
                                             </td>
-                                            <td className="p-4 text-center font-bold">{b.cuts}</td>
-                                            <td className="p-4 text-right">${b.revenue.toFixed(2)}</td>
-                                            <td className="p-4 text-center"><span className="bg-sonblade-gold text-black px-2 py-0.5 rounded text-xs font-bold">{b.rate}%</span></td>
-                                            <td className="p-4 text-right font-bold text-gray-700">${b.serviceCommission?.toFixed(2) || '0.00'}</td>
-                                            <td className="p-4 text-right font-bold text-gray-700">${b.productCommission?.toFixed(2) || '0.00'}</td>
+                                            <td className="p-4 text-center font-bold text-gray-500">{b.cuts}</td>
+                                            <td className="p-4 text-right font-medium">${b.serviceRevenue?.toFixed(2) || '0.00'}</td>
+                                            <td className="p-4 text-right font-bold text-gray-900">${b.serviceCommission?.toFixed(2) || '0.00'}<br /><span className="text-[10px] text-sonblade-gold bg-black px-1 rounded">{b.rate}%</span></td>
                                             <td className="p-4 text-right font-bold text-blue-600">${b.tips.toFixed(2)}</td>
                                             <td className="p-4 text-right font-black text-sonblade-gold text-base">${(b.commission + b.tips).toFixed(2)}</td>
                                             <td className="p-4 text-center">

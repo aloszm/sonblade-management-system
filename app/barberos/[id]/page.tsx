@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import CommissionBar from '@/components/CommissionBar';
 
-interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; }
+interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; serviceCommission: number; productCommission: number; }
 interface Movement { id: string; date: string; services: string; products: string; payment_method: string; cash_amount: number; card_amount: number; transfer_amount: number; tip: number; total: number; commission: number; }
 interface ServiceBreak { name: string; count: number; revenue: number; }
 
@@ -90,22 +90,25 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
             {kpis && (
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1"><Scissors className="h-4 w-4 text-sonblade-gold" /><span className="text-xs text-gray-500 font-semibold uppercase">Cortes</span></div>
-                            <p className="text-3xl font-black text-gray-900">{kpis.cuts}</p>
-                        </div>
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1"><DollarSign className="h-4 w-4 text-green-600" /><span className="text-xs text-gray-500 font-semibold uppercase">Ingresos</span></div>
-                            <p className="text-2xl font-bold text-gray-900">${kpis.totalRevenue.toFixed(2)}</p>
-                        </div>
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                            <div className="flex items-center gap-2 mb-1"><TrendingUp className="h-4 w-4 text-blue-600" /><span className="text-xs text-gray-500 font-semibold uppercase">Propinas</span></div>
-                            <p className="text-2xl font-bold text-gray-900">${kpis.tips.toFixed(2)}</p>
+                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-gray-300">
+                            <div className="flex items-center gap-2 mb-1"><Scissors className="h-4 w-4 text-gray-500" /><span className="text-xs text-gray-500 font-semibold uppercase">Cortes</span></div>
+                            <p className="text-2xl font-bold text-gray-900">${kpis.serviceRevenue.toFixed(2)}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">{kpis.cuts} servicios realizados</p>
                         </div>
                         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-sonblade-gold">
                             <div className="flex items-center gap-2 mb-1"><Award className="h-4 w-4 text-sonblade-gold" /><span className="text-xs text-gray-500 font-semibold uppercase">Comisión</span></div>
-                            <p className="text-2xl font-bold text-sonblade-gold">${kpis.totalCommission.toFixed(2)}</p>
-                            <p className="text-xs text-gray-400">{kpis.commissionRate}% servicios + 20% productos + 100% propinas</p>
+                            <p className="text-2xl font-bold text-sonblade-gold">${kpis.serviceCommission.toFixed(2)}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">{kpis.commissionRate}% de servicios</p>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-blue-400">
+                            <div className="flex items-center gap-2 mb-1"><TrendingUp className="h-4 w-4 text-blue-600" /><span className="text-xs text-gray-500 font-semibold uppercase">Propina</span></div>
+                            <p className="text-2xl font-bold text-gray-900">${kpis.tips.toFixed(2)}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">100% para el barbero</p>
+                        </div>
+                        <div className="bg-black p-4 rounded-xl border border-gray-800 shadow-lg border-l-4 border-l-sonblade-gold">
+                            <div className="flex items-center gap-2 mb-1"><DollarSign className="h-4 w-4 text-sonblade-gold" /><span className="text-xs text-gray-400 font-semibold uppercase">Total a Recibir</span></div>
+                            <p className="text-2xl font-black text-white">${kpis.totalCommission.toFixed(2)}</p>
+                            {kpis.productCommission > 0 && <p className="text-[10px] text-sonblade-gold/60 font-medium">Incluye ${kpis.productCommission.toFixed(2)} por productos</p>}
                         </div>
                     </div>
 
