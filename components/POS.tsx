@@ -298,9 +298,9 @@ const POS: React.FC = () => {
     }
 
     return (
-        <div className="grid grid-cols-[1fr_340px] h-[calc(100vh-8rem)] gap-3 overflow-hidden">
+        <div className="grid grid-cols-[1fr_340px] h-[calc(100vh-7rem)] gap-3 overflow-hidden">
             {/* Main Workspace */}
-            <section className="overflow-y-auto pr-2 space-y-5 min-w-0">
+            <section className="overflow-y-auto scrollbar-hide space-y-4 min-w-0">
 
                 {/* Sliding Success Overlay */}
                 {showSuccess && (
@@ -461,14 +461,14 @@ const POS: React.FC = () => {
 
             {/* Right Sidebar: Cart Summary & Submit */}
             <aside className="bg-white border border-gray-200 rounded-xl flex flex-col shadow-sm h-full min-w-0 overflow-hidden">
-                <div className="p-5 border-b border-gray-100 bg-gray-50 rounded-t-xl shrink-0">
+                <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-xl shrink-0">
                     <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
                         <ShoppingBag className="h-4 w-4 text-sonblade-gold" />
                         Ticket de Venta
                     </h3>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
                     {cart.length === 0 ? (
                         <div className="text-center py-10 opacity-50">
                             <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-gray-300" />
