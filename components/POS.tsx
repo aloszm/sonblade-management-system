@@ -31,21 +31,21 @@ const paymentOptions: { id: PaymentType; label: string; icon: typeof DollarSign 
 
 function PaymentSelector({ label, value, onChange }: { label: string; value: PaymentType; onChange: (v: PaymentType) => void }) {
     return (
-        <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-600 w-24 shrink-0">{label}:</span>
-            <div className="flex gap-2 flex-1">
+        <div className="flex items-center gap-2 overflow-hidden">
+            <span className="text-xs font-medium text-gray-500 shrink-0">{label}</span>
+            <div className="flex gap-1 flex-1 min-w-0">
                 {paymentOptions.map((opt) => (
                     <button
                         key={opt.id}
                         type="button"
                         onClick={() => onChange(opt.id)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex-1 justify-center ${value === opt.id
-                            ? 'bg-sonblade-primary text-white shadow-md scale-[1.02]'
+                        className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all flex-1 justify-center truncate ${value === opt.id
+                            ? 'bg-sonblade-primary text-white shadow-sm'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
-                        <opt.icon className="h-3.5 w-3.5" />
-                        {opt.label}
+                        <opt.icon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{opt.id === 'transfer' ? 'Transf.' : opt.label}</span>
                     </button>
                 ))}
             </div>
@@ -298,7 +298,7 @@ const POS: React.FC = () => {
     }
 
     return (
-        <div className="grid grid-cols-[1fr_380px] h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+        <div className="grid grid-cols-[1fr_340px] h-[calc(100vh-8rem)] gap-3 overflow-hidden">
             {/* Main Workspace */}
             <section className="overflow-y-auto pr-2 space-y-5 min-w-0">
 
@@ -460,7 +460,7 @@ const POS: React.FC = () => {
             </section>
 
             {/* Right Sidebar: Cart Summary & Submit */}
-            <aside className="w-[380px] bg-white border border-gray-200 rounded-xl flex flex-col hidden lg:flex shadow-sm h-full shrink-0 relative">
+            <aside className="bg-white border border-gray-200 rounded-xl flex flex-col shadow-sm h-full min-w-0 overflow-hidden">
                 <div className="p-5 border-b border-gray-100 bg-gray-50 rounded-t-xl shrink-0">
                     <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
                         <ShoppingBag className="h-4 w-4 text-sonblade-gold" />
