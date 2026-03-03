@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -15,6 +15,7 @@ import {
   UserCircle,
   ShieldCheck,
   FileText,
+  LogOut,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -36,8 +37,35 @@ const menuItems = [
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = React.useState<{ name: string, role: string, id: string } | null>(null);
+
+  React.useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) setUser(data.user);
+      });
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/login', { method: 'DELETE' });
+    router.push('/login');
+    router.refresh();
+  };
 
   if (!isOpen) return null;
+
+  // Filter items based on role
+  const visibleItems = menuItems.filter(item => {
+    if (user?.role === 'admin') return true;
+    // Barber permissions
+    const allowedForBarber = ['/pos', '/caja', '/barbero'];
+    if (item.href === '/barbero') {
+      item.href = `/barberos/${user?.id}`; // update dynamic link
+    }
+    return allowedForBarber.some(p => item.href.startsWith(p));
+  });
 
   return (
     <aside className="h-full bg-sonblade-dark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl w-64">
@@ -51,8 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-sonblade">
-        {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+        {visibleItems.map((item) => {
+          const isActive = pathname === item.href || (pathname.startsWith('/barberos') && item.href.startsWith('/barberos'));
           return (
             <Link
               key={item.href}
@@ -72,28 +100,30 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         })}
 
         <div className="pt-4 mt-4 border-t border-white/10">
-          <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Configuración</h3>
-          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-            <Store className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'}`} />
-            Perfil del Negocio
-          </Link>
-          <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-            <Settings className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'}`} />
-            Configuración
-          </Link>
+          {user?.role === 'admin' && (
+            <>
+              <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Configuración</h3>
+              <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                <Store className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'}`} />
+                Perfil del Negocio
+              </Link>
+            </>
+          )}
+          <button onClick={handleLogout} className="w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all mt-2">
+            <LogOut className="mr-3 h-5 w-5 text-red-500/70 group-hover:text-red-400" />
+            Cerrar Sesión
+          </button>
         </div>
       </nav>
 
       <div className="p-4 bg-black/20">
         <div className="flex items-center gap-3">
-          <img
-            src="https://picsum.photos/100/100"
-            alt="Admin"
-            className="w-9 h-9 rounded-full border-2 border-sonblade-gold object-cover"
-          />
+          <div className="w-9 h-9 rounded-full border-2 border-sonblade-gold bg-sonblade-dark flex items-center justify-center font-bold text-white uppercase text-sm">
+            {user ? user.name.charAt(0) : '?'}
+          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">Alonso Miranda</p>
-            <p className="text-xs text-sonblade-gold truncate">Administrador</p>
+            <p className="text-sm font-medium text-white truncate">{user ? user.name : 'Cargando...'}</p>
+            <p className="text-xs text-sonblade-gold truncate uppercase tracking-widest">{user?.role === 'admin' ? 'Administrador' : 'Barbero'}</p>
           </div>
         </div>
       </div>

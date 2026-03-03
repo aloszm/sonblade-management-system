@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
+import Providers from '@/components/Providers';
 
 const inter = Inter({
     subsets: ['latin'],
@@ -31,7 +32,9 @@ export default function RootLayout({
     return (
         <html lang="es">
             <body className={`${inter.variable} font-sans bg-gray-50 text-slate-800 antialiased`}>
-                <AppShell>{children}</AppShell>
+                <Providers>
+                    <AppShell>{children}</AppShell>
+                </Providers>
                 <Script id="register-sw" strategy="afterInteractive">
                     {`
                          if ('serviceWorker' in navigator) {

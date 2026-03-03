@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Scissors, DollarSign, CreditCard, Smartphone, Check, Search, Save, Loader2, ShoppingBag, Trash2, Coins } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabase } from '@/hooks/useSupabase';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getServices } from '@/lib/services/sales';
@@ -71,6 +72,36 @@ const POS: React.FC = () => {
     const { data: barbers, loading: loadingBarbers } = useSupabase<Barber[]>(getBarbers);
     const { data: services, loading: loadingServices } = useSupabase<Service[]>(getServices);
     const { data: products } = useSupabase<Product[]>(getProducts);
+
+    // Fetch user identity
+    const [userRole, setUserRole] = useState<'admin' | 'barber' | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch('/api/auth/me')
+            .then(res => res.json())
+            .then(data => {
+                if (data.authenticated) {
+                    setUserRole(data.user.role);
+                    setUserId(data.user.id);
+                }
+            })
+            .catch(console.error);
+    }, []);
+
+    // Filter visible barbers based on role
+    const visibleBarbers = useMemo(() => {
+        if (!barbers) return [];
+        if (userRole === 'admin') return barbers;
+        return barbers.filter(b => b.id === userId);
+    }, [barbers, userRole, userId]);
+
+    // Automatically select the barber if they are logging in as themselves
+    useEffect(() => {
+        if (userRole === 'barber' && visibleBarbers.length === 1 && !selectedBarber) {
+            setSelectedBarber(visibleBarbers[0]);
+        }
+    }, [visibleBarbers, userRole, selectedBarber]);
 
     // Fetch today's sales via API route
     const [todaySales, setTodaySales] = useState<Sale[]>([]);
@@ -303,23 +334,25 @@ const POS: React.FC = () => {
             <section className="overflow-y-auto scrollbar-hide space-y-4 min-w-0">
 
                 {/* Sliding Success Overlay */}
-                {showSuccess && (
-                    <div className="fixed bottom-6 right-8 bg-green-500 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 z-50 animate-bounce-once" style={{ animation: 'slideInRight 0.4s ease-out forwards' }}>
-                        <div className="bg-white/20 rounded-full p-2">
-                            <DollarSign className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-green-100 font-medium">Venta Registrada</p>
-                            <p className="font-bold text-xl">${lastSaleTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                        </div>
-                    </div>
-                )}
-                <style>{`
-                    @keyframes slideInRight {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                `}</style>
+                <AnimatePresence>
+                    {showSuccess && (
+                        <motion.div
+                            initial={{ x: 100, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: 100, opacity: 0, transition: { duration: 0.2 } }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                            className="fixed bottom-6 right-8 bg-green-500 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 z-50"
+                        >
+                            <div className="bg-white/20 rounded-full p-2">
+                                <DollarSign className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-green-100 font-medium">Venta Registrada</p>
+                                <p className="font-bold text-xl">${lastSaleTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* 1. Barber Selection */}
                 <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
@@ -328,14 +361,15 @@ const POS: React.FC = () => {
                         Barbero
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {barbers?.map((barber) => (
+                        {visibleBarbers.map((barber) => (
                             <button
                                 key={barber.id}
-                                onClick={() => setSelectedBarber(barber)}
+                                onClick={() => userRole === 'admin' && setSelectedBarber(barber)}
+                                disabled={userRole !== 'admin'}
                                 className={`flex items-center gap-3 p-3 border rounded-lg transition-all text-left ${selectedBarber?.id === barber.id
                                     ? 'border-sonblade-primary bg-blue-50 shadow-sm ring-2 ring-sonblade-primary/30'
-                                    : 'border-gray-200 hover:border-sonblade-primary bg-white'
-                                    }`}
+                                    : 'border-gray-200 hover:border-sonblade-primary bg-white cursor-pointer'
+                                    } ${userRole !== 'admin' ? 'cursor-default hover:border-sonblade-primary/30' : ''}`}
                             >
                                 <div className="relative">
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sonblade-primary to-blue-400 flex items-center justify-center text-white font-bold text-sm">
@@ -480,17 +514,25 @@ const POS: React.FC = () => {
                             {serviceItems.length > 0 && (
                                 <div>
                                     <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Servicios</p>
-                                    {serviceItems.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0">
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
-                                                <span className="font-medium text-gray-900 truncate max-w-[150px]" title={item.name}>{item.name}</span>
-                                            </div>
-                                            <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
-                                        </div>
-                                    ))}
+                                    <AnimatePresence>
+                                        {serviceItems.map((item) => (
+                                            <motion.div
+                                                key={item.id}
+                                                initial={{ opacity: 0, x: -20, height: 0 }}
+                                                animate={{ opacity: 1, x: 0, height: 'auto' }}
+                                                exit={{ opacity: 0, x: 20, height: 0 }}
+                                                className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0 overflow-hidden"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <span className="font-medium text-gray-900 truncate max-w-[150px]" title={item.name}>{item.name}</span>
+                                                </div>
+                                                <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
                                     <div className="mt-2 pl-6">
                                         <PaymentSelector label="Pago:" value={servicePayment} onChange={setServicePayment} />
                                     </div>
@@ -501,17 +543,25 @@ const POS: React.FC = () => {
                             {productItems.length > 0 && (
                                 <div className="pt-2 border-t border-gray-100 mt-2">
                                     <p className="text-xs font-semibold text-gray-400 uppercase mb-2 mt-2">Productos</p>
-                                    {productItems.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0">
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
-                                                <span className="font-medium text-gray-900 truncate max-w-[130px]" title={item.name}>{item.name} {item.quantity > 1 && <span className="text-gray-400 font-normal">x{item.quantity}</span>}</span>
-                                            </div>
-                                            <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
-                                        </div>
-                                    ))}
+                                    <AnimatePresence>
+                                        {productItems.map((item) => (
+                                            <motion.div
+                                                key={item.id}
+                                                initial={{ opacity: 0, x: -20, height: 0 }}
+                                                animate={{ opacity: 1, x: 0, height: 'auto' }}
+                                                exit={{ opacity: 0, x: 20, height: 0 }}
+                                                className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0 overflow-hidden"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <span className="font-medium text-gray-900 truncate max-w-[130px]" title={item.name}>{item.name} {item.quantity > 1 && <span className="text-gray-400 font-normal">x{item.quantity}</span>}</span>
+                                                </div>
+                                                <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
                                     <div className="mt-2 pl-6">
                                         <PaymentSelector label="Pago:" value={productPayment} onChange={setProductPayment} />
                                     </div>
@@ -553,17 +603,19 @@ const POS: React.FC = () => {
                         </div>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={!submitting && cart.length > 0 && selectedBarber ? { scale: 1.02, y: -2 } : {}}
+                        whileTap={!submitting && cart.length > 0 && selectedBarber ? { scale: 0.98 } : {}}
                         onClick={handleSubmit}
                         disabled={submitting || cart.length === 0 || !selectedBarber}
-                        className="w-full h-14 rounded-xl bg-black text-sonblade-gold font-bold shadow-md hover:shadow-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
+                        className="w-full h-14 rounded-xl bg-black text-sonblade-gold font-bold shadow-md hover:shadow-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {submitting ? (
                             <><Loader2 className="h-5 w-5 animate-spin" /> PROCESANDO...</>
                         ) : (
                             <><Check className="h-5 w-5 text-sonblade-gold" /> {editingSaleId ? 'GUARDAR EDICIÓN' : 'CONFIRMAR Y COBRAR'}</>
                         )}
-                    </button>
+                    </motion.button>
                     {!selectedBarber && cart.length > 0 && (
                         <p className="text-xs text-red-500 text-center mt-2 font-medium">Selecciona un barbero para continuar</p>
                     )}

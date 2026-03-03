@@ -17,7 +17,7 @@ export default function TeamPage() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
-    const [formData, setFormData] = useState({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered' });
+    const [formData, setFormData] = useState({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered', pin: '1234' });
 
     const fetchBarbers = async () => {
         try {
@@ -67,10 +67,10 @@ export default function TeamPage() {
     const openModal = (barber?: Barber) => {
         if (barber) {
             setEditingBarber(barber);
-            setFormData({ name: barber.name, commission_rate: barber.commission_rate, status: barber.status, commission_type: barber.commission_type || 'tiered' });
+            setFormData({ name: barber.name, commission_rate: barber.commission_rate, status: barber.status, commission_type: barber.commission_type || 'tiered', pin: barber.pin || '1234' });
         } else {
             setEditingBarber(null);
-            setFormData({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered' });
+            setFormData({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered', pin: '1234' });
         }
         setIsModalOpen(true);
     };
@@ -167,6 +167,12 @@ export default function TeamPage() {
                                     <option value="tiered">Por Metas (Según Cortes)</option>
                                     <option value="flat_50">Fijo al 50%</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">PIN de Acceso</label>
+                                <input type="text" value={formData.pin} onChange={e => setFormData({ ...formData, pin: e.target.value })} placeholder="Ej: 1234" maxLength={6}
+                                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none font-mono tracking-widest" required />
+                                <p className="text-xs text-gray-400 mt-1">El barbero usará este código para iniciar sesión.</p>
                             </div>
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>

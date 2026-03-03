@@ -49,19 +49,10 @@ export async function getBarber(barberId: string): Promise<Barber | null> {
     return data;
 }
 
+import { getCurrentWeekRangeMX, getNowMX } from '@/lib/utils/timezone';
+
 export function getWeeklyDateRange() {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-
-    const start = new Date(now);
-    start.setDate(now.getDate() - dayOfWeek);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-
-    return { start, end };
+    return getCurrentWeekRangeMX();
 }
 
 export async function getBarberWeeklySales(barberId: string): Promise<Sale[]> {
@@ -74,8 +65,8 @@ export async function getBarberWeeklySales(barberId: string): Promise<Sale[]> {
       items:sale_items(*)
     `)
         .eq('barber_id', barberId)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
+        .gte('created_at', start)
+        .lte('created_at', end)
         .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -92,8 +83,8 @@ export async function getBarberStats(barberId: string) {
     let weeklyProductGenerated = 0;
     let weeklyCuts = 0;
 
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayMX = getNowMX();
+    const todayStr = `${todayMX.getFullYear()}-${String(todayMX.getMonth() + 1).padStart(2, '0')}-${String(todayMX.getDate()).padStart(2, '0')}`;
     let todayServiceGenerated = 0;
     let todayProductGenerated = 0;
     let todayCuts = 0;

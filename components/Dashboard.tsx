@@ -4,6 +4,20 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Calendar, DollarSign, Scissors, TrendingDown, Gift, Loader2, Award } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { motion, Variants } from 'framer-motion';
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+};
 
 interface DashboardData {
   kpis: {
@@ -103,14 +117,14 @@ export default function Dashboard() {
       </div>
 
       {/* KPIs Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative">
+      <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative">
         {loading && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex items-center justify-center rounded-xl">
             <Loader2 className="h-6 w-6 animate-spin text-sonblade-gold" />
           </div>
         )}
         {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-sonblade-gold/50 transition-colors">
+          <motion.div variants={itemVariants} key={idx} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-sonblade-gold/50 transition-colors">
             <div className="flex justify-between items-start mb-4">
               <div className={`p-2 rounded-lg ${stat.bg}`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} />
@@ -121,9 +135,9 @@ export default function Dashboard() {
             </div>
             <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">{stat.label}</p>
             <h3 className="text-3xl font-bold text-gray-900 truncate">{stat.value}</h3>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Income vs Expenses summary card */}
       <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 shadow-md border border-gray-800 flex items-center justify-between text-white">
@@ -151,7 +165,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Bar Chart (Current Week) */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
@@ -287,7 +301,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-      </div>
+      </motion.div>
     </div>
   );
 }

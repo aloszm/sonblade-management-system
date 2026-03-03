@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import MobileNav from '@/components/MobileNav';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
+    const pathname = usePathname();
 
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50 flex-col md:flex-row">
@@ -25,8 +28,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
-                <main className="flex-1 overflow-x-hidden overflow-y-auto scrollbar-sonblade-light bg-gray-100/50 p-4 md:p-6 pb-20 md:pb-6">
-                    {children}
+                <main className="flex-1 overflow-x-hidden overflow-y-auto scrollbar-sonblade-light bg-gray-100/50 p-4 md:p-6 pb-20 md:pb-6 relative">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={pathname}
+                            initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+                            transition={{ duration: 0.25, ease: 'easeOut' }}
+                            className="h-full"
+                        >
+                            {children}
+                        </motion.div>
+                    </AnimatePresence>
                 </main>
 
                 <MobileNav />

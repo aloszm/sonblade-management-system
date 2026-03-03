@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, use } from 'react';
-import { ArrowLeft, Scissors, DollarSign, TrendingUp, Award, Loader2, Calendar } from 'lucide-react';
+import { ArrowLeft, Scissors, DollarSign, TrendingUp, Award, Loader2, Calendar, KeyRound } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import CommissionBar from '@/components/CommissionBar';
@@ -19,6 +19,17 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
     const [period, setPeriod] = useState('week');
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
     const [loading, setLoading] = useState(true);
+
+    const [authedUserId, setAuthedUserId] = useState<string | null>(null);
+    const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+    const [newPin, setNewPin] = useState('');
+    const [pinSaving, setPinSaving] = useState(false);
+
+    useEffect(() => {
+        fetch('/api/auth/me').then(res => res.json()).then(data => {
+            if (data.authenticated) setAuthedUserId(data.user.id);
+        });
+    }, []);
 
     const fetchStats = async () => {
         setLoading(true);
@@ -38,6 +49,27 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
     };
 
     useEffect(() => { fetchStats(); }, [period, dateRange]);
+
+    const handleChangePin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPin.length < 4) { alert('El PIN debe tener al menos 4 dígitos'); return; }
+        setPinSaving(true);
+        try {
+            const res = await fetch(`/api/barbers/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: newPin })
+            });
+            if (res.ok) {
+                alert('PIN actualizado correctamente');
+                setIsPinModalOpen(false);
+                setNewPin('');
+            } else {
+                alert('Error al actualizar el PIN');
+            }
+        } catch (e) { console.error(e); }
+        finally { setPinSaving(false); }
+    };
 
     function PaymentDetail({ m }: { m: Movement }) {
         const parts: string[] = [];
@@ -68,6 +100,14 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded uppercase ${barber?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{barber?.status}</span>
                     </div>
                 </div>
+                {authedUserId === id && (
+                    <button
+                        onClick={() => setIsPinModalOpen(true)}
+                        className="ml-auto p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm font-semibold"
+                    >
+                        <KeyRound className="h-4 w-4" /> Cambiar mi PIN
+                    </button>
+                )}
             </div>
 
             {/* Period Toggle + Date Filter */}
@@ -195,6 +235,42 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                     </table>
                 </div>
             </div>
+
+            {/* PIN Change Modal */}
+            {isPinModalOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h2 className="font-bold text-gray-900 flex items-center gap-2"><KeyRound className="h-5 w-5 text-sonblade-gold" /> Cambiar PIN</h2>
+                            <button onClick={() => setIsPinModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+                        </div>
+                        <form onSubmit={handleChangePin} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nuevo PIN</label>
+                                <input
+                                    type="text"
+                                    value={newPin}
+                                    onChange={e => setNewPin(e.target.value.replace(/[^0-9]/g, ''))} // only numbers
+                                    placeholder="Ej: 4567"
+                                    maxLength={6}
+                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none font-mono text-center text-xl tracking-[0.5em]"
+                                    required
+                                />
+                                <p className="text-xs text-gray-500 mt-2 text-center">Usa de 4 a 6 dígitos numéricos.</p>
+                            </div>
+                            <div className="pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={pinSaving || newPin.length < 4}
+                                    className="w-full py-3 bg-black text-sonblade-gold rounded-lg hover:bg-gray-800 shadow-md font-bold disabled:opacity-50 transition-all flex justify-center"
+                                >
+                                    {pinSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Guardar Nuevo PIN'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

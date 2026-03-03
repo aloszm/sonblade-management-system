@@ -10,6 +10,7 @@ export interface Barber {
     commission_rate: number;
     commission_type: 'tiered' | 'flat_50';
     total_cuts: number;
+    pin?: string;
     created_at: string;
     updated_at: string;
 }

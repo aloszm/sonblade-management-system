@@ -1,36 +1,32 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBarbers, getBarberStats } from '@/lib/services/barber';
-import { format } from 'date-fns';
+import { getTodayRangeMX, getCurrentWeekRangeMX, getCurrentMonthRangeMX, getNowMX } from '@/lib/utils/timezone';
 
 export async function GET(request: NextRequest) {
     try {
         const period = request.nextUrl.searchParams.get('period') || 'week';
-        const now = new Date();
-        let startDate = new Date(now);
-        let endDate = new Date(now);
+
+        let startISO = '';
+        let endISO = '';
 
         if (period === 'today') {
-            startDate.setHours(0, 0, 0, 0);
-            endDate.setHours(23, 59, 59, 999);
+            const range = getTodayRangeMX();
+            startISO = range.start; endISO = range.end;
         } else if (period === 'week') {
-            const day = now.getDay();
-            startDate.setDate(now.getDate() - day);
-            startDate.setHours(0, 0, 0, 0);
-            endDate = new Date(startDate);
-            endDate.setDate(startDate.getDate() + 6);
-            endDate.setHours(23, 59, 59, 999);
+            const range = getCurrentWeekRangeMX();
+            startISO = range.start; endISO = range.end;
         } else {
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            const range = getCurrentMonthRangeMX();
+            startISO = range.start; endISO = range.end;
         }
 
         // Fetch all sales for the period
         const { data: allSales } = await supabase
             .from('sales')
             .select('*, items:sale_items(*)')
-            .gte('created_at', startDate.toISOString())
-            .lte('created_at', endDate.toISOString());
+            .gte('created_at', startISO)
+            .lte('created_at', endISO);
 
         // Revenue
         const totalRevenue = allSales?.reduce((s, v) => s + Number(v.total), 0) || 0;
@@ -95,41 +91,40 @@ export async function GET(request: NextRequest) {
             .limit(50);
 
         // Weekly breakdown for current month
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        // We'll skip complex weekly breakdown adjustments for now to save complexity,
+        // or just calculate it using simple days if period is month
         const weeklyBreakdown = [];
-        for (let w = 0; w < 5; w++) {
-            const ws = new Date(monthStart);
-            ws.setDate(ws.getDate() + (w * 7));
-            if (ws.getMonth() !== now.getMonth() && w > 0) break;
-            const we = new Date(ws);
-            we.setDate(ws.getDate() + 6);
-            we.setHours(23, 59, 59, 999);
-
-            const { data: weekSales } = await supabase
-                .from('sales').select('total')
-                .gte('created_at', ws.toISOString())
-                .lte('created_at', we.toISOString());
-
-            const weekRev = weekSales?.reduce((s, v) => s + Number(v.total), 0) || 0;
-            weeklyBreakdown.push({ week: `Semana ${w + 1}`, revenue: weekRev });
+        if (period === 'month' && allSales) {
+            // Group sales by week roughly (every 7 days from start of month)
+            for (let w = 0; w < 5; w++) {
+                const wsDate = new Date(startISO);
+                wsDate.setDate(wsDate.getDate() + (w * 7));
+                const weDate = new Date(wsDate);
+                weDate.setDate(wsDate.getDate() + 6);
+                const wSales = allSales.filter(s => new Date(s.created_at) >= wsDate && new Date(s.created_at) <= weDate);
+                if (wSales.length > 0 || w < 4) {
+                    weeklyBreakdown.push({ week: `Semana ${w + 1}`, revenue: wSales.reduce((sum, s) => sum + Number(s.total), 0) });
+                }
+            }
         }
 
         // Hourly sales (for today)
         const hourlySales = Array.from({ length: 14 }, (_, i) => ({ hour: `${i + 8}:00`, revenue: 0 }));
         if (period === 'today') {
             allSales?.forEach(s => {
-                const hour = new Date(s.created_at).getHours();
+                const hour = new Date(new Date(s.created_at).toLocaleString("en-US", { timeZone: 'America/Mexico_City' })).getHours();
                 if (hour >= 8 && hour < 22) {
                     hourlySales[hour - 8].revenue += Number(s.total);
                 }
             });
         }
 
-        // Daily sales (for week/month)
+        // Daily sales (for week/month) -> Group by YYYY-MM-DD
         const dailySalesMap: Record<string, number> = {};
         allSales?.forEach(s => {
-            const day = format(new Date(s.created_at), 'dd/MM');
-            dailySalesMap[day] = (dailySalesMap[day] || 0) + Number(s.total);
+            const mxDate = new Date(new Date(s.created_at).toLocaleString("en-US", { timeZone: 'America/Mexico_City' }));
+            const dayStr = `${String(mxDate.getDate()).padStart(2, '0')}/${String(mxDate.getMonth() + 1).padStart(2, '0')}`;
+            dailySalesMap[dayStr] = (dailySalesMap[dayStr] || 0) + Number(s.total);
         });
         const dailySales = Object.entries(dailySalesMap).map(([day, revenue]) => ({ day, revenue }));
 
