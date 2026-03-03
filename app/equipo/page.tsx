@@ -17,7 +17,7 @@ export default function TeamPage() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
-    const [formData, setFormData] = useState({ name: '', commission_rate: 40, status: 'active' });
+    const [formData, setFormData] = useState({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered' });
 
     const fetchBarbers = async () => {
         try {
@@ -67,10 +67,10 @@ export default function TeamPage() {
     const openModal = (barber?: Barber) => {
         if (barber) {
             setEditingBarber(barber);
-            setFormData({ name: barber.name, commission_rate: barber.commission_rate, status: barber.status });
+            setFormData({ name: barber.name, commission_rate: barber.commission_rate, status: barber.status, commission_type: barber.commission_type || 'tiered' });
         } else {
             setEditingBarber(null);
-            setFormData({ name: '', commission_rate: 40, status: 'active' });
+            setFormData({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered' });
         }
         setIsModalOpen(true);
     };
@@ -125,7 +125,7 @@ export default function TeamPage() {
                                         <span className="text-2xl font-black text-gray-900">{live.cuts} <span className="text-xs font-semibold text-gray-400">cortes</span></span>
                                         <span className="text-sm font-bold text-sonblade-gold">${live.revenue.toFixed(0)}</span>
                                     </div>
-                                    <CommissionBar cuts={live.cuts} compact />
+                                    <CommissionBar cuts={live.cuts} compact isFlat50={barber.commission_type === 'flat_50'} />
                                     <div className="flex justify-between text-[10px] text-gray-400">
                                         <span>Comisión: ${live.commission.toFixed(0)}</span>
                                         <span>{live.rate}%</span>
@@ -158,6 +158,14 @@ export default function TeamPage() {
                                     <option value="active">Activo</option>
                                     <option value="busy">Ocupado</option>
                                     <option value="off">Inactivo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Comisión</label>
+                                <select value={formData.commission_type} onChange={e => setFormData({ ...formData, commission_type: e.target.value })}
+                                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none">
+                                    <option value="tiered">Por Metas (Según Cortes)</option>
+                                    <option value="flat_50">Fijo al 50%</option>
                                 </select>
                             </div>
                             <div className="pt-4 flex justify-end gap-3">

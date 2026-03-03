@@ -53,6 +53,10 @@ export async function POST(request: NextRequest) {
     try {
         const sale: CreateSale = await request.json();
 
+        // 0. Fetch barber's current commission type
+        const { data: barberData } = await supabase.from('barbers').select('commission_type').eq('id', sale.barber_id).single();
+        const commissionType = barberData?.commission_type || 'tiered';
+
         // 1. Create the sale record
         const { data: saleData, error: saleError } = await supabase
             .from('sales')
@@ -65,6 +69,7 @@ export async function POST(request: NextRequest) {
                 transfer_amount: sale.transfer_amount || 0,
                 payment_method: sale.payment_method,
                 notes: sale.notes || '',
+                commission_type: commissionType,
             })
             .select()
             .single();

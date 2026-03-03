@@ -135,15 +135,26 @@ export async function getBarberStats(barberId: string) {
     const tier = getCommissionTier(weeklyCuts);
     const commissionRate = tier.current / 100;
 
-    // Detailed service breakdown
+    // Detailed service breakdown and commission calculation
+    // Rules: Service base (tiered or flat 50%), Product (20%), Tips (100%)
     const serviceBreakdownIdx: Record<string, { count: number; revenue: number }> = {};
+    let serviceCommission = 0;
+
     weeklySales.forEach(s => {
+        const isFlat50 = s.commission_type === 'flat_50';
         s.items?.forEach(i => {
             if (i.item_type === 'service') {
                 const amt = Number(i.item_price) * (i.quantity || 1);
                 if (!serviceBreakdownIdx[i.item_name]) serviceBreakdownIdx[i.item_name] = { count: 0, revenue: 0 };
                 serviceBreakdownIdx[i.item_name].count += (i.quantity || 1);
                 serviceBreakdownIdx[i.item_name].revenue += amt;
+
+                // Calculate commission for this exact line item
+                if (isFlat50) {
+                    serviceCommission += amt * 0.50;
+                } else {
+                    serviceCommission += amt * commissionRate;
+                }
             }
         });
     });
@@ -151,8 +162,6 @@ export async function getBarberStats(barberId: string) {
         .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
         .sort((a, b) => b.revenue - a.revenue);
 
-    // Rules: Service base (35-50%), Product (20%), Tips (100%)
-    const serviceCommission = weeklyServiceGenerated * commissionRate;
     const productCommission = weeklyProductGenerated * 0.20;
 
     const weeklyCommission = serviceCommission + productCommission + weeklyTips;
@@ -184,10 +193,9 @@ export async function getBarberStats(barberId: string) {
 // Commission tiers
 export function getCommissionTier(totalCuts: number): { current: number; next: number; cutsForNext: number } {
     const tiers = [
-        { minCuts: 0, rate: 35 },
-        { minCuts: 20, rate: 40 },
-        { minCuts: 40, rate: 45 },
-        { minCuts: 60, rate: 50 },
+        { minCuts: 0, rate: 40 },
+        { minCuts: 26, rate: 45 },
+        { minCuts: 50, rate: 50 },
     ];
 
     let currentTier = tiers[0];

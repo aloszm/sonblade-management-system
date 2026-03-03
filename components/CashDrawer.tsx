@@ -26,6 +26,7 @@ export default function CashDrawer() {
     const [archivedSessions, setArchivedSessions] = useState<CashSessionArchive[]>([]);
     const [deletedMovements, setDeletedMovements] = useState<DeletedRecord[]>([]);
     const [loadingExtra, setLoadingExtra] = useState(false);
+    const [selectedArchive, setSelectedArchive] = useState<CashSessionArchive | null>(null);
 
     // New movement form
     const [showNewMovement, setShowNewMovement] = useState(false);
@@ -367,12 +368,12 @@ export default function CashDrawer() {
                                     <th className="px-6 py-3">Apertura</th><th className="px-6 py-3">Cierre</th>
                                     <th className="px-6 py-3">Operador</th><th className="px-6 py-3 text-right">Inicial</th>
                                     <th className="px-6 py-3 text-right">Ventas</th><th className="px-6 py-3 text-right">Gastos</th>
-                                    <th className="px-6 py-3">Archivado por</th>
+                                    <th className="px-6 py-3">Archivado por</th><th className="px-6 py-3 text-center">Detalles</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {archivedSessions.length === 0 ? (
-                                    <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">Sin archivos</td></tr>
+                                    <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-500">Sin archivos</td></tr>
                                 ) : archivedSessions.map(a => (
                                     <tr key={a.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-3 font-medium">{new Date(a.opened_at).toLocaleDateString('es-MX')}</td>
@@ -382,6 +383,11 @@ export default function CashDrawer() {
                                         <td className="px-6 py-3 text-right text-green-600 font-bold">${a.total_sales.toFixed(2)}</td>
                                         <td className="px-6 py-3 text-right text-red-500">${a.total_expenses.toFixed(2)}</td>
                                         <td className="px-6 py-3 text-gray-500 text-xs">{a.archived_by} · {new Date(a.archived_at).toLocaleDateString('es-MX')}</td>
+                                        <td className="px-6 py-3 text-center">
+                                            <button onClick={() => setSelectedArchive(a)} className="p-2 text-sonblade-gold hover:bg-yellow-50 rounded-lg">
+                                                <Eye className="h-4 w-4" />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -739,6 +745,92 @@ export default function CashDrawer() {
                                 className="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
                                 {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />} Reiniciar
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Archive Details Modal */}
+            {selectedArchive && (
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                    <Archive className="h-5 w-5 text-sonblade-gold" /> Detalles de Cierre
+                                </h2>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Abierta: {new Date(selectedArchive.opened_at).toLocaleString('es-MX')} |
+                                    Cerrada: {selectedArchive.closed_at ? new Date(selectedArchive.closed_at).toLocaleString('es-MX') : '-'}
+                                </p>
+                            </div>
+                            <button onClick={() => setSelectedArchive(null)} className="text-gray-400 hover:text-gray-600">
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto bg-gray-50/30 flex-1">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                    <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Monto Inicial</p>
+                                    <p className="text-lg font-bold text-gray-900">${selectedArchive.initial_amount.toFixed(2)}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                    <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Total Ventas</p>
+                                    <p className="text-lg font-bold text-green-600">${selectedArchive.total_sales.toFixed(2)}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                    <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Total Gastos</p>
+                                    <p className="text-lg font-bold text-red-500">${selectedArchive.total_expenses.toFixed(2)}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                    <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Efectivo (+Inicial)</p>
+                                    <p className="text-lg font-bold text-sonblade-primary">
+                                        ${(selectedArchive.initial_amount + selectedArchive.total_cash - selectedArchive.total_expenses).toFixed(2)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Movements Table */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                                    <h3 className="font-bold text-gray-800">Historial de Movimientos ({selectedArchive.movements?.length || 0})</h3>
+                                </div>
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                                        <tr>
+                                            <th className="px-4 py-2">Fecha / Hora</th>
+                                            <th className="px-4 py-2">Tipo</th>
+                                            <th className="px-4 py-2">Descripción</th>
+                                            <th className="px-4 py-2">Pago</th>
+                                            <th className="px-4 py-2 text-right">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {!selectedArchive.movements || selectedArchive.movements.length === 0 ? (
+                                            <tr><td colSpan={5} className="p-6 text-center text-gray-400">Sin movimientos registrados</td></tr>
+                                        ) : selectedArchive.movements.map((m: any, idx: number) => (
+                                            <tr key={m.id || idx} className="hover:bg-gray-50">
+                                                <td className="px-4 py-2 text-gray-500">{new Date(m.created_at).toLocaleString('es-MX')}</td>
+                                                <td className="px-4 py-2">
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase
+                                                        ${m.type === 'sale' ? 'bg-green-100 text-green-700' :
+                                                            m.type === 'expense' ? 'bg-red-100 text-red-700' :
+                                                                m.type === 'deposit' ? 'bg-blue-100 text-blue-700' :
+                                                                    'bg-gray-100 text-gray-700'}`}>
+                                                        {m.type === 'sale' ? 'Venta' : m.type === 'expense' ? 'Gasto' : m.type === 'deposit' ? 'Depósito' : m.type}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-2 font-medium">{m.description}</td>
+                                                <td className="px-4 py-2 text-xs text-gray-500 uppercase">{m.payment_method === 'cash' ? 'Efectivo' : m.payment_method}</td>
+                                                <td className={`px-4 py-2 text-right font-bold ${m.type === 'expense' || m.type === 'withdrawal' ? 'text-red-600' : ''}`}>
+                                                    {m.type === 'expense' || m.type === 'withdrawal' ? '-' : ''} ${Number(m.amount).toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

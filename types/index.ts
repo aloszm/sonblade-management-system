@@ -8,6 +8,7 @@ export interface Barber {
     avatar_url: string;
     status: 'active' | 'busy' | 'off';
     commission_rate: number;
+    commission_type: 'tiered' | 'flat_50';
     total_cuts: number;
     created_at: string;
     updated_at: string;
@@ -63,6 +64,7 @@ export interface Sale {
     transfer_amount: number;
     payment_method: 'cash' | 'card' | 'transfer' | 'mixed';
     notes: string;
+    commission_type: 'tiered' | 'flat_50';
     created_at: string;
     // Joined fields
     barber?: Barber;

@@ -115,7 +115,7 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                     {/* Commission Progress Bar */}
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
                         <h3 className="text-sm font-bold text-gray-700 mb-3">Progreso de Comisión — {kpis.cuts} cortes</h3>
-                        <CommissionBar cuts={kpis.cuts} />
+                        <CommissionBar cuts={kpis.cuts} isFlat50={barber?.commission_type === 'flat_50'} />
                     </div>
                 </div>
             )}
