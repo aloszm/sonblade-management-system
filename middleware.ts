@@ -38,9 +38,11 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/pos', request.url));
         }
 
-        // If trying to access root, redirect to POS or Admin
+        // If trying to access root, redirect barbers to POS (Admins stay on root Dashboard)
         if (pathname === '/') {
-            return NextResponse.redirect(new URL(role === 'admin' ? '/admin' : '/pos', request.url));
+            if (role !== 'admin') {
+                return NextResponse.redirect(new URL('/pos', request.url));
+            }
         }
 
         return NextResponse.next();
