@@ -26,7 +26,7 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
     const [pinSaving, setPinSaving] = useState(false);
 
     useEffect(() => {
-        fetch('/api/auth/me').then(res => res.json()).then(data => {
+        fetch('/api/auth/me', { cache: 'no-store' }).then(res => res.json()).then(data => {
             if (data.authenticated) setAuthedUserId(data.user.id);
         });
     }, []);

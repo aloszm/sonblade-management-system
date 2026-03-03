@@ -78,7 +78,7 @@ const POS: React.FC = () => {
     const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch('/api/auth/me')
+        fetch('/api/auth/me', { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 if (data.authenticated) {

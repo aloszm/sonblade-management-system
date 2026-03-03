@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const [user, setUser] = React.useState<{ name: string, role: string, id: string } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/auth/me')
+    fetch('/api/auth/me', { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (data.authenticated) setUser(data.user);
