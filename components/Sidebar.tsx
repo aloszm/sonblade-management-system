@@ -41,22 +41,31 @@ interface MenuSection {
   items: MenuItem[];
 }
 
+// Items allowed for barbers (by href)
+const BARBER_ALLOWED = ['/pos', '/caja', '/barbero'];
+
 const menuSections: MenuSection[] = [
   {
     title: 'PRINCIPAL',
     items: [
-      { href: '/', label: 'Panel Dashboard', icon: LayoutDashboard },
+      { href: '/', label: 'Panel Dashboard', icon: LayoutDashboard, adminOnly: true },
       { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart },
-      { href: '/ventas/historial', label: 'Historial de Ventas', icon: FileText },
+      { href: '/ventas/historial', label: 'Historial de Ventas', icon: FileText, adminOnly: true },
     ]
   },
   {
     title: 'OPERACIONES',
     items: [
-      { href: '/citas', label: 'Agenda / Citas', icon: Calendar },
+      { href: '/citas', label: 'Agenda / Citas', icon: Calendar, adminOnly: true },
       { href: '/caja', label: 'Control de Caja', icon: Banknote },
       { href: '/gastos', label: 'Gastos e Insumos', icon: TrendingDown, adminOnly: true },
-      { href: '/inventario', label: 'Inventario / Stock', icon: Package },
+      { href: '/inventario', label: 'Inventario / Stock', icon: Package, adminOnly: true },
+    ]
+  },
+  {
+    title: 'MI ESPACIO',
+    items: [
+      { href: '/barbero', label: 'Mi Panel Personal', icon: UserCircle },
     ]
   },
   {
@@ -64,7 +73,6 @@ const menuSections: MenuSection[] = [
     items: [
       { href: '/equipo', label: 'Equipo de Barberos', icon: Users, adminOnly: true },
       { href: '/clientes', label: 'Cartera de Clientes', icon: UserPlus, adminOnly: true },
-      { href: '/barbero', label: 'Mi Panel Personal', icon: UserCircle },
     ]
   },
   {
@@ -105,8 +113,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       {/* Brand Header */}
       <div className="h-20 flex items-center px-6 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-gradient-to-br from-sonblade-gold to-yellow-600 rounded-xl flex items-center justify-center p-2 shadow-[0_0_15px_rgba(212,175,55,0.3)] group-hover:scale-105 transition-all duration-300">
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain invert grayscale brightness-200" />
+          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg group-hover:scale-105 transition-all duration-300">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col">
             <span className="font-black text-lg tracking-tighter text-white leading-none">SONBLADE</span>
@@ -120,12 +128,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         {menuSections.map((section, idx) => {
           // Filter items based on user role
           const visibleItems = section.items.filter(item => {
-            if (item.adminOnly && user?.role !== 'admin') return false;
-
-            // Special case for Barber panel
             if (user?.role !== 'admin') {
-              const allowedForBarber = ['/', '/pos', '/citas', '/caja', '/barbero', '/barberos'];
-              return allowedForBarber.some(p => item.href.startsWith(p));
+              // Barbers only see non-adminOnly items whose href is in the allowed list
+              if (item.adminOnly) return false;
+              return BARBER_ALLOWED.some(p => item.href.startsWith(p));
             }
             return true;
           });
@@ -185,9 +191,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             <p className="text-sm font-bold text-white truncate">{user ? user.name : 'Cargando...'}</p>
             <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">{user?.role === 'admin' ? 'ADMINISTRADOR' : 'BARBERO'}</p>
           </div>
-          <Link href="/configuracion" className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-            <Settings className="h-4 w-4" />
-          </Link>
+          {user?.role === 'admin' && (
+            <Link href="/configuracion" className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+              <Settings className="h-4 w-4" />
+            </Link>
+          )}
         </div>
 
         <button
