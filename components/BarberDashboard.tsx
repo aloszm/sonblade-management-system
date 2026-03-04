@@ -1,24 +1,53 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, DollarSign, Scissors, Gift, TrendingUp, CreditCard, Banknote, Loader2, ChevronDown } from 'lucide-react';
-import { useSupabase } from '@/hooks/useSupabase';
-import { getBarbers } from '@/lib/services/barber';
-import { getBarberStats, getCommissionTier } from '@/lib/services/barber';
 import type { Barber } from '@/types';
+
+function getCommissionTier(totalCuts: number): { current: number; next: number; cutsForNext: number } {
+    const tiers = [
+        { minCuts: 0, rate: 40 },
+        { minCuts: 26, rate: 45 },
+        { minCuts: 50, rate: 50 },
+    ];
+    let currentTier = tiers[0];
+    let nextTier = tiers[1];
+    for (let i = 0; i < tiers.length; i++) {
+        if (totalCuts >= tiers[i].minCuts) {
+            currentTier = tiers[i];
+            nextTier = tiers[i + 1] || tiers[i];
+        }
+    }
+    return { current: currentTier.rate, next: nextTier.rate, cutsForNext: Math.max(0, nextTier.minCuts - totalCuts) };
+}
 
 const BarberDashboard: React.FC = () => {
     const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
+    const [barbers, setBarbers] = useState<Barber[] | null>(null);
+    const [loadingBarbers, setLoadingBarbers] = useState(true);
+    const [stats, setStats] = useState<any>(null);
+    const [loadingStats, setLoadingStats] = useState(false);
 
-    const { data: barbers, loading: loadingBarbers } = useSupabase<Barber[]>(getBarbers);
+    // Fetch barbers via API
+    useEffect(() => {
+        fetch('/api/barbers').then(r => r.json()).then(data => {
+            if (Array.isArray(data)) setBarbers(data);
+        }).catch(console.error).finally(() => setLoadingBarbers(false));
+    }, []);
 
     // Auto-select first barber
     const barberId = selectedBarberId || barbers?.[0]?.id || null;
 
-    const { data: stats, loading: loadingStats } = useSupabase(
-        () => barberId ? getBarberStats(barberId) : Promise.resolve(null),
-        [barberId]
-    );
+    // Fetch stats via API
+    useEffect(() => {
+        if (!barberId) return;
+        setLoadingStats(true);
+        fetch(`/api/barbers/${barberId}/stats?period=week`)
+            .then(r => r.json())
+            .then(data => setStats(data))
+            .catch(console.error)
+            .finally(() => setLoadingStats(false));
+    }, [barberId]);
 
     const tier = stats?.barber ? getCommissionTier(stats.barber.total_cuts) : null;
     const now = new Date();
@@ -205,13 +234,13 @@ const BarberDashboard: React.FC = () => {
                                             <td colSpan={5} className="p-8 text-center text-gray-400">No hay ventas hoy</td>
                                         </tr>
                                     )}
-                                    {stats?.todayStats?.sales?.map((sale) => (
+                                    {stats?.todayStats?.sales?.map((sale: any) => (
                                         <tr key={sale.id} className="hover:bg-gray-50">
                                             <td className="p-4 font-medium text-gray-900">
                                                 {new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                                             </td>
                                             <td className="p-4">
-                                                {sale.items?.map((item, idx) => (
+                                                {sale.items?.map((item: any, idx: number) => (
                                                     <span key={idx} className={`inline-flex mr-1 mb-1 px-2 py-0.5 rounded text-xs font-semibold ${item.item_type === 'service'
                                                         ? 'bg-blue-100 text-blue-700'
                                                         : 'bg-green-100 text-green-700'
@@ -221,7 +250,7 @@ const BarberDashboard: React.FC = () => {
                                                 ))}
                                             </td>
                                             <td className="p-4 text-gray-900">
-                                                {sale.items?.map(i => i.item_name).join(', ') || 'Venta'}
+                                                {sale.items?.map((i: any) => i.item_name).join(', ') || 'Venta'}
                                             </td>
                                             <td className="p-4 text-gray-500 flex items-center gap-1">
                                                 {sale.payment_method === 'card' ? <CreditCard className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}

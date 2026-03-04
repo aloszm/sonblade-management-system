@@ -397,45 +397,52 @@ const POS: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 2. Services — Grid + Search */}
+                {/* 2. Service Search */}
                 <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-sonblade-primary">
                     <label className="text-sm font-semibold text-gray-500 flex items-center gap-2 mb-3">
                         <Scissors className="h-4 w-4 text-sonblade-primary" />
                         Agregar Servicio
                     </label>
-                    <div className="relative mb-3">
+                    <div className="relative">
                         <Search className="absolute left-3 top-3 text-gray-400 h-5 w-5" />
                         <input
                             className="w-full pl-10 p-3 bg-white border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-sonblade-primary outline-none"
                             type="text"
                             value={serviceSearch}
                             onChange={(e) => setServiceSearch(e.target.value)}
-                            placeholder="Filtrar servicios..."
+                            placeholder="Buscar servicio... (ej: Corte, Barba, VIP)"
                         />
-                    </div>
-                    {/* Service grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-52 overflow-y-auto scrollbar-hide">
-                        {(serviceSearch ? filteredServices : (services || [])).map(s => {
-                            const inCart = cart.some(i => i.service_id === s.id);
-                            return (
-                                <button
-                                    key={s.id}
-                                    onClick={() => addService(s)}
-                                    disabled={inCart}
-                                    className={`text-left p-3 rounded-xl border transition-all ${inCart
-                                        ? 'bg-sonblade-primary/10 border-sonblade-primary/30 opacity-60 cursor-default'
-                                        : 'bg-gray-50 border-gray-200 hover:border-sonblade-primary hover:bg-blue-50 cursor-pointer'
-                                        }`}
-                                >
-                                    <p className="font-semibold text-gray-900 text-sm truncate">{s.name}</p>
-                                    <p className="text-xs text-gray-500">{s.duration_minutes} min</p>
-                                    <p className="font-bold text-sonblade-primary text-sm mt-1">${s.price.toFixed(2)}</p>
-                                    {inCart && <p className="text-[10px] text-blue-500 font-bold mt-0.5">✓ EN TICKET</p>}
-                                </button>
-                            );
-                        })}
-                        {(services || []).length === 0 && (
-                            <p className="col-span-full text-center text-gray-400 text-sm py-4">No hay servicios registrados</p>
+                        {serviceSearch && filteredServices.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-20 max-h-64 overflow-y-auto">
+                                {filteredServices.map(s => {
+                                    const inCart = cart.some(i => i.service_id === s.id);
+                                    return (
+                                        <button
+                                            key={s.id}
+                                            onClick={() => addService(s)}
+                                            disabled={inCart}
+                                            className={`w-full text-left px-4 py-3 flex justify-between items-center border-b border-gray-100 last:border-0 transition-colors ${inCart
+                                                ? 'bg-blue-50 text-gray-400 cursor-default'
+                                                : 'hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            <div>
+                                                <p className="font-medium text-gray-900 text-sm">{s.name}</p>
+                                                <p className="text-xs text-gray-500">{s.duration_minutes} min</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-bold text-sonblade-primary">${s.price.toFixed(2)}</span>
+                                                {inCart && <p className="text-xs text-blue-500">✓ agregado</p>}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {serviceSearch && filteredServices.length === 0 && (
+                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-20 p-4 text-center text-gray-400 text-sm">
+                                No se encontraron servicios
+                            </div>
                         )}
                     </div>
                 </div>
