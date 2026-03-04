@@ -46,10 +46,23 @@ export async function GET(
             .lte('created_at', endDate.toISOString())
             .order('created_at', { ascending: false });
 
+        // Tier table for 'tiered' commission
+        const tiers = [
+            { min: 0, rate: 35 }, { min: 20, rate: 40 },
+            { min: 40, rate: 45 }, { min: 60, rate: 50 }
+        ];
+        function getTieredRate(cuts: number): number {
+            let r = 35;
+            for (const t of tiers) { if (cuts >= t.min) r = t.rate; }
+            return r;
+        }
+
         let totalCuts = 0;
         let serviceRevenue = 0;
         let productRevenue = 0;
         let totalTips = 0;
+        let totalServiceCommission = 0;
+        let totalProductCommission = 0;
 
         // Service breakdown: { name: { count, revenue } }
         const svcMap: Record<string, { count: number; revenue: number }> = {};
@@ -82,13 +95,22 @@ export async function GET(
             productRevenue += saleProductRev;
             totalTips += Number(sale.tip || 0);
 
-            const tiers = [
-                { min: 0, rate: 35 }, { min: 20, rate: 40 },
-                { min: 40, rate: 45 }, { min: 60, rate: 50 }
-            ];
-            let rate = 35;
-            for (const t of tiers) { if (totalCuts >= t.min) rate = t.rate; }
-            const saleCommission = (saleServiceRev * rate / 100) + (saleProductRev * 0.20) + Number(sale.tip || 0);
+            // Use the commission_type stored AT the time of sale
+            const saleCommType = sale.commission_type || barber.commission_type || 'tiered';
+            let rate: number;
+            if (saleCommType === 'flat_50') {
+                rate = 50;
+            } else {
+                // Tiered: based on accumulated cuts so far in this period
+                rate = getTieredRate(totalCuts);
+            }
+
+            const svcComm = saleServiceRev * rate / 100;
+            const prdComm = saleProductRev * 0.20;
+            const saleCommission = svcComm + prdComm + Number(sale.tip || 0);
+
+            totalServiceCommission += svcComm;
+            totalProductCommission += prdComm;
 
             return {
                 id: sale.id,
@@ -105,13 +127,9 @@ export async function GET(
             };
         });
 
-        const tiers = [
-            { min: 0, rate: 35 }, { min: 20, rate: 40 },
-            { min: 40, rate: 45 }, { min: 60, rate: 50 }
-        ];
-        let commissionRate = 35;
-        for (const t of tiers) { if (totalCuts >= t.min) commissionRate = t.rate; }
-        const totalCommission = (serviceRevenue * commissionRate / 100) + (productRevenue * 0.20) + totalTips;
+        // Final commission rate (current, for display purposes)
+        const commissionRate = barber.commission_type === 'flat_50' ? 50 : getTieredRate(totalCuts);
+        const totalCommission = totalServiceCommission + totalProductCommission + totalTips;
 
         // Build sorted service breakdown array
         const serviceBreakdown = Object.entries(svcMap)
@@ -129,8 +147,8 @@ export async function GET(
                 tips: totalTips,
                 commissionRate,
                 totalCommission: Math.round(totalCommission * 100) / 100,
-                serviceCommission: Math.round((serviceRevenue * commissionRate / 100) * 100) / 100,
-                productCommission: Math.round((productRevenue * 0.20) * 100) / 100
+                serviceCommission: Math.round(totalServiceCommission * 100) / 100,
+                productCommission: Math.round(totalProductCommission * 100) / 100
             },
             serviceBreakdown,
             movements
