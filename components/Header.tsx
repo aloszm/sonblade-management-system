@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Menu, Bell, HelpCircle, Search, ChevronDown, Plus } from 'lucide-react';
 
@@ -21,6 +21,23 @@ const pageTitles: Record<string, string> = {
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const pathname = usePathname();
   const title = pageTitles[pathname] ?? 'Sonblade';
+  const [userName, setUserName] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) {
+          setUserName(data.user.name);
+          setUserRole(data.user.role);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  // Initials for avatar
+  const initials = userName ? userName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '?';
 
   return (
     <header className="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-6 z-10">
@@ -64,12 +81,12 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
         <div className="relative ml-2">
           <button className="flex items-center gap-2 focus:outline-none group">
-            <img
-              src="https://picsum.photos/100/100"
-              alt="User"
-              className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-sonblade-primary/50 transition-all"
-            />
-            <span className="hidden md:block text-sm font-medium text-gray-700 group-hover:text-sonblade-primary transition-colors">Alonso M.</span>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-black to-gray-700 flex items-center justify-center text-sonblade-gold font-bold text-xs ring-2 ring-transparent group-hover:ring-sonblade-primary/50 transition-all">
+              {initials}
+            </div>
+            <span className="hidden md:block text-sm font-medium text-gray-700 group-hover:text-sonblade-primary transition-colors">
+              {userName || 'Cargando...'}
+            </span>
             <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-sonblade-primary" />
           </button>
         </div>
