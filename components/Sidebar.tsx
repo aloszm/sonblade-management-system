@@ -56,16 +56,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
   if (!isOpen) return null;
 
-  // Filter items based on role
-  const visibleItems = menuItems.filter(item => {
-    if (user?.role === 'admin') return true;
-    // Barber permissions
-    const allowedForBarber = ['/pos', '/caja', '/barbero'];
-    if (item.href === '/barbero') {
-      item.href = `/barberos/${user?.id}`; // update dynamic link
-    }
-    return allowedForBarber.some(p => item.href.startsWith(p));
-  });
+  // Filter items based on role — clone + remap without mutating the shared const
+  const visibleItems = menuItems
+    .filter(item => {
+      if (user?.role === 'admin') return true;
+      const allowedForBarber = ['/pos', '/caja', '/barbero'];
+      return allowedForBarber.some(p => item.href.startsWith(p));
+    })
+    .map(item => {
+      if (item.href === '/barbero') {
+        return { ...item, href: `/barberos/${user?.id}` };
+      }
+      return item;
+    });
 
   return (
     <aside className="h-full bg-sonblade-dark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl w-64">

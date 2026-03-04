@@ -38,13 +38,17 @@ const MobileNav = () => {
         router.refresh();
     };
 
-    // Filter items
-    const visibleItems = mobileItems.filter(item => {
-        if (user?.role === 'admin') return true;
-        const allowed = ['/pos', '/caja', '/barbero'];
-        if (item.href === '/barbero') item.href = `/barberos/${user?.id}`;
-        return allowed.some(p => item.href.startsWith(p));
-    });
+    // Filter items — clone + remap without mutating the shared const
+    const visibleItems = mobileItems
+        .filter(item => {
+            if (user?.role === 'admin') return true;
+            const allowed = ['/pos', '/caja', '/barbero'];
+            return allowed.some(p => item.href.startsWith(p));
+        })
+        .map(item => {
+            if (item.href === '/barbero') return { ...item, href: `/barberos/${user?.id}` };
+            return item;
+        });
 
     return (
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-sonblade-dark border-t border-white/10 flex items-center justify-around px-2 z-50">

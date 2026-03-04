@@ -16,9 +16,11 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/api/auth') ||
         pathname === '/api/barbers' || // Needed for login dropdown
         pathname.startsWith('/_next') ||
-        pathname.startsWith('/favicon.ico') ||
+        pathname === '/favicon.ico' ||
         pathname === '/manifest.json' ||
-        pathname.includes('icons')
+        pathname === '/sw.js' ||
+        pathname === '/logo.png' ||
+        pathname.startsWith('/icons')
     ) {
         return NextResponse.next();
     }
