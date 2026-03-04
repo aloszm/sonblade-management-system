@@ -213,7 +213,7 @@ export default function TeamPage() {
                                 </select>
                                 <p className="text-xs text-gray-400 mt-1">
                                     {formData.commission_type === 'tiered'
-                                        ? '0-25 cortes: 40% | 26-49: 45% | 50+: 50%'
+                                        ? '1-24 cortes: 40% | 25-49: 45% | 50+: 50%'
                                         : 'Comisión fija del 50% en todos los servicios'}
                                 </p>
                             </div>

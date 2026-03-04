@@ -7,7 +7,7 @@ import type { Barber } from '@/types';
 function getCommissionTier(totalCuts: number): { current: number; next: number; cutsForNext: number } {
     const tiers = [
         { minCuts: 0, rate: 40 },
-        { minCuts: 26, rate: 45 },
+        { minCuts: 25, rate: 45 },
         { minCuts: 50, rate: 50 },
     ];
     let currentTier = tiers[0];

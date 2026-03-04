@@ -267,10 +267,9 @@ export default function SettingsPage() {
                         <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
                             <h3 className="font-black text-white text-sm mb-3">Comisión por Servicios</h3>
                             <div className="space-y-2 text-xs text-gray-300">
-                                <div className="flex justify-between"><span>Base a 49 cortes</span><span className="font-bold text-sonblade-gold">35%</span></div>
-                                <div className="flex justify-between"><span>50 a 99 cortes</span><span className="font-bold text-sonblade-gold">40%</span></div>
-                                <div className="flex justify-between"><span>100 a 149 cortes</span><span className="font-bold text-sonblade-gold">45%</span></div>
-                                <div className="flex justify-between"><span>150+ cortes</span><span className="font-bold text-sonblade-gold">50% MAX</span></div>
+                                <div className="flex justify-between"><span>1 a 24 cortes</span><span className="font-bold text-sonblade-gold">40%</span></div>
+                                <div className="flex justify-between"><span>25 a 49 cortes</span><span className="font-bold text-sonblade-gold">45%</span></div>
+                                <div className="flex justify-between"><span>50+ cortes</span><span className="font-bold text-sonblade-gold">50% MAX</span></div>
                             </div>
                         </div>
                         <div className="bg-white/5 p-5 rounded-2xl border border-white/10">

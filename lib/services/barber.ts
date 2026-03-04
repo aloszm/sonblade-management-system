@@ -181,11 +181,11 @@ export async function getBarberStats(barberId: string) {
     };
 }
 
-// Commission tiers
+// Commission tiers: 1-24 cuts = 40% | 25-49 cuts = 45% | 50+ cuts = 50%
 export function getCommissionTier(totalCuts: number): { current: number; next: number; cutsForNext: number } {
     const tiers = [
         { minCuts: 0, rate: 40 },
-        { minCuts: 26, rate: 45 },
+        { minCuts: 25, rate: 45 },
         { minCuts: 50, rate: 50 },
     ];
 

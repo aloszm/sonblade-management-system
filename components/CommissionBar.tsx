@@ -10,8 +10,8 @@ interface CommissionBarProps {
 }
 
 const tiers = [
-    { min: 0, max: 25, rate: 40, label: '40%', color: 'bg-gray-400', activeColor: 'bg-gray-500' },
-    { min: 26, max: 49, rate: 45, label: '45%', color: 'bg-gray-300', activeColor: 'bg-blue-500' },
+    { min: 0, max: 24, rate: 40, label: '40%', color: 'bg-gray-400', activeColor: 'bg-gray-500' },
+    { min: 25, max: 49, rate: 45, label: '45%', color: 'bg-gray-300', activeColor: 'bg-blue-500' },
     { min: 50, max: 999, rate: 50, label: '50%', color: 'bg-gray-300', activeColor: 'bg-sonblade-gold' },
 ];
 

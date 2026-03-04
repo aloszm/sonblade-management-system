@@ -47,12 +47,13 @@ export async function GET(
             .order('created_at', { ascending: false });
 
         // Tier table for 'tiered' commission
+        // 1-24 cuts: 40% | 25-49 cuts: 45% | 50+ cuts: 50%
         const tiers = [
-            { min: 0, rate: 35 }, { min: 20, rate: 40 },
-            { min: 40, rate: 45 }, { min: 60, rate: 50 }
+            { min: 0, rate: 40 }, { min: 25, rate: 45 },
+            { min: 50, rate: 50 }
         ];
         function getTieredRate(cuts: number): number {
-            let r = 35;
+            let r = 40;
             for (const t of tiers) { if (cuts >= t.min) r = t.rate; }
             return r;
         }
