@@ -146,7 +146,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
                   let href = item.href;
-                  if (href === '/barbero' && user?.id) {
+                  // Only barbers get redirected to their personal page
+                  // Admins go to /barbero which has the barber selector dropdown
+                  if (href === '/barbero' && user?.role !== 'admin' && user?.id) {
                     href = `/barberos/${user.id}`;
                   }
 
