@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addCashMovement, confirmMovement, getSessionMovements, getDeletedMovements } from '@/lib/services/cash';
+import { addCashMovement, confirmMovement, getSessionMovements, getDeletedMovements, getActiveSession } from '@/lib/services/cash';
+import { supabaseAdmin as supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { session_id, type, description, amount, payment_method, status } = body;
+        let { session_id, type, description, amount, payment_method, status } = body;
 
-        if (!session_id || !type || !description || !amount) {
-            return NextResponse.json({ error: 'Campos requeridos: session_id, type, description, amount' }, { status: 400 });
+        if (!session_id) {
+            const active = await getActiveSession();
+            if (!active) return NextResponse.json({ error: 'Debe haber una caja abierta para registrar movimientos.' }, { status: 400 });
+            session_id = active.id;
+        }
+
+        if (!type || !description || !amount) {
+            return NextResponse.json({ error: 'Campos requeridos: type, description, amount' }, { status: 400 });
         }
 
         const movement = await addCashMovement(
@@ -26,11 +33,22 @@ export async function GET(request: NextRequest) {
     try {
         const params = request.nextUrl.searchParams;
         const sessionId = params.get('session_id');
-        const type = params.get('type'); // 'deleted' to get deleted records
+        const type = params.get('type');
 
         if (type === 'deleted') {
             const deleted = await getDeletedMovements();
             return NextResponse.json(deleted);
+        }
+
+        if (type === 'expense' && !sessionId) {
+            // Fetch all expenses regardless of session
+            const { data, error } = await supabase
+                .from('cash_movements')
+                .select('*')
+                .eq('type', 'expense')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return NextResponse.json(data);
         }
 
         if (!sessionId) {

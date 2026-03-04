@@ -16,23 +16,66 @@ import {
   ShieldCheck,
   FileText,
   LogOut,
+  Calendar,
+  TrendingDown,
+  Scissors,
+  BarChart3,
+  Layers,
+  ChevronRight,
+  UserPlus
 } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
 }
 
-const menuItems = [
-  { href: '/', label: 'Panel', icon: LayoutDashboard },
-  { href: '/pos', label: 'POS', icon: ShoppingCart },
-  { href: '/ventas/historial', label: 'Historial Ventas', icon: FileText },
-  { href: '/citas', label: 'Citas', icon: Receipt },
-  { href: '/inventario', label: 'Inventario', icon: Package },
-  { href: '/caja', label: 'Caja', icon: Banknote },
-  { href: '/equipo', label: 'Equipo', icon: Users },
-  { href: '/barbero', label: 'Mi Panel (Barbero)', icon: UserCircle },
-  { href: '/admin', label: 'Administrador', icon: ShieldCheck },
-  { href: '/admin/auditoria', label: 'Auditoría', icon: ShieldCheck },
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: any;
+  adminOnly?: boolean;
+}
+
+interface MenuSection {
+  title: string;
+  items: MenuItem[];
+}
+
+const menuSections: MenuSection[] = [
+  {
+    title: 'PRINCIPAL',
+    items: [
+      { href: '/', label: 'Panel Dashboard', icon: LayoutDashboard },
+      { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart },
+      { href: '/ventas/historial', label: 'Historial de Ventas', icon: FileText },
+    ]
+  },
+  {
+    title: 'OPERACIONES',
+    items: [
+      { href: '/citas', label: 'Agenda / Citas', icon: Calendar },
+      { href: '/caja', label: 'Control de Caja', icon: Banknote },
+      { href: '/gastos', label: 'Gastos e Insumos', icon: TrendingDown, adminOnly: true },
+      { href: '/inventario', label: 'Inventario / Stock', icon: Package },
+    ]
+  },
+  {
+    title: 'GESTIÓN',
+    items: [
+      { href: '/equipo', label: 'Equipo de Barberos', icon: Users, adminOnly: true },
+      { href: '/clientes', label: 'Cartera de Clientes', icon: UserPlus, adminOnly: true },
+      { href: '/barbero', label: 'Mi Panel Personal', icon: UserCircle },
+    ]
+  },
+  {
+    title: 'ADMINISTRACIÓN',
+    items: [
+      { href: '/admin', label: 'Resumen Financiero', icon: ShieldCheck, adminOnly: true },
+      { href: '/servicios', label: 'Catálogo de Servicios', icon: Scissors, adminOnly: true },
+      { href: '/reportes', label: 'Reportes y PDF', icon: BarChart3, adminOnly: true },
+      { href: '/admin/auditoria', label: 'Auditoría de Sistema', icon: Layers, adminOnly: true },
+    ]
+  }
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
@@ -49,6 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   }, []);
 
   const handleLogout = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return;
     await fetch('/api/auth/login', { method: 'DELETE' });
     router.push('/login');
     router.refresh();
@@ -56,79 +100,103 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
   if (!isOpen) return null;
 
-  // Filter items based on role — clone + remap without mutating the shared const
-  const visibleItems = menuItems
-    .filter(item => {
-      if (user?.role === 'admin') return true;
-      const allowedForBarber = ['/pos', '/caja', '/barbero'];
-      return allowedForBarber.some(p => item.href.startsWith(p));
-    })
-    .map(item => {
-      if (item.href === '/barbero') {
-        return { ...item, href: `/barberos/${user?.id}` };
-      }
-      return item;
-    });
-
   return (
-    <aside className="h-full bg-sonblade-dark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl w-64">
-      <div className="h-20 flex items-center px-6 bg-black/10">
+    <aside className="h-full bg-[#0a0a0a] text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-2xl w-64 border-r border-white/5">
+      {/* Brand Header */}
+      <div className="h-20 flex items-center px-6 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg group-hover:scale-110 transition-transform duration-200">
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+          <div className="w-10 h-10 bg-gradient-to-br from-sonblade-gold to-yellow-600 rounded-xl flex items-center justify-center p-2 shadow-[0_0_15px_rgba(212,175,55,0.3)] group-hover:scale-105 transition-all duration-300">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain invert grayscale brightness-200" />
           </div>
-          <span className="font-bold text-xl tracking-tighter text-white">SONBLADE</span>
+          <div className="flex flex-col">
+            <span className="font-black text-lg tracking-tighter text-white leading-none">SONBLADE</span>
+            <span className="text-[10px] text-sonblade-gold font-bold tracking-[0.2em] mt-1 uppercase">Management</span>
+          </div>
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-sonblade">
-        {visibleItems.map((item) => {
-          const isActive = pathname === item.href || (pathname.startsWith('/barberos') && item.href.startsWith('/barberos'));
+      {/* Navigation */}
+      <nav className="flex-1 px-4 py-6 space-y-8 overflow-y-auto scrollbar-sonblade">
+        {menuSections.map((section, idx) => {
+          // Filter items based on user role
+          const visibleItems = section.items.filter(item => {
+            if (item.adminOnly && user?.role !== 'admin') return false;
+
+            // Special case for Barber panel
+            if (user?.role !== 'admin') {
+              const allowedForBarber = ['/', '/pos', '/citas', '/caja', '/barbero', '/barberos'];
+              return allowedForBarber.some(p => item.href.startsWith(p));
+            }
+            return true;
+          });
+
+          if (visibleItems.length === 0) return null;
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
-                ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20'
-                : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                }`}
-            >
-              <item.icon
-                className={`mr-3 h-5 w-5 ${isActive ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'
-                  }`}
-              />
-              {item.label}
-            </Link>
+            <div key={idx} className="space-y-1">
+              <h3 className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">
+                {section.title}
+              </h3>
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  let href = item.href;
+                  if (href === '/barbero' && user?.id) {
+                    href = `/barberos/${user.id}`;
+                  }
+
+                  const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={href}
+                      className={`group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive
+                        ? 'bg-sonblade-primary/10 text-sonblade-gold border border-sonblade-gold/20'
+                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                        }`}
+                    >
+                      <div className="flex items-center">
+                        <item.icon
+                          className={`mr-3 h-4 w-4 ${isActive ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'
+                            }`}
+                        />
+                        {item.label}
+                      </div>
+                      {isActive && <ChevronRight className="h-3 w-3" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
-
-        <div className="pt-4 mt-4 border-t border-white/10">
-          {user?.role === 'admin' && (
-            <>
-              <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Configuración</h3>
-              <Link href="/configuracion" className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'bg-sonblade-primary text-sonblade-gold shadow-md border border-sonblade-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                <Store className={`mr-3 h-5 w-5 ${pathname === '/configuracion' ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'}`} />
-                Perfil del Negocio
-              </Link>
-            </>
-          )}
-          <button onClick={handleLogout} className="w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all mt-2">
-            <LogOut className="mr-3 h-5 w-5 text-red-500/70 group-hover:text-red-400" />
-            Cerrar Sesión
-          </button>
-        </div>
       </nav>
 
-      <div className="p-4 bg-black/20">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full border-2 border-sonblade-gold bg-sonblade-dark flex items-center justify-center font-bold text-white uppercase text-sm">
-            {user ? user.name.charAt(0) : '?'}
+      {/* Account Info & Logout */}
+      <div className="mt-auto p-4 border-t border-white/5 bg-black/20">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative">
+            <div className="w-10 h-10 rounded-xl border border-white/10 bg-sonblade-dark flex items-center justify-center font-bold text-white uppercase text-sm shadow-inner">
+              {user ? user.name.charAt(0) : '?'}
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-[#0a0a0a] rounded-full"></div>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user ? user.name : 'Cargando...'}</p>
-            <p className="text-xs text-sonblade-gold truncate uppercase tracking-widest">{user?.role === 'admin' ? 'Administrador' : 'Barbero'}</p>
+            <p className="text-sm font-bold text-white truncate">{user ? user.name : 'Cargando...'}</p>
+            <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">{user?.role === 'admin' ? 'ADMINISTRADOR' : 'BARBERO'}</p>
           </div>
+          <Link href="/configuracion" className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+            <Settings className="h-4 w-4" />
+          </Link>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="w-full group flex items-center px-4 py-2.5 text-xs font-bold rounded-xl text-red-500 hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/20"
+        >
+          <LogOut className="mr-3 h-4 w-4" />
+          CERRAR SESIÓN
+        </button>
       </div>
     </aside>
   );
