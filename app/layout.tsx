@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
@@ -11,12 +11,18 @@ const inter = Inter({
 
 import Script from 'next/script';
 
+export const viewport: Viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    themeColor: '#000000',
+};
+
 export const metadata: Metadata = {
     title: 'Sonblade — Gestión de Barbería',
     description: 'ERP para gestión de barberías. Administra citas, POS, inventario, caja y equipo.',
     manifest: '/manifest.json',
-    themeColor: '#000000',
-    viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0',
     appleWebApp: {
         capable: true,
         statusBarStyle: 'black-translucent',

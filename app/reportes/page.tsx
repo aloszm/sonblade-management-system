@@ -150,7 +150,7 @@ export default function ReportsPage() {
                                         dataKey="value"
                                     >
                                         {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} cornerRadius={8} />
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
                                     <Tooltip formatter={(v: any) => `$${v.toFixed(2)}`} />
