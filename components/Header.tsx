@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, Bell, HelpCircle, Search, ChevronDown, Plus, LogOut, Settings } from 'lucide-react';
+import { Menu, Bell, HelpCircle, Search, ChevronDown, Plus, LogOut, Settings, Users } from 'lucide-react';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -117,6 +117,16 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                  <p className="text-sm font-semibold text-gray-800">{userName || 'Usuario'}</p>
                  <p className="text-xs text-gray-500 capitalize">{userRole}</p>
               </div>
+              
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              >
+                <Users className="h-4 w-4" /> Cambiar de usuario
+              </button>
+
+              <div className="h-px bg-gray-100 my-1"></div>
+
               <button 
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"

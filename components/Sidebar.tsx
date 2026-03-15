@@ -192,9 +192,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white truncate">{user ? user.name : 'Cargando...'}</p>
-            <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">
-              {user ? (user.role === 'admin' ? 'ADMINISTRADOR' : user.role === 'recepcion' ? 'RECEPCIONISTA' : 'BARBERO') : 'CARGANDO...'}
-            </p>
+            {user && user.name.toLowerCase() !== 'administrador' && user.name.toLowerCase() !== 'admin' && (
+              <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">
+                {user.role === 'admin' ? 'ADMINISTRADOR' : user.role === 'recepcion' ? 'RECEPCIONISTA' : 'BARBERO'}
+              </p>
+            )}
+            {!user && (
+              <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">CARGANDO...</p>
+            )}
           </div>
           {user?.role === 'admin' && (
             <Link href="/configuracion" className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
