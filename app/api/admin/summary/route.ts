@@ -64,16 +64,16 @@ export async function GET(request: NextRequest) {
             .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
             .sort((a, b) => b.count - a.count);
 
-        // Per-barber with commissions
+        // Per-barber with commissions — parallelized
         const barbers = await getBarbers();
-        const barberSummaries = [];
+        const allBarberStats = await Promise.all(barbers.map(b => getBarberStats(b.id)));
         let totalCommissions = 0;
-
-        for (const b of barbers) {
-            const stats = await getBarberStats(b.id);
-            if (stats) {
+        const barberSummaries = barbers
+            .map((b, i) => {
+                const stats = allBarberStats[i];
+                if (!stats) return null;
                 totalCommissions += stats.weeklyStats.commission;
-                barberSummaries.push({
+                return {
                     id: b.id, name: b.name, status: b.status,
                     cuts: stats.weeklyStats.cuts,
                     revenue: stats.weeklyStats.totalGenerated,
@@ -84,10 +84,10 @@ export async function GET(request: NextRequest) {
                     serviceCommission: Math.round(stats.weeklyStats.serviceCommission * 100) / 100,
                     productCommission: Math.round(stats.weeklyStats.productCommission * 100) / 100,
                     serviceBreakdown: stats.weeklyStats.serviceBreakdown
-                });
-            }
-        }
-        barberSummaries.sort((a, b) => b.revenue - a.revenue);
+                };
+            })
+            .filter(Boolean);
+        barberSummaries.sort((a, b) => b!.revenue - a!.revenue);
 
         // Fetch existing payments
         const { data: payments } = await supabase

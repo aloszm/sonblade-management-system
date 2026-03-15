@@ -189,45 +189,23 @@ export async function deleteMovement(movementId: string, deletedBy: string = 'Ad
 }
 
 async function updateSessionTotals(sessionId: string, type: string, amount: number, paymentMethod: string) {
-    const session = await getActiveSession();
-    if (!session || session.id !== sessionId) return;
-
-    const updates: Partial<CashSession> = {};
-    if (type === 'sale') {
-        updates.total_sales = session.total_sales + amount;
-        if (paymentMethod === 'cash') updates.total_cash = session.total_cash + amount;
-        if (paymentMethod === 'card') updates.total_card = session.total_card + amount;
-        if (paymentMethod === 'transfer') updates.total_transfer = session.total_transfer + amount;
-    } else if (type === 'expense' || type === 'withdrawal') {
-        updates.total_expenses = session.total_expenses + amount;
-    } else if (type === 'deposit') {
-        updates.total_cash = session.total_cash + amount;
-    }
-
-    await supabase.from('cash_sessions').update(updates as never).eq('id', sessionId);
+    await supabase.rpc('update_session_totals', {
+        p_session_id: sessionId,
+        p_type: type,
+        p_amount: amount,
+        p_method: paymentMethod,
+        p_reverse: false,
+    } as never);
 }
 
 async function reverseSessionTotals(sessionId: string, type: string, amount: number, paymentMethod: string) {
-    const { data: sessionRaw } = await supabase
-        .from('cash_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .single();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session = sessionRaw as any;
-    if (!session) return;
-
-    const updates: Partial<CashSession> = {};
-    if (type === 'sale') {
-        updates.total_sales = Math.max(0, session.total_sales - amount);
-        if (paymentMethod === 'cash') updates.total_cash = Math.max(0, session.total_cash - amount);
-        if (paymentMethod === 'card') updates.total_card = Math.max(0, session.total_card - amount);
-        if (paymentMethod === 'transfer') updates.total_transfer = Math.max(0, session.total_transfer - amount);
-    } else if (type === 'expense' || type === 'withdrawal') {
-        updates.total_expenses = Math.max(0, session.total_expenses - amount);
-    }
-
-    await supabase.from('cash_sessions').update(updates as never).eq('id', sessionId);
+    await supabase.rpc('update_session_totals', {
+        p_session_id: sessionId,
+        p_type: type,
+        p_amount: amount,
+        p_method: paymentMethod,
+        p_reverse: true,
+    } as never);
 }
 
 export async function getCashSessionHistory(): Promise<CashSession[]> {

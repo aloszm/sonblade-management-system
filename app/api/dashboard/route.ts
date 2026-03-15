@@ -80,11 +80,12 @@ export async function GET(request: NextRequest) {
 
         // 2. Fetch Weekly Barbers (always weekly per requirements)
         const barbers = await getBarbers();
-        const barbersTable = [];
-        for (const b of barbers) {
-            const stats = await getBarberStats(b.id);
-            if (stats) {
-                barbersTable.push({
+        const allStats = await Promise.all(barbers.map(b => getBarberStats(b.id)));
+        const barbersTable = barbers
+            .map((b, i) => {
+                const stats = allStats[i];
+                if (!stats) return null;
+                return {
                     id: b.id,
                     name: b.name,
                     avatar_url: b.avatar_url,
@@ -92,10 +93,10 @@ export async function GET(request: NextRequest) {
                     revenue: stats.weeklyStats.totalGenerated,
                     commission: stats.weeklyStats.commission,
                     rate: stats.tier.current
-                });
-            }
-        }
-        barbersTable.sort((a, b) => b.revenue - a.revenue);
+                };
+            })
+            .filter(Boolean);
+        barbersTable.sort((a, b) => b!.revenue - a!.revenue);
 
         // 3. Charts Data
 
@@ -116,29 +117,31 @@ export async function GET(request: NextRequest) {
             weekBar[dIdx].revenue += Number(s.total);
         });
 
-        // B. Month Line Chart (Last 4 weeks)
+        // B. Month Line Chart (Last 4 weeks) — parallelized
         const now = new Date();
-        const monthLine = [];
-        for (let i = 3; i >= 0; i--) {
+        const weekRanges = [3, 2, 1, 0].map(i => {
             const wStart = new Date(now);
             wStart.setDate(wStart.getDate() - (wStart.getDay() + (i * 7)));
             wStart.setHours(0, 0, 0, 0);
-
             const wEnd = new Date(wStart);
             wEnd.setDate(wStart.getDate() + 6);
             wEnd.setHours(23, 59, 59, 999);
-
-            const { data: wSlRaw } = await supabase
-                .from('sales')
-                .select('total')
-                .gte('created_at', wStart.toISOString())
-                .lte('created_at', wEnd.toISOString());
+            return { i, wStart, wEnd };
+        });
+        const weekResults = await Promise.all(
+            weekRanges.map(({ wStart, wEnd }) =>
+                supabase.from('sales').select('total')
+                    .gte('created_at', wStart.toISOString())
+                    .lte('created_at', wEnd.toISOString())
+            )
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const monthLine = weekRanges.map(({ i }, idx) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const wSl = wSlRaw as any[] | null;
-
+            const wSl = weekResults[idx].data as any[] | null;
             const rev = wSl?.reduce((sum, s) => sum + Number(s.total), 0) || 0;
-            monthLine.push({ name: i === 0 ? 'Esta Sem' : `Hace ${i} Sem`, revenue: rev });
-        }
+            return { name: i === 0 ? 'Esta Sem' : `Hace ${i} Sem`, revenue: rev };
+        });
 
 
         return NextResponse.json({
