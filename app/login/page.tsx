@@ -68,8 +68,7 @@ export default function LoginPage() {
 
             if (res.ok) {
                 const dest = data.role === 'admin' ? '/admin' : data.role === 'recepcion' ? '/clientes' : '/pos';
-                router.push(dest);
-                router.refresh();
+                window.location.href = dest;
             } else {
                 setError(data.error || 'PIN incorrecto');
                 setPin('');
@@ -106,7 +105,7 @@ export default function LoginPage() {
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl relative z-10 flex flex-col items-center">
                 <div className="mb-6 flex flex-col items-center">
-                    <img src="/icons/icon-192x192.png" alt="Sonblade Logo" className="w-20 h-20 mb-4 drop-shadow-lg" />
+                    <img src="/logo.png" alt="Sonblade Logo" className="w-20 h-20 mb-4 drop-shadow-lg object-contain" />
                     <h1 className="text-2xl font-black text-white uppercase tracking-wider">Sonblade</h1>
                     <p className="text-sonblade-gold text-sm font-semibold tracking-widest mt-1">Management System</p>
                 </div>

@@ -101,8 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const handleLogout = async () => {
     if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return;
     await fetch('/api/auth/login', { method: 'DELETE' });
-    router.push('/login');
-    router.refresh();
+    window.location.href = '/login';
   };
 
   if (!isOpen) return null;
@@ -194,7 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white truncate">{user ? user.name : 'Cargando...'}</p>
             <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">
-              {user?.role === 'admin' ? 'ADMINISTRADOR' : user?.role === 'recepcion' ? 'RECEPCIONISTA' : 'BARBERO'}
+              {user ? (user.role === 'admin' ? 'ADMINISTRADOR' : user.role === 'recepcion' ? 'RECEPCIONISTA' : 'BARBERO') : 'CARGANDO...'}
             </p>
           </div>
           {user?.role === 'admin' && (
