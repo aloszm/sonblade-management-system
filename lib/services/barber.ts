@@ -1,5 +1,6 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import type { Barber, Sale } from '@/types';
+import { hashPin } from '@/lib/utils/auth';
 
 // ==============================================
 // BARBER DASHBOARD & MANAGEMENT service
@@ -12,30 +13,39 @@ export async function getBarbers(): Promise<Barber[]> {
         .order('name', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []) as any[];
 }
 
 export async function createBarber(barberData: Partial<Barber>): Promise<Barber | null> {
+    if (barberData.pin) {
+        barberData = { ...barberData, pin: await hashPin(barberData.pin) };
+    }
     const { data, error } = await supabase
         .from('barbers')
-        .insert([barberData])
+        .insert([barberData] as never)
         .select()
         .single();
 
     if (error) throw error;
-    return data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data as any;
 }
 
 export async function updateBarber(id: string, barberData: Partial<Barber>): Promise<Barber | null> {
+    if (barberData.pin) {
+        barberData = { ...barberData, pin: await hashPin(barberData.pin) };
+    }
     const { data, error } = await supabase
         .from('barbers')
-        .update(barberData)
+        .update(barberData as never)
         .eq('id', id)
         .select()
         .single();
 
     if (error) throw error;
-    return data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data as any;
 }
 
 export async function getBarber(barberId: string): Promise<Barber | null> {
@@ -46,7 +56,8 @@ export async function getBarber(barberId: string): Promise<Barber | null> {
         .single();
 
     if (error) throw error;
-    return data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data as any;
 }
 
 import { getCurrentWeekRangeMX, getNowMX } from '@/lib/utils/timezone';
@@ -70,7 +81,8 @@ export async function getBarberWeeklySales(barberId: string): Promise<Sale[]> {
         .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []) as any[];
 }
 
 export async function getBarberStats(barberId: string) {

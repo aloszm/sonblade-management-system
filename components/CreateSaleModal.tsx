@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Loader2, Plus, Minus } from 'lucide-react';
-import type { Barber, Service } from '@/types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Loader2, Plus, Minus, UserSearch, Search, Trash2 } from 'lucide-react';
+import type { Barber, Service, Client } from '@/types';
 
 interface CreateSaleModalProps {
     isOpen: boolean;
@@ -14,6 +14,9 @@ interface CreateSaleModalProps {
 
 export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, services }: CreateSaleModalProps) {
     const [barberId, setBarberId] = useState('');
+    const [clientId, setClientId] = useState('');
+    const [clientSearch, setClientSearch] = useState('');
+    const [clients, setClients] = useState<Client[]>([]);
     const [selectedServices, setSelectedServices] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
     const [tip, setTip] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'mixed'>('cash');
@@ -33,6 +36,22 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
             setTransferAmount(paymentMethod === 'transfer' ? total : 0);
         }
     }, [paymentMethod, total]);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetch('/api/clients').then(res => res.json()).then(data => setClients(data));
+        }
+    }, [isOpen]);
+
+    const filteredClients = useMemo(() => {
+        if (!clientSearch) return [];
+        const t = clientSearch.toLowerCase();
+        return clients.filter(c =>
+            c.name.toLowerCase().includes(t) ||
+            (c.phone && c.phone.includes(t)) ||
+            (c.client_number && c.client_number.toLowerCase().includes(t))
+        ).slice(0, 5);
+    }, [clients, clientSearch]);
 
     const addService = (serviceId: string) => {
         const svc = services.find(s => s.id === serviceId);
@@ -57,6 +76,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
         try {
             const body = {
                 barber_id: barberId,
+                client_id: clientId || null,
                 total,
                 tip,
                 cash_amount: cashAmount,
@@ -79,7 +99,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
             });
             if (!res.ok) throw new Error('Error al crear venta');
             // Reset
-            setBarberId(''); setSelectedServices([]); setTip(0); setPaymentMethod('cash'); setNotes('');
+            setBarberId(''); setClientId(''); setSelectedServices([]); setTip(0); setPaymentMethod('cash'); setNotes('');
             onCreated();
             onClose();
         } catch (e: any) {
@@ -107,13 +127,63 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                 <div className="p-6 overflow-y-auto scrollbar-sonblade-light space-y-5">
                     {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium">{error}</div>}
 
-                    {/* Barbero */}
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Barbero *</label>
-                        <select value={barberId} onChange={e => setBarberId(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
-                            <option value="">Seleccionar barbero...</option>
-                            {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Barbero */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Barbero *</label>
+                            <select value={barberId} onChange={e => setBarberId(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                                <option value="">Seleccionar barbero...</option>
+                                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Cliente */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Cliente (CRM)</label>
+                            <div className="relative">
+                                {clientId ? (() => {
+                                    const c = clients.find(cl => cl.id === clientId);
+                                    return (
+                                        <div className="flex items-center justify-between p-2 border border-blue-200 bg-blue-50 rounded-lg">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-sm text-blue-900">{c?.name || 'Cliente'}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => { setClientId(''); setClientSearch(''); }}
+                                                className="text-blue-500 hover:text-blue-700 p-1"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    );
+                                })() : (
+                                    <>
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar cliente..."
+                                            value={clientSearch}
+                                            onChange={(e) => setClientSearch(e.target.value)}
+                                            className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                        />
+                                        {clientSearch && filteredClients.length > 0 && (
+                                            <div className="absolute top-10 left-0 right-0 bg-white border border-gray-100 shadow-md rounded-lg overflow-hidden z-20">
+                                                {filteredClients.map((c: Client) => (
+                                                    <button
+                                                        key={c.id}
+                                                        onClick={() => { setClientId(c.id); setClientSearch(''); }}
+                                                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                                                    >
+                                                        <div className="font-bold">{c.name}</div>
+                                                        <div className="text-xs text-gray-500">{c.client_number} {c.phone ? `| ${c.phone}` : ''}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Servicios */}

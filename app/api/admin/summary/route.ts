@@ -2,9 +2,13 @@ import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBarbers, getBarberStats } from '@/lib/services/barber';
 import { getTodayRangeMX, getCurrentWeekRangeMX, getCurrentMonthRangeMX, getNowMX } from '@/lib/utils/timezone';
+import { requireAdmin } from '@/lib/utils/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
+        await requireAdmin();
         const period = request.nextUrl.searchParams.get('period') || 'week';
 
         let startISO = '';
@@ -22,11 +26,13 @@ export async function GET(request: NextRequest) {
         }
 
         // Fetch all sales for the period
-        const { data: allSales } = await supabase
+        const { data: rawSales } = await supabase
             .from('sales')
             .select('*, items:sale_items(*)')
             .gte('created_at', startISO)
             .lte('created_at', endISO);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allSales = rawSales as any[] | null;
 
         // Revenue
         const totalRevenue = allSales?.reduce((s, v) => s + Number(v.total), 0) || 0;
@@ -85,7 +91,7 @@ export async function GET(request: NextRequest) {
 
         // Fetch existing payments
         const { data: payments } = await supabase
-            .from('barber_payments')
+            .from('barber_payments' as never)
             .select('*, barber:barbers(name)')
             .order('paid_at', { ascending: false })
             .limit(50);
@@ -152,8 +158,10 @@ export async function GET(request: NextRequest) {
             dailySales,
             lowStockProducts: lowStockProducts || []
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Admin summary error:', err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        const status = (err as { status?: number }).status ?? 500;
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status });
     }
 }

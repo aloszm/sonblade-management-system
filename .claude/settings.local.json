@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install bcryptjs)",
+      "Bash(npm install --save-dev @types/bcryptjs)",
+      "Bash(npm uninstall zustand pg)",
+      "Bash(xargs wc -l)",
+      "Bash(done)",
+      "Bash(npm install jspdf jspdf-autotable)",
+      "Bash(npm run build)",
+      "Bash(grep -E \"^\\\\./|^$|Failed|compiled successfully\")"
+    ]
+  }
+}

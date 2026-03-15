@@ -25,7 +25,7 @@ export async function GET() {
             $$;
         `;
 
-        await supabase.rpc('exec_sql', { sql_string: sql });
+        await supabase.rpc('exec_sql', { sql_string: sql } as never);
 
         await supabase.from('settings').upsert({
             key: 'shop_profile',
@@ -35,7 +35,7 @@ export async function GET() {
                 phone: '555-0000',
                 currency: 'USD'
             }
-        });
+        } as never);
 
         return NextResponse.json({ success: true, message: 'Settings database applied' });
     } catch (err: any) {

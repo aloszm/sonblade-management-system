@@ -1,37 +1,40 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBarbers, getBarberStats } from '@/lib/services/barber';
+import { getTodayRangeMX, getCurrentWeekRangeMX, getCurrentMonthRangeMX } from '@/lib/utils/timezone';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
         const period = searchParams.get('period') || 'today'; // 'today', 'week', 'month'
 
-        const now = new Date();
-        let startDate = new Date(now);
-        startDate.setHours(0, 0, 0, 0);
+        let startISO: string;
+        let endISO: string;
 
-        let endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
-
-        // Date logic
         if (period === 'week') {
-            const dayOfWeek = now.getDay();
-            startDate.setDate(now.getDate() - dayOfWeek);
-            endDate = new Date(startDate);
-            endDate.setDate(startDate.getDate() + 6);
-            endDate.setHours(23, 59, 59, 999);
+            const range = getCurrentWeekRangeMX();
+            startISO = range.start;
+            endISO = range.end;
         } else if (period === 'month') {
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            const range = getCurrentMonthRangeMX();
+            startISO = range.start;
+            endISO = range.end;
+        } else {
+            const range = getTodayRangeMX();
+            startISO = range.start;
+            endISO = range.end;
         }
 
         // 1. Fetch Sales for the selected period
-        const { data: salesPeriod, error: salesError } = await supabase
+        const { data: salesRaw, error: salesError } = await supabase
             .from('sales')
             .select('*, items:sale_items(*)')
-            .gte('created_at', startDate.toISOString())
-            .lte('created_at', endDate.toISOString());
+            .gte('created_at', startISO)
+            .lte('created_at', endISO);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const salesPeriod = salesRaw as any[] | null;
 
         if (salesError) throw salesError;
 
@@ -64,12 +67,14 @@ export async function GET(request: NextRequest) {
         });
 
         // Fetch Expenses 
-        const { data: expensesPeriod } = await supabase
-            .from('cash_session_movements')
+        const { data: expensesRaw } = await supabase
+            .from('cash_movements')
             .select('amount')
             .eq('type', 'expense')
-            .gte('created_at', startDate.toISOString())
-            .lte('created_at', endDate.toISOString());
+            .gte('created_at', startISO)
+            .lte('created_at', endISO);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const expensesPeriod = expensesRaw as any[] | null;
 
         const totalExpenses = expensesPeriod?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
@@ -94,24 +99,25 @@ export async function GET(request: NextRequest) {
 
         // 3. Charts Data
 
-        // A. Week Bar Chart (Mon-Sun or Sun-Sat of current week)
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay());
-        weekStart.setHours(0, 0, 0, 0);
+        // A. Week Bar Chart (Sun-Sat of current week)
+        const weekRange = getCurrentWeekRangeMX();
 
-        const { data: weekSales } = await supabase
+        const { data: weekSalesRaw } = await supabase
             .from('sales')
             .select('created_at, total')
-            .gte('created_at', weekStart.toISOString());
+            .gte('created_at', weekRange.start);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const weekSales = weekSalesRaw as any[] | null;
 
         const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
         const weekBar = days.map(d => ({ name: d, revenue: 0 }));
         weekSales?.forEach(s => {
-            const dIdx = new Date(s.created_at).getDay();
+            const dIdx = new Date(new Date(s.created_at).toLocaleString("en-US", { timeZone: 'America/Mexico_City' })).getDay();
             weekBar[dIdx].revenue += Number(s.total);
         });
 
         // B. Month Line Chart (Last 4 weeks)
+        const now = new Date();
         const monthLine = [];
         for (let i = 3; i >= 0; i--) {
             const wStart = new Date(now);
@@ -122,15 +128,18 @@ export async function GET(request: NextRequest) {
             wEnd.setDate(wStart.getDate() + 6);
             wEnd.setHours(23, 59, 59, 999);
 
-            const { data: wSl } = await supabase
+            const { data: wSlRaw } = await supabase
                 .from('sales')
                 .select('total')
                 .gte('created_at', wStart.toISOString())
                 .lte('created_at', wEnd.toISOString());
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const wSl = wSlRaw as any[] | null;
 
             const rev = wSl?.reduce((sum, s) => sum + Number(s.total), 0) || 0;
             monthLine.push({ name: i === 0 ? 'Esta Sem' : `Hace ${i} Sem`, revenue: rev });
         }
+
 
         return NextResponse.json({
             kpis: {
@@ -151,8 +160,9 @@ export async function GET(request: NextRequest) {
             }
         });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error fetching dashboard data:', err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

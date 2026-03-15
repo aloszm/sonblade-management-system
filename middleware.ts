@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const SECRET_KEY = new TextEncoder().encode(
-    process.env.JWT_SECRET || 'sonblade-super-secret-key-32-chars-long-minimal'
-);
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required');
+}
+
+const SECRET_KEY = new TextEncoder().encode(process.env.JWT_SECRET);
 
 export async function middleware(request: NextRequest) {
     const sessionToken = request.cookies.get('session')?.value;
@@ -15,6 +17,7 @@ export async function middleware(request: NextRequest) {
         pathname === '/login' ||
         pathname.startsWith('/api/auth') ||
         pathname === '/api/barbers' || // Needed for login dropdown
+        pathname === '/api/receptionists' || // Needed for login dropdown
         pathname.startsWith('/_next') ||
         pathname === '/favicon.ico' ||
         pathname === '/manifest.json' ||
@@ -37,18 +40,24 @@ export async function middleware(request: NextRequest) {
         // Admin-only routes
         const adminRoutes = ['/admin', '/equipo', '/inventario'];
         if (role !== 'admin' && adminRoutes.some(r => pathname.startsWith(r))) {
-            return NextResponse.redirect(new URL('/pos', request.url));
+            const fallback = role === 'recepcion' ? '/clientes' : '/pos';
+            return NextResponse.redirect(new URL(fallback, request.url));
         }
 
-        // If trying to access root, redirect barbers to POS (Admins stay on root Dashboard)
+        // Receptionist: restrict to their allowed pages
+        const recepcionAllowed = ['/clientes', '/caja', '/citas'];
+        if (role === 'recepcion' && !recepcionAllowed.some(r => pathname.startsWith(r))) {
+            return NextResponse.redirect(new URL('/clientes', request.url));
+        }
+
+        // If trying to access root, redirect non-admins appropriately
         if (pathname === '/') {
-            if (role !== 'admin') {
-                return NextResponse.redirect(new URL('/pos', request.url));
-            }
+            if (role === 'recepcion') return NextResponse.redirect(new URL('/clientes', request.url));
+            if (role !== 'admin') return NextResponse.redirect(new URL('/pos', request.url));
         }
 
         return NextResponse.next();
-    } catch (e) {
+    } catch (_e) {
         // Invalid token
         return NextResponse.redirect(new URL('/login', request.url));
     }

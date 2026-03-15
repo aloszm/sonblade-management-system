@@ -1,6 +1,8 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -34,17 +36,21 @@ export async function GET(
             endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         }
 
-        const { data: barber, error: bErr } = await supabase
+        const { data: barberRaw, error: bErr } = await supabase
             .from('barbers').select('*').eq('id', id).single();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const barber = barberRaw as any;
         if (bErr || !barber) return NextResponse.json({ error: 'Barbero no encontrado' }, { status: 404 });
 
-        const { data: sales } = await supabase
+        const { data: salesRaw } = await supabase
             .from('sales')
             .select('*, items:sale_items(*)')
             .eq('barber_id', id)
             .gte('created_at', startDate.toISOString())
             .lte('created_at', endDate.toISOString())
             .order('created_at', { ascending: false });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sales = salesRaw as any[] | null;
 
         // Tier table for 'tiered' commission
         // 1-24 cuts: 40% | 25-49 cuts: 45% | 50+ cuts: 50%
@@ -154,9 +160,10 @@ export async function GET(
             serviceBreakdown,
             movements
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Barber stats error:', err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

@@ -1,37 +1,55 @@
-import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { getClients, createClient } from '@/lib/services/clients';
+import { getSession } from '@/lib/utils/auth';
+import { z } from 'zod';
+
+export const dynamic = 'force-dynamic';
+
+const CreateClientSchema = z.object({
+    name: z.string().min(1, 'El nombre es requerido'),
+    phone: z.string().min(10, 'El teléfono debe tener al menos 10 dígitos').optional().nullable(),
+    email: z.string().email('Email inválido').optional().nullable(),
+    pin: z.string().length(4, 'El PIN debe ser de 4 dígitos').optional().nullable(),
+});
 
 export async function GET() {
     try {
-        const { data, error } = await supabase
-            .from('appointments')
-            .select('*')
-            .order('scheduled_at', { ascending: false });
+        const session = await getSession();
+        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        if (error) throw error;
+        const clients = await getClients();
+        return NextResponse.json(clients);
+    } catch (error: any) {
+        console.error('Error in GET /api/clients:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
 
-        // Aggregate unique clients
-        const clientMap: Record<string, { lastVisit: string, totalAppointments: number }> = {};
+export async function POST(request: Request) {
+    try {
+        const session = await getSession();
+        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        data.forEach((app: any) => {
-            if (!clientMap[app.client_name]) {
-                clientMap[app.client_name] = {
-                    lastVisit: format(new Date(app.scheduled_at), 'dd MMM yyyy', { locale: es }),
-                    totalAppointments: 0
-                };
-            }
-            clientMap[app.client_name].totalAppointments += 1;
+        const body = await request.json();
+        const validated = CreateClientSchema.parse(body);
+
+        const newClient = await createClient({
+            name: validated.name,
+            phone: validated.phone || undefined,
+            email: validated.email || undefined,
+            pin: validated.pin || undefined,
         });
 
-        const clients = Object.entries(clientMap).map(([name, stats]) => ({
-            name,
-            ...stats
-        }));
-
-        return NextResponse.json(clients);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        return NextResponse.json(newClient);
+    } catch (error: any) {
+        if (error.code === '23505') {
+            return NextResponse.json({ error: 'El teléfono ingresado ya está registrado.' }, { status: 400 });
+        }
+        if (error instanceof z.ZodError) {
+            const zodError = error as any;
+            return NextResponse.json({ error: zodError.errors[0].message }, { status: 400 });
+        }
+        console.error('Error in POST /api/clients:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

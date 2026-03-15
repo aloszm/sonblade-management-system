@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteMovement } from '@/lib/services/cash';
 
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -14,7 +16,8 @@ export async function DELETE(
         await deleteMovement(id, deletedBy, reason);
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

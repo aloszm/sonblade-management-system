@@ -67,7 +67,7 @@ export default function Dashboard() {
     fetchDashboard();
   }, [period]);
 
-  if (!data) {
+  if (loading && !data) {
     return (
       <div className="flex justify-center items-center h-[60vh]">
         <Loader2 className="animate-spin text-sonblade-gold h-8 w-8" />
@@ -75,7 +75,9 @@ export default function Dashboard() {
     );
   }
 
-  const { kpis, barbersTable, charts } = data;
+  const kpis = data?.kpis || { revenue: 0, cuts: 0, tips: 0, expenses: 0 };
+  const barbersTable = data?.barbersTable || [];
+  const charts = data?.charts || { weekBar: [], monthLine: [], paymentDonut: [] };
 
   const stats = [
     { label: 'Ingresos Totales', value: `$${kpis.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-sonblade-gold', bg: 'bg-yellow-50' },
@@ -194,17 +196,19 @@ export default function Dashboard() {
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={charts.paymentDonut}
-                  cx="50%" cy="50%"
-                  innerRadius={60} outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {charts.paymentDonut.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
+                {charts.paymentDonut && charts.paymentDonut.length > 0 && (
+                  <Pie
+                    data={charts.paymentDonut}
+                    cx="50%" cy="50%"
+                    innerRadius={60} outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {charts.paymentDonut.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                )}
                 <Tooltip
                   formatter={(value: any) => `$${Number(value).toFixed(2)}`}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}

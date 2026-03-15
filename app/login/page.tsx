@@ -8,7 +8,7 @@ import Image from 'next/image';
 interface UserOption {
     id: string;
     name: string;
-    role: 'admin' | 'barber';
+    role: 'admin' | 'barber' | 'recepcion';
 }
 
 export default function LoginPage() {
@@ -23,17 +23,26 @@ export default function LoginPage() {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const res = await fetch('/api/barbers');
-                if (res.ok) {
-                    const barbers = await res.json();
-                    const activeBarbers = barbers.filter((b: any) => b.status === 'active').map((b: any) => ({
-                        id: b.id, name: b.name, role: 'barber'
-                    }));
-                    // Add admin manually
-                    setUsers([{ id: 'admin', name: 'Administrador', role: 'admin' }, ...activeBarbers]);
-                }
+                const [barbersRes, receptRes] = await Promise.all([
+                    fetch('/api/barbers'),
+                    fetch('/api/receptionists'),
+                ]);
+                const barbers = barbersRes.ok ? await barbersRes.json() : [];
+                const receptionists = receptRes.ok ? await receptRes.json() : [];
+
+                const activeBarbers = barbers
+                    .filter((b: any) => b.status === 'active')
+                    .map((b: any) => ({ id: b.id, name: b.name, role: 'barber' as const }));
+                const activeReceptionists = receptionists
+                    .map((r: any) => ({ id: r.id, name: r.name, role: 'recepcion' as const }));
+
+                setUsers([
+                    { id: 'admin', name: 'Administrador', role: 'admin' },
+                    ...activeReceptionists,
+                    ...activeBarbers,
+                ]);
             } catch (e) {
-                console.error('Error fetching barbers', e);
+                console.error('Error fetching users', e);
             } finally {
                 setLoading(false);
             }
@@ -58,7 +67,8 @@ export default function LoginPage() {
             const data = await res.json();
 
             if (res.ok) {
-                router.push(data.role === 'admin' ? '/admin' : '/pos');
+                const dest = data.role === 'admin' ? '/admin' : data.role === 'recepcion' ? '/clientes' : '/pos';
+                router.push(dest);
                 router.refresh();
             } else {
                 setError(data.error || 'PIN incorrecto');
@@ -113,7 +123,9 @@ export default function LoginPage() {
                             >
                                 <option value="" disabled>Selecciona tu cuenta</option>
                                 {users.map(u => (
-                                    <option key={u.id} value={u.id}>{u.name} {u.role === 'admin' ? '⭐' : ''}</option>
+                                    <option key={u.id} value={u.id}>
+                                        {u.name}{u.role === 'admin' ? ' ⭐' : u.role === 'recepcion' ? ' 🗓️' : ''}
+                                    </option>
                                 ))}
                             </select>
                             <User className="absolute left-4 top-3.5 h-6 w-6 text-zinc-400 pointer-events-none" />

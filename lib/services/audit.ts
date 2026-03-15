@@ -23,7 +23,7 @@ export async function logAuditAction(
                 entity,
                 entity_id: entityId,
                 details,
-            });
+            } as never);
     } catch (err) {
         console.error('Audit log error:', err);
         // Don't throw — audit failures shouldn't break operations
@@ -37,7 +37,8 @@ export async function getAuditLogs(filters?: {
     to?: string;
     limit?: number;
 }): Promise<AuditLog[]> {
-    let query = supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase
         .from('audit_log')
         .select('*')
         .order('created_at', { ascending: false })
@@ -50,7 +51,7 @@ export async function getAuditLogs(filters?: {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    return (data || []) as AuditLog[];
 }
 
 export async function logDeletedRecord(
@@ -69,7 +70,7 @@ export async function logDeletedRecord(
                 record_data: recordData,
                 deleted_by: deletedBy,
                 reason,
-            });
+            } as never);
     } catch (err) {
         console.error('Deleted record log error:', err);
     }

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
@@ -8,8 +9,6 @@ const inter = Inter({
     subsets: ['latin'],
     variable: '--font-inter',
 });
-
-import Script from 'next/script';
 
 export const viewport: Viewport = {
     width: 'device-width',
@@ -45,14 +44,9 @@ export default function RootLayout({
                     {`
                          if ('serviceWorker' in navigator) {
                              window.addEventListener('load', function() {
-                                 navigator.serviceWorker.register('/sw.js').then(
-                                     function(registration) {
-                                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                                     },
-                                     function(err) {
-                                         console.log('ServiceWorker registration failed: ', err);
-                                     }
-                                 );
+                                 navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                                     console.error('ServiceWorker registration failed: ', err);
+                                 });
                              });
                          }
                      `}

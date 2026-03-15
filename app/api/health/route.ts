@@ -55,13 +55,15 @@ export async function GET() {
             }, { status: 500 });
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const p = products as any[], b = barbers as any[], sv = services as any[];
         return NextResponse.json({
             status: 'ok',
             connection: 'Supabase connected successfully ✅',
             tables: {
-                products: { count: products?.length || 0, sample: products?.[0]?.name },
-                barbers: { count: barbers?.length || 0, sample: barbers?.[0]?.name },
-                services: { count: services?.length || 0, sample: services?.[0]?.name },
+                products: { count: p?.length || 0, sample: p?.[0]?.name },
+                barbers: { count: b?.length || 0, sample: b?.[0]?.name },
+                services: { count: sv?.length || 0, sample: sv?.[0]?.name },
                 cash_sessions: { count: sessions?.length || 0 },
             }
         });

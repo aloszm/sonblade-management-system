@@ -16,7 +16,8 @@ export async function getActiveSession(): Promise<CashSession | null> {
         .maybeSingle();
 
     if (error) throw error;
-    return data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data as any;
 }
 
 export async function openCashSession(initialAmount: number, openedBy: string = 'Admin'): Promise<CashSession> {
@@ -29,15 +30,17 @@ export async function openCashSession(initialAmount: number, openedBy: string = 
             opened_by: openedBy,
             initial_amount: initialAmount,
             status: 'open',
-        })
+        } as never)
         .select()
         .single();
 
     if (error) throw error;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = data as any;
 
-    await logAuditAction(openedBy, 'admin', 'open_cash', 'cash_sessions', data.id, { initial_amount: initialAmount });
+    await logAuditAction(openedBy, 'admin', 'open_cash', 'cash_sessions', session.id, { initial_amount: initialAmount });
 
-    return data;
+    return session;
 }
 
 export async function closeCashSession(sessionId: string, closeData: CloseCashSession): Promise<CashSession> {
@@ -54,12 +57,14 @@ export async function closeCashSession(sessionId: string, closeData: CloseCashSe
             difference,
             status: 'closed',
             closed_at: new Date().toISOString(),
-        })
+        } as never)
         .eq('id', sessionId)
         .select()
         .single();
 
     if (error) throw error;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const closed = data as any;
 
     await logAuditAction('Admin', 'admin', 'close_cash', 'cash_sessions', sessionId, {
         physical_count: closeData.physical_count,
@@ -67,7 +72,7 @@ export async function closeCashSession(sessionId: string, closeData: CloseCashSe
         difference,
     });
 
-    return data;
+    return closed;
 }
 
 export async function getSessionMovements(sessionId: string): Promise<CashMovement[]> {
@@ -78,7 +83,8 @@ export async function getSessionMovements(sessionId: string): Promise<CashMoveme
         .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []) as any[];
 }
 
 export async function addCashMovement(
@@ -98,37 +104,41 @@ export async function addCashMovement(
             amount,
             payment_method: paymentMethod,
             status,
-        })
+        } as never)
         .select()
         .single();
 
     if (error) throw error;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const movement = data as any;
 
     // Only update session totals if confirmed
     if (status === 'confirmed') {
         await updateSessionTotals(sessionId, type, amount, paymentMethod);
     }
 
-    await logAuditAction('Admin', 'admin', 'create_movement', 'cash_movements', data.id, {
+    await logAuditAction('Admin', 'admin', 'create_movement', 'cash_movements', movement.id, {
         type, description, amount, status,
     });
 
-    return data;
+    return movement;
 }
 
 export async function confirmMovement(movementId: string): Promise<CashMovement> {
-    const { data: movement, error: fetchError } = await supabase
+    const { data: movementRaw, error: fetchError } = await supabase
         .from('cash_movements')
         .select('*')
         .eq('id', movementId)
         .single();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const movement = movementRaw as any;
     if (fetchError || !movement) throw new Error('Movimiento no encontrado');
     if (movement.status === 'confirmed') throw new Error('El movimiento ya está confirmado');
 
     const { data, error } = await supabase
         .from('cash_movements')
-        .update({ status: 'confirmed' })
+        .update({ status: 'confirmed' } as never)
         .eq('id', movementId)
         .select()
         .single();
@@ -142,16 +152,19 @@ export async function confirmMovement(movementId: string): Promise<CashMovement>
         type: movement.type, amount: movement.amount,
     });
 
-    return data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data as any;
 }
 
 export async function deleteMovement(movementId: string, deletedBy: string = 'Admin', reason: string = ''): Promise<void> {
-    const { data: movement, error: fetchError } = await supabase
+    const { data: movementRaw, error: fetchError } = await supabase
         .from('cash_movements')
         .select('*')
         .eq('id', movementId)
         .single();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const movement = movementRaw as any;
     if (fetchError || !movement) throw new Error('Movimiento no encontrado');
 
     // Log to deleted records
@@ -191,15 +204,17 @@ async function updateSessionTotals(sessionId: string, type: string, amount: numb
         updates.total_cash = session.total_cash + amount;
     }
 
-    await supabase.from('cash_sessions').update(updates).eq('id', sessionId);
+    await supabase.from('cash_sessions').update(updates as never).eq('id', sessionId);
 }
 
 async function reverseSessionTotals(sessionId: string, type: string, amount: number, paymentMethod: string) {
-    const { data: session } = await supabase
+    const { data: sessionRaw } = await supabase
         .from('cash_sessions')
         .select('*')
         .eq('id', sessionId)
         .single();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = sessionRaw as any;
     if (!session) return;
 
     const updates: Partial<CashSession> = {};
@@ -212,7 +227,7 @@ async function reverseSessionTotals(sessionId: string, type: string, amount: num
         updates.total_expenses = Math.max(0, session.total_expenses - amount);
     }
 
-    await supabase.from('cash_sessions').update(updates).eq('id', sessionId);
+    await supabase.from('cash_sessions').update(updates as never).eq('id', sessionId);
 }
 
 export async function getCashSessionHistory(): Promise<CashSession[]> {
@@ -223,7 +238,8 @@ export async function getCashSessionHistory(): Promise<CashSession[]> {
         .limit(30);
 
     if (error) throw error;
-    return data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []) as any[];
 }
 
 // =================== Task 5: Cash Reset ===================
@@ -249,11 +265,11 @@ export async function resetCashSession(archivedBy: string = 'Admin'): Promise<vo
             total_transfer: session.total_transfer,
             physical_count: session.physical_count,
             difference: session.difference,
-            movements: movements as any,
+            movements: JSON.parse(JSON.stringify(movements)),
             opened_at: session.opened_at,
             closed_at: session.closed_at || new Date().toISOString(),
             archived_by: archivedBy,
-        });
+        } as never);
 
     if (archiveError) throw archiveError;
 
@@ -263,7 +279,7 @@ export async function resetCashSession(archivedBy: string = 'Admin'): Promise<vo
         .update({
             status: 'closed',
             closed_at: new Date().toISOString(),
-        })
+        } as never)
         .eq('id', session.id);
 
     await logAuditAction(archivedBy, 'admin', 'reset_cash', 'cash_sessions', session.id, {
@@ -281,7 +297,8 @@ export async function getArchivedSessions(): Promise<CashSessionArchive[]> {
         .limit(50);
 
     if (error) throw error;
-    return data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []) as any[];
 }
 
 export async function getDeletedMovements(): Promise<DeletedRecord[]> {
@@ -293,5 +310,6 @@ export async function getDeletedMovements(): Promise<DeletedRecord[]> {
         .limit(50);
 
     if (error) throw error;
-    return data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []) as any[];
 }

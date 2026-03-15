@@ -9,8 +9,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         const body = await req.json();
         const product = await updateProduct(id, body);
         return NextResponse.json(product);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -19,7 +20,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         const { id } = await params;
         await deleteProduct(id);
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

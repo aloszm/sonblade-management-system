@@ -6,12 +6,10 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingCart,
-  Receipt,
   Package,
   Banknote,
   Users,
   Settings,
-  Store,
   UserCircle,
   ShieldCheck,
   FileText,
@@ -41,8 +39,9 @@ interface MenuSection {
   items: MenuItem[];
 }
 
-// Items allowed for barbers (by href)
-const BARBER_ALLOWED = ['/pos', '/caja', '/barbero'];
+// Items allowed per role (by href prefix)
+const BARBER_ALLOWED = ['/pos', '/caja', '/barbero', '/clientes'];
+const RECEPCION_ALLOWED = ['/clientes', '/caja', '/citas'];
 
 const menuSections: MenuSection[] = [
   {
@@ -72,7 +71,7 @@ const menuSections: MenuSection[] = [
     title: 'GESTIÓN',
     items: [
       { href: '/equipo', label: 'Equipo de Barberos', icon: Users, adminOnly: true },
-      { href: '/clientes', label: 'Cartera de Clientes', icon: UserPlus, adminOnly: true },
+      { href: '/clientes', label: 'Cartera de Clientes', icon: UserPlus },
     ]
   },
   {
@@ -128,6 +127,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         {menuSections.map((section, idx) => {
           // Filter items based on user role
           const visibleItems = section.items.filter(item => {
+            if (user?.role === 'recepcion') {
+              return RECEPCION_ALLOWED.some(p => item.href.startsWith(p));
+            }
             if (user?.role !== 'admin') {
               // Barbers only see non-adminOnly items whose href is in the allowed list
               if (item.adminOnly) return false;
@@ -191,7 +193,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white truncate">{user ? user.name : 'Cargando...'}</p>
-            <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">{user?.role === 'admin' ? 'ADMINISTRADOR' : 'BARBERO'}</p>
+            <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">
+              {user?.role === 'admin' ? 'ADMINISTRADOR' : user?.role === 'recepcion' ? 'RECEPCIONISTA' : 'BARBERO'}
+            </p>
           </div>
           {user?.role === 'admin' && (
             <Link href="/configuracion" className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">

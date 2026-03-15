@@ -1,6 +1,8 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -11,15 +13,16 @@ export async function PUT(
 
         const { data, error } = await supabase
             .from('services')
-            .update(body)
+            .update(body as never)
             .eq('id', id)
             .select()
             .single();
 
         if (error) throw error;
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -36,7 +39,8 @@ export async function DELETE(
 
         if (error) throw error;
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

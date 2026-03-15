@@ -11,13 +11,15 @@ export async function getSettings(key: string) {
         throw error;
     }
 
-    return data ? data.value : null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data ? (data as any).value : null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateSettings(key: string, value: any) {
     const { data, error } = await supabase
         .from('settings')
-        .upsert({ key, value, updated_at: new Date().toISOString() })
+        .upsert({ key, value, updated_at: new Date().toISOString() } as never)
         .select()
         .single();
 

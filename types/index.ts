@@ -2,6 +2,32 @@
 // Database types matching the Supabase schema
 // ==============================================
 
+export interface Client {
+    id: string;
+    client_number: string;
+    pin?: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    points: number;
+    visits: number;
+    last_visit_at: string | null;
+
+    // Detailed Profile (Added in V9)
+    hair_type?: string | null;
+    preferred_cut?: string | null;
+    style_notes?: string | null;
+    internal_notes?: string | null;
+    favorite_barber_id?: string | null;
+
+    // Timestamps
+    created_at: string;
+    updated_at: string;
+
+    // Joined
+    favorite_barber?: Barber;
+}
+
 export interface Barber {
     id: string;
     name: string;
@@ -58,6 +84,7 @@ export interface BarberPayment {
 export interface Sale {
     id: string;
     barber_id: string | null;
+    client_id: string | null;
     total: number;
     tip: number;
     cash_amount: number;
@@ -69,6 +96,7 @@ export interface Sale {
     created_at: string;
     // Joined fields
     barber?: Barber;
+    client?: Client;
     items?: SaleItem[];
 }
 
@@ -113,15 +141,25 @@ export interface CashMovement {
 
 export interface Appointment {
     id: string;
-    client_name: string;
-    service_id: string | null;
+    client_id: string | null;
     barber_id: string | null;
     scheduled_at: string;
-    status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+    service_note: string | null;
+    status: 'pending' | 'confirmed' | 'done' | 'cancelled';
     created_at: string;
     // Joined
-    service?: Service;
     barber?: Barber;
+    client?: Client;
+    // Derived helper (from client.name or service_note)
+    client_name?: string;
+}
+
+export interface Receptionist {
+    id: string;
+    name: string;
+    pin?: string;
+    is_active: boolean;
+    created_at: string;
 }
 
 // ==============================================
@@ -184,6 +222,7 @@ export interface CreateProduct {
 
 export interface CreateSale {
     barber_id: string;
+    client_id?: string | null;
     total: number;
     tip?: number;
     cash_amount?: number;

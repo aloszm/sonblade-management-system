@@ -40,10 +40,45 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 3.5 CLIENTS (CRM)
+CREATE SEQUENCE IF NOT EXISTS client_number_seq START 1000;
+
+CREATE TABLE IF NOT EXISTS clients (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  client_number TEXT UNIQUE,
+  pin VARCHAR(4),
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  points INTEGER DEFAULT 0,
+  visits INTEGER DEFAULT 0,
+  last_visit_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Trigger to auto-generate client_number
+CREATE OR REPLACE FUNCTION generate_client_number()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.client_number IS NULL THEN
+    NEW.client_number := 'SB-' || nextval('client_number_seq');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_generate_client_number ON clients;
+CREATE TRIGGER trigger_generate_client_number
+BEFORE INSERT ON clients
+FOR EACH ROW
+EXECUTE FUNCTION generate_client_number();
+
 -- 4. SALES (Ventas)
 CREATE TABLE IF NOT EXISTS sales (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   barber_id UUID REFERENCES barbers(id),
+  client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
   total NUMERIC(10,2) NOT NULL DEFAULT 0,
   tip NUMERIC(10,2) DEFAULT 0,
   cash_amount NUMERIC(10,2) DEFAULT 0,
@@ -99,6 +134,7 @@ CREATE TABLE IF NOT EXISTS cash_movements (
 CREATE TABLE IF NOT EXISTS appointments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   client_name TEXT NOT NULL,
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
   service_id UUID REFERENCES services(id),
   barber_id UUID REFERENCES barbers(id),
   scheduled_at TIMESTAMPTZ NOT NULL,
@@ -117,16 +153,18 @@ ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cash_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cash_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 
--- Development policies (open access, restrict later for production)
-CREATE POLICY "dev_all_barbers" ON barbers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "dev_all_services" ON services FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "dev_all_products" ON products FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "dev_all_sales" ON sales FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "dev_all_sale_items" ON sale_items FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "dev_all_cash_sessions" ON cash_sessions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "dev_all_cash_movements" ON cash_movements FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "dev_all_appointments" ON appointments FOR ALL USING (true) WITH CHECK (true);
+-- Development policies (only SELECT allowed for anon, mutations must use Service Role)
+CREATE POLICY "Allow public read-only access for barbers" ON barbers FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for services" ON services FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for products" ON products FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for sales" ON sales FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for sale_items" ON sale_items FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for cash_sessions" ON cash_sessions FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for cash_movements" ON cash_movements FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for appointments" ON appointments FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access for clients" ON clients FOR SELECT USING (true);
 
 -- ======================================================
 -- FUNCTIONS: Auto-update product status based on stock

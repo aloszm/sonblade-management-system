@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Download, TrendingUp, TrendingDown, Users, Package, Scissors, PieChart as PieIcon, LineChart as LineIcon, Loader2 } from 'lucide-react';
+import { BarChart3, Download, TrendingUp, TrendingDown, Users, Scissors, PieChart as PieIcon, LineChart as LineIcon, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 
 interface ReportData {
@@ -13,10 +13,91 @@ interface ReportData {
 
 const COLORS = ['#D4AF37', '#000000', '#4B5563', '#9CA3AF'];
 
+const PERIOD_LABELS: Record<string, string> = { today: 'Hoy', week: 'Esta Semana', month: 'Este Mes' };
+
 export default function ReportsPage() {
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState('week');
+
+    const generatePDF = async () => {
+        if (!data) return;
+        const { default: jsPDF } = await import('jspdf');
+        const { default: autoTable } = await import('jspdf-autotable');
+
+        const doc = new jsPDF();
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Header
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text('SONBLADE', 14, 20);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(120);
+        doc.text('Reporte Ejecutivo — ' + PERIOD_LABELS[period], 14, 28);
+        doc.text('Generado: ' + dateStr, 14, 34);
+        doc.setTextColor(0);
+
+        // KPIs
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Resumen', 14, 46);
+
+        autoTable(doc, {
+            startY: 50,
+            head: [['Métrica', 'Valor']],
+            body: [
+                ['Ingresos Totales', `$${data.kpis.totalRevenue.toFixed(2)}`],
+                ['Comisiones', `$${data.kpis.totalCommissions.toFixed(2)}`],
+                ['Ticket Promedio', `$${data.kpis.avgTicket.toFixed(2)}`],
+                ['Visitas', String(data.kpis.totalSales)],
+                ['Efectivo', `$${data.paymentBreakdown.cash.toFixed(2)}`],
+                ['Tarjeta', `$${data.paymentBreakdown.card.toFixed(2)}`],
+                ['Transferencia', `$${data.paymentBreakdown.transfer.toFixed(2)}`],
+            ],
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [0, 0, 0], textColor: [212, 175, 55] },
+            alternateRowStyles: { fillColor: [248, 248, 248] },
+        });
+
+        // Top Services
+        if (data.serviceBreakdown.length > 0) {
+            const afterKpis = (doc as any).lastAutoTable.finalY + 12;
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Servicios más Populares', 14, afterKpis);
+
+            autoTable(doc, {
+                startY: afterKpis + 4,
+                head: [['#', 'Servicio', 'Cantidad', 'Ingresos']],
+                body: data.serviceBreakdown.slice(0, 8).map((s, i) => [
+                    `#${i + 1}`, s.name, String(s.count), `$${s.revenue.toFixed(2)}`
+                ]),
+                styles: { fontSize: 10 },
+                headStyles: { fillColor: [0, 0, 0], textColor: [212, 175, 55] },
+            });
+        }
+
+        // Daily trend
+        if (data.dailySales.length > 0) {
+            const afterSvc = (doc as any).lastAutoTable.finalY + 12;
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Tendencia Diaria', 14, afterSvc);
+
+            autoTable(doc, {
+                startY: afterSvc + 4,
+                head: [['Día', 'Ingresos', 'Ventas']],
+                body: data.dailySales.map((d: any) => [d.day, `$${Number(d.revenue).toFixed(2)}`, String(d.sales ?? '')]),
+                styles: { fontSize: 9 },
+                headStyles: { fillColor: [0, 0, 0], textColor: [212, 175, 55] },
+            });
+        }
+
+        doc.save(`sonblade-reporte-${period}-${now.toISOString().split('T')[0]}.pdf`);
+    };
 
     useEffect(() => {
         fetchData();
@@ -74,7 +155,7 @@ export default function ReportsPage() {
                             </button>
                         ))}
                     </div>
-                    <button className="bg-sonblade-gold text-black p-2.5 rounded-xl hover:bg-yellow-500 transition-all shadow-lg">
+                    <button onClick={generatePDF} title="Descargar PDF" className="bg-sonblade-gold text-black p-2.5 rounded-xl hover:bg-yellow-500 transition-all shadow-lg">
                         <Download className="h-5 w-5" />
                     </button>
                 </div>
@@ -193,7 +274,7 @@ export default function ReportsPage() {
                     </div>
                     <h3 className="font-black text-xl text-gray-900 mb-2">Reporte Ejecutivo PDF</h3>
                     <p className="text-sm text-gray-500 mb-6">Genera un documento profesional con todos los KPIs para impresión o envío por correo.</p>
-                    <button className="w-full py-4 bg-black text-sonblade-gold font-black rounded-2xl hover:scale-105 transition-transform shadow-xl shadow-sonblade-gold/10">
+                    <button onClick={generatePDF} className="w-full py-4 bg-black text-sonblade-gold font-black rounded-2xl hover:scale-105 transition-transform shadow-xl shadow-sonblade-gold/10">
                         DESCARGAR PDF
                     </button>
                 </div>

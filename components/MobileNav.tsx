@@ -7,16 +7,19 @@ import {
     LayoutDashboard,
     ShoppingCart,
     Banknote,
-    Scissors,
     UserCircle,
+    UserPlus,
+    Calendar,
     LogOut
 } from 'lucide-react';
 
 const mobileItems = [
-    { href: '/', label: 'Inicio', icon: LayoutDashboard },
-    { href: '/pos', label: 'POS', icon: ShoppingCart },
-    { href: '/caja', label: 'Caja', icon: Banknote },
-    { href: '/barbero', label: 'Perfil', icon: UserCircle },
+    { href: '/', label: 'Inicio', icon: LayoutDashboard, roles: ['admin'] },
+    { href: '/pos', label: 'POS', icon: ShoppingCart, roles: ['admin', 'barber'] },
+    { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'barber', 'recepcion'] },
+    { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'barber', 'recepcion'] },
+    { href: '/citas', label: 'Citas', icon: Calendar, roles: ['admin', 'recepcion'] },
+    { href: '/barbero', label: 'Perfil', icon: UserCircle, roles: ['admin', 'barber'] },
 ];
 
 const MobileNav = () => {
@@ -38,15 +41,14 @@ const MobileNav = () => {
         router.refresh();
     };
 
-    // Filter items — clone + remap without mutating the shared const
+    // Filter items by role and remap /barbero for barbers
+    const role = user?.role ?? 'barber';
     const visibleItems = mobileItems
-        .filter(item => {
-            if (user?.role === 'admin') return true;
-            const allowed = ['/pos', '/caja', '/barbero'];
-            return allowed.some(p => item.href.startsWith(p));
-        })
+        .filter(item => item.roles.includes(role))
         .map(item => {
-            if (item.href === '/barbero') return { ...item, href: `/barberos/${user?.id}` };
+            if (item.href === '/barbero' && role === 'barber' && user?.id) {
+                return { ...item, href: `/barberos/${user.id}` };
+            }
             return item;
         });
 

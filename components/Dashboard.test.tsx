@@ -1,64 +1,51 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import Dashboard from './Dashboard';
 
 describe('Dashboard — Traducción al Español', () => {
-    it('muestra el título "Resumen General"', () => {
+    it('muestra el título "Super Dashboard"', async () => {
         render(<Dashboard />);
 
-        expect(screen.getByText('Resumen General')).toBeInTheDocument();
+        expect(await screen.findByText('Super Dashboard')).toBeInTheDocument();
     });
 
-    it('muestra la navegación breadcrumb en español', () => {
+    it('muestra las métricas en español', async () => {
         render(<Dashboard />);
 
-        expect(screen.getByText('Inicio')).toBeInTheDocument();
-        expect(screen.getByText('Panel')).toBeInTheDocument();
+        expect(await screen.findByText('Ingresos Totales')).toBeInTheDocument();
+        expect(screen.getByText('Servicios (Cortes)')).toBeInTheDocument();
+        expect(screen.getByText('Propinas Generadas')).toBeInTheDocument();
+        expect(screen.getByText('Egresos Caja')).toBeInTheDocument();
     });
 
-    it('muestra las métricas en español', () => {
+    it('muestra las secciones del dashboard en español', async () => {
         render(<Dashboard />);
 
-        expect(screen.getByText('Citas Totales')).toBeInTheDocument();
-        expect(screen.getByText('Ingresos de Hoy')).toBeInTheDocument();
-        expect(screen.getByText('Nuevos Clientes')).toBeInTheDocument();
-        expect(screen.getByText('Productos con Stock Bajo')).toBeInTheDocument();
+        expect(await screen.findByText('Flujo de Caja (Hoy)')).toBeInTheDocument();
+        expect(screen.getByText('Ingresos (Semana Actual)')).toBeInTheDocument();
+        expect(screen.getByText('Métodos de Pago')).toBeInTheDocument();
+        expect(screen.getByText('Rendimiento de Barberos')).toBeInTheDocument();
     });
 
-    it('muestra las secciones del dashboard en español', () => {
+    it('muestra los selectores de periodo en español', async () => {
         render(<Dashboard />);
 
-        expect(screen.getByText('Resumen de Ingresos')).toBeInTheDocument();
-        expect(screen.getByText('Próximas Citas')).toBeInTheDocument();
-        expect(screen.getByText('Ver Todas')).toBeInTheDocument();
-        expect(screen.getByText('Ver Calendario')).toBeInTheDocument();
+        expect(await screen.findByText('Día')).toBeInTheDocument();
+        expect(screen.getByText('Semana')).toBeInTheDocument();
+        expect(screen.getByText('Mes')).toBeInTheDocument();
     });
 
-    it('muestra los selectores de periodo en español', () => {
+    it('muestra nombres de barberos reales (Deya, Sonny)', async () => {
         render(<Dashboard />);
 
-        expect(screen.getByText('Esta Semana')).toBeInTheDocument();
-        expect(screen.getByText('Semana Pasada')).toBeInTheDocument();
+        expect(await screen.findByText('Deya')).toBeInTheDocument();
+        expect(screen.getByText('Sonny')).toBeInTheDocument();
     });
 
-    it('muestra "Hoy" en la lista de citas', () => {
+    it('NO contiene texto en inglés', async () => {
         render(<Dashboard />);
 
-        const todayElements = screen.getAllByText('Hoy');
-        expect(todayElements.length).toBeGreaterThan(0);
-    });
-
-    it('muestra nombres de barberos reales (Deya, Sonny)', () => {
-        render(<Dashboard />);
-
-        expect(screen.getByText('Corte y Barba')).toBeInTheDocument();
-        expect(screen.getByText('Afeitado Completo')).toBeInTheDocument();
-        expect(screen.getByText('Corte y Ceja')).toBeInTheDocument();
-    });
-
-    it('NO contiene texto en inglés', () => {
-        render(<Dashboard />);
-
+        await screen.findByText('Super Dashboard'); // wait for load
         expect(screen.queryByText('Dashboard Overview')).not.toBeInTheDocument();
         expect(screen.queryByText('Home')).not.toBeInTheDocument();
         expect(screen.queryByText('Total Appointments')).not.toBeInTheDocument();

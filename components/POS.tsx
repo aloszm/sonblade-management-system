@@ -1,636 +1,491 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { User, Scissors, DollarSign, CreditCard, Smartphone, Check, Search, Save, Loader2, ShoppingBag, Trash2, Coins } from 'lucide-react';
+import React from 'react';
+import {
+    Search, User, Scissors, Package, CreditCard, Banknote,
+    Trash2, Plus, Minus, ArrowRight, Loader2, Info, Users
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Barber, Service, Product, Sale } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { usePOS, PaymentType } from '@/hooks/usePOS';
 
-interface CartItem {
-    id: string;
-    name: string;
-    price: number;
-    type: 'service' | 'product';
-    quantity: number;
-    product_id?: string;
-    service_id?: string;
-}
+export default function POS() {
+    const { state, actions } = usePOS();
+    const {
+        selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
+        clientSearch, serviceSearch, productSearch, submitting, showSuccess, lastSaleTotal, editingSaleId,
+        loadingBarbers, loadingServices, userRole, visibleBarbers, clients,
+        filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total, todayTotal
+    } = state;
+    const {
+        setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
+        setClientSearch, setServiceSearch, setProductSearch, addService, addProduct, removeFromCart, handleSubmit,
+        setCart
+    } = actions;
 
-type PaymentType = 'cash' | 'card' | 'transfer';
-
-const paymentOptions: { id: PaymentType; label: string; icon: typeof DollarSign }[] = [
-    { id: 'cash', label: 'Efectivo', icon: DollarSign },
-    { id: 'card', label: 'Tarjeta', icon: CreditCard },
-    { id: 'transfer', label: 'Transferencia', icon: Smartphone },
-];
-
-function PaymentSelector({ label, value, onChange }: { label: string; value: PaymentType; onChange: (v: PaymentType) => void }) {
-    return (
-        <div className="flex items-center gap-2 overflow-hidden">
-            <span className="text-xs font-medium text-gray-500 shrink-0">{label}</span>
-            <div className="flex gap-1 flex-1 min-w-0">
-                {paymentOptions.map((opt) => (
-                    <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => onChange(opt.id)}
-                        className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all flex-1 justify-center truncate ${value === opt.id
-                            ? 'bg-sonblade-primary text-white shadow-sm'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                    >
-                        <opt.icon className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{opt.id === 'transfer' ? 'Transf.' : opt.label}</span>
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-const POS: React.FC = () => {
-    const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
-    const [servicePayment, setServicePayment] = useState<PaymentType>('cash');
-    const [tipPayment, setTipPayment] = useState<PaymentType>('cash');
-    const [productPayment, setProductPayment] = useState<PaymentType>('cash');
-    const [tip, setTip] = useState(0);
-    const [cart, setCart] = useState<CartItem[]>([]);
-    const [serviceSearch, setServiceSearch] = useState('');
-    const [productSearch, setProductSearch] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
-    const [lastSaleTotal, setLastSaleTotal] = useState(0);
-    const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
-
-    // Fetch data from API routes (server-side, bypasses RLS)
-    const [barbers, setBarbers] = useState<Barber[] | null>(null);
-    const [services, setServices] = useState<Service[] | null>(null);
-    const [products, setProducts] = useState<Product[] | null>(null);
-    const [loadingBarbers, setLoadingBarbers] = useState(true);
-    const [loadingServices, setLoadingServices] = useState(true);
-
-    useEffect(() => {
-        fetch('/api/barbers').then(r => r.json()).then(data => {
-            if (Array.isArray(data)) setBarbers(data);
-        }).catch(console.error).finally(() => setLoadingBarbers(false));
-
-        fetch('/api/services').then(r => r.json()).then(data => {
-            if (Array.isArray(data)) setServices(data.filter((s: Service) => s.is_active !== false));
-        }).catch(console.error).finally(() => setLoadingServices(false));
-
-        fetch('/api/products').then(r => r.json()).then(data => {
-            if (Array.isArray(data)) setProducts(data);
-        }).catch(console.error);
-    }, []);
-
-    // Fetch user identity
-    const [userRole, setUserRole] = useState<'admin' | 'barber' | null>(null);
-    const [userId, setUserId] = useState<string | null>(null);
-
-    useEffect(() => {
-        fetch('/api/auth/me', { cache: 'no-store' })
-            .then(res => res.json())
-            .then(data => {
-                if (data.authenticated) {
-                    setUserRole(data.user.role);
-                    setUserId(data.user.id);
-                }
-            })
-            .catch(console.error);
-    }, []);
-
-    // Filter visible barbers based on role
-    const visibleBarbers = useMemo(() => {
-        if (!barbers) return [];
-        if (userRole === 'admin') return barbers;
-        return barbers.filter(b => b.id === userId);
-    }, [barbers, userRole, userId]);
-
-    // Automatically select the barber if they are logging in as themselves
-    useEffect(() => {
-        if (userRole === 'barber' && visibleBarbers.length === 1 && !selectedBarber) {
-            setSelectedBarber(visibleBarbers[0]);
-        }
-    }, [visibleBarbers, userRole, selectedBarber]);
-
-    // Fetch today's sales via API route
-    const [todaySales, setTodaySales] = useState<Sale[]>([]);
-    // Filtered services for search dropdown
-    const fetchTodaySales = useCallback(async () => {
-        try {
-            const res = await fetch('/api/sales');
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data)) setTodaySales(data);
-            }
-        } catch (e) {
-            console.error('Error fetching sales:', e);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchTodaySales();
-    }, [fetchTodaySales]);
-
-    // Check for Edit Mode
-    useEffect(() => {
-        const loadEditSale = async () => {
-            if (typeof window === 'undefined') return;
-            const params = new URLSearchParams(window.location.search);
-            const editId = params.get('edit');
-            if (!editId || !barbers || !services || !products) return;
-
-            try {
-                const res = await fetch(`/api/sales/${editId}`);
-                if (!res.ok) return;
-                const sale = await res.json();
-
-                if (sale) {
-                    setEditingSaleId(editId);
-                    const b = barbers.find(x => x.id === sale.barber_id);
-                    if (b) setSelectedBarber(b);
-
-                    setTip(Number(sale.tip || 0));
-                    const method = sale.payment_method === 'mixed' ? 'cash' : (sale.payment_method as PaymentType);
-                    setServicePayment(method);
-                    setProductPayment(method);
-                    setTipPayment(method);
-
-                    const newCart: CartItem[] = (sale.items || []).map((i: any) => ({
-                        id: `${i.item_type}-${i.id}`,
-                        name: i.item_name,
-                        price: Number(i.item_price),
-                        type: i.item_type,
-                        quantity: i.quantity || 1,
-                        product_id: i.product_id,
-                        service_id: i.service_id
-                    }));
-                    setCart(newCart);
-
-                    window.history.replaceState({}, '', '/caja');
-                }
-            } catch (e) { console.error('Error loading edit sale', e); }
-        };
-
-        if (barbers && barbers.length > 0 && services && products) {
-            loadEditSale();
-        }
-    }, [barbers, services, products]);
-    const filteredServices = useMemo(() => {
-        if (!services || !serviceSearch) return [];
-        return services.filter(s =>
-            s.name.toLowerCase().includes(serviceSearch.toLowerCase())
-        ).slice(0, 8);
-    }, [services, serviceSearch]);
-
-    const filteredProducts = useMemo(() => {
-        if (!products || !productSearch) return [];
-        return products.filter(p =>
-            p.name.toLowerCase().includes(productSearch.toLowerCase()) && p.stock > 0
-        ).slice(0, 5);
-    }, [products, productSearch]);
-
-    const serviceItems = cart.filter(i => i.type === 'service');
-    const productItems = cart.filter(i => i.type === 'product');
-    const serviceTotal = serviceItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-    const productTotal = productItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-    const subtotal = serviceTotal + productTotal;
-    const total = subtotal + tip;
-    const todayTotal = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
-
-    const addService = (service: Service) => {
-        const existing = cart.find(i => i.service_id === service.id);
-        if (existing) return;
-        setCart(prev => [...prev, {
-            id: `s-${service.id}`,
-            name: service.name,
-            price: service.price,
-            type: 'service',
-            quantity: 1,
-            service_id: service.id,
-        }]);
-        setServiceSearch('');
-    };
-
-    const addProduct = (product: Product) => {
-        const existing = cart.find(i => i.product_id === product.id);
-        if (existing) {
-            setCart(prev => prev.map(i =>
-                i.product_id === product.id ? { ...i, quantity: Math.min(i.quantity + 1, product.stock) } : i
-            ));
-        } else {
-            setCart(prev => [...prev, {
-                id: `p-${product.id}`,
-                name: product.name,
-                price: product.price,
-                type: 'product',
-                quantity: 1,
-                product_id: product.id,
-            }]);
-        }
-        setProductSearch('');
-    };
-
-    const removeFromCart = (id: string) => {
-        setCart(prev => prev.filter(i => i.id !== id));
-    };
-
-    // Calculate payment amounts per method
-    const computePaymentAmounts = () => {
-        let cashAmount = 0;
-        let cardAmount = 0;
-        let transferAmount = 0;
-
-        const addToMethod = (method: PaymentType, amount: number) => {
-            if (method === 'cash') cashAmount += amount;
-            else if (method === 'card') cardAmount += amount;
-            else transferAmount += amount;
-        };
-
-        if (serviceTotal > 0) addToMethod(servicePayment, serviceTotal);
-        if (tip > 0) addToMethod(tipPayment, tip);
-        if (productTotal > 0) addToMethod(productPayment, productTotal);
-
-        // Determine overall payment_method
-        const methods = new Set<PaymentType>();
-        if (cashAmount > 0) methods.add('cash');
-        if (cardAmount > 0) methods.add('card');
-        if (transferAmount > 0) methods.add('transfer');
-
-        let paymentMethod: 'cash' | 'card' | 'transfer' | 'mixed' = 'cash';
-        if (methods.size > 1) paymentMethod = 'mixed';
-        else if (methods.has('card')) paymentMethod = 'card';
-        else if (methods.has('transfer')) paymentMethod = 'transfer';
-
-        return { cashAmount, cardAmount, transferAmount, paymentMethod };
-    };
-
-    const handleSubmit = async () => {
-        if (!selectedBarber || cart.length === 0) {
-            alert('Selecciona un barbero y al menos un servicio o producto');
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            if (editingSaleId) {
-                // Delete the previous sale first functionally as essentially a deep modification
-                await fetch(`/api/sales/${editingSaleId}`, { method: 'DELETE' });
-            }
-
-            const { cashAmount, cardAmount, transferAmount, paymentMethod } = computePaymentAmounts();
-
-            const res = await fetch('/api/sales', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    barber_id: selectedBarber.id,
-                    total,
-                    tip,
-                    cash_amount: cashAmount,
-                    card_amount: cardAmount,
-                    transfer_amount: transferAmount,
-                    payment_method: paymentMethod,
-                    items: cart.map(item => ({
-                        item_type: item.type,
-                        item_name: item.name,
-                        item_price: item.price,
-                        quantity: item.quantity,
-                        product_id: item.product_id,
-                        service_id: item.service_id,
-                    })),
-                }),
-            });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || 'Error del servidor');
-            }
-
-            // Reset form
-            setCart([]);
-            setTip(0);
-            setServicePayment('cash');
-            setTipPayment('cash');
-            setProductPayment('cash');
-            setLastSaleTotal(total);
-            setEditingSaleId(null);
-            setShowSuccess(true);
-            fetchTodaySales();
-            setTimeout(() => setShowSuccess(false), 3000);
-        } catch (err) {
-            console.error('Error creating sale:', err);
-            alert(`Error al registrar la venta: ${err instanceof Error ? err.message : 'desconocido'}`);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    if (loadingBarbers || loadingServices) {
-        return (
-            <div className="flex items-center justify-center h-[60vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-sonblade-primary" />
-                <span className="ml-3 text-gray-500">Cargando POS...</span>
-            </div>
-        );
-    }
+    // Helper functions for common styles
+    const getPaymentButtonStyle = (current: PaymentType, type: PaymentType) =>
+        `flex-1 py-1 px-1 sm:px-2 rounded-lg text-xs font-medium border transition-colors flex items-center justify-center gap-1 sm:gap-2
+        ${current === type
+            ? 'bg-blue-500 text-white border-blue-500'
+            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`;
 
     return (
-        <div className="grid grid-cols-[1fr_340px] h-[calc(100vh-7rem)] gap-3 overflow-hidden">
-            {/* Main Workspace */}
-            <section className="overflow-y-auto scrollbar-hide space-y-4 min-w-0">
+        <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex-1 space-y-6">
+                {/* 1. Barbero */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <User className="h-4 w-4" /> 1. Barbero
+                    </h2>
 
-                {/* Sliding Success Overlay */}
-                <AnimatePresence>
-                    {showSuccess && (
-                        <motion.div
-                            initial={{ x: 100, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: 100, opacity: 0, transition: { duration: 0.2 } }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                            className="fixed bottom-6 right-8 bg-green-500 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 z-50"
-                        >
-                            <div className="bg-white/20 rounded-full p-2">
-                                <DollarSign className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-green-100 font-medium">Venta Registrada</p>
-                                <p className="font-bold text-xl">${lastSaleTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* 1. Barber Selection */}
-                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                    <label className="block text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
-                        <User className="h-4 w-4 text-sonblade-primary" />
-                        Barbero
-                    </label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {visibleBarbers.map((barber) => (
-                            <button
-                                key={barber.id}
-                                onClick={() => userRole === 'admin' && setSelectedBarber(barber)}
-                                disabled={userRole !== 'admin'}
-                                className={`flex items-center gap-3 p-3 border rounded-lg transition-all text-left ${selectedBarber?.id === barber.id
-                                    ? 'border-sonblade-primary bg-blue-50 shadow-sm ring-2 ring-sonblade-primary/30'
-                                    : 'border-gray-200 hover:border-sonblade-primary bg-white cursor-pointer'
-                                    } ${userRole !== 'admin' ? 'cursor-default hover:border-sonblade-primary/30' : ''}`}
-                            >
-                                <div className="relative">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sonblade-primary to-blue-400 flex items-center justify-center text-white font-bold text-sm">
-                                        {barber.name.charAt(0)}
+                    {loadingBarbers ? (
+                        <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {visibleBarbers.map((barber) => (
+                                <button
+                                    key={barber.id}
+                                    onClick={() => setSelectedBarber(barber)}
+                                    className={`relative overflow-hidden p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2
+                                        ${selectedBarber?.id === barber.id
+                                            ? 'border-blue-500 bg-blue-50/50 scale-[1.02]'
+                                            : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold
+                                        ${selectedBarber?.id === barber.id ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                        {barber.name.charAt(0).toUpperCase()}
                                     </div>
-                                    <span className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${barber.status === 'active' ? 'bg-green-500' : barber.status === 'busy' ? 'bg-red-500' : 'bg-gray-400'
-                                        }`}></span>
+                                    <span className="font-medium text-sm text-slate-700 text-center">{barber.name}</span>
+                                    {selectedBarber?.id === barber.id && (
+                                        <motion.div layoutId="barber-active" className="absolute inset-0 border-2 border-blue-500 rounded-xl" />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Cliente (Opcional) */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1">
+                        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <Users className="h-4 w-4" /> Cliente (CRM) - Opcional
+                        </h2>
+                        <div className="relative">
+                            {selectedClient ? (
+                                <div className="flex items-center justify-between p-3 border border-blue-200 bg-blue-50 rounded-xl">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-blue-900">{selectedClient.name}</span>
+                                        <span className="text-xs text-blue-700 font-medium">{selectedClient.client_number} {selectedClient.phone ? ` • ${selectedClient.phone}` : ''}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => { setSelectedClient(null); setClientSearch(''); }}
+                                        className="text-blue-500 hover:text-blue-700 p-2"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
                                 </div>
-                                <div>
-                                    <p className="font-semibold text-gray-900 text-sm">{barber.name}</p>
-                                    <p className={`text-xs font-medium ${barber.status === 'active' ? 'text-green-500' : barber.status === 'busy' ? 'text-red-500' : 'text-gray-400'}`}>
-                                        {barber.status === 'active' ? 'Disponible' : barber.status === 'busy' ? 'Ocupado' : 'Descanso'}
-                                    </p>
-                                </div>
-                            </button>
-                        ))}
+                            ) : (
+                                <>
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por teléfono, nombre o SB-XXXX..."
+                                        value={clientSearch}
+                                        onChange={(e) => setClientSearch(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm font-medium"
+                                    />
+                                    {clientSearch && filteredClients.length > 0 && (
+                                        <div className="absolute top-12 left-0 right-0 bg-white border border-gray-100 shadow-lg rounded-xl overflow-hidden z-10 flex flex-col">
+                                            {filteredClients.map(c => (
+                                                <button
+                                                    key={c.id}
+                                                    onClick={() => { setSelectedClient(c); setClientSearch(''); }}
+                                                    className="flex items-center justify-between p-3 text-left hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                                                >
+                                                    <div>
+                                                        <div className="font-bold text-gray-900 text-sm">{c.name}</div>
+                                                        <div className="text-xs text-gray-500">{c.client_number} {c.phone ? `| ${c.phone}` : ''}</div>
+                                                    </div>
+                                                    {c.visits > 0 && (
+                                                        <span className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-md font-bold text-nowrap">
+                                                            ★ {c.points}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {clientSearch && filteredClients.length === 0 && (
+                                        <div className="absolute top-12 left-0 right-0 bg-white border border-gray-100 shadow-lg rounded-xl p-4 z-10 text-center text-sm text-gray-500">
+                                            No se encontró ningún cliente.
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* 2. Service Search */}
-                <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-sonblade-primary">
-                    <label className="text-sm font-semibold text-gray-500 flex items-center gap-2 mb-3">
-                        <Scissors className="h-4 w-4 text-sonblade-primary" />
-                        Agregar Servicio
-                    </label>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-3 text-gray-400 h-5 w-5" />
+                {/* 2. Servicios */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Scissors className="h-4 w-4" /> 2. Servicios
+                    </h2>
+
+                    <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <input
-                            className="w-full pl-10 p-3 bg-white border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-sonblade-primary outline-none"
                             type="text"
+                            placeholder="Buscar servicio..."
                             value={serviceSearch}
                             onChange={(e) => setServiceSearch(e.target.value)}
-                            placeholder="Buscar servicio... (ej: Corte, Barba, VIP)"
+                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                         />
-                        {serviceSearch && filteredServices.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-20 max-h-64 overflow-y-auto">
-                                {filteredServices.map(s => {
-                                    const inCart = cart.some(i => i.service_id === s.id);
-                                    return (
-                                        <button
-                                            key={s.id}
-                                            onClick={() => addService(s)}
-                                            disabled={inCart}
-                                            className={`w-full text-left px-4 py-3 flex justify-between items-center border-b border-gray-100 last:border-0 transition-colors ${inCart
-                                                ? 'bg-blue-50 text-gray-400 cursor-default'
-                                                : 'hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <div>
-                                                <p className="font-medium text-gray-900 text-sm">{s.name}</p>
-                                                <p className="text-xs text-gray-500">{s.duration_minutes} min</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="font-bold text-sonblade-primary">${s.price.toFixed(2)}</span>
-                                                {inCart && <p className="text-xs text-blue-500">✓ agregado</p>}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        {serviceSearch && filteredServices.length === 0 && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-20 p-4 text-center text-gray-400 text-sm">
-                                No se encontraron servicios
-                            </div>
-                        )}
                     </div>
+
+                    {loadingServices ? (
+                        <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {filteredServices.map(service => {
+                                const inCart = cart.some(i => i.service_id === service.id);
+                                return (
+                                    <button
+                                        key={service.id}
+                                        onClick={() => addService(service)}
+                                        disabled={inCart}
+                                        className={`flex flex-col text-left p-3 rounded-xl border transition-all
+                                            ${inCart
+                                                ? 'bg-blue-50 border-blue-200 opacity-50 cursor-not-allowed'
+                                                : 'bg-white border-gray-200 hover:border-blue-500 hover:shadow-md'}`}
+                                    >
+                                        <span className="font-medium text-gray-800 line-clamp-1">{service.name}</span>
+                                        <span className="text-blue-600 font-bold mt-1">${service.price}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
-                {/* 3. Product Search */}
-                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                    <label className="text-sm font-semibold text-gray-500 flex items-center gap-2 mb-3">
-                        <ShoppingBag className="h-4 w-4 text-sonblade-primary" />
-                        Agregar Producto
-                    </label>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-3 text-gray-400 h-5 w-5" />
+                {/* 3. Productos */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Package className="h-4 w-4" /> 3. Productos
+                    </h2>
+
+                    <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <input
-                            className="w-full pl-10 p-3 bg-white border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-sonblade-primary outline-none"
                             type="text"
+                            placeholder="Buscar producto..."
                             value={productSearch}
                             onChange={(e) => setProductSearch(e.target.value)}
-                            placeholder="Buscar producto..."
+                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                         />
-                        {productSearch && filteredProducts.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-20 max-h-48 overflow-y-auto">
-                                {filteredProducts.map(p => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => addProduct(p)}
-                                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex justify-between items-center border-b border-gray-100 last:border-0"
-                                    >
-                                        <div>
-                                            <p className="font-medium text-gray-900 text-sm">{p.name}</p>
-                                            <p className="text-xs text-gray-500">Stock: {p.stock} un.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {filteredProducts.map(product => {
+                            const cartItem = cart.find(i => i.product_id === product.id);
+                            const currentQty = cartItem?.quantity || 0;
+                            const canAdd = currentQty < product.stock;
+
+                            return (
+                                <button
+                                    key={product.id}
+                                    onClick={() => addProduct(product)}
+                                    disabled={!canAdd}
+                                    className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left
+                                        ${!canAdd
+                                            ? 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
+                                            : 'bg-white border-gray-200 hover:border-blue-500 hover:shadow-md'}`}
+                                >
+                                    <div>
+                                        <div className="font-medium text-gray-800 line-clamp-1 flex items-center gap-2">
+                                            {product.name}
                                         </div>
-                                        <span className="font-bold text-sonblade-primary">${p.price.toFixed(2)}</span>
-                                    </button>
-                                ))}
+                                        <div className="text-sm text-gray-500 mt-1">Stock: {product.stock - currentQty}</div>
+                                    </div>
+                                    <span className="text-blue-600 font-bold">${product.price}</span>
+                                </button>
+                            );
+                        })}
+                        {productSearch && filteredProducts.length === 0 && (
+                            <div className="col-span-full py-4 text-center text-gray-500">
+                                Ningún producto disponible con el nombre indicado
                             </div>
                         )}
                     </div>
                 </div>
+            </div>
 
-                {/* 4. Tip */}
-                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                    <label className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <Coins className="h-4 w-4 text-sonblade-primary" />
-                        Propina (opcional)
-                    </label>
-                    <div className="relative w-40">
-                        <span className="absolute left-3 top-2.5 text-gray-500 font-medium">$</span>
-                        <input
-                            type="number"
-                            value={tip}
-                            onChange={(e) => setTip(Number(e.target.value))}
-                            className="w-full p-2 pl-7 bg-gray-50 border border-gray-200 rounded-lg font-bold text-gray-900 text-right"
-                        />
-                    </div>
-                </div>
-
-            </section>
-
-            {/* Right Sidebar: Cart Summary & Submit */}
-            <aside className="bg-white border border-gray-200 rounded-xl flex flex-col shadow-sm h-full min-w-0 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-xl shrink-0">
-                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
-                        <ShoppingBag className="h-4 w-4 text-sonblade-gold" />
-                        Ticket de Venta
-                    </h3>
-                </div>
-
-                <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
-                    {cart.length === 0 ? (
-                        <div className="text-center py-10 opacity-50">
-                            <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                            <p className="text-gray-500 text-sm">Agrega servicios o productos<br />para comenzar</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {/* Services */}
-                            {serviceItems.length > 0 && (
-                                <div>
-                                    <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Servicios</p>
-                                    <AnimatePresence>
-                                        {serviceItems.map((item) => (
-                                            <motion.div
-                                                key={item.id}
-                                                initial={{ opacity: 0, x: -20, height: 0 }}
-                                                animate={{ opacity: 1, x: 0, height: 'auto' }}
-                                                exit={{ opacity: 0, x: 20, height: 0 }}
-                                                className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0 overflow-hidden"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <span className="font-medium text-gray-900 truncate max-w-[150px]" title={item.name}>{item.name}</span>
-                                                </div>
-                                                <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
-                                            </motion.div>
-                                        ))}
-                                    </AnimatePresence>
-                                    <div className="mt-2 pl-6">
-                                        <PaymentSelector label="Pago:" value={servicePayment} onChange={setServicePayment} />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Products */}
-                            {productItems.length > 0 && (
-                                <div className="pt-2 border-t border-gray-100 mt-2">
-                                    <p className="text-xs font-semibold text-gray-400 uppercase mb-2 mt-2">Productos</p>
-                                    <AnimatePresence>
-                                        {productItems.map((item) => (
-                                            <motion.div
-                                                key={item.id}
-                                                initial={{ opacity: 0, x: -20, height: 0 }}
-                                                animate={{ opacity: 1, x: 0, height: 'auto' }}
-                                                exit={{ opacity: 0, x: 20, height: 0 }}
-                                                className="flex justify-between items-center text-sm py-1.5 border-b border-dashed border-gray-100 last:border-0 overflow-hidden"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <span className="font-medium text-gray-900 truncate max-w-[130px]" title={item.name}>{item.name} {item.quantity > 1 && <span className="text-gray-400 font-normal">x{item.quantity}</span>}</span>
-                                                </div>
-                                                <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
-                                            </motion.div>
-                                        ))}
-                                    </AnimatePresence>
-                                    <div className="mt-2 pl-6">
-                                        <PaymentSelector label="Pago:" value={productPayment} onChange={setProductPayment} />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Tip */}
-                            {tip > 0 && (
-                                <div className="border-t border-gray-100 pt-3 mt-2">
-                                    <div className="flex justify-between items-center text-sm mb-2">
-                                        <span className="font-medium text-gray-900 flex items-center gap-1"><Coins className="h-3.5 w-3.5 text-sonblade-gold" /> Propina</span>
-                                        <span className="font-bold text-gray-900">${tip.toFixed(2)}</span>
-                                    </div>
-                                    <div className="pl-6">
-                                        <PaymentSelector label="Pago:" value={tipPayment} onChange={setTipPayment} />
-                                    </div>
-                                </div>
-                            )}
+            {/* Resumen / Carrito */}
+            <div className="lg:w-96 flex flex-col gap-6">
+                <div className="bg-slate-900 rounded-2xl shadow-lg border border-slate-800 flex flex-col h-[calc(100vh-8rem)] sticky top-6">
+                    {editingSaleId && (
+                        <div className="bg-yellow-500 text-yellow-950 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 rounded-t-2xl">
+                            <Info className="h-4 w-4" />
+                            Editando Venta #{editingSaleId.slice(0, 8)}
                         </div>
                     )}
-                </div>
-
-                {/* Subtotals & Submit */}
-                <div className="p-5 bg-gray-50 border-t border-gray-200 rounded-b-xl shrink-0">
-                    <div className="space-y-1 mb-4 text-sm">
-                        <div className="flex justify-between text-gray-500">
-                            <span>Subtotal</span>
-                            <span>${subtotal.toFixed(2)}</span>
-                        </div>
-                        {tip > 0 && (
-                            <div className="flex justify-between text-gray-500">
-                                <span>Propina</span>
-                                <span>${tip.toFixed(2)}</span>
-                            </div>
-                        )}
-                        <div className="flex justify-between items-end pt-2 border-t border-gray-200 mt-2">
-                            <span className="font-bold text-gray-800">Total a Cobrar</span>
-                            <span className="text-3xl font-black text-black tracking-tight">${total.toFixed(2)}</span>
-                        </div>
+                    <div className="p-6 border-b border-white/10 flex-shrink-0">
+                        <h2 className="text-lg font-semibold text-white flex items-center justify-between">
+                            Resumen de Venta
+                            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                {cart.length} items
+                            </span>
+                        </h2>
                     </div>
 
-                    <motion.button
-                        whileHover={!submitting && cart.length > 0 && selectedBarber ? { scale: 1.02, y: -2 } : {}}
-                        whileTap={!submitting && cart.length > 0 && selectedBarber ? { scale: 0.98 } : {}}
-                        onClick={handleSubmit}
-                        disabled={submitting || cart.length === 0 || !selectedBarber}
-                        className="w-full h-14 rounded-xl bg-black text-sonblade-gold font-bold shadow-md hover:shadow-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {submitting ? (
-                            <><Loader2 className="h-5 w-5 animate-spin" /> PROCESANDO...</>
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-white/10">
+                        {cart.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
+                                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center">
+                                    <Scissors className="h-8 w-8 text-slate-400" />
+                                </div>
+                                <p>No hay servicios cobrados</p>
+                            </div>
                         ) : (
-                            <><Check className="h-5 w-5 text-sonblade-gold" /> {editingSaleId ? 'GUARDAR EDICIÓN' : 'CONFIRMAR Y COBRAR'}</>
+                            <>
+                                {/* Servicios */}
+                                {serviceItems.length > 0 && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between text-slate-400 text-sm font-medium mb-2">
+                                            <span>Servicios</span>
+                                        </div>
+                                        {serviceItems.map((item) => (
+                                            <div key={item.id} className="flex flex-col gap-2 p-3 rounded-xl bg-white/5 border border-white/10 group">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <div className="text-white font-medium">{item.name}</div>
+                                                        <div className="text-slate-400 text-sm">${item.price}</div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => removeFromCart(item.id)}
+                                                        className="text-slate-500 hover:text-red-400 transition-colors p-1"
+                                                    >
+                                                        <Minus className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {/* Método de Pago Servicios */}
+                                        <div className="mt-2 text-sm text-slate-400 font-medium">Método de pago (Servicios)</div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setServicePayment('cash')}
+                                                className={getPaymentButtonStyle(servicePayment, 'cash')}
+                                            >
+                                                <Banknote className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                <span className="hidden sm:inline">Efec</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setServicePayment('card')}
+                                                className={getPaymentButtonStyle(servicePayment, 'card')}
+                                            >
+                                                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                <span className="hidden sm:inline">Tarjeta</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setServicePayment('transfer')}
+                                                className={getPaymentButtonStyle(servicePayment, 'transfer')}
+                                            >
+                                                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                <span className="hidden sm:inline">Transf</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Propina */}
+                                <div className="space-y-2 pt-4 border-t border-white/10">
+                                    <div className="flex justify-between items-center text-slate-400 text-sm font-medium mb-2">
+                                        <span>Propina</span>
+                                        {tip > 0 && <span className="text-white">${tip}</span>}
+                                    </div>
+                                    <div className="flex gap-2 mb-2">
+                                        {[0, 20, 50, 100].map((t) => (
+                                            <button
+                                                key={t}
+                                                onClick={() => setTip(t)}
+                                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors
+                                                    ${tip === t
+                                                        ? 'bg-blue-500 text-white'
+                                                        : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}
+                                            >
+                                                ${t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {tip > 0 && (
+                                        <>
+                                            <div className="mt-2 text-sm text-slate-400 font-medium">Método de pago (Propina)</div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setTipPayment('cash')}
+                                                    className={getPaymentButtonStyle(tipPayment, 'cash')}
+                                                >
+                                                    <Banknote className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Efec</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setTipPayment('card')}
+                                                    className={getPaymentButtonStyle(tipPayment, 'card')}
+                                                >
+                                                    <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Tarjeta</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setTipPayment('transfer')}
+                                                    className={getPaymentButtonStyle(tipPayment, 'transfer')}
+                                                >
+                                                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Transf</span>
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Productos */}
+                                {productItems.length > 0 && (
+                                    <div className="space-y-3 pt-4 border-t border-white/10">
+                                        <div className="flex items-center justify-between text-slate-400 text-sm font-medium mb-2">
+                                            <span>Productos</span>
+                                        </div>
+                                        {productItems.map((item) => (
+                                            <div key={item.id} className="flex flex-col gap-2 p-3 rounded-xl bg-white/5 border border-white/10 group">
+                                                <div className="flex justify-between items-center pr-2">
+                                                    <div>
+                                                        <div className="text-white font-medium">{item.name}</div>
+                                                        <div className="text-slate-400 text-sm">${item.price} c/u ({item.quantity})</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 bg-white/10 rounded-lg p-1">
+                                                        <button disabled={item.quantity <= 1} onClick={() => {
+                                                            const newCart = [...cart];
+                                                            const idx = newCart.findIndex((i: any) => i.id === item.id);
+                                                            if (idx > -1 && newCart[idx].quantity > 1) {
+                                                                newCart[idx].quantity -= 1;
+                                                                setCart(newCart);
+                                                            }
+                                                        }} className="p-1 hover:bg-white/20 rounded-md text-white disabled:opacity-30"><Minus className="h-3 w-3" /></button>
+                                                        <span className="text-white font-medium text-sm w-4 text-center">{item.quantity}</span>
+                                                        <button onClick={() => {
+                                                            const p = filteredProducts?.find((prod: any) => prod.id === item.product_id);
+                                                            if (p && item.quantity < p.stock) addProduct(p);
+                                                        }} className="p-1 hover:bg-white/20 rounded-md text-white"><Plus className="h-3 w-3" /></button>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => removeFromCart(item.id)}
+                                                        className="text-slate-500 hover:text-red-400 transition-colors p-1 ml-2"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {/* Método de Pago Productos */}
+                                        <div className="mt-2 text-sm text-slate-400 font-medium">Método de pago (Productos)</div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setProductPayment('cash')}
+                                                className={getPaymentButtonStyle(productPayment, 'cash')}
+                                            >
+                                                <Banknote className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Efec</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setProductPayment('card')}
+                                                className={getPaymentButtonStyle(productPayment, 'card')}
+                                            >
+                                                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Tarjeta</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setProductPayment('transfer')}
+                                                className={getPaymentButtonStyle(productPayment, 'transfer')}
+                                            >
+                                                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Transf</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
-                    </motion.button>
-                    {!selectedBarber && cart.length > 0 && (
-                        <p className="text-xs text-red-500 text-center mt-2 font-medium">Selecciona un barbero para continuar</p>
-                    )}
+                    </div>
+
+                    <div className="p-6 bg-slate-800/50 border-t border-white/10 rounded-b-2xl flex-shrink-0">
+                        <div className="space-y-3 mb-6">
+                            <div className="flex justify-between text-slate-400">
+                                <span>Subtotal</span>
+                                <span>${subtotal}</span>
+                            </div>
+                            {tip > 0 && (
+                                <div className="flex justify-between text-slate-400">
+                                    <span>Propina</span>
+                                    <span>${tip}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-end pt-3 border-t border-white/10">
+                                <span className="text-white font-medium">Total a cobrar</span>
+                                <span className="text-3xl font-bold text-white">${total}</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!selectedBarber || cart.length === 0 || submitting}
+                            className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all
+                                ${!selectedBarber || cart.length === 0
+                                    ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                    : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40'
+                                }`}
+                        >
+                            {submitting ? (
+                                <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Procesando...
+                                </>
+                            ) : (
+                                editingSaleId ? 'Actualizar Venta' : 'Confirmar Venta'
+                            )}
+                        </button>
+                    </div>
+
+                    <AnimatePresence>
+                        {showSuccess && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                                className="absolute inset-0 bg-green-500 rounded-2xl flex flex-col items-center justify-center text-white z-10"
+                            >
+                                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                                    <motion.div
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: 0.2, type: "spring" }}
+                                    >
+                                        <Scissors className="h-10 w-10" />
+                                    </motion.div>
+                                </div>
+                                <h3 className="text-2xl font-bold mb-2">¡Venta Registrada!</h3>
+                                <p className="text-green-100 font-medium">+${lastSaleTotal}</p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
-            </aside>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <div className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Ventas de Hoy</div>
+                        <div className="text-xl font-bold text-slate-800">${todayTotal}</div>
+                    </div>
+                    <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center">
+                        <Banknote className="h-5 w-5 text-green-500" />
+                    </div>
+                </div>
+            </div>
         </div>
     );
-};
-
-export default POS;
+}

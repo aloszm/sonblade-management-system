@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addCashMovement, confirmMovement, getSessionMovements, getDeletedMovements, getActiveSession } from '@/lib/services/cash';
 import { supabaseAdmin as supabase } from '@/lib/supabase';
+import { AddCashMovementSchema } from '@/lib/validations';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        let { session_id, type, description, amount, payment_method, status } = body;
+
+        let { session_id, status } = body;
+        const movementData = AddCashMovementSchema.parse(body);
 
         if (!session_id) {
             const active = await getActiveSession();
@@ -13,19 +18,22 @@ export async function POST(request: NextRequest) {
             session_id = active.id;
         }
 
-        if (!type || !description || !amount) {
-            return NextResponse.json({ error: 'Campos requeridos: type, description, amount' }, { status: 400 });
-        }
-
         const movement = await addCashMovement(
-            session_id, type, description, Number(amount),
-            payment_method || 'cash',
+            session_id,
+            movementData.type,
+            movementData.description,
+            movementData.amount,
+            movementData.payment_method,
             status || 'confirmed'
         );
 
         return NextResponse.json(movement);
     } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        if (err.name === 'ZodError') {
+            return NextResponse.json({ error: err.errors[0].message }, { status: 400 });
+        }
+        const message = err.message || 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -57,8 +65,9 @@ export async function GET(request: NextRequest) {
 
         const movements = await getSessionMovements(sessionId);
         return NextResponse.json(movements);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -73,7 +82,8 @@ export async function PATCH(request: NextRequest) {
 
         const confirmed = await confirmMovement(movement_id);
         return NextResponse.json(confirmed);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

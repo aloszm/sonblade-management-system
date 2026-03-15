@@ -1,6 +1,9 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-import type { CreateSale } from '@/types';
+import { CreateSaleSchema } from '@/lib/validations';
+import { notifyLoyaltyPoints } from '@/lib/services/notifications';
+
+export const dynamic = 'force-dynamic';
 
 // GET /api/sales — Sales with optional filters
 export async function GET(request: NextRequest) {
@@ -51,14 +54,17 @@ export async function GET(request: NextRequest) {
 // POST /api/sales — Create a new sale
 export async function POST(request: NextRequest) {
     try {
-        const sale: CreateSale = await request.json();
+        const body = await request.json();
+        const sale = CreateSaleSchema.parse(body);
 
         // 0. Fetch barber's current commission type
-        const { data: barberData } = await supabase.from('barbers').select('commission_type').eq('id', sale.barber_id).single();
+        const { data: barberRaw } = sale.barber_id ? await supabase.from('barbers').select('commission_type').eq('id', sale.barber_id).single() : { data: null };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const barberData = barberRaw as any;
         const commissionType = barberData?.commission_type || 'tiered';
 
         // 1. Create the sale record
-        const { data: saleData, error: saleError } = await supabase
+        const { data: saleDataRaw, error: saleError } = await supabase
             .from('sales')
             .insert({
                 barber_id: sale.barber_id,
@@ -70,9 +76,11 @@ export async function POST(request: NextRequest) {
                 payment_method: sale.payment_method,
                 notes: sale.notes || '',
                 commission_type: commissionType,
-            })
+            } as never)
             .select()
             .single();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const saleData = saleDataRaw as any;
 
         if (saleError) throw saleError;
 
@@ -89,25 +97,18 @@ export async function POST(request: NextRequest) {
 
         const { error: itemsError } = await supabase
             .from('sale_items')
-            .insert(saleItems);
+            .insert(saleItems as never);
 
         if (itemsError) throw itemsError;
 
-        // 3. Decrease stock for product items
+        // 3. Decrease stock for product items (atomic RPC — no race condition)
         for (const item of sale.items) {
             if (item.item_type === 'product' && item.product_id) {
-                const { data: product } = await supabase
-                    .from('products')
-                    .select('stock')
-                    .eq('id', item.product_id)
-                    .single();
-
-                if (product) {
-                    await supabase
-                        .from('products')
-                        .update({ stock: Math.max(0, product.stock - (item.quantity || 1)) })
-                        .eq('id', item.product_id);
-                }
+                // `as never` needed because RPC arg types aren't in the untyped Supabase client schema
+                await supabase.rpc('decrement_stock', {
+                    p_product_id: item.product_id,
+                    p_qty: item.quantity || 1,
+                } as never);
             }
         }
 
@@ -124,13 +125,15 @@ export async function POST(request: NextRequest) {
         if (sale.payment_method === 'card' && card === 0) card = sale.total;
         if (sale.payment_method === 'transfer' && transfer === 0) transfer = sale.total;
 
-        const { data: session } = await supabase
+        const { data: sessionRaw } = await supabase
             .from('cash_sessions')
             .select('*')
             .eq('status', 'open')
             .order('opened_at', { ascending: false })
             .limit(1)
             .single();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const session = sessionRaw as any;
 
         if (session) {
             const movements = [];
@@ -152,7 +155,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (movements.length > 0) {
-                await supabase.from('cash_movements').insert(movements);
+                await supabase.from('cash_movements').insert(movements as never);
             }
 
             // Accumulate totals
@@ -163,14 +166,44 @@ export async function POST(request: NextRequest) {
                     total_cash: Number(session.total_cash || 0) + Number(cash),
                     total_card: Number(session.total_card || 0) + Number(card),
                     total_transfer: Number(session.total_transfer || 0) + Number(transfer)
-                })
+                } as never)
                 .eq('id', session.id);
         }
 
+        // 6. Award loyalty points if a client is associated (1 point per $10 of services, min 1)
+        if (sale.client_id) {
+            const serviceSubtotal = sale.items
+                .filter(i => i.item_type === 'service')
+                .reduce((sum, i) => sum + (i.item_price * (i.quantity || 1)), 0);
+            const points = Math.max(1, Math.floor(serviceSubtotal / 10));
+            await supabase.rpc('add_client_visit', {
+                p_client_id: sale.client_id,
+                p_points: points,
+            } as never);
+
+            // 7. Notify client via WhatsApp (no-op if not configured)
+            const { data: clientRaw } = await supabase
+                .from('clients').select('name, phone, loyalty_points').eq('id', sale.client_id).single();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const client = clientRaw as any;
+            if (client) {
+                notifyLoyaltyPoints({
+                    clientName: client.name,
+                    phone: client.phone,
+                    points,
+                    totalPoints: (client.loyalty_points ?? 0) + points,
+                }).catch(() => {}); // fire & forget, no bloquea la respuesta
+            }
+        }
+
         return NextResponse.json(saleData, { status: 201 });
-    } catch (err: any) {
-        const message = err?.message || 'Error al crear venta';
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'ZodError') {
+            const zodErr = err as unknown as { errors: { message: string }[] };
+            return NextResponse.json({ error: zodErr.errors[0].message }, { status: 400 });
+        }
+        const message = err instanceof Error ? err.message : 'Error al crear venta';
         console.error('POST /api/sales error:', err);
-        return NextResponse.json({ error: message, details: err }, { status: 500 });
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

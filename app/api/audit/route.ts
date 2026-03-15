@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuditLogs } from '@/lib/services/audit';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
     try {
         const params = request.nextUrl.searchParams;
@@ -12,7 +14,8 @@ export async function GET(request: NextRequest) {
 
         const logs = await getAuditLogs({ role, action, from, to, limit });
         return NextResponse.json(logs);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
