@@ -1,3 +1,5 @@
+'use server';
+
 import { supabaseAdmin as supabase } from '@/lib/supabase';
 import type { CashSession, CashMovement, CloseCashSession, CashSessionArchive, DeletedRecord } from '@/types';
 import { logAuditAction, logDeletedRecord } from './audit';
