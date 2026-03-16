@@ -24,6 +24,7 @@ export function usePOS() {
     const [clientSearch, setClientSearch] = useState('');
     const [serviceSearch, setServiceSearch] = useState('');
     const [productSearch, setProductSearch] = useState('');
+    const [barberSearch, setBarberSearch] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastSaleTotal, setLastSaleTotal] = useState(0);
@@ -83,6 +84,11 @@ export function usePOS() {
             setSelectedBarber(visibleBarbers[0]);
         }
     }, [visibleBarbers, userRole, selectedBarber]);
+
+    const filteredBarbers = useMemo(() => {
+        if (!barberSearch) return visibleBarbers;
+        return visibleBarbers.filter(b => b.name.toLowerCase().includes(barberSearch.toLowerCase()));
+    }, [visibleBarbers, barberSearch]);
 
     // Fetch today's sales
     const [todaySales, setTodaySales] = useState<Sale[]>([]);
@@ -309,13 +315,13 @@ export function usePOS() {
     return {
         state: {
             selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
-            clientSearch, serviceSearch, productSearch, submitting, showSuccess, lastSaleTotal, editingSaleId,
-            loadingBarbers, loadingServices, userRole, visibleBarbers, clients,
+            clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, editingSaleId,
+            loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total, todayTotal
         },
         actions: {
             setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
-            setClientSearch, setServiceSearch, setProductSearch, addService, addProduct, removeFromCart, handleSubmit,
+            setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
             setCart
         }
     };
