@@ -41,22 +41,22 @@ export default function POS() {
                         {loadingBarbers ? (
                             <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-sonblade-gold" /></div>
                         ) : (
-                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-sonblade-light">
+                            <div className="flex flex-wrap gap-2">
                                 {visibleBarbers.map((barber) => (
                                     <button
                                         key={barber.id}
                                         onClick={() => setSelectedBarber(barber)}
-                                        className={`relative flex-shrink-0 flex items-center gap-3 p-3 rounded-xl border-2 transition-all min-w-[160px]
+                                        className={`relative flex items-center gap-2 p-2 px-3 rounded-xl border transition-all flex-1 min-w-[100px] max-w-[150px]
                                             ${selectedBarber?.id === barber.id
                                                 ? 'border-sonblade-gold bg-sonblade-gold/10'
                                                 : 'border-white/5 bg-[#1a1a1a] hover:border-white/20'
                                             }`}
                                     >
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
                                             ${selectedBarber?.id === barber.id ? 'bg-sonblade-gold text-black' : 'bg-black/50 text-gray-400 border border-white/10'}`}>
                                             {barber.name.charAt(0).toUpperCase()}
                                         </div>
-                                        <span className="font-bold text-sm text-white truncate text-left">{barber.name}</span>
+                                        <span className="font-bold text-xs text-white truncate text-left">{barber.name}</span>
                                     </button>
                                 ))}
                             </div>
