@@ -12,13 +12,13 @@ export default function POS() {
     const { state, actions } = usePOS();
     const {
         selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
-        clientSearch, serviceSearch, productSearch, submitting, showSuccess, lastSaleTotal, editingSaleId,
-        loadingBarbers, loadingServices, userRole, visibleBarbers, clients,
+        clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, editingSaleId,
+        loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
         filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total, todayTotal
     } = state;
     const {
         setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
-        setClientSearch, setServiceSearch, setProductSearch, addService, addProduct, removeFromCart, handleSubmit,
+        setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
         setCart
     } = actions;
 
