@@ -40,8 +40,12 @@ export default function POS() {
                         {selectedBarber ? (
                             <div className="flex items-center justify-between p-2.5 border border-sonblade-gold/30 bg-sonblade-gold/10 rounded-xl">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-sonblade-gold text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                        {selectedBarber.name.charAt(0).toUpperCase()}
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden bg-sonblade-gold text-black">
+                                        {selectedBarber.avatar_url ? (
+                                            <img src={selectedBarber.avatar_url} alt={selectedBarber.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            selectedBarber.name.charAt(0).toUpperCase()
+                                        )}
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="font-bold text-white text-sm">{selectedBarber.name}</span>
@@ -79,8 +83,12 @@ export default function POS() {
                                                 onClick={() => { setSelectedBarber(barber); setBarberSearch(''); }}
                                                 className="flex items-center gap-3 p-4 text-left hover:bg-white/5 transition-colors"
                                             >
-                                                <div className="w-8 h-8 rounded-full bg-black/50 text-gray-400 border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                                    {barber.name.charAt(0).toUpperCase()}
+                                                <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0 bg-black/50 text-gray-400 overflow-hidden">
+                                                    {barber.avatar_url ? (
+                                                        <img src={barber.avatar_url} alt={barber.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        barber.name.charAt(0).toUpperCase()
+                                                    )}
                                                 </div>
                                                 <span className="font-bold text-sm text-white">{barber.name}</span>
                                             </button>
