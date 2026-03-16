@@ -37,44 +37,74 @@ export default function POS() {
                         <h2 className="text-sm font-bold text-sonblade-gold uppercase tracking-wider mb-3 flex items-center gap-2">
                             <User className="h-4 w-4" /> 1. Barbero
                         </h2>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                            <input
-                                type="text"
-                                placeholder="Buscar barbero..."
-                                value={barberSearch || ''}
-                                onChange={(e) => setBarberSearch(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl focus:ring-1 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none transition-all text-sm font-medium text-white placeholder-gray-600"
-                            />
-                        </div>
+                        {selectedBarber ? (
+                            <div className="flex items-center justify-between p-2.5 border border-sonblade-gold/30 bg-sonblade-gold/10 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-sonblade-gold text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                        {selectedBarber.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-white text-sm">{selectedBarber.name}</span>
+                                        <span className="text-xs text-gray-400">Barbero</span>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setSelectedBarber(null); setBarberSearch(''); }} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar barbero..."
+                                    value={barberSearch || ''}
+                                    onChange={(e) => setBarberSearch(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl focus:ring-1 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none transition-all text-sm font-medium text-white placeholder-gray-600"
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 scrollbar-sonblade-light">
+                    <div className="flex-1 overflow-y-auto p-0 scrollbar-sonblade-light relative">
                         {loadingBarbers ? (
                             <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-sonblade-gold" /></div>
                         ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {filteredBarbers.map((barber) => (
-                                    <button
-                                        key={barber.id}
-                                        onClick={() => setSelectedBarber(barber)}
-                                        className={`relative flex items-center gap-2 p-2 px-3 rounded-xl border transition-all flex-1 min-w-[100px] max-w-[150px]
-                                            ${selectedBarber?.id === barber.id
-                                                ? 'border-sonblade-gold bg-sonblade-gold/10'
-                                                : 'border-white/5 bg-[#1a1a1a] hover:border-white/20'
-                                            }`}
-                                    >
-                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                                            ${selectedBarber?.id === barber.id ? 'bg-sonblade-gold text-black' : 'bg-black/50 text-gray-400 border border-white/10'}`}>
-                                            {barber.name.charAt(0).toUpperCase()}
+                            <>
+                                {barberSearch && !selectedBarber && filteredBarbers.length > 0 ? (
+                                    <div className="flex flex-col divide-y divide-white/5">
+                                        {filteredBarbers.map((barber) => (
+                                            <button
+                                                key={barber.id}
+                                                onClick={() => { setSelectedBarber(barber); setBarberSearch(''); }}
+                                                className="flex items-center gap-3 p-4 text-left hover:bg-white/5 transition-colors"
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-black/50 text-gray-400 border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                                    {barber.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <span className="font-bold text-sm text-white">{barber.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    !selectedBarber && (
+                                        <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-500">
+                                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3">
+                                                <User className="h-6 w-6 text-gray-600" />
+                                            </div>
+                                            <p className="text-sm">Busca un barbero para esta venta.</p>
                                         </div>
-                                        <span className="font-bold text-xs text-white truncate text-left">{barber.name}</span>
-                                    </button>
-                                ))}
-                                {barberSearch && filteredBarbers.length === 0 && (
-                                    <p className="text-gray-500 text-sm text-center py-6 w-full">Sin resultados.</p>
+                                    )
                                 )}
-                            </div>
+                                {barberSearch && !selectedBarber && filteredBarbers.length === 0 && (
+                                    <div className="p-6 text-center text-gray-500 text-sm">Ningún barbero coincide.</div>
+                                )}
+                                {selectedBarber && (
+                                    <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-500">
+                                        <p className="text-sm text-sonblade-gold font-medium">Barbero vinculado a la venta</p>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
