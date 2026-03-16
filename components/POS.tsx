@@ -152,10 +152,8 @@ export default function POS() {
                     </div>
                 </div>
 
-                {/* Services & Products lists flex-1 */}
-                <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
-                    {/* 2. Servicios */}
-                    <div className="flex-1 bg-[#141414] rounded-2xl shadow-xl border border-white/5 flex flex-col overflow-hidden">
+                {/* 2. Servicios */}
+                <div className="flex-1 bg-[#141414] rounded-2xl shadow-xl border border-white/5 flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-white/5 flex-shrink-0">
                             <h2 className="text-sm font-bold text-sonblade-gold uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <Scissors className="h-4 w-4" /> 2. Servicios
@@ -251,7 +249,6 @@ export default function POS() {
                             </div>
                         </div>
                     </div>
-                </div>
             </div>
 
             {/* Resumen / Carrito */}
