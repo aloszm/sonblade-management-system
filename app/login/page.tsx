@@ -1,16 +1,21 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const [configurationMissing, setConfigurationMissing] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        setConfigurationMissing(new URLSearchParams(window.location.search).get('configuration') === 'missing');
+    }, []);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -41,11 +46,11 @@ export default function LoginPage() {
         <main className="min-h-screen flex items-center justify-center bg-zinc-950 px-4 py-8">
             <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
                 <div className="mb-8 text-center">
-                    <img src="/logo.png" alt="Sonblade" className="mx-auto mb-4 h-20 w-20 object-contain" />
+                    <Image src="/logo.png" alt="Sonblade" width={80} height={80} className="mx-auto mb-4 h-20 w-20 object-contain" />
                     <h1 className="text-2xl font-black uppercase tracking-wider text-white">Sonblade</h1>
                     <p className="mt-1 text-sm font-semibold tracking-widest text-sonblade-gold">Management System</p>
                 </div>
-                {searchParams.get('configuration') === 'missing' && <p role="alert" className="mb-4 text-sm text-amber-300">El entorno aún no está configurado para iniciar sesión.</p>}
+                {configurationMissing && <p role="alert" className="mb-4 text-sm text-amber-300">El entorno aún no está configurado para iniciar sesión.</p>}
                 <label htmlFor="email" className="mb-2 block text-sm font-medium text-zinc-300">Correo electrónico</label>
                 <input id="email" type="email" autoComplete="username" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} className="mb-5 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white outline-none focus:border-sonblade-gold" />
                 <label htmlFor="password" className="mb-2 block text-sm font-medium text-zinc-300">Contraseña</label>

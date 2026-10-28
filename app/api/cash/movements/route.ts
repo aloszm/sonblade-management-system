@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'cashier']);
+        await requireAuthContext(['owner', 'admin', 'cashier']);
         const parsed = MovementSchema.safeParse(await request.json());
         if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400 });
         const supabase = await createSupabaseServerClient();

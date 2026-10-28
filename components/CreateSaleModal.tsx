@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Loader2, Plus, Minus, UserSearch, Search, Trash2 } from 'lucide-react';
+import { X, Loader2, Plus, Minus, Search, Trash2 } from 'lucide-react';
 import type { Barber, Service, Client } from '@/types';
 
 interface CreateSaleModalProps {
@@ -103,8 +103,8 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
             setBarberId(''); setClientId(''); setSelectedServices([]); setPaymentMethod('cash'); setNotes(''); idempotencyKey.current = crypto.randomUUID();
             onCreated();
             onClose();
-        } catch (e: any) {
-            setError(e.message);
+        } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Error al crear venta.');
         } finally {
             setSubmitting(false);
         }
