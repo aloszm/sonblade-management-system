@@ -22,6 +22,7 @@ No guardar claves de Supabase, cadenas de conexión ni secretos de Vercel en est
 |---|---|---|
 | `20261028003850` | `supabase/migrations/20261028003850_initial_sonblade_schema.sql` | Entidades iniciales, relaciones, índices y políticas RLS. |
 | `20261028003943` | `supabase/migrations/20261028003943_harden_default_privileges.sql` | Revoca permisos predeterminados amplios y limita privilegios por superficie. |
+| `20261028004122` | `supabase/migrations/20261028004122_harden_business_and_finance_invariants.sql` | Evita transferencia accidental de propietario, limita la asignación del rol owner, conserva acceso de lectura al historial de sucursales inactivas y exige datos de cierre/reversión. |
 
 Mantener los archivos de migración con el mismo prefijo de versión que devuelve `list_migrations`. Las migraciones aplicadas no deben editarse para cambiar su semántica histórica; los cambios posteriores deben añadirse en nuevas migraciones.
 
@@ -80,6 +81,8 @@ Mantener los archivos de migración con el mismo prefijo de versión que devuelv
 - Usuarios en `auth.users`: 0.
 - Migraciones registradas: 2.
 - Supabase Security Advisor: 0 hallazgos.
+- Privilegios de tabla: `anon` tiene 0 privilegios; `authenticated` tiene lectura en 24 tablas y escritura (INSERT/UPDATE) en 12 tablas operativas/catalogales. Tiene 0 privilegios directos DELETE/TRUNCATE.
+- El historial de migraciones contiene 3 migraciones y los nombres de los archivos se alinearon con las versiones registradas.
 - Performance Advisor: reporta advertencias informativas de claves foráneas sin índice y de índices no usados. Estas últimas son esperables en una base recién creada; revisar índices con consultas reales antes de optimizar en exceso.
 
 Consulta: el conteo cero de usuarios y tablas recién creadas confirma que no se sembraron datos en el nuevo entorno; no dice nada del contenido de la base antigua.
