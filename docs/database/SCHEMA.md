@@ -100,3 +100,11 @@ Consulta: el conteo cero de usuarios y tablas recién creadas confirma que no se
 ## Regla de seguridad
 
 La clave `service_role` evita RLS. Solo podrá vivir en el servidor y cada handler que la use deberá autenticar, autorizar el rol/negocio/sucursal, validar el catálogo y el total, aplicar transacciones e idempotencia y registrar auditoría. Nunca enviarla al navegador ni incluirla en `NEXT_PUBLIC_*`.
+
+## Vercel Preview — estado de integración
+
+- El acceso del conector al equipo de Vercel fue autorizado y verificado leyendo solo metadatos de variables, sin descifrar valores.
+- Las variables actuales de Supabase, JWT y acceso de administrador están compartidas entre `development`, `preview` y `production`; no se modificaron.
+- No se desplegó una Preview conectada a esta base todavía. La app actual usa la sesión PIN/JWT y espera tablas antiguas como `barbers`; solo cambiar la URL o la clave pública haría una configuración inconsistente.
+- Antes de una Preview real, la rama debe completar el issue [#5](https://github.com/aloszm/sonblade-management-system/issues/5) y usar variables específicas de la rama en Preview. La clave de servidor del nuevo proyecto deberá configurarse directamente en Vercel como Sensitive, sin copiarla al repositorio ni al chat.
+- Guía: [Configuración segura de Vercel Preview](../implementation/VERCEL_PREVIEW.md).
