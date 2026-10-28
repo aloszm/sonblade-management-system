@@ -11,6 +11,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
     const pathname = usePathname();
 
+    if (pathname === '/login' || pathname === '/onboarding') return <>{children}</>;
+
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50 flex-col md:flex-row">
             {/* Mobile Sidebar Overlay */}
@@ -48,3 +50,4 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
     );
 }
+

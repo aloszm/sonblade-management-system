@@ -1,89 +1,54 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { addCashMovement, confirmMovement, getSessionMovements, getDeletedMovements, getActiveSession } from '@/lib/services/cash';
-import { supabaseAdmin as supabase } from '@/lib/supabase';
-import { AddCashMovementSchema } from '@/lib/validations';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
-
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-
-        let { session_id, status } = body;
-        const movementData = AddCashMovementSchema.parse(body);
-
-        if (!session_id) {
-            const active = await getActiveSession();
-            if (!active) return NextResponse.json({ error: 'Debe haber una caja abierta para registrar movimientos.' }, { status: 400 });
-            session_id = active.id;
-        }
-
-        const movement = await addCashMovement(
-            session_id,
-            movementData.type,
-            movementData.description,
-            movementData.amount,
-            movementData.payment_method,
-            status || 'confirmed'
-        );
-
-        return NextResponse.json(movement);
-    } catch (err: any) {
-        if (err.name === 'ZodError') {
-            return NextResponse.json({ error: err.errors[0].message }, { status: 400 });
-        }
-        const message = err.message || 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
-}
+const MovementSchema = z.object({
+    cash_session_id: z.string().uuid(),
+    movement_type: z.enum(['expense', 'withdrawal', 'deposit']),
+    method: z.enum(['cash', 'card', 'transfer', 'other']),
+    amount: z.number().positive(),
+    description: z.string().trim().min(2).max(300),
+});
 
 export async function GET(request: NextRequest) {
     try {
-        const params = request.nextUrl.searchParams;
-        const sessionId = params.get('session_id');
-        const type = params.get('type');
-
-        if (type === 'deleted') {
-            const deleted = await getDeletedMovements();
-            return NextResponse.json(deleted);
-        }
-
-        if (type === 'expense' && !sessionId) {
-            // Fetch all expenses regardless of session
-            const { data, error } = await supabase
-                .from('cash_movements')
-                .select('*')
-                .eq('type', 'expense')
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            return NextResponse.json(data);
-        }
-
-        if (!sessionId) {
-            return NextResponse.json({ error: 'session_id requerido' }, { status: 400 });
-        }
-
-        const movements = await getSessionMovements(sessionId);
-        return NextResponse.json(movements);
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        const context = await requireAuthContext(['owner', 'admin', 'cashier']);
+        const supabase = await createSupabaseServerClient();
+        const sessionId = request.nextUrl.searchParams.get('session_id');
+        let query = supabase.from('cash_movements')
+            .select('id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id, expense_id')
+            .eq('business_id', context.businessId).eq('branch_id', context.branchId)
+            .order('created_at', { ascending: false }).limit(500);
+        if (sessionId) query = query.eq('cash_session_id', sessionId);
+        const type = request.nextUrl.searchParams.get('type');
+        if (type === 'expense') query = query.eq('movement_type', 'expense');
+        const { data, error } = await query;
+        if (error) throw error;
+        return Response.json(data ?? [], { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { movement_id, action } = body;
-
-        if (!movement_id || action !== 'confirm') {
-            return NextResponse.json({ error: 'movement_id y action=confirm requeridos' }, { status: 400 });
-        }
-
-        const confirmed = await confirmMovement(movement_id);
-        return NextResponse.json(confirmed);
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        const context = await requireAuthContext(['owner', 'admin', 'cashier']);
+        const parsed = MovementSchema.safeParse(await request.json());
+        if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400 });
+        const supabase = await createSupabaseServerClient();
+        const { data, error } = await supabase.rpc('record_cash_movement', {
+            p_cash_session_id: parsed.data.cash_session_id,
+            p_movement_type: parsed.data.movement_type,
+            p_method: parsed.data.method,
+            p_amount: parsed.data.amount,
+            p_description: parsed.data.description,
+        } as never);
+        if (error) throw error;
+        return Response.json(data, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }
+
