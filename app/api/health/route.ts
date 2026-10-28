@@ -1,76 +1,13 @@
-import { supabaseAdmin as supabase } from '@/lib/supabase';
-import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-    try {
-        // Test products
-        const { data: products, error: productsError } = await supabase
-            .from('products')
-            .select('*');
-
-        if (productsError) {
-            return NextResponse.json({
-                status: 'error',
-                message: 'Products query failed',
-                error: productsError.message
-            }, { status: 500 });
-        }
-
-        // Test barbers
-        const { data: barbers, error: barbersError } = await supabase
-            .from('barbers')
-            .select('*');
-
-        if (barbersError) {
-            return NextResponse.json({
-                status: 'error',
-                message: 'Barbers query failed',
-                error: barbersError.message
-            }, { status: 500 });
-        }
-
-        // Test services
-        const { data: services, error: servicesError } = await supabase
-            .from('services')
-            .select('*');
-
-        if (servicesError) {
-            return NextResponse.json({
-                status: 'error',
-                message: 'Services query failed',
-                error: servicesError.message
-            }, { status: 500 });
-        }
-
-        // Test cash_sessions
-        const { data: sessions, error: sessionsError } = await supabase
-            .from('cash_sessions')
-            .select('*');
-
-        if (sessionsError) {
-            return NextResponse.json({
-                status: 'error',
-                message: 'Cash sessions query failed',
-                error: sessionsError.message
-            }, { status: 500 });
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const p = products as any[], b = barbers as any[], sv = services as any[];
-        return NextResponse.json({
-            status: 'ok',
-            connection: 'Supabase connected successfully ✅',
-            tables: {
-                products: { count: p?.length || 0, sample: p?.[0]?.name },
-                barbers: { count: b?.length || 0, sample: b?.[0]?.name },
-                services: { count: sv?.length || 0, sample: sv?.[0]?.name },
-                cash_sessions: { count: sessions?.length || 0 },
-            }
-        });
-    } catch (err: unknown) {
-        return NextResponse.json({
-            status: 'error',
-            message: err instanceof Error ? err.message : 'Unknown error'
-        }, { status: 500 });
-    }
+    const configured = Boolean(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    );
+    return Response.json({ status: configured ? 'ok' : 'misconfigured' }, {
+        status: configured ? 200 : 503,
+        headers: { 'Cache-Control': 'no-store' },
+    });
 }
+

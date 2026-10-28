@@ -1,90 +1,48 @@
-import { supabaseAdmin as supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin, getSession } from '@/lib/utils/auth';
-import { hashPin } from '@/lib/utils/auth';
+import { z } from 'zod';
+import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
+type RouteContext = { params: Promise<{ id: string }> };
+const ClientPatchSchema = z.object({
+    name: z.string().trim().min(2).max(120).optional(),
+    phone: z.string().trim().max(32).nullable().optional(),
+    email: z.string().trim().email().max(254).nullable().optional(),
+    notes: z.string().max(1000).nullable().optional(),
+    preferences: z.string().max(1000).nullable().optional(),
+}).strict().refine((value) => Object.keys(value).length > 0);
 
-// GET /api/clients/[id]
-export async function GET(
-    _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: NextRequest, { params }: RouteContext) {
     try {
-        const session = await getSession();
-        if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
+        const context = await requireAuthContext();
         const { id } = await params;
-        const { data, error } = await supabase
-            .from('clients')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) {
-            if (error.code === 'PGRST116') return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
-            throw error;
-        }
-        return NextResponse.json(data);
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
-}
-
-// PATCH /api/clients/[id]
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await getSession();
-        if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-        const { id } = await params;
-        let updates = await request.json();
-
-        // Hash PIN if being updated
-        if (updates.pin) {
-            updates = { ...updates, pin: await hashPin(updates.pin) };
-        }
-
-        const { data, error } = await supabase
-            .from('clients')
-            // `as never` needed because the untyped Supabase schema resolves table row type to `never`
-            .update({ ...updates, updated_at: new Date().toISOString() } as never)
-            .eq('id', id)
-            .select()
-            .single();
-
+        const { data, error } = await (await createSupabaseServerClient()).from('clients')
+            .select('id, full_name, phone, email, notes, preferences, created_at, updated_at')
+            .eq('business_id', context.businessId).eq('id', id).maybeSingle();
         if (error) throw error;
-        return NextResponse.json(data);
-    } catch (err: unknown) {
-        const status = (err as { status?: number }).status ?? 500;
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status });
-    }
+        if (!data) return NextResponse.json({ error: 'Cliente no encontrado.' }, { status: 404 });
+        return NextResponse.json({ ...data, name: data.full_name }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) { return authErrorResponse(error); }
 }
 
-// DELETE /api/clients/[id] — admin only
-export async function DELETE(
-    _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: RouteContext) {
     try {
-        await requireAdmin();
+        const context = await requireAuthContext(['owner', 'admin', 'cashier', 'receptionist']);
         const { id } = await params;
-
-        const { error } = await supabase
-            .from('clients')
-            .delete()
-            .eq('id', id);
-
+        const parsed = ClientPatchSchema.safeParse(await request.json().catch(() => null));
+        if (!parsed.success) return NextResponse.json({ error: 'Los datos del cliente no son válidos.' }, { status: 400 });
+        const { name, ...rest } = parsed.data;
+        const { data, error } = await (await createSupabaseServerClient()).from('clients')
+            .update({ ...rest, ...(name ? { full_name: name } : {}) })
+            .eq('business_id', context.businessId).eq('id', id)
+            .select('id, full_name, phone, email, notes, preferences, created_at, updated_at').maybeSingle();
         if (error) throw error;
-        return NextResponse.json({ success: true });
-    } catch (err: unknown) {
-        const status = (err as { status?: number }).status ?? 500;
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status });
-    }
+        if (!data) return NextResponse.json({ error: 'Cliente no encontrado.' }, { status: 404 });
+        return NextResponse.json({ ...data, name: data.full_name });
+    } catch (error) { return authErrorResponse(error); }
 }
+
+export async function DELETE() {
+    return NextResponse.json({ error: 'Los clientes con historial no se eliminan; desactiva el acceso o registra una solicitud de privacidad.' }, { status: 405 });
+}
+

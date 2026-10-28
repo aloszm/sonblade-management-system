@@ -102,3 +102,12 @@ Un módulo se considera terminado cuando:
 Lee `AGENTS.md`, `docs/product/PRD.md`, `docs/product/BUSINESS_RULES.md` y `docs/implementation/ROADMAP.md`.
 
 Trabaja en una rama distinta de `main`. Primero realiza únicamente la Fase 0: audita el repositorio actual, identifica qué existe realmente, qué se puede reutilizar y qué no cumple los requisitos aprobados. No reescribas toda la aplicación ni hagas cambios destructivos. Entrega un diagnóstico basado en archivos concretos, una arquitectura propuesta, riesgos, decisiones pendientes y un plan de cambios pequeños con pruebas. No afirmes que el producto funciona o está desplegado si no lo comprobaste.
+
+
+## Estado de integración con Supabase (27 oct 2026)
+
+La rama dependiente `feat/issue-5-auth-integration` inicia la migración del acceso a Supabase Auth SSR, incorpora contexto de negocio/sucursal/rol y agrega bootstrap manual de un solo uso. Se añadieron las operaciones SQL de bootstrap, catálogo inicial, POS atómico con idempotencia, caja y retenciones de comisión; las funciones financieras privilegiadas se movieron al esquema privado con wrappers invoker.
+
+Verificado en el proyecto de desarrollo `zkvikttnpjwzfsygkdot` (`sonblade-dev`): seis migraciones registradas, 25 tablas públicas con RLS, cero filas en tablas de negocio, Security Advisor sin hallazgos después del endurecimiento. TypeScript y build de producción local pasan con variables ficticias.
+
+**Estado: en curso; no desplegar ni tratar como lista para Preview.** La integración de ventas/caja y los módulos restantes aún requiere pruebas de API/RLS, flujo de pagos parciales posteriores, liquidaciones/reversas, migración de servicios legacy, configuración de Preview aislada y revisión completa de permisos. ESLint mantiene errores heredados y Vitest no pudo iniciar en el entorno de trabajo actual. No se crearon Auth users ni datos de negocio durante esta fase.

@@ -1,68 +1,59 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { jwtVerify } from 'jose'
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
+import type { Database } from '@/lib/database.types';
 
-if (!process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required');
-}
-
-const SECRET_KEY = new TextEncoder().encode(process.env.JWT_SECRET);
+const PUBLIC_PATHS = ['/login', '/onboarding', '/auth/callback', '/api/auth/login', '/api/health'];
+const NO_CACHE = { 'Cache-Control': 'no-store' };
 
 export async function middleware(request: NextRequest) {
-    const sessionToken = request.cookies.get('session')?.value;
-    const { pathname } = request.nextUrl;
-
-    // Public routes that do not require authentication
-    if (
-        pathname === '/login' ||
-        pathname.startsWith('/api/auth') ||
-        pathname === '/api/barbers' || // Needed for login dropdown
-        pathname === '/api/receptionists' || // Needed for login dropdown
-        pathname.startsWith('/_next') ||
-        pathname === '/favicon.ico' ||
-        pathname === '/manifest.json' ||
-        pathname === '/sw.js' ||
-        pathname === '/logo.png' ||
-        pathname.startsWith('/icons')
-    ) {
-        return NextResponse.next();
+    let response = NextResponse.next({ request });
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+        if (PUBLIC_PATHS.some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))) return response;
+        if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.json({ error: 'Supabase no está configurado.' }, { status: 503, headers: NO_CACHE });
+        return NextResponse.redirect(new URL('/login?configuration=missing', request.url));
     }
 
-    if (!sessionToken) {
+    const supabase = createServerClient<Database>(url, key, {
+        cookies: {
+            getAll: () => request.cookies.getAll(),
+            setAll: (cookiesToSet) => {
+                cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+                response = NextResponse.next({ request });
+                cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+            },
+        },
+    });
+    const { data: { user } } = await supabase.auth.getUser();
+    const pathname = request.nextUrl.pathname;
+    const isPublic = PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+        || pathname.startsWith('/_next/') || pathname === '/favicon.ico' || pathname === '/manifest.json'
+        || pathname === '/sw.js' || pathname === '/logo.png' || pathname.startsWith('/icons/');
+
+    if (!user && !isPublic) {
+        if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No autenticado.' }, { status: 401, headers: NO_CACHE });
         return NextResponse.redirect(new URL('/login', request.url));
     }
+    if (user && pathname === '/login') return NextResponse.redirect(new URL('/', request.url));
 
-    try {
-        const { payload } = await jwtVerify(sessionToken, SECRET_KEY);
-        // Payload has { id, name, role }
-        const role = payload.role as string;
-
-        // Admin-only routes
-        const adminRoutes = ['/admin', '/equipo', '/inventario'];
-        if (role !== 'admin' && adminRoutes.some(r => pathname.startsWith(r))) {
-            const fallback = role === 'recepcion' ? '/clientes' : '/pos';
-            return NextResponse.redirect(new URL(fallback, request.url));
+    if (user && !isPublic) {
+        const { data: memberships } = await supabase.from('business_memberships')
+            .select('business_id, role').eq('user_id', user.id).eq('is_active', true).order('created_at').limit(1);
+        const membership = memberships?.[0];
+        if (!membership) {
+            if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'La cuenta no tiene un negocio asignado.' }, { status: 403, headers: NO_CACHE });
+            return NextResponse.redirect(new URL('/onboarding', request.url));
         }
-
-        // Receptionist: restrict to their allowed pages
-        const recepcionAllowed = ['/clientes', '/caja', '/citas'];
-        if (role === 'recepcion' && !recepcionAllowed.some(r => pathname.startsWith(r))) {
-            return NextResponse.redirect(new URL('/clientes', request.url));
+        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/configuracion'];
+        if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin'].includes(membership.role)) {
+            if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
+            return NextResponse.redirect(new URL('/', request.url));
         }
-
-        // If trying to access root, redirect non-admins appropriately
-        if (pathname === '/') {
-            if (role === 'recepcion') return NextResponse.redirect(new URL('/clientes', request.url));
-            if (role !== 'admin') return NextResponse.redirect(new URL('/pos', request.url));
-        }
-
-        return NextResponse.next();
-    } catch (_e) {
-        // Invalid token
-        return NextResponse.redirect(new URL('/login', request.url));
     }
+
+    return response;
 }
 
-export const config = {
-    matcher: ['/((?!_next/static|_next/image|sw.js).*)'],
-}
+export const config = { matcher: ['/((?!_next/static|_next/image|sw.js).*)'] };
+

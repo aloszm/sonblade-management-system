@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Loader2, Plus, Minus, UserSearch, Search, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { X, Loader2, Plus, Minus, Search, Trash2 } from 'lucide-react';
 import type { Barber, Service, Client } from '@/types';
 
 interface CreateSaleModalProps {
@@ -16,9 +16,9 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
     const [barberId, setBarberId] = useState('');
     const [clientId, setClientId] = useState('');
     const [clientSearch, setClientSearch] = useState('');
+    const idempotencyKey = useRef(crypto.randomUUID());
     const [clients, setClients] = useState<Client[]>([]);
     const [selectedServices, setSelectedServices] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
-    const [tip, setTip] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'mixed'>('cash');
     const [cashAmount, setCashAmount] = useState(0);
     const [cardAmount, setCardAmount] = useState(0);
@@ -71,39 +71,40 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
     const handleSubmit = async () => {
         if (!barberId) { setError('Selecciona un barbero'); return; }
         if (selectedServices.length === 0) { setError('Agrega al menos un servicio'); return; }
+        if (Math.round((cashAmount + cardAmount + transferAmount) * 100) !== Math.round(total * 100)) {
+            setError('Los pagos deben coincidir con el total de la venta.'); return;
+        }
         setError('');
         setSubmitting(true);
         try {
             const body = {
-                barber_id: barberId,
+                idempotency_key: idempotencyKey.current,
                 client_id: clientId || null,
-                total,
-                tip,
-                cash_amount: cashAmount,
-                card_amount: cardAmount,
-                transfer_amount: transferAmount,
-                payment_method: paymentMethod,
                 notes,
                 items: selectedServices.map(s => ({
                     item_type: 'service' as const,
-                    item_name: s.name,
-                    item_price: s.price,
+                    catalog_id: s.id,
                     quantity: s.qty,
-                    service_id: s.id,
+                    employee_id: barberId,
                 })),
+                payments: [
+                    ...(cashAmount > 0 ? [{ method: 'cash' as const, amount: cashAmount }] : []),
+                    ...(cardAmount > 0 ? [{ method: 'card' as const, amount: cardAmount }] : []),
+                    ...(transferAmount > 0 ? [{ method: 'transfer' as const, amount: transferAmount }] : []),
+                ],
             };
             const res = await fetch('/api/sales', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
-            if (!res.ok) throw new Error('Error al crear venta');
+            if (!res.ok) { const payload = await res.json(); throw new Error(payload.error || 'Error al crear venta'); }
             // Reset
-            setBarberId(''); setClientId(''); setSelectedServices([]); setTip(0); setPaymentMethod('cash'); setNotes('');
+            setBarberId(''); setClientId(''); setSelectedServices([]); setPaymentMethod('cash'); setNotes(''); idempotencyKey.current = crypto.randomUUID();
             onCreated();
             onClose();
-        } catch (e: any) {
-            setError(e.message);
+        } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Error al crear venta.');
         } finally {
             setSubmitting(false);
         }
@@ -209,12 +210,6 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                         )}
                     </div>
 
-                    {/* Propina */}
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Propina</label>
-                        <input type="number" value={tip} onChange={e => setTip(Number(e.target.value))} min={0} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="0" />
-                    </div>
-
                     {/* Método de pago */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Método de Pago</label>
@@ -270,3 +265,4 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
         </div>
     );
 }
+
