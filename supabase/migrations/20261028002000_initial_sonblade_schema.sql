@@ -620,12 +620,18 @@ ALTER TABLE public.commission_settlements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.commission_settlement_lines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 
+-- Authenticated users can edit operational setup through RLS policies.
+-- Financial ledger writes are deliberately denied to direct Data API clients.
+-- They will be implemented through server-authorized, atomic operations with idempotency.
 GRANT SELECT, INSERT, UPDATE ON public.profiles, public.businesses, public.business_memberships,
   public.branches, public.user_branch_access, public.employees, public.clients, public.services,
-  public.products, public.commission_rules, public.appointments, public.appointment_items,
-  public.sales, public.sale_items, public.payments, public.cash_sessions, public.cash_movements,
-  public.expenses, public.branch_inventory, public.inventory_movements, public.commission_entries,
-  public.commission_settlements, public.commission_settlement_lines, public.audit_log
+  public.products, public.commission_rules, public.appointments, public.appointment_items
+TO authenticated;
+
+GRANT SELECT ON public.sales, public.sale_items, public.payments, public.cash_sessions,
+  public.cash_movements, public.expenses, public.branch_inventory, public.inventory_movements,
+  public.commission_entries, public.commission_settlements, public.commission_settlement_lines,
+  public.audit_log
 TO authenticated;
 
 CREATE POLICY profiles_select_own ON public.profiles
