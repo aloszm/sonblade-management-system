@@ -41,7 +41,7 @@ interface MenuSection {
 }
 
 // Items allowed per role (by href prefix)
-const BARBER_ALLOWED = ['/pos', '/caja', '/barbero', '/clientes', '/liquidaciones'];
+const BARBER_ALLOWED = ['/barbero', '/clientes', '/liquidaciones'];
 const RECEPCION_ALLOWED = ['/pos', '/clientes', '/caja', '/citas'];
 
 const menuSections: MenuSection[] = [

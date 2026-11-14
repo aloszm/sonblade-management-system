@@ -63,3 +63,8 @@
 .scrollbar-sonblade-light::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #e6c34a, #D4AF37);
 }
+/* Impresión de recibos: márgenes de página y fondo blanco */
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff !important; }
+}

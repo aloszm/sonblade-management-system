@@ -24,7 +24,7 @@ export type BusinessReport = {
     daily: { day: string; revenue: number }[];
     weekly: { week: string; revenue: number }[];
     low_stock: { id: string; name: string; stock: number; min_stock: number }[];
-    sales: { id: string; created_at: string; items: { item_name: string; item_type: 'service' | 'product' }[]; amount: number; methods: string | null }[] | null;
+    sales: { id: string; created_at: string; items: { item_name: string; item_type: 'service' | 'product' }[]; amount: number; methods: string | null; cash_amount: number; card_amount: number; transfer_amount: number; commission: number }[] | null;
 };
 
 export async function fetchBusinessReport(
@@ -32,11 +32,13 @@ export async function fetchBusinessReport(
     branchId: string,
     period: ReportPeriod,
     employeeId: string | null = null,
+    range: { from: string; to: string } | null = null,
 ): Promise<BusinessReport> {
     const { data, error } = await supabase.rpc('business_report', {
         p_branch_id: branchId,
         p_period: period,
         p_employee_id: employeeId,
+        ...(range ? { p_from: range.from, p_to: range.to } : {}),
     } as never);
     if (error) throw error;
     return data as unknown as BusinessReport;
@@ -145,5 +147,43 @@ export function toBarberStats(week: BusinessReport, today: BusinessReport, barbe
             serviceBreakdown: w?.service_breakdown ?? [],
         },
         todayStats: { cuts: t?.cuts ?? 0, tips: 0, sales },
+    };
+}
+
+/** Forma que espera el perfil del barbero (/barberos/[id]): cifras del periodo y detalle por venta. */
+export function toBarberProfile(report: BusinessReport, barberName: string, barberId: string, rate: number) {
+    const b = report.barbers[0];
+    const serviceCommission = b?.service_commission ?? 0;
+    const productCommission = b?.product_commission ?? 0;
+    return {
+        barber: { id: barberId, name: barberName, status: 'active', commission_type: 'flat_50' },
+        kpis: {
+            cuts: b?.cuts ?? 0,
+            serviceRevenue: b?.service_revenue ?? 0,
+            productRevenue: b?.product_revenue ?? 0,
+            totalRevenue: round2((b?.service_revenue ?? 0) + (b?.product_revenue ?? 0)),
+            tips: 0,
+            commissionRate: rate,
+            totalCommission: round2(serviceCommission + productCommission),
+            serviceCommission,
+            productCommission,
+        },
+        movements: (report.sales ?? []).map((s) => {
+            const methods = s.methods ? s.methods.split(', ') : [];
+            return {
+                id: s.id,
+                date: s.created_at,
+                services: s.items.filter((i) => i.item_type === 'service').map((i) => i.item_name).join(', '),
+                products: s.items.filter((i) => i.item_type === 'product').map((i) => i.item_name).join(', '),
+                payment_method: methods.length === 1 ? methods[0] : 'mixed',
+                cash_amount: s.cash_amount,
+                card_amount: s.card_amount,
+                transfer_amount: s.transfer_amount,
+                tip: 0,
+                total: s.amount,
+                commission: s.commission,
+            };
+        }),
+        serviceBreakdown: b?.service_breakdown ?? [],
     };
 }

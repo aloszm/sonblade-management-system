@@ -6,7 +6,7 @@ import type { Client } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const EMPTY_FORM = { name: '', phone: '', email: '', pin: '', changePin: false };
+const EMPTY_FORM = { name: '', phone: '', email: '' };
 
 export default function ClientsPage() {
     const [clients, setClients] = useState<Client[]>([]);
@@ -44,7 +44,7 @@ export default function ClientsPage() {
 
     const openEdit = (c: Client) => {
         setEditingClient(c);
-        setFormData({ name: c.name, phone: c.phone || '', email: c.email || '', pin: '', changePin: false });
+        setFormData({ name: c.name, phone: c.phone || '', email: c.email || '' });
         setError('');
         setShowModal(true);
     };
@@ -69,7 +69,6 @@ export default function ClientsPage() {
                     phone: formData.phone,
                     email: formData.email,
                 };
-                if (formData.changePin && formData.pin) body.pin = formData.pin;
 
                 const res = await fetch(`/api/clients/${editingClient.id}`, {
                     method: 'PATCH',
@@ -82,7 +81,7 @@ export default function ClientsPage() {
                 const res = await fetch('/api/clients', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData),
+                    body: JSON.stringify({ name: formData.name, phone: formData.phone, email: formData.email }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error || 'Error al crear cliente');
             }
@@ -301,49 +300,6 @@ export default function ClientsPage() {
                                     placeholder="juan@ejemplo.com"
                                 />
                             </div>
-
-                            {/* PIN: always required on create; optional toggle on edit */}
-                            {!editingClient ? (
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">PIN de Seguridad (4 dígitos) <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="password"
-                                        inputMode="numeric"
-                                        required
-                                        value={formData.pin}
-                                        onChange={e => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm font-medium text-center tracking-[0.5em]"
-                                        placeholder="••••"
-                                        minLength={4}
-                                        maxLength={4}
-                                    />
-                                </div>
-                            ) : (
-                                <div>
-                                    <label className="flex items-center gap-2 cursor-pointer select-none mb-2">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.changePin}
-                                            onChange={e => setFormData({ ...formData, changePin: e.target.checked, pin: '' })}
-                                            className="rounded"
-                                        />
-                                        <span className="text-sm font-bold text-gray-700">Cambiar PIN de seguridad</span>
-                                    </label>
-                                    {formData.changePin && (
-                                        <input
-                                            type="password"
-                                            inputMode="numeric"
-                                            required
-                                            value={formData.pin}
-                                            onChange={e => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm font-medium text-center tracking-[0.5em]"
-                                            placeholder="Nuevo PIN ••••"
-                                            minLength={4}
-                                            maxLength={4}
-                                        />
-                                    )}
-                                </div>
-                            )}
 
                             <div className="pt-4 flex gap-3">
                                 <button

@@ -45,11 +45,20 @@ export async function middleware(request: NextRequest) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'La cuenta no tiene un negocio asignado.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/onboarding', request.url));
         }
-        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/configuracion'];
+        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/configuracion', '/ventas'];
         if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin'].includes(membership.role)) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
-            return NextResponse.redirect(new URL('/', request.url));
+            return NextResponse.redirect(new URL('/pos', request.url));
         }
+
+        // Pantallas que no corresponden al puesto: se manda al Punto de Venta. Las APIs validan su propio rol.
+        const role = membership.role;
+        const isAdmin = role === 'owner' || role === 'admin';
+        const matches = (paths: string[]) => paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+        const notForRole = (!isAdmin && pathname === '/')
+            || (role === 'barber' && matches(['/caja', '/pos']))
+            || ((role === 'receptionist' || role === 'cashier') && matches(['/liquidaciones', '/barbero', '/barberos']));
+        if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : '/pos', request.url));
     }
 
     return response;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { Barber, Service, Product, Sale, Client } from '@/types';
 
 export interface CartItem {
@@ -28,7 +28,6 @@ export function usePOS() {
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastSaleTotal, setLastSaleTotal] = useState(0);
-    const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
 
     // Fetch data from API routes
     const [barbers, setBarbers] = useState<Barber[] | null>(null);
@@ -57,7 +56,7 @@ export function usePOS() {
     }, []);
 
     // Fetch user identity
-    const [userRole, setUserRole] = useState<'admin' | 'barber' | null>(null);
+    const [userRole, setUserRole] = useState<'admin' | 'recepcion' | 'barber' | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -75,8 +74,9 @@ export function usePOS() {
     // Filter visible barbers based on role
     const visibleBarbers = useMemo(() => {
         if (!barbers) return [];
-        if (userRole === 'admin') return barbers;
-        return barbers.filter(b => b.id === userId);
+        // Administración y recepción venden a nombre de cualquier barbero; un barbero solo a nombre propio.
+        if (userRole === 'barber') return barbers.filter(b => b.id === userId);
+        return barbers;
     }, [barbers, userRole, userId]);
 
     useEffect(() => {
@@ -109,50 +109,6 @@ export function usePOS() {
         fetchTodaySales();
     }, [fetchTodaySales]);
 
-    // Check for Edit Mode
-    useEffect(() => {
-        const loadEditSale = async () => {
-            if (typeof window === 'undefined') return;
-            const params = new URLSearchParams(window.location.search);
-            const editId = params.get('edit');
-            if (!editId || !barbers || !services || !products) return;
-
-            try {
-                const res = await fetch(`/api/sales/${editId}`);
-                if (!res.ok) return;
-                const sale = await res.json();
-
-                if (sale) {
-                    setEditingSaleId(editId);
-                    const b = barbers.find(x => x.id === sale.barber_id);
-                    if (b) setSelectedBarber(b);
-
-                    setTip(Number(sale.tip || 0));
-                    const method = sale.payment_method === 'mixed' ? 'cash' : (sale.payment_method as PaymentType);
-                    setServicePayment(method);
-                    setProductPayment(method);
-                    setTipPayment(method);
-
-                    const newCart: CartItem[] = (sale.items || []).map((i: any) => ({
-                        id: `${i.item_type}-${i.id}`,
-                        name: i.item_name,
-                        price: Number(i.item_price),
-                        type: i.item_type,
-                        quantity: i.quantity || 1,
-                        product_id: i.product_id,
-                        service_id: i.service_id
-                    }));
-                    setCart(newCart);
-
-                    window.history.replaceState({}, '', '/pos');
-                }
-            } catch (e) { console.error('Error loading edit sale', e); }
-        };
-
-        if (barbers && barbers.length > 0 && services && products) {
-            loadEditSale();
-        }
-    }, [barbers, services, products]);
 
     const filteredClients = useMemo(() => {
         if (!clients || !clientSearch) return [];
@@ -251,48 +207,47 @@ export function usePOS() {
         return { cashAmount, cardAmount, transferAmount, paymentMethod };
     };
 
+    // Una clave por venta: si se reintenta o se hace doble clic, la base no duplica el cobro.
+    const idempotencyKey = useRef<string | null>(null);
+
     const handleSubmit = async () => {
         if (!selectedBarber || cart.length === 0) {
             alert('Selecciona un barbero y al menos un servicio o producto');
             return;
         }
+        if (submitting) return;
 
         setSubmitting(true);
         try {
-            if (editingSaleId) {
-                await fetch(`/api/sales/${editingSaleId}`, { method: 'DELETE' });
-            }
+            const { cashAmount, cardAmount, transferAmount } = computePaymentAmounts();
+            const payments = [
+                { method: 'cash', amount: cashAmount },
+                { method: 'card', amount: cardAmount },
+                { method: 'transfer', amount: transferAmount },
+            ].filter(p => p.amount > 0);
+            if (payments.length === 0) throw new Error('Elige la forma de pago.');
+            if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID();
 
-            const { cashAmount, cardAmount, transferAmount, paymentMethod } = computePaymentAmounts();
-
+            // El servidor calcula precios y total desde el catálogo; aquí solo se indica qué se vende.
             const res = await fetch('/api/sales', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    barber_id: selectedBarber.id,
+                    idempotency_key: idempotencyKey.current,
                     client_id: selectedClient?.id || null,
-                    total,
-                    tip,
-                    cash_amount: cashAmount,
-                    card_amount: cardAmount,
-                    transfer_amount: transferAmount,
-                    payment_method: paymentMethod,
-                    items: cart.map(item => ({
-                        item_type: item.type,
-                        item_name: item.name,
-                        item_price: item.price,
-                        quantity: item.quantity,
-                        product_id: item.product_id,
-                        service_id: item.service_id,
-                    })),
+                    items: cart.map(item => item.type === 'service'
+                        ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber.id }
+                        : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [selectedBarber.id] }),
+                    payments,
                 }),
             });
 
             if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || 'Error del servidor');
+                const errData = await res.json().catch(() => null);
+                throw new Error(errData?.detail ? `${errData.error} (${errData.detail})` : errData?.error || 'Error del servidor');
             }
 
+            idempotencyKey.current = null;
             setCart([]);
             setTip(0);
             setSelectedClient(null);
@@ -300,7 +255,6 @@ export function usePOS() {
             setTipPayment('cash');
             setProductPayment('cash');
             setLastSaleTotal(total);
-            setEditingSaleId(null);
             setShowSuccess(true);
             fetchTodaySales();
             setTimeout(() => setShowSuccess(false), 3000);
@@ -315,7 +269,7 @@ export function usePOS() {
     return {
         state: {
             selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
-            clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, editingSaleId,
+            clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal,
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total, todayTotal
         },

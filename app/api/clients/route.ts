@@ -4,12 +4,14 @@ import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+// Los campos opcionales que llegan vacíos ('') se guardan como nulos.
+const optionalText = (max: number) => z.string().trim().max(max).nullish().transform((value) => value || null);
 const ClientSchema = z.object({
-    name: z.string().trim().min(2).max(120),
-    phone: z.string().trim().max(32).optional().nullable(),
-    email: z.string().trim().email().max(254).optional().nullable(),
-    notes: z.string().max(1000).optional().nullable(),
-    preferences: z.string().max(1000).optional().nullable(),
+    name: z.string().trim().min(2, 'El nombre es muy corto.').max(120),
+    phone: optionalText(32),
+    email: z.union([z.literal(''), z.string().trim().email('El correo no es válido.').max(254)]).nullish().transform((value) => value || null),
+    notes: optionalText(1000),
+    preferences: optionalText(1000),
 }).strict();
 
 export async function GET(request: NextRequest) {
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
     try {
         const context = await requireAuthContext(['owner', 'admin', 'cashier', 'receptionist']);
         const body = ClientSchema.safeParse(await request.json().catch(() => null));
-        if (!body.success) return NextResponse.json({ error: 'Los datos del cliente no son válidos.' }, { status: 400 });
+        if (!body.success) return NextResponse.json({ error: body.error.issues[0]?.message ?? 'Los datos del cliente no son válidos.' }, { status: 400 });
         const { data, error } = await (await createSupabaseServerClient()).from('clients').insert({
             business_id: context.businessId,
             full_name: body.data.name,

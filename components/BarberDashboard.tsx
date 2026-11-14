@@ -30,6 +30,13 @@ const BarberDashboard: React.FC = () => {
         }).catch(console.error).finally(() => setLoadingBarbers(false));
     }, []);
 
+    // Un barbero ve siempre sus propias cifras
+    useEffect(() => {
+        fetch('/api/auth/me').then(r => r.json()).then(me => {
+            if (me?.user?.role === 'barber') setSelectedBarberId(me.user.id);
+        }).catch(console.error);
+    }, []);
+
     // Auto-select first barber
     const barberId = selectedBarberId || barbers?.[0]?.id || null;
 
@@ -37,7 +44,7 @@ const BarberDashboard: React.FC = () => {
     useEffect(() => {
         if (!barberId) return;
         setLoadingStats(true);
-        fetch(`/api/barbers/${barberId}/stats?period=week`)
+        fetch(`/api/barbers/${barberId}/stats?view=dashboard`)
             .then(r => r.json())
             .then(data => setStats(data))
             .catch(console.error)

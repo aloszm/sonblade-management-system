@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X, RefreshCw, Plus, Calendar, AlertTriangle } from 'lucide-react';
 import type { Barber, Service, Product, Sale } from '@/types';
-import { supabase } from '@/lib/supabase';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import CreateSaleModal from '@/components/CreateSaleModal';
 
@@ -54,6 +53,7 @@ export default function SalesHistoryPage() {
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    const [reverseReason, setReverseReason] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
 
     // Filters
@@ -118,17 +118,10 @@ export default function SalesHistoryPage() {
     // Fetch on filter change
     useEffect(() => { fetchSales(); }, [fetchSales]);
 
-    // Supabase Realtime subscription
+    // Actualiza solo cada 30 segundos mientras la pestaña está visible (sin conexiones en tiempo real).
     useEffect(() => {
-        const channel = supabase
-            .channel('sales-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => {
-                // Refetch on any INSERT, UPDATE, DELETE
-                fetchSales(true);
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
+        const timer = setInterval(() => { if (document.visibilityState === 'visible') fetchSales(true); }, 30_000);
+        return () => clearInterval(timer);
     }, [fetchSales]);
 
     const clearFilters = () => {
@@ -139,14 +132,21 @@ export default function SalesHistoryPage() {
     const handleDelete = async (id: string) => {
         setDeletingId(id);
         try {
-            const res = await fetch(`/api/sales/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/sales/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: reverseReason }),
+            });
+            const body = await res.json().catch(() => null);
             if (res.ok) {
-                setSales(prev => prev.filter(s => s.id !== id));
+                setSales(prev => prev.map(s => s.id === id ? { ...s, status: 'refunded' } : s));
+                setShowDeleteConfirm(null);
+                setReverseReason('');
             } else {
-                alert('Error al eliminar');
+                alert(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo anular la venta');
             }
         } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Error'); }
-        finally { setDeletingId(null); setShowDeleteConfirm(null); }
+        finally { setDeletingId(null); }
     };
 
     const exportCSV = () => {
@@ -255,9 +255,9 @@ export default function SalesHistoryPage() {
                                         <td className="p-4 text-sm text-gray-400">{prds}</td>
                                         <td className="p-4 text-right">${Number(sale.tip || 0).toFixed(2)}</td>
                                         <td className="p-4"><PaymentBadge sale={sale} /></td>
-                                        <td className="p-4 text-right font-bold">${Number(sale.total).toFixed(2)}</td>
+                                        <td className={`p-4 text-right font-bold ${sale.status === 'refunded' ? 'line-through text-gray-500' : ''}`}>${Number(sale.total).toFixed(2)}{sale.status === 'refunded' && <span className="ml-2 text-[10px] no-underline text-red-500 font-bold align-middle">ANULADA</span>}</td>
                                         <td className="p-4 text-center">
-                                            <button onClick={() => setShowDeleteConfirm(sale.id)} disabled={deletingId === sale.id} className="p-1.5 text-red-500 hover:bg-red-500/200/10 rounded-lg disabled:opacity-50">
+                                            <button onClick={() => setShowDeleteConfirm(sale.id)} disabled={deletingId === sale.id || sale.status === 'refunded'} aria-label="Anular venta" className="p-1.5 text-red-500 hover:bg-red-500/200/10 rounded-lg disabled:opacity-50">
                                                 {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                             </button>
                                         </td>
@@ -288,16 +288,20 @@ export default function SalesHistoryPage() {
                                 <AlertTriangle className="h-6 w-6 text-red-600" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-white">¿Eliminar esta venta?</h3>
-                                <p className="text-sm text-gray-400">Se revertirá inventario y caja. Esta acción no se puede deshacer.</p>
+                                <h3 className="font-bold text-white">¿Anular esta venta?</h3>
+                                <p className="text-sm text-gray-400">Se devuelve el dinero a la caja abierta y las existencias, y queda registrado quién la anuló. La venta no se borra.</p>
                             </div>
                         </div>
+                        <label className="block text-sm text-gray-300 mb-4">Motivo de la anulación
+                            <textarea value={reverseReason} onChange={(e) => setReverseReason(e.target.value)} maxLength={500} rows={2} aria-label="Motivo de la anulación"
+                                className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg p-2 text-white" />
+                        </label>
                         <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowDeleteConfirm(null)} className="px-4 py-2 text-gray-400 font-medium hover:text-white">Cancelar</button>
-                            <button onClick={() => handleDelete(showDeleteConfirm)} disabled={deletingId !== null}
+                            <button onClick={() => { setShowDeleteConfirm(null); setReverseReason(''); }} className="px-4 py-2 text-gray-400 font-medium hover:text-white">Cancelar</button>
+                            <button onClick={() => handleDelete(showDeleteConfirm)} disabled={deletingId !== null || reverseReason.trim().length < 3}
                                 className="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
                                 {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                Eliminar
+                                Anular venta
                             </button>
                         </div>
                     </div>

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { toSaleView, type SaleRow } from '@/lib/sales/sales-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -31,17 +32,41 @@ export async function GET(request: NextRequest) {
         const context = await requireAuthContext(['owner', 'admin', 'cashier', 'barber', 'receptionist']);
         const supabase = await createSupabaseServerClient();
         let query = supabase.from('sales')
-            .select('id, created_at, status, subtotal_amount, discount_amount, total_amount, notes, client_id, sale_items(*), payments(*)')
+            .select('id, created_at, status, total_amount, notes, client_id, sale_items(id, item_type, item_name_snapshot, unit_price, quantity, service_id, product_id, employee_id, commission_employee_id), payments(method, amount, status)')
             .eq('business_id', context.businessId)
             .eq('branch_id', context.branchId)
-            .order('created_at', { ascending: false }).limit(200);
+            .order('created_at', { ascending: false }).limit(500);
         const from = request.nextUrl.searchParams.get('from');
         const to = request.nextUrl.searchParams.get('to');
-        if (from) query = query.gte('created_at', `${from}T00:00:00.000Z`);
-        if (to) query = query.lte('created_at', `${to}T23:59:59.999Z`);
+        if (from) query = query.gte('created_at', /^\d{4}-\d{2}-\d{2}$/.test(from) ? `${from}T00:00:00` : from);
+        if (to) query = query.lte('created_at', /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59.999` : to);
         const { data, error } = await query;
         if (error) throw error;
-        return Response.json(data ?? [], { headers: { 'Cache-Control': 'no-store' } });
+        const rows = (data ?? []) as unknown as SaleRow[];
+
+        // Nombres de barberos y clientes para mostrarlos en el historial.
+        const employeeIds = new Set<string>();
+        const clientIds = new Set<string>();
+        for (const row of rows) {
+            if (row.client_id) clientIds.add(row.client_id);
+            for (const item of row.sale_items) {
+                if (item.employee_id) employeeIds.add(item.employee_id);
+                if (item.commission_employee_id) employeeIds.add(item.commission_employee_id);
+            }
+        }
+        const [employees, clients] = await Promise.all([
+            employeeIds.size ? supabase.from('employees').select('id, display_name').in('id', [...employeeIds]) : Promise.resolve({ data: [] }),
+            clientIds.size ? supabase.from('clients').select('id, full_name').in('id', [...clientIds]) : Promise.resolve({ data: [] }),
+        ]);
+        const employeeNames = new Map(((employees.data ?? []) as unknown as { id: string; display_name: string }[]).map((e) => [e.id, e.display_name]));
+        const clientNames = new Map(((clients.data ?? []) as unknown as { id: string; full_name: string }[]).map((c) => [c.id, c.full_name]));
+
+        let sales = rows.map((row) => toSaleView(row, employeeNames, clientNames));
+        const barberId = request.nextUrl.searchParams.get('barber_id');
+        const method = request.nextUrl.searchParams.get('payment_method');
+        if (barberId) sales = sales.filter((sale) => sale.barber_id === barberId);
+        if (method) sales = sales.filter((sale) => sale.payment_method === method);
+        return Response.json(sales, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
         return authErrorResponse(error);
     }

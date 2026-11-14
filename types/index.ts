@@ -83,6 +83,7 @@ export interface BarberPayment {
 
 export interface Sale {
     id: string;
+    status?: string;
     barber_id: string | null;
     client_id: string | null;
     total: number;
