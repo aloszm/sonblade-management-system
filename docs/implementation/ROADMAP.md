@@ -1,5 +1,22 @@
 # Sonblade — Plan de implementación con Codex
 
+## Actualización del 14 de noviembre de 2026 (rama `feat/v2-integration`)
+
+### Verificado
+- `sonblade-dev` tiene **12 migraciones** aplicadas y **27 tablas** con RLS, 0 filas de negocio y 0 hallazgos del Security Advisor. Las 12 están ahora en `supabase/migrations/` y coinciden con lo registrado en la base (6 de ellas faltaban en git y se recuperaron).
+- `package-lock.json` estaba corrupto (contenía una salida truncada de comando). Se regeneró.
+- El error de compilación de `app/admin/page.tsx` (gráfica de ventas) está corregido.
+- Con variables ficticias: `tsc --noEmit` sin errores, `npm test` 25/25 y `npm run build` correcto.
+- Las variables de Preview de esta rama (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`) apuntan a `sonblade-dev`. La clave de servicio no se configura: ningún flujo de la aplicación la usa; solo el script local `bootstrap:owner`.
+
+### Sigue pendiente (no presentarlo como funcional)
+- 12 archivos aún usan el cliente y las tablas de la versión 1 (`lib/supabase.ts`, `lib/services/*`, `app/api/admin/*`, `app/api/dashboard`, `app/api/barbers/[id]/stats`, `app/ventas/historial/page.tsx`). Esas pantallas fallarán contra `sonblade-dev` hasta migrarlas.
+- 14 rutas de `app/api/**` no llaman a `requireAuthContext`; hay que revisarlas una por una.
+- No hay pruebas de permisos ni de RLS (las 25 pruebas existentes son de componentes).
+- No se ha creado el usuario dueño ni el negocio inicial en `sonblade-dev`.
+- ESLint reporta errores heredados.
+
+
 ## Estado real del proyecto (verificado el 28 de octubre de 2026)
 
 ### Completado
