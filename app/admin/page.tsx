@@ -81,6 +81,11 @@ export default function AdminPage() {
 
     const { kpis, paymentBreakdown, barberSummaries, payments, weeklyBreakdown, serviceBreakdown, hourlySales, dailySales, lowStockProducts } = data;
     const periodLabel = period === 'today' ? 'Hoy' : period === 'week' ? 'Esta Semana' : 'Este Mes';
+    // Las ventas por hora y por dia llegan con formas distintas ({hour} / {day}).
+    // Se normalizan a un solo tipo para que la grafica reciba un arreglo homogeneo.
+    const salesChartData: { label: string; revenue: number }[] = period === 'today'
+        ? hourlySales.map(({ hour, revenue }) => ({ label: hour, revenue }))
+        : dailySales.map(({ day, revenue }) => ({ label: day, revenue }));
 
     return (
         <div className="max-w-7xl mx-auto space-y-6">
@@ -162,9 +167,9 @@ export default function AdminPage() {
                             </div>
                             <div className="h-[280px]">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={period === 'today' ? hourlySales : dailySales}>
+                                    <BarChart data={salesChartData}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                        <XAxis dataKey={period === 'today' ? 'hour' : 'day'} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={(v) => `$${v}`} />
                                         <Tooltip
                                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
