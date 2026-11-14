@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, Download, TrendingUp, TrendingDown, Users, Scissors, PieChart as PieIcon, LineChart as LineIcon, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import { CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
+import { localDateKey } from '@/lib/utils/dates';
 
 interface ReportData {
     kpis: any;
@@ -32,12 +34,12 @@ export default function ReportsPage() {
         // Header
         doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
-        doc.text('SONBLADE', 14, 20);
+        doc.text(CLIENT_NAME.toUpperCase(), 14, 20);
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(120);
         doc.text('Reporte Ejecutivo — ' + PERIOD_LABELS[period], 14, 28);
-        doc.text('Generado: ' + dateStr, 14, 34);
+        doc.text(`Generado con ${SYSTEM_NAME}: ` + dateStr, 14, 34);
         doc.setTextColor(0);
 
         // KPIs
@@ -96,7 +98,7 @@ export default function ReportsPage() {
             });
         }
 
-        doc.save(`sonblade-reporte-${period}-${now.toISOString().split('T')[0]}.pdf`);
+        doc.save(`${CLIENT_NAME.toLowerCase()}-reporte-${period}-${localDateKey(now)}.pdf`);
     };
 
     useEffect(() => {

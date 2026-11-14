@@ -1,4 +1,5 @@
 'use client';
+import { CLIENT_LOGO, CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
 
 import React from 'react';
 import Link from 'next/link';
@@ -114,11 +115,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       <div className="h-20 flex items-center px-6 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg group-hover:scale-105 transition-all duration-300">
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+            <img src={CLIENT_LOGO} alt={`Logo de ${CLIENT_NAME}`} className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col">
-            <span className="font-black text-lg tracking-tighter text-white leading-none">SONBLADE</span>
-            <span className="text-[10px] text-sonblade-gold font-bold tracking-[0.2em] mt-1 uppercase">Management</span>
+            <span className="font-black text-lg tracking-tighter text-white leading-none uppercase">{CLIENT_NAME}</span>
+            <span className="text-[10px] text-sonblade-gold font-bold tracking-[0.2em] mt-1">{SYSTEM_NAME}</span>
           </div>
         </Link>
       </div>

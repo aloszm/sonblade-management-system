@@ -59,7 +59,7 @@ export default function AuditoriaPage() {
             const params = new URLSearchParams();
             if (roleFilter !== 'all') params.set('role', roleFilter);
             if (actionFilter !== 'all') params.set('action', actionFilter);
-            if (dateFrom) params.set('from', new Date(dateFrom).toISOString());
+            if (dateFrom) params.set('from', new Date(dateFrom + 'T00:00:00').toISOString());
             if (dateTo) params.set('to', new Date(dateTo + 'T23:59:59').toISOString());
             params.set('limit', '200');
 

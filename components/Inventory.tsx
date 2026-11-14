@@ -5,6 +5,7 @@ import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, X, DollarS
 import { useSupabase } from '@/hooks/useSupabase';
 import type { Product, CreateProduct } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
+import { localDateKey } from '@/lib/utils/dates';
 
 const Inventory: React.FC = () => {
     const [modalOpen, setModalOpen] = useState(false);
@@ -122,7 +123,7 @@ const Inventory: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <button onClick={() => {
                         const label: Record<Product['status'], string> = { ok: 'Normal', low: 'Bajo', critical: 'Crítico', empty: 'Agotado' };
-                        downloadCsv(`inventario_${new Date().toISOString().slice(0, 10)}.csv`,
+                        downloadCsv(`inventario_${localDateKey(new Date())}.csv`,
                             ['SKU', 'Producto', 'Categoría', 'Existencias', 'Mínimo', 'Costo', 'Precio', 'Valor en inventario', 'Estado'],
                             (products || []).map(p => [p.sku, p.name, p.category, p.stock, p.min_stock, p.cost, p.price, p.price * p.stock, label[p.status]]));
                     }} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">

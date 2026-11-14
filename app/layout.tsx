@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
 import Providers from '@/components/Providers';
+import { APP_DESCRIPTION, APP_TITLE, CLIENT_NAME } from '@/lib/brand';
 
 const inter = Inter({
     subsets: ['latin'],
@@ -19,13 +19,20 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-    title: 'Sonblade — Gestión de Barbería',
-    description: 'ERP para gestión de barberías. Administra citas, POS, inventario, caja y equipo.',
+    title: APP_TITLE,
+    description: APP_DESCRIPTION,
     manifest: '/manifest.json',
+    icons: {
+        icon: [
+            { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
+        apple: '/icons/apple-touch-icon.png',
+    },
     appleWebApp: {
         capable: true,
         statusBarStyle: 'black-translucent',
-        title: 'Sonblade',
+        title: CLIENT_NAME,
     },
 };
 
@@ -40,17 +47,6 @@ export default function RootLayout({
                 <Providers>
                     <AppShell>{children}</AppShell>
                 </Providers>
-                <Script id="register-sw" strategy="afterInteractive">
-                    {`
-                         if ('serviceWorker' in navigator) {
-                             window.addEventListener('load', function() {
-                                 navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                                     console.error('ServiceWorker registration failed: ', err);
-                                 });
-                             });
-                         }
-                     `}
-                </Script>
             </body>
         </html>
     );

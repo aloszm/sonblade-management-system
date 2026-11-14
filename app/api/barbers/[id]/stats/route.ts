@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { fetchBusinessReport, toBarberProfile, toBarberStats, type ReportPeriod } from '@/lib/reports/business-report';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +41,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             const period = PeriodSchema.parse(query.get('period') ?? undefined);
             const from = DaySchema.safeParse(query.get('from'));
             const to = DaySchema.safeParse(query.get('to'));
-            const range = from.success && to.success
-                ? { from: new Date(`${from.data}T00:00:00`).toISOString(), to: new Date(new Date(`${to.data}T00:00:00`).getTime() + 86_400_000).toISOString() }
-                : null;
+            let range: { from: string; to: string } | null = null;
+            if (from.success && to.success) {
+                // Los días son los de la barbería, no los del servidor (UTC).
+                range = businessDayRange(from.data, to.data, await loadBusinessTimezone(supabase, context.businessId));
+            }
             const report = await fetchBusinessReport(supabase, context.branchId, period, employeeId, range);
             return Response.json(toBarberProfile(report, name, employeeId, rate), { headers: { 'Cache-Control': 'no-store' } });
         }

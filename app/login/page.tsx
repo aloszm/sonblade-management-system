@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
+import { CLIENT_LOGO, CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -46,9 +47,11 @@ export default function LoginPage() {
         <main className="min-h-screen flex items-center justify-center bg-zinc-950 px-4 py-8">
             <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
                 <div className="mb-8 text-center">
-                    <Image src="/logo.png" alt="Sonblade" width={80} height={80} className="mx-auto mb-4 h-20 w-20 object-contain" />
-                    <h1 className="text-2xl font-black uppercase tracking-wider text-white">Sonblade</h1>
-                    <p className="mt-1 text-sm font-semibold tracking-widest text-sonblade-gold">Management System</p>
+                    <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white p-2">
+                        <Image src={CLIENT_LOGO} alt={`Logo de ${CLIENT_NAME}`} width={160} height={160} priority className="h-full w-full object-contain" />
+                    </div>
+                    <h1 className="text-2xl font-black uppercase tracking-wider text-white">{CLIENT_NAME}</h1>
+                    <p className="mt-1 text-sm font-semibold tracking-widest text-sonblade-gold">{SYSTEM_NAME}</p>
                 </div>
                 {configurationMissing && <p role="alert" className="mb-4 text-sm text-amber-300">El entorno aún no está configurado para iniciar sesión.</p>}
                 <label htmlFor="email" className="mb-2 block text-sm font-medium text-zinc-300">Correo electrónico</label>

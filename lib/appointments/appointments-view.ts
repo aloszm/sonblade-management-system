@@ -44,15 +44,7 @@ export function isActive(status: AppointmentStatus): boolean {
     return status !== 'cancelled' && status !== 'no_show';
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
-/**
- * Día 'YYYY-MM-DD' según el reloj del dispositivo. No usar toISOString(): devuelve la fecha en UTC
- * y en México una cita de las 8:00 pm aparecería en el día siguiente.
- */
-export function localDateKey(date: Date): string {
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
+export { localDateKey } from '@/lib/utils/dates';
 
 /** Inicio y fin (exclusivo) de un mes del calendario local, como instantes ISO para consultar la base. */
 export function monthRange(year: number, month: number): { from: string; to: string } {

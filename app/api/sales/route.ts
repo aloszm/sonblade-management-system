@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { toSaleView, type SaleRow } from '@/lib/sales/sales-view';
+import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -38,8 +39,16 @@ export async function GET(request: NextRequest) {
             .order('created_at', { ascending: false }).limit(500);
         const from = request.nextUrl.searchParams.get('from');
         const to = request.nextUrl.searchParams.get('to');
-        if (from) query = query.gte('created_at', /^\d{4}-\d{2}-\d{2}$/.test(from) ? `${from}T00:00:00` : from);
-        if (to) query = query.lte('created_at', /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59.999` : to);
+        // Un día 'YYYY-MM-DD' es un día de la barbería (su zona horaria), no del servidor (UTC):
+        // de otro modo las ventas posteriores a las 6:00 pm quedarían fuera de "hoy".
+        const isDay = (value: string | null): value is string => !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
+        if (isDay(from) || isDay(to)) {
+            const timezone = await loadBusinessTimezone(supabase, context.businessId);
+            if (isDay(from)) query = query.gte('created_at', businessDayRange(from, from, timezone).from);
+            if (isDay(to)) query = query.lt('created_at', businessDayRange(to, to, timezone).to);
+        }
+        if (from && !isDay(from)) query = query.gte('created_at', from);
+        if (to && !isDay(to)) query = query.lte('created_at', to);
         const { data, error } = await query;
         if (error) throw error;
         const rows = (data ?? []) as unknown as SaleRow[];

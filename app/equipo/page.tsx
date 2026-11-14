@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Users, Plus, Edit2, UserX, UserCheck, RefreshCw } from 'lucide-react';
-import CommissionBar from '@/components/CommissionBar';
 import type { Barber } from '@/types';
 
 interface BarberLive {
@@ -111,7 +110,7 @@ export default function TeamPage() {
                                     <div>
                                         <h3 className="font-bold text-gray-900 text-lg leading-tight">{barber.name}</h3>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium uppercase ${barber.status === 'active' ? 'bg-green-100 text-green-700' : barber.status === 'busy' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
-                                            {barber.status}
+                                            {barber.status === 'active' ? 'Activo' : 'Inactivo'}
                                         </span>
                                     </div>
                                 </Link>
@@ -123,10 +122,9 @@ export default function TeamPage() {
                                         <span className="text-2xl font-black text-gray-900">{live.cuts} <span className="text-xs font-semibold text-gray-400">cortes</span></span>
                                         <span className="text-sm font-bold text-sonblade-gold">${live.revenue.toFixed(0)}</span>
                                     </div>
-                                    <CommissionBar cuts={live.cuts} compact isFlat50={barber.commission_type === 'flat_50'} />
                                     <div className="flex justify-between text-[10px] text-gray-400">
                                         <span>Comisión: ${live.commission.toFixed(0)}</span>
-                                        <span>{live.rate}%</span>
+                                        {live.cuts > 0 && <span>{live.rate}%</span>}
                                     </div>
                                 </div>
                             )}

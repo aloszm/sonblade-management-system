@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, use } from 'react';
 import { ArrowLeft, Scissors, DollarSign, TrendingUp, Award, Loader2, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
-import CommissionBar from '@/components/CommissionBar';
 
 interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; serviceCommission: number; productCommission: number; }
 interface Movement { id: string; date: string; services: string; products: string; payment_method: string; cash_amount: number; card_amount: number; transfer_amount: number; tip: number; total: number; commission: number; }
@@ -117,8 +116,10 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
 
                     {/* Commission Progress Bar */}
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-gray-700 mb-3">Progreso de Comisión — {kpis.cuts} cortes</h3>
-                        <CommissionBar cuts={kpis.cuts} isFlat50={barber?.commission_type === 'flat_50'} />
+                        <h3 className="text-sm font-bold text-gray-700 mb-1">Comisión del periodo — {kpis.cuts} cortes</h3>
+                        <p className="text-sm text-gray-500">
+                            Tasa vigente: <strong className="text-gray-900">{kpis.commissionRate}%</strong> sobre el precio de lista de cada servicio con regla de comisión.
+                        </p>
                     </div>
                 </div>
             )}

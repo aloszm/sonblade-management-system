@@ -33,8 +33,8 @@ function getDateRange(period: PeriodFilter): { start: string; end: string } {
         return { start: format(startOfDay(now), 'yyyy-MM-dd'), end: format(endOfDay(now), 'yyyy-MM-dd') };
     }
     if (period === 'week') {
-        const ws = startOfWeek(now, { weekStartsOn: 1 });
-        const we = endOfWeek(now, { weekStartsOn: 1 });
+        const ws = startOfWeek(now, { weekStartsOn: 0 }); // la semana del negocio va de domingo a sábado
+        const we = endOfWeek(now, { weekStartsOn: 0 });
         return { start: format(ws, 'yyyy-MM-dd'), end: format(we, 'yyyy-MM-dd') };
     }
     if (period === 'month') {
@@ -177,7 +177,7 @@ export default function SalesHistoryPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white flex items-center gap-2"><FileSpreadsheet className="text-sonblade-gold h-6 w-6" />Registro de Ventas</h1>
-                    <p className="text-gray-400 text-sm mt-1">Tiempo real · {sales.length} ventas ({periodLabel})</p>
+                    <p className="text-gray-400 text-sm mt-1">Se actualiza cada 30 s · {sales.length} ventas ({periodLabel})</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => fetchSales()} className="p-2 border border-white/10 rounded-lg hover:bg-[#1a1a1a]"><RefreshCw className="h-4 w-4 text-gray-400" /></button>
