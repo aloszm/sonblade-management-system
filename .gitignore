@@ -28,3 +28,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Archivos generados / locales
+tsconfig.tsbuildinfo
+supabase/.temp/
+.claude/settings.local.json
