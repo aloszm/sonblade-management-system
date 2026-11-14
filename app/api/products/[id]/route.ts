@@ -1,27 +1,27 @@
-import { updateProduct, deleteProduct } from '@/lib/services/products';
-import { NextResponse } from 'next/server';
+import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+// Editar y dar de baja un producto se migra en la siguiente fase (precio con historial,
+// ajuste de existencias con adjust_inventory_stock y baja por desactivación, nunca borrado).
+const NOT_AVAILABLE = {
+    error: 'Editar o dar de baja productos todavía no está disponible. Los ajustes de existencias se harán con movimientos de inventario.',
+};
+
+export async function PATCH() {
     try {
-        const { id } = await params;
-        const body = await req.json();
-        const product = await updateProduct(id, body);
-        return NextResponse.json(product);
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        await requireAuthContext(['owner', 'admin']);
+        return Response.json(NOT_AVAILABLE, { status: 501, headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE() {
     try {
-        const { id } = await params;
-        await deleteProduct(id);
-        return NextResponse.json({ success: true });
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        await requireAuthContext(['owner', 'admin']);
+        return Response.json(NOT_AVAILABLE, { status: 501, headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }

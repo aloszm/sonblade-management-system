@@ -1,30 +1,56 @@
-import { getProducts, createProduct } from '@/lib/services/products';
-import { NextResponse } from 'next/server';
-import { CreateProductSchema } from '@/lib/validations';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { loadProducts } from '@/lib/inventory/products-view';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+const NO_STORE = { 'Cache-Control': 'no-store' };
+const CreateProductSchema = z.object({
+    name: z.string().trim().min(2).max(160),
+    sku: z.string().trim().min(2).max(60),
+    category: z.string().trim().min(2).max(160),
+    stock: z.number().int().min(0).max(100_000),
+    min_stock: z.number().int().min(0).max(100_000).optional(),
+    cost: z.number().min(0).max(1_000_000),
+    price: z.number().min(0).max(1_000_000),
+});
+
+/** Catálogo de productos con las existencias de la sucursal. */
 export async function GET() {
     try {
-        const products = await getProducts();
-        return NextResponse.json(products);
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        const context = await requireAuthContext();
+        const supabase = await createSupabaseServerClient();
+        return Response.json(await loadProducts(supabase, context.businessId, context.branchId), { headers: NO_STORE });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }
 
-export async function POST(req: Request) {
+/** Alta de producto con existencias iniciales, en una sola operación atómica. Solo dueño y administrador. */
+export async function POST(request: NextRequest) {
     try {
-        const body = await req.json();
-        const validatedData = CreateProductSchema.parse(body);
-        const product = await createProduct(validatedData);
-        return NextResponse.json(product);
-    } catch (err: any) {
-        if (err.name === 'ZodError') {
-            return NextResponse.json({ error: err.errors[0].message }, { status: 400 });
+        const context = await requireAuthContext(['owner', 'admin']);
+        const parsed = CreateProductSchema.safeParse(await request.json().catch(() => null));
+        if (!parsed.success) {
+            return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });
         }
-        const message = err.message || 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        const supabase = await createSupabaseServerClient();
+        const { error } = await supabase.rpc('create_catalog_product', {
+            p_branch_id: context.branchId,
+            p_name: parsed.data.name,
+            p_sku: parsed.data.sku,
+            p_description: parsed.data.category,
+            p_sale_price: parsed.data.price,
+            p_cost_price: parsed.data.cost,
+            p_initial_stock: parsed.data.stock,
+            p_minimum_quantity: parsed.data.min_stock ?? 0,
+        } as never);
+        if (error) throw error;
+        const created = (await loadProducts(supabase, context.businessId, context.branchId)).find((p) => p.sku === parsed.data.sku);
+        return Response.json(created ?? null, { status: 201, headers: NO_STORE });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }
