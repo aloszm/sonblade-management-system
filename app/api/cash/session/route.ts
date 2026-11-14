@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { loadOpenSession } from '@/lib/cash/session-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -12,7 +13,7 @@ const OpenSchema = z.object({ opening_cash: z.number().min(0).max(1_000_000) });
 /** Caja abierta de la sucursal (o null si no hay). */
 export async function GET() {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'cashier']);
+        const context = await requireAuthContext(FRONT_DESK_ROLES);
         const supabase = await createSupabaseServerClient();
         const session = await loadOpenSession(supabase, context.businessId, context.branchId);
         return Response.json(session, { headers: NO_STORE });
@@ -24,7 +25,7 @@ export async function GET() {
 /** Abre la caja con la funcion atomica open_cash_session. */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'cashier']);
+        const context = await requireAuthContext(FRONT_DESK_ROLES);
         const parsed = OpenSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

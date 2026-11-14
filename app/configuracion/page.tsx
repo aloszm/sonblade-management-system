@@ -31,7 +31,7 @@ export default function SettingsPage() {
     const [error, setError] = useState<string | null>(null);
 
     const [profile, setProfile] = useState({
-        name: 'Sonblade Barbershop',
+        name: '',
         address: '',
         city: '',
         phone: '',
@@ -82,8 +82,8 @@ export default function SettingsPage() {
             }
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'No se pudo guardar.');
         } finally {
             setSaving(false);
         }

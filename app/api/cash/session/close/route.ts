@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { loadSessionById } from '@/lib/cash/session-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -15,7 +16,7 @@ const CloseSchema = z.object({
 /** Cierra la caja con close_cash_session: el servidor calcula el esperado y la diferencia. */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'cashier']);
+        const context = await requireAuthContext(FRONT_DESK_ROLES);
         const parsed = CloseSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

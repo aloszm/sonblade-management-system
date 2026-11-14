@@ -1,55 +1,26 @@
-import { supabaseAdmin as supabase } from '@/lib/supabase';
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/utils/auth';
+import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
+// El pago de comisiones de la versión 1 registraba un monto libre. En la versión 2 se paga
+// desde Liquidaciones: el servidor calcula el total, lo reparte en efectivo/transferencia,
+// descuenta la caja y genera el recibo con folio (POST /api/settlements).
+const NOT_AVAILABLE = { error: 'El pago de comisiones se hace desde Liquidaciones.' };
+
+export async function POST() {
     try {
-        await requireAdmin();
-        const body = await request.json();
-        const { barber_id, amount, commission_amount, tips_amount, note, period_start, period_end } = body;
-
-        if (!barber_id || !amount) {
-            return NextResponse.json({ error: 'barber_id y amount son requeridos' }, { status: 400 });
-        }
-
-        const { data, error } = await supabase
-            .from('barber_payments' as never)
-            .insert([{
-                barber_id,
-                amount,
-                commission_amount: commission_amount || 0,
-                tips_amount: tips_amount || 0,
-                note: note || '',
-                period_start,
-                period_end
-            }] as never)
-            .select()
-            .single();
-
-        if (error) throw error;
-        return NextResponse.json(data);
-    } catch (err: unknown) {
-        const status = (err as { status?: number }).status ?? 500;
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status });
+        await requireAuthContext(['owner', 'admin']);
+        return Response.json(NOT_AVAILABLE, { status: 501, headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }
 
 export async function GET() {
     try {
-        await requireAdmin();
-        const { data, error } = await supabase
-            .from('barber_payments')
-            .select('*, barber:barbers(name)')
-            .order('paid_at', { ascending: false });
-
-        if (error) throw error;
-        return NextResponse.json(data || []);
-    } catch (err: unknown) {
-        const status = (err as { status?: number }).status ?? 500;
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status });
+        await requireAuthContext(['owner', 'admin']);
+        return Response.json(NOT_AVAILABLE, { status: 501, headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }

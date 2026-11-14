@@ -32,7 +32,7 @@ export default function LoginPage() {
             if (!response.ok) throw new Error(body.error ?? 'No se pudo iniciar sesión.');
             const profileResponse = await fetch('/api/auth/me', { cache: 'no-store' });
             const profile = await profileResponse.json();
-            router.replace(profile.user?.role === 'barber' ? '/pos' : profile.user?.role === 'recepcion' ? '/clientes' : '/admin');
+            router.replace(profile.user?.role === 'barber' ? '/pos' : profile.user?.role === 'recepcion' ? '/pos' : '/admin');
             router.refresh();
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Error de conexión.');

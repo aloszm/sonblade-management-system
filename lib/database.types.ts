@@ -1491,6 +1491,50 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_inventory_stock: {
+        Args: { p_branch_id: string; p_notes: string; p_product_id: string; p_quantity_delta: number }
+        Returns: Json
+      }
+      business_report: {
+        Args: { p_branch_id: string; p_employee_id?: string; p_from?: string; p_period: string; p_to?: string }
+        Returns: Json
+      }
+      get_settlement_receipt: {
+        Args: { p_settlement_id: string }
+        Returns: Json
+      }
+      list_audit_log: {
+        Args: { p_action?: string; p_branch_id: string; p_from?: string; p_limit?: number; p_role?: string; p_to?: string }
+        Returns: Json
+      }
+      preview_commission_settlement: {
+        Args: { p_branch_id: string; p_employee_id: string; p_period_end: string; p_period_start: string }
+        Returns: Json
+      }
+      record_sale_payment: {
+        Args: { p_amount: number; p_idempotency_key: string; p_method: Database['public']['Enums']['payment_method']; p_reference?: string; p_sale_id: string }
+        Returns: Json
+      }
+      reverse_sale: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
+      }
+      review_commission_adjustment: {
+        Args: { p_adjustment_id: string; p_approve: boolean; p_note: string }
+        Returns: Json
+      }
+      set_inventory_minimum: {
+        Args: { p_branch_id: string; p_minimum_quantity: number; p_product_id: string }
+        Returns: Json
+      }
+      settle_commissions: {
+        Args: { p_branch_id: string; p_employee_id: string; p_payments: Json; p_period_end: string; p_period_start: string }
+        Returns: Json
+      }
+      update_business_profile: {
+        Args: { p_address: string; p_branch_id: string; p_business_id: string; p_currency: string; p_name: string; p_phone: string; p_settings: Json; p_timezone: string }
+        Returns: Json
+      }
       bootstrap_first_owner: {
         Args: {
           p_branch_name: string

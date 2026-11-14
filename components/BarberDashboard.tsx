@@ -4,28 +4,23 @@ import React, { useState, useEffect } from 'react';
 import { Clock, DollarSign, Scissors, Gift, TrendingUp, CreditCard, Banknote, Loader2, ChevronDown } from 'lucide-react';
 import type { Barber } from '@/types';
 
-function getCommissionTier(totalCuts: number): { current: number; next: number; cutsForNext: number } {
-    const tiers = [
-        { minCuts: 0, rate: 40 },
-        { minCuts: 25, rate: 45 },
-        { minCuts: 50, rate: 50 },
-    ];
-    let currentTier = tiers[0];
-    let nextTier = tiers[1];
-    for (let i = 0; i < tiers.length; i++) {
-        if (totalCuts >= tiers[i].minCuts) {
-            currentTier = tiers[i];
-            nextTier = tiers[i + 1] || tiers[i];
-        }
-    }
-    return { current: currentTier.rate, next: nextTier.rate, cutsForNext: Math.max(0, nextTier.minCuts - totalCuts) };
-}
+type SaleItem = { item_name: string; item_type: 'service' | 'product' };
+type TodaySale = { id: string; created_at: string; items: SaleItem[]; payment_method: string; total: number };
+type BarberStats = {
+    barber: { id: string; name: string; total_cuts: number; status: string; avatar_url: string | null };
+    tier: { current: number; next: number; cutsForNext: number };
+    weeklyStats: {
+        cuts: number; totalGenerated: number; serviceRevenue: number; tips: number;
+        commission: number; serviceCommission: number; productCommission: number;
+    };
+    todayStats: { cuts: number; tips: number; sales: TodaySale[] };
+};
 
 const BarberDashboard: React.FC = () => {
     const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
     const [barbers, setBarbers] = useState<Barber[] | null>(null);
     const [loadingBarbers, setLoadingBarbers] = useState(true);
-    const [stats, setStats] = useState<any>(null);
+    const [stats, setStats] = useState<BarberStats | null>(null);
     const [loadingStats, setLoadingStats] = useState(false);
 
     // Fetch barbers via API
@@ -49,7 +44,7 @@ const BarberDashboard: React.FC = () => {
             .finally(() => setLoadingStats(false));
     }, [barberId]);
 
-    const tier = stats?.barber ? getCommissionTier(stats.barber.total_cuts) : null;
+    const tier = stats?.tier ?? null;
     const now = new Date();
     const dayName = now.toLocaleDateString('es-MX', { weekday: 'long' });
     const dateStr = now.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -187,10 +182,10 @@ const BarberDashboard: React.FC = () => {
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 relative z-10">
                                 <div>
                                     <div className="flex items-center gap-3 mb-2">
-                                        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">PROGRESO DE COMISIÓN</h3>
+                                        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">MI COMISIÓN</h3>
                                         <span className="bg-sonblade-primary text-white text-lg font-bold px-3 py-1 rounded-lg shadow-sm">{tier.current}% Actual</span>
                                     </div>
-                                    <p className="text-gray-500">Acumula más cortes para desbloquear mejores comisiones.</p>
+                                    <p className="text-gray-500">Tu comisión por cortes se calcula sobre el precio antes de descuentos.</p>
                                 </div>
                                 {tier.cutsForNext > 0 && (
                                     <div className="text-right mt-4 md:mt-0">
@@ -201,7 +196,8 @@ const BarberDashboard: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <div className="relative pt-6 pb-2 z-10">
+                            {tier.cutsForNext > 0 && (
+<div className="relative pt-6 pb-2 z-10">
                                 <div className="flex justify-between text-xs font-medium text-gray-500 mb-2 px-1"><span>0</span><span>20</span><span>40</span><span>60+</span></div>
                                 <div className="relative h-8 bg-gray-200 rounded-full w-full overflow-hidden shadow-inner">
                                     <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-black to-gray-700 rounded-full flex items-center justify-end pr-3 transition-all duration-700" style={{ width: `${progressPercent}%` }}>
@@ -209,6 +205,7 @@ const BarberDashboard: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+)}
                         </section>
                     )}
 
@@ -234,13 +231,13 @@ const BarberDashboard: React.FC = () => {
                                             <td colSpan={5} className="p-8 text-center text-gray-400">No hay ventas hoy</td>
                                         </tr>
                                     )}
-                                    {stats?.todayStats?.sales?.map((sale: any) => (
+                                    {stats?.todayStats?.sales?.map((sale) => (
                                         <tr key={sale.id} className="hover:bg-gray-50">
                                             <td className="p-4 font-medium text-gray-900">
                                                 {new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                                             </td>
                                             <td className="p-4">
-                                                {sale.items?.map((item: any, idx: number) => (
+                                                {sale.items?.map((item, idx) => (
                                                     <span key={idx} className={`inline-flex mr-1 mb-1 px-2 py-0.5 rounded text-xs font-semibold ${item.item_type === 'service'
                                                         ? 'bg-blue-100 text-blue-700'
                                                         : 'bg-green-100 text-green-700'
@@ -250,7 +247,7 @@ const BarberDashboard: React.FC = () => {
                                                 ))}
                                             </td>
                                             <td className="p-4 text-gray-900">
-                                                {sale.items?.map((i: any) => i.item_name).join(', ') || 'Venta'}
+                                                {sale.items?.map((i) => i.item_name).join(', ') || 'Venta'}
                                             </td>
                                             <td className="p-4 text-gray-500 flex items-center gap-1">
                                                 {sale.payment_method === 'card' ? <CreditCard className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}

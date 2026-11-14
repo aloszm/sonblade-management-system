@@ -1,22 +1,42 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Shield, Loader2, Filter, X, Clock, User, Zap } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Shield, Loader2, X, Clock, User, Zap } from 'lucide-react';
 import type { AuditLog } from '@/types';
 import { format } from 'date-fns';
 
 const ACTION_LABELS: Record<string, string> = {
-    'create_sale': 'Crear venta',
-    'delete_sale': 'Eliminar venta',
-    'open_cash': 'Abrir caja',
-    'close_cash': 'Cerrar caja',
-    'reset_cash': 'Reiniciar caja',
-    'create_movement': 'Crear movimiento',
-    'confirm_movement': 'Confirmar movimiento',
-    'delete_movement': 'Eliminar movimiento',
-    'update_product': 'Modificar inventario',
-    'create_payment': 'Registrar pago barbero',
+    initial_owner_bootstrap: 'Alta del negocio',
+    initial_haircut_commission_configured: 'Configurar comisión de cortes',
+    product_created: 'Alta de producto',
+    cash_opened: 'Abrir caja',
+    cash_closed: 'Cerrar caja',
+    cash_movement_recorded: 'Movimiento de caja',
+    sale_confirmed: 'Venta registrada',
+    sale_payment_recorded: 'Abono a venta',
+    sale_reversed: 'Venta anulada',
+    inventory_adjusted: 'Ajuste de inventario',
+    inventory_minimum_changed: 'Cambio de mínimo de inventario',
+    commission_settlement_paid: 'Pago de comisiones',
+    commission_adjustment_approved: 'Ajuste de comisión aprobado',
+    commission_adjustment_rejected: 'Ajuste de comisión rechazado',
+    business_profile_updated: 'Cambio del perfil del negocio',
 };
+
+const TABLE_LABELS: Record<string, string> = {
+    services: 'servicio', products: 'producto', clients: 'cliente', commission_rules: 'regla de comisión',
+    employees: 'empleado', business_memberships: 'rol de usuario', branches: 'sucursal', businesses: 'negocio',
+    appointments: 'cita', appointment_items: 'concepto de cita', user_branch_access: 'acceso a sucursal',
+};
+const VERB_LABELS: Record<string, string> = { insert: 'Alta de', update: 'Cambio en', delete: 'Baja de' };
+
+/** Texto en español de una acción; las altas y cambios automáticos vienen como "tabla.operación". */
+function actionLabel(action: string): string {
+    if (ACTION_LABELS[action]) return ACTION_LABELS[action];
+    const [table, verb] = action.split('.');
+    if (TABLE_LABELS[table] && VERB_LABELS[verb]) return `${VERB_LABELS[verb]} ${TABLE_LABELS[table]}`;
+    return action;
+}
 
 const ROLE_COLORS: Record<string, string> = {
     admin: 'bg-purple-100 text-purple-700',
@@ -33,7 +53,7 @@ export default function AuditoriaPage() {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
 
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
@@ -47,9 +67,9 @@ export default function AuditoriaPage() {
             if (res.ok) setLogs(await res.json());
         } catch (e) { console.error(e); }
         finally { setLoading(false); }
-    };
+    }, [roleFilter, actionFilter, dateFrom, dateTo]);
 
-    useEffect(() => { fetchLogs(); }, [roleFilter, actionFilter, dateFrom, dateTo]);
+    useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
     const clearFilters = () => {
         setRoleFilter('all');
@@ -57,8 +77,6 @@ export default function AuditoriaPage() {
         setDateFrom('');
         setDateTo('');
     };
-
-    const actionNames = [...new Set(logs.map(l => l.action))];
 
     return (
         <div className="max-w-7xl mx-auto space-y-6">
@@ -135,7 +153,7 @@ export default function AuditoriaPage() {
                                     <td className="p-4 font-medium text-gray-900">
                                         <div className="flex items-center gap-1.5">
                                             <User className="h-3.5 w-3.5 text-gray-400" />
-                                            {log.user_id}
+                                            {log.user_name ?? log.user_id}
                                         </div>
                                     </td>
                                     <td className="p-4">
@@ -146,7 +164,7 @@ export default function AuditoriaPage() {
                                     <td className="p-4">
                                         <span className="flex items-center gap-1.5">
                                             <Zap className="h-3.5 w-3.5 text-sonblade-gold" />
-                                            <span className="font-semibold text-gray-900">{ACTION_LABELS[log.action] || log.action}</span>
+                                            <span className="font-semibold text-gray-900">{actionLabel(log.action)}</span>
                                         </span>
                                     </td>
                                     <td className="p-4 text-gray-500 text-xs">

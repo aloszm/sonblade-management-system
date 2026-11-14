@@ -5,7 +5,6 @@ import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, 
 import type { Barber, Service, Product, Sale } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { es } from 'date-fns/locale';
 import CreateSaleModal from '@/components/CreateSaleModal';
 
 function PaymentBadge({ sale }: { sale: Sale }) {
@@ -81,11 +80,11 @@ export default function SalesHistoryPage() {
         const init = async () => {
             try {
                 const [bRes, pRes, sRes] = await Promise.all([
-                    fetch('/api/barbers'), fetch('/api/products'), fetch('/api/settings')
+                    fetch('/api/barbers'), fetch('/api/products'), fetch('/api/services')
                 ]);
                 if (bRes.ok) setBarbers(await bRes.json());
                 if (pRes.ok) setProducts(await pRes.json());
-                if (sRes.ok) { const s = await sRes.json(); if (s.services) setServices(s.services); }
+                if (sRes.ok) { const s = await sRes.json(); if (Array.isArray(s)) setServices(s); }
             } catch (e) { console.error(e); }
         };
         init();
@@ -146,7 +145,7 @@ export default function SalesHistoryPage() {
             } else {
                 alert('Error al eliminar');
             }
-        } catch (e: any) { alert(e.message); }
+        } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Error'); }
         finally { setDeletingId(null); setShowDeleteConfirm(null); }
     };
 

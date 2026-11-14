@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Package,
   Banknote,
+  Wallet,
   Users,
   Settings,
   UserCircle,
@@ -40,8 +41,8 @@ interface MenuSection {
 }
 
 // Items allowed per role (by href prefix)
-const BARBER_ALLOWED = ['/pos', '/caja', '/barbero', '/clientes'];
-const RECEPCION_ALLOWED = ['/clientes', '/caja', '/citas'];
+const BARBER_ALLOWED = ['/pos', '/caja', '/barbero', '/clientes', '/liquidaciones'];
+const RECEPCION_ALLOWED = ['/pos', '/clientes', '/caja', '/citas'];
 
 const menuSections: MenuSection[] = [
   {
@@ -65,6 +66,7 @@ const menuSections: MenuSection[] = [
     title: 'MI ESPACIO',
     items: [
       { href: '/barbero', label: 'Mi Panel Personal', icon: UserCircle },
+      { href: '/liquidaciones', label: 'Pago de Barberos', icon: Wallet },
     ]
   },
   {
