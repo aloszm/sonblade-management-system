@@ -164,7 +164,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
                     { label: 'Ingresos Totales', value: `$${data.kpis.totalRevenue.toFixed(2)}`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-                    { label: 'Comisiones Pagadas', value: `$${data.kpis.totalCommissions.toFixed(2)}`, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50' },
+                    { label: 'Comisiones Generadas', value: `$${data.kpis.totalCommissions.toFixed(2)}`, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50' },
                     { label: 'Ticket Promedio', value: `$${data.kpis.avgTicket.toFixed(2)}`, icon: PieIcon, color: 'text-blue-600', bg: 'bg-blue-50' },
                     { label: 'Visitas Totales', value: data.kpis.totalSales, icon: Users, color: 'text-sonblade-gold', bg: 'bg-yellow-50' },
                 ].map((kpi, i) => (
@@ -181,7 +181,6 @@ export default function ReportsPage() {
                 <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
                     <div className="flex justify-between items-center mb-8">
                         <h3 className="font-black text-gray-900 flex items-center gap-2"><LineIcon className="h-5 w-5 text-sonblade-gold" /> Tendencia de Ingresos</h3>
-                        <span className="text-xs font-bold text-green-500">+12% vs período anterior</span>
                     </div>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">

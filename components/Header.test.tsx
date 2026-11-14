@@ -1,26 +1,43 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import Header from './Header';
 
-describe('Header — Traducción al Español', () => {
+vi.mock('next/navigation', () => ({ usePathname: () => '/pos' }));
+
+function mockMe(role: 'admin' | 'recepcion' | 'barber') {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+        json: async () => ({ authenticated: true, user: { name: 'Dago', role } }),
+    })));
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('Header', () => {
     const mockToggle = vi.fn();
 
-    it('muestra el placeholder de búsqueda en español', () => {
+    it('muestra el título de la página en español', async () => {
+        mockMe('recepcion');
         render(<Header toggleSidebar={mockToggle} />);
-
-        expect(screen.getByPlaceholderText('Buscar clientes, citas o artículos...')).toBeInTheDocument();
+        expect(await screen.findByText('Punto de Venta')).toBeInTheDocument();
     });
 
-    it('muestra el botón "Nueva Cita" en español', () => {
+    it('recepción ve "Nueva Cita" y lleva a la agenda', async () => {
+        mockMe('recepcion');
         render(<Header toggleSidebar={mockToggle} />);
-
-        expect(screen.getByText('Nueva Cita')).toBeInTheDocument();
+        const link = await screen.findByRole('link', { name: /Nueva Cita/ });
+        expect(link).toHaveAttribute('href', '/citas?nueva=1');
     });
 
-    it('NO contiene texto en inglés (New Appointment, Search clients...)', () => {
+    it('un barbero no ve "Nueva Cita" porque no puede agendar', async () => {
+        mockMe('barber');
         render(<Header toggleSidebar={mockToggle} />);
+        expect(await screen.findByText('Dago')).toBeInTheDocument();
+        expect(screen.queryByText('Nueva Cita')).not.toBeInTheDocument();
+    });
 
-        expect(screen.queryByText('New Appointment')).not.toBeInTheDocument();
-        expect(screen.queryByPlaceholderText('Search clients, bookings, or items...')).not.toBeInTheDocument();
+    it('no ofrece controles de adorno sin función (buscador, notificaciones)', () => {
+        mockMe('admin');
+        render(<Header toggleSidebar={mockToggle} />);
+        expect(screen.queryByPlaceholderText(/Buscar/)).not.toBeInTheDocument();
     });
 });

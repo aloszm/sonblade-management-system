@@ -42,14 +42,21 @@ export default function GastosPage() {
         e.preventDefault();
         setIsSubmitting(true);
         try {
+            // Un gasto sale de la caja: necesita una caja abierta.
+            const session = await fetch('/api/cash/session', { cache: 'no-store' }).then(r => r.ok ? r.json() : null);
+            if (!session?.id) {
+                alert('Abre la caja para registrar un gasto.');
+                return;
+            }
             const res = await fetch('/api/cash/movements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    ...newGasto,
+                    cash_session_id: session.id,
+                    movement_type: 'expense',
+                    method: newGasto.payment_method,
                     amount: Number(newGasto.amount),
-                    type: 'expense',
-                    status: 'confirmed'
+                    description: newGasto.description,
                 })
             });
 
@@ -57,9 +64,13 @@ export default function GastosPage() {
                 setShowAddModal(false);
                 setNewGasto({ description: '', amount: '', payment_method: 'cash' });
                 fetchGastos();
+            } else {
+                const body = await res.json().catch(() => null);
+                alert(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo registrar el gasto');
             }
         } catch (e) {
             console.error(e);
+            alert('No se pudo registrar el gasto');
         } finally {
             setIsSubmitting(false);
         }

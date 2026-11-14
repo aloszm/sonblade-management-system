@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Plus, Edit2, UserX, UserCheck, Scissors, DollarSign, Award, Loader2, TrendingUp, RefreshCw, KeyRound, Percent } from 'lucide-react';
+import { Users, Plus, Edit2, UserX, UserCheck, RefreshCw } from 'lucide-react';
 import CommissionBar from '@/components/CommissionBar';
 import type { Barber } from '@/types';
 
@@ -17,17 +17,12 @@ export default function TeamPage() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
-    const [formData, setFormData] = useState({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered', pin: '1234' });
-
-    // PIN reset modal
-    const [pinModalBarber, setPinModalBarber] = useState<Barber | null>(null);
-    const [newPin, setNewPin] = useState('');
-    const [pinSaving, setPinSaving] = useState(false);
+    const [formData, setFormData] = useState({ name: '', phone: '', status: 'active' });
 
     const fetchBarbers = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/barbers');
+            const res = await fetch('/api/barbers?include_inactive=1');
             if (res.ok) setBarbers(await res.json());
         } catch (error) { console.error('Failed to fetch barbers', error); }
         finally { setLoading(false); }
@@ -55,14 +50,17 @@ export default function TeamPage() {
         try {
             const method = editingBarber ? 'PATCH' : 'POST';
             const url = editingBarber ? `/api/barbers/${editingBarber.id}` : '/api/barbers';
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status } : {}) }) });
             if (res.ok) { setIsModalOpen(false); fetchBarbers(); fetchLiveStats(); }
-            else { alert('Error al guardar'); }
+            else {
+                const body = await res.json().catch(() => null);
+                alert(body?.error || 'Error al guardar');
+            }
         } catch (error) { console.error(error); }
     };
 
     const toggleStatus = async (barber: Barber) => {
-        const newStatus = barber.status === 'active' ? 'off' : 'active';
+        const newStatus = barber.status === 'active' ? 'inactive' : 'active';
         try {
             await fetch(`/api/barbers/${barber.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
             fetchBarbers();
@@ -72,35 +70,14 @@ export default function TeamPage() {
     const openModal = (barber?: Barber) => {
         if (barber) {
             setEditingBarber(barber);
-            setFormData({ name: barber.name, commission_rate: barber.commission_rate, status: barber.status, commission_type: barber.commission_type || 'tiered', pin: barber.pin || '1234' });
+            setFormData({ name: barber.name, phone: (barber as { phone?: string | null }).phone ?? '', status: barber.status === 'active' ? 'active' : 'inactive' });
         } else {
             setEditingBarber(null);
-            setFormData({ name: '', commission_rate: 40, status: 'active', commission_type: 'tiered', pin: '1234' });
+            setFormData({ name: '', phone: '', status: 'active' });
         }
         setIsModalOpen(true);
     };
 
-    const handlePinReset = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!pinModalBarber || newPin.length < 4) { alert('El PIN debe tener al menos 4 dígitos'); return; }
-        setPinSaving(true);
-        try {
-            const res = await fetch(`/api/barbers/${pinModalBarber.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: newPin }),
-            });
-            if (res.ok) {
-                alert(`PIN de ${pinModalBarber.name} actualizado correctamente`);
-                setPinModalBarber(null);
-                setNewPin('');
-                fetchBarbers();
-            } else {
-                alert('Error al actualizar el PIN');
-            }
-        } catch (e) { console.error(e); }
-        finally { setPinSaving(false); }
-    };
 
     if (loading) return <div className="flex justify-center items-center h-full min-h-[400px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sonblade-gold"></div></div>;
 
@@ -140,14 +117,6 @@ export default function TeamPage() {
                                 </Link>
                             </div>
 
-                            {/* Commission type badge */}
-                            <div className="mb-3 flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-gray-100 text-gray-600">
-                                    <Percent className="inline h-3 w-3 mr-1" />
-                                    {barber.commission_type === 'flat_50' ? 'Fijo 50%' : 'Por Metas'}
-                                </span>
-                            </div>
-
                             {live && (
                                 <div className="mt-auto pt-3 border-t border-gray-50 space-y-2">
                                     <div className="flex items-center justify-between">
@@ -166,9 +135,6 @@ export default function TeamPage() {
                             <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
                                 <button onClick={() => openModal(barber)} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-lg border border-gray-200 transition-colors">
                                     <Edit2 className="w-3.5 h-3.5" /> Editar
-                                </button>
-                                <button onClick={() => { setPinModalBarber(barber); setNewPin(''); }} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-yellow-50 hover:text-yellow-700 rounded-lg border border-gray-200 transition-colors">
-                                    <KeyRound className="w-3.5 h-3.5" /> Reset PIN
                                 </button>
                                 <button onClick={() => toggleStatus(barber)} className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors ${barber.status === 'active' ? 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100' : 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100'}`}>
                                     {barber.status === 'active' ? <><UserX className="w-3.5 h-3.5" /> Desact.</> : <><UserCheck className="w-3.5 h-3.5" /> Activar</>}
@@ -194,89 +160,27 @@ export default function TeamPage() {
                                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none" required />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                                <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none">
-                                    <option value="active">Activo</option>
-                                    <option value="busy">Ocupado</option>
-                                    <option value="off">Inactivo</option>
-                                </select>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono (opcional)</label>
+                                <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} maxLength={32}
+                                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none" />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <Percent className="inline h-4 w-4 mr-1" />Tipo de Comisión
-                                </label>
-                                <select value={formData.commission_type} onChange={e => setFormData({ ...formData, commission_type: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none">
-                                    <option value="tiered">📈 Por Metas (Según Cortes: 40% → 45% → 50%)</option>
-                                    <option value="flat_50">📊 Fijo al 50%</option>
-                                </select>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    {formData.commission_type === 'tiered'
-                                        ? '1-24 cortes: 40% | 25-49: 45% | 50+: 50%'
-                                        : 'Comisión fija del 50% en todos los servicios'}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <KeyRound className="inline h-4 w-4 mr-1" />PIN de Acceso
-                                </label>
-                                <input type="text" value={formData.pin}
-                                    onChange={e => setFormData({ ...formData, pin: e.target.value.replace(/[^0-9]/g, '') })}
-                                    placeholder="Ej: 1234" maxLength={6}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none font-mono tracking-widest text-center text-lg" required />
-                                <p className="text-xs text-gray-400 mt-1">El barbero usará este código para iniciar sesión (4-6 dígitos).</p>
-                            </div>
+                            {editingBarber && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none">
+                                        <option value="active">Activo</option>
+                                        <option value="inactive">Inactivo (no aparece para vender)</option>
+                                    </select>
+                                </div>
+                            )}
+                            <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                                La comisión de cortes es el 50 % del precio antes de descuentos (regla del negocio). Cada persona entra al sistema con su correo y contraseña; el acceso lo crea la administración.
+                            </p>
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
                                 <button type="submit" className="px-5 py-2.5 bg-black text-sonblade-gold rounded-lg hover:bg-gray-800 shadow-md font-semibold">
                                     {editingBarber ? 'Guardar Cambios' : 'Crear Barbero'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* PIN Reset Modal */}
-            {pinModalBarber && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-yellow-50">
-                            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                                <KeyRound className="h-5 w-5 text-sonblade-gold" /> Resetear PIN
-                            </h2>
-                            <button onClick={() => setPinModalBarber(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
-                        </div>
-                        <form onSubmit={handlePinReset} className="p-6 space-y-4">
-                            <p className="text-sm text-gray-600">
-                                Reseteando PIN para <strong className="text-gray-900">{pinModalBarber.name}</strong>
-                            </p>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nuevo PIN</label>
-                                <input
-                                    type="text"
-                                    value={newPin}
-                                    onChange={e => setNewPin(e.target.value.replace(/[^0-9]/g, ''))}
-                                    placeholder="Ej: 4567"
-                                    maxLength={6}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none font-mono text-center text-2xl tracking-[0.5em]"
-                                    required
-                                    autoFocus
-                                />
-                                <p className="text-xs text-gray-500 mt-2 text-center">Ingresa de 4 a 6 dígitos numéricos.</p>
-                            </div>
-                            <div className="pt-2 flex gap-3">
-                                <button type="button" onClick={() => setPinModalBarber(null)} className="flex-1 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg font-medium border border-gray-200">
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={pinSaving || newPin.length < 4}
-                                    className="flex-1 py-3 bg-black text-sonblade-gold rounded-lg hover:bg-gray-800 shadow-md font-bold disabled:opacity-50 transition-all flex justify-center items-center gap-2"
-                                >
-                                    {pinSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                                    {pinSaving ? 'Guardando...' : 'Guardar PIN'}
                                 </button>
                             </div>
                         </form>

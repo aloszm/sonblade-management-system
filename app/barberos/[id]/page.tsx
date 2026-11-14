@@ -68,7 +68,7 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">{barber?.name}</h1>
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded uppercase ${barber?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{barber?.status}</span>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded uppercase ${barber?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{barber?.status === 'active' ? 'Activo' : 'Inactivo'}</span>
                     </div>
                 </div>
             </div>

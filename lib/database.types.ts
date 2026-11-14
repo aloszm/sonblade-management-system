@@ -1495,6 +1495,10 @@ export type Database = {
         Args: { p_branch_id: string; p_notes: string; p_product_id: string; p_quantity_delta: number }
         Returns: Json
       }
+      change_appointment_status: {
+        Args: { p_appointment_id: string; p_reason?: string; p_status: Database["public"]["Enums"]["appointment_status"] }
+        Returns: Database["public"]["Tables"]["appointments"]["Row"]
+      }
       business_report: {
         Args: { p_branch_id: string; p_employee_id?: string; p_from?: string; p_period: string; p_to?: string }
         Returns: Json

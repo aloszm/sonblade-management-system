@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X, RefreshCw, Plus, Calendar, AlertTriangle } from 'lucide-react';
 import type { Barber, Service, Product, Sale } from '@/types';
+import { downloadCsv } from '@/lib/utils/csv';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import CreateSaleModal from '@/components/CreateSaleModal';
 
@@ -150,21 +151,22 @@ export default function SalesHistoryPage() {
     };
 
     const exportCSV = () => {
-        const headers = ['Fecha', 'Hora', 'Barbero', 'Servicio', 'Producto', 'Propina', 'Metodo Pago', 'Efectivo', 'Tarjeta', 'Transferencia', 'Total'];
+        const methodLabel: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', mixed: 'Mixto' };
         const rows = sales.map(s => {
             const d = new Date(s.created_at);
-            const srvs = s.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(' | ') || '—';
-            const prds = s.items?.filter(i => i.item_type === 'product').map(i => i.item_name).join(' | ') || '—';
-            return [format(d, 'yyyy-MM-dd'), format(d, 'HH:mm'), s.barber?.name || '', srvs, prds, s.tip || 0, s.payment_method, s.cash_amount || 0, s.card_amount || 0, s.transfer_amount || 0, s.total].map(c => `"${c}"`).join(',');
+            const srvs = s.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(' | ') || '';
+            const prds = s.items?.filter(i => i.item_type === 'product').map(i => i.item_name).join(' | ') || '';
+            return [format(d, 'yyyy-MM-dd'), format(d, 'HH:mm'), s.barber?.name || '', s.client?.name || '', srvs, prds, s.tip || 0,
+                methodLabel[s.payment_method] || s.payment_method, s.cash_amount || 0, s.card_amount || 0, s.transfer_amount || 0, s.total,
+                s.status === 'refunded' ? 'Anulada' : 'Pagada'];
         });
-        const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' });
-        const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-        link.download = `ventas_${format(new Date(), 'yyyy-MM-dd')}.csv`; link.click();
+        downloadCsv(`ventas_${format(new Date(), 'yyyy-MM-dd')}.csv`,
+            ['Fecha', 'Hora', 'Barbero', 'Cliente', 'Servicio', 'Producto', 'Propina', 'Método de pago', 'Efectivo', 'Tarjeta', 'Transferencia', 'Total', 'Estado'], rows);
     };
 
     const totalPages = Math.ceil(sales.length / itemsPerPage);
     const page = sales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    const totalFiltered = sales.reduce((s, v) => s + Number(v.total), 0);
+    const totalFiltered = sales.filter(v => v.status !== 'refunded').reduce((s, v) => s + Number(v.total), 0);
     const serviceNames = [...new Set(services.map(s => s.name))];
     const productNames = [...new Set(products.map(p => p.name))];
 

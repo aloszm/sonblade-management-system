@@ -79,6 +79,8 @@ const DB_ERRORS: Record<string, { status: number; message: string }> = {
     '23505': { status: 409, message: 'Ya existe un registro igual.' },
     '23514': { status: 409, message: 'La operación no cumple las reglas del negocio.' },
     '23503': { status: 400, message: 'Una referencia no existe o no pertenece a este negocio.' },
+    // exclusion_violation: hoy solo la usa appointments_no_barber_overlap (agenda).
+    '23P01': { status: 409, message: 'Ese barbero ya tiene una cita en ese horario.' },
     P0002: { status: 404, message: 'No se encontró el registro.' },
 };
 

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         if (type === 'expense') query = query.eq('movement_type', 'expense');
         const { data, error } = await query;
         if (error) throw error;
-        return Response.json(data ?? [], { headers: { 'Cache-Control': 'no-store' } });
+        return Response.json(((data ?? []) as unknown as { method: string }[]).map((row) => ({ ...row, payment_method: row.method })), { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
         return authErrorResponse(error);
     }

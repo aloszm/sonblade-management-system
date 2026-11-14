@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, X, DollarSign, Loader2, Edit2, Trash2 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import type { Product, CreateProduct } from '@/types';
+import { downloadCsv } from '@/lib/utils/csv';
 
 const Inventory: React.FC = () => {
     const [modalOpen, setModalOpen] = useState(false);
@@ -50,7 +51,10 @@ const Inventory: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form)
             });
-            if (!res.ok) throw new Error('Error al guardar producto');
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                throw new Error(body?.error ? (body.detail ? `${body.error} (${body.detail})` : body.error) : 'Error al guardar producto');
+            }
 
             setModalOpen(false);
             setEditingId(null);
@@ -59,7 +63,7 @@ const Inventory: React.FC = () => {
             refetchStats();
         } catch (err) {
             console.error('Error saving product:', err);
-            alert('Error al guardar producto');
+            alert(err instanceof Error ? err.message : 'Error al guardar producto');
         } finally {
             setSaving(false);
         }
@@ -82,7 +86,7 @@ const Inventory: React.FC = () => {
     };
 
     const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`¿Estás seguro de que deseas eliminar el producto "${name}"?\nEsta acción es irreversible.`)) return;
+        if (!confirm(`¿Dar de baja el producto "${name}"?\nYa no aparecerá para vender; su historial se conserva.`)) return;
         try {
             const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Error deleting product');
@@ -90,7 +94,7 @@ const Inventory: React.FC = () => {
             refetchStats();
         } catch (e) {
             console.error(e);
-            alert('Ocurrió un error al eliminar el producto');
+            alert('No se pudo dar de baja el producto');
         }
     };
 
@@ -116,7 +120,12 @@ const Inventory: React.FC = () => {
                     <p className="text-sm text-gray-500 mt-1">Gestión general de productos y stock</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
+                    <button onClick={() => {
+                        const label: Record<Product['status'], string> = { ok: 'Normal', low: 'Bajo', critical: 'Crítico', empty: 'Agotado' };
+                        downloadCsv(`inventario_${new Date().toISOString().slice(0, 10)}.csv`,
+                            ['SKU', 'Producto', 'Categoría', 'Existencias', 'Mínimo', 'Costo', 'Precio', 'Valor en inventario', 'Estado'],
+                            (products || []).map(p => [p.sku, p.name, p.category, p.stock, p.min_stock, p.cost, p.price, p.price * p.stock, label[p.status]]));
+                    }} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
                         <Download className="h-4 w-4" /> Exportar
                     </button>
                     <button onClick={() => {
@@ -274,7 +283,7 @@ const Inventory: React.FC = () => {
                                                 <button onClick={() => handleEditClick(p)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar / Ajustar Stock">
                                                     <Edit2 className="h-4 w-4" />
                                                 </button>
-                                                <button onClick={() => handleDelete(p.id, p.name)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                                <button onClick={() => handleDelete(p.id, p.name)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Dar de baja">
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>

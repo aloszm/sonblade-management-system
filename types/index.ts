@@ -140,20 +140,7 @@ export interface CashMovement {
     created_at: string;
 }
 
-export interface Appointment {
-    id: string;
-    client_id: string | null;
-    barber_id: string | null;
-    scheduled_at: string;
-    service_note: string | null;
-    status: 'pending' | 'confirmed' | 'done' | 'cancelled';
-    created_at: string;
-    // Joined
-    barber?: Barber;
-    client?: Client;
-    // Derived helper (from client.name or service_note)
-    client_name?: string;
-}
+export type { AppointmentView as Appointment, AppointmentStatus } from '@/lib/appointments/appointments-view';
 
 export interface Receptionist {
     id: string;

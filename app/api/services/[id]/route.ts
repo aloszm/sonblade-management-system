@@ -11,13 +11,24 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         const context = await requireAuthContext(['owner', 'admin']);
         const { id } = await params;
         const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
-        if (!parsed.success) return Response.json({ error: 'Los datos del servicio no son válidos.' }, { status: 400 });
+        if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Los datos del servicio no son válidos.' }, { status: 400 });
         const { data, error } = await (await createSupabaseServerClient()).from('services').update(parsed.data)
             .eq('business_id', context.businessId).eq('id', id).select().maybeSingle();
         if (error) throw error;
         if (!data) return Response.json({ error: 'Servicio no encontrado.' }, { status: 404 });
         return Response.json(data);
     } catch (error) { return authErrorResponse(error); }
+}
+
+// La pantalla de servicios edita y activa/desactiva con PUT y manda el servicio completo:
+// se toman solo los campos editables y se aplica igual que PATCH.
+export async function PUT(request: NextRequest, context: RouteContext) {
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+    const editable = ['name', 'price', 'duration_minutes', 'description', 'is_active'];
+    const picked = body && typeof body === 'object'
+        ? Object.fromEntries(editable.filter((key) => body[key] !== undefined && body[key] !== null).map((key) => [key, body[key]]))
+        : null;
+    return PATCH(new NextRequest(request.url, { method: 'PATCH', headers: request.headers, body: JSON.stringify(picked) }), context);
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {

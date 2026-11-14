@@ -54,6 +54,9 @@ export default function ServicesPage() {
                 setIsAdding(false);
                 setEditingId(null);
                 setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true });
+            } else {
+                const body = await res.json().catch(() => null);
+                alert(body?.error || 'No se pudo guardar el servicio');
             }
         } catch (e) {
             console.error('Error saving service:', e);
@@ -68,6 +71,7 @@ export default function ServicesPage() {
                 body: JSON.stringify({ ...service, is_active: !service.is_active }),
             });
             if (res.ok) fetchServices();
+            else alert((await res.json().catch(() => null))?.error || 'No se pudo cambiar el estado');
         } catch (e) {
             console.error('Error toggling service status:', e);
         }
@@ -155,8 +159,8 @@ export default function ServicesPage() {
                                     </td>
                                     <td className="p-3 text-right">
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => setIsAdding(false)} className="p-2 text-gray-400 hover:text-red-500"><X className="h-4 w-4" /></button>
-                                            <button onClick={() => handleSave()} className="p-2 bg-black text-sonblade-gold rounded-lg"><Check className="h-4 w-4" /></button>
+                                            <button onClick={() => setIsAdding(false)} aria-label="Cancelar" className="p-2 text-gray-400 hover:text-red-500"><X className="h-4 w-4" /></button>
+                                            <button onClick={() => handleSave()} aria-label="Guardar servicio" className="p-2 bg-black text-sonblade-gold rounded-lg"><Check className="h-4 w-4" /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -226,8 +230,8 @@ export default function ServicesPage() {
                                         <div className="flex justify-end gap-2">
                                             {editingId === service.id ? (
                                                 <>
-                                                    <button onClick={() => setEditingId(null)} className="p-2 text-gray-400"><X className="h-4 w-4" /></button>
-                                                    <button onClick={() => handleSave(service.id)} className="p-2 text-green-600"><Check className="h-4 w-4" /></button>
+                                                    <button onClick={() => setEditingId(null)} aria-label="Cancelar" className="p-2 text-gray-400"><X className="h-4 w-4" /></button>
+                                                    <button onClick={() => handleSave(service.id)} aria-label="Guardar cambios" className="p-2 text-green-600"><Check className="h-4 w-4" /></button>
                                                 </>
                                             ) : (
                                                 <button
@@ -235,6 +239,7 @@ export default function ServicesPage() {
                                                         setEditingId(service.id);
                                                         setFormData({ name: service.name, price: Number(service.price), duration_minutes: service.duration_minutes, is_active: service.is_active });
                                                     }}
+                                                    aria-label="Editar servicio"
                                                     className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
