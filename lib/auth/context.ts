@@ -69,10 +69,31 @@ export async function requireAuthContext(roles?: BusinessRole[]) {
     return context;
 }
 
+// Errores que lanzan las funciones de la base (RAISE EXCEPTION ... USING ERRCODE).
+// Se traducen a un estado HTTP y a un mensaje en español; el mensaje técnico original
+// viaja en `detail` para poder diagnosticar sin ocultar la causa real.
+const DB_ERRORS: Record<string, { status: number; message: string }> = {
+    '42501': { status: 403, message: 'No tienes permiso para esta operación.' },
+    '22023': { status: 400, message: 'Los datos enviados no son válidos.' },
+    '55000': { status: 409, message: 'La operación no se puede realizar en el estado actual.' },
+    '23505': { status: 409, message: 'Ya existe un registro igual.' },
+    '23514': { status: 409, message: 'La operación no cumple las reglas del negocio.' },
+    '23503': { status: 400, message: 'Una referencia no existe o no pertenece a este negocio.' },
+    P0002: { status: 404, message: 'No se encontró el registro.' },
+};
+
 export function authErrorResponse(error: unknown) {
+    const headers = { 'Cache-Control': 'no-store' };
     if (error instanceof AuthorizationError) {
-        return Response.json({ error: error.message }, { status: error.status, headers: { 'Cache-Control': 'no-store' } });
+        return Response.json({ error: error.message }, { status: error.status, headers });
     }
-    return Response.json({ error: 'No se pudo completar la operación.' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    const dbError = error as { code?: unknown; message?: unknown } | null;
+    const known = dbError && typeof dbError.code === 'string' ? DB_ERRORS[dbError.code] : undefined;
+    if (known) {
+        const detail = typeof dbError?.message === 'string' ? dbError.message : undefined;
+        return Response.json({ error: known.message, detail }, { status: known.status, headers });
+    }
+    console.error('[api] error no controlado:', error);
+    return Response.json({ error: 'No se pudo completar la operación.' }, { status: 500, headers });
 }
 

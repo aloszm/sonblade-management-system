@@ -1,14 +1,17 @@
-import { getCashSessionHistory } from '@/lib/services/cash';
-import { NextResponse } from 'next/server';
+import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { loadClosedSessions } from '@/lib/cash/session-view';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+/** Ultimas cajas cerradas de la sucursal. Solo dueño y administrador. */
 export async function GET() {
     try {
-        const data = await getCashSessionHistory();
-        return NextResponse.json(data);
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        const context = await requireAuthContext(['owner', 'admin']);
+        const supabase = await createSupabaseServerClient();
+        const sessions = await loadClosedSessions(supabase, context.businessId, context.branchId);
+        return Response.json(sessions, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }

@@ -1,23 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { deleteMovement } from '@/lib/services/cash';
+import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 
 export const dynamic = 'force-dynamic';
 
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+// Los movimientos de caja no se borran (RB-13): un error se corrige con un ajuste
+// o una anulación trazable. Esta ruta se mantiene solo para responder 501.
+export async function DELETE() {
     try {
-        const { id } = await params;
-        const body = await request.json().catch(() => ({}));
-        const reason = body?.reason || '';
-        const deletedBy = body?.deleted_by || 'Admin';
-
-        await deleteMovement(id, deletedBy, reason);
-
-        return NextResponse.json({ success: true });
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        return NextResponse.json({ error: message }, { status: 500 });
+        await requireAuthContext(['owner', 'admin']);
+        return Response.json(
+            { error: 'Los movimientos de caja no se pueden borrar. Registra un ajuste o una anulación.' },
+            { status: 501, headers: { 'Cache-Control': 'no-store' } },
+        );
+    } catch (error) {
+        return authErrorResponse(error);
     }
 }

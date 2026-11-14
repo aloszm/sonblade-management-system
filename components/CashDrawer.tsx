@@ -10,6 +10,16 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useCashDrawer } from '@/hooks/useCashDrawer';
 
+// Forma de un movimiento dentro de un archivo de caja de la versión 1.
+type ArchiveMovement = {
+    id?: string;
+    created_at: string;
+    type?: string;
+    description?: string;
+    amount?: number | string;
+    payment_method?: string;
+};
+
 export default function CashDrawer() {
     const { state, actions } = useCashDrawer();
     const {
@@ -23,8 +33,7 @@ export default function CashDrawer() {
         setIsModalOpen, setPhysicalCount, setOpenAmount, setShowOpenForm, setViewMode,
         setSelectedArchive, setShowNewMovement, setNewMovType, setNewMovDesc, setNewMovAmount,
         setConfirmAction, setShowResetConfirm, handleClose, handleOpen, handleNewMovement,
-        handleConfirmMovement, handleDeleteMovement, handleReset, fetchHistory, fetchArchives,
-        fetchDeleted
+        handleConfirmMovement, handleDeleteMovement, handleReset, fetchHistory
     } = actions;
 
     if (loading) {
@@ -55,11 +64,6 @@ export default function CashDrawer() {
                             Control de Caja
                         </h1>
                         <p className="text-gray-400 mt-1">No hay una caja abierta actualmente.</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={fetchArchives} className="px-3 py-2 bg-[#141414] border border-white/10 rounded-lg text-gray-300 hover:bg-[#1a1a1a] flex items-center gap-2 text-sm font-medium">
-                            <Archive className="h-4 w-4" /> Archivos
-                        </button>
                     </div>
                 </header>
 
@@ -152,15 +156,6 @@ export default function CashDrawer() {
                             </button>
                             <button onClick={fetchHistory} className="px-3 py-2 bg-[#141414] border border-white/10 rounded-lg text-gray-300 hover:bg-[#1a1a1a] flex items-center gap-2 text-sm font-medium">
                                 <History className="h-4 w-4" /> Historial
-                            </button>
-                            <button onClick={fetchArchives} className="px-3 py-2 bg-[#141414] border border-white/10 rounded-lg text-gray-300 hover:bg-[#1a1a1a] flex items-center gap-2 text-sm font-medium">
-                                <Archive className="h-4 w-4" /> Archivos
-                            </button>
-                            <button onClick={fetchDeleted} className="px-3 py-2 bg-[#141414] border border-white/10 rounded-lg text-gray-300 hover:bg-[#1a1a1a] flex items-center gap-2 text-sm font-medium">
-                                <Eye className="h-4 w-4" /> Eliminados
-                            </button>
-                            <button onClick={() => setShowResetConfirm(true)} className="px-3 py-2 bg-red-500/10 border border-red-200 rounded-lg text-red-600 hover:bg-red-100 flex items-center gap-2 text-sm font-bold">
-                                <RotateCcw className="h-4 w-4" /> Reiniciar
                             </button>
                         </>
                     ) : (
@@ -271,7 +266,7 @@ export default function CashDrawer() {
                                 {deletedMovements.length === 0 ? (
                                     <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400">Sin registros eliminados</td></tr>
                                 ) : deletedMovements.map(d => {
-                                    const rd = d.record_data as any;
+                                    const rd = d.record_data as { type?: string; description?: string; amount?: number | string } | undefined;
                                     return (
                                         <tr key={d.id} className="hover:bg-red-500/20/50">
                                             <td className="px-6 py-3 text-gray-400">{new Date(d.deleted_at).toLocaleString('es-MX')}</td>
@@ -432,11 +427,7 @@ export default function CashDrawer() {
                                                         <td className={`px-4 py-3 text-right font-medium ${m.type === 'expense' || m.type === 'withdrawal' ? 'text-red-600' : ''}`}>
                                                             {m.type === 'expense' || m.type === 'withdrawal' ? '-' : ''} $ {Number(m.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                                         </td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <button onClick={() => setConfirmAction({ type: 'delete_movement', id: m.id })} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-500/200/10 rounded">
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </td>
+                                                        <td className="px-4 py-3 text-center" />
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -478,15 +469,11 @@ export default function CashDrawer() {
                             </div>
                         </div>
                         <div className="px-6 py-4 bg-[#1a1a1a] border-t border-white/10 rounded-b-2xl">
-                            <p className="text-xs text-gray-400 mb-3">¿Confirmar movimiento o mantenerlo pendiente?</p>
+                            <p className="text-xs text-gray-400 mb-3">El movimiento queda registrado con tu nombre y no se puede borrar.</p>
                             <div className="flex gap-2">
-                                <button onClick={() => handleNewMovement('confirmed')} disabled={newMovSubmitting || !newMovDesc || !newMovAmount}
+                                <button onClick={() => handleNewMovement()} disabled={newMovSubmitting || !newMovDesc || !newMovAmount}
                                     className="flex-1 px-4 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
                                     {newMovSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />} Confirmar
-                                </button>
-                                <button onClick={() => handleNewMovement('pending')} disabled={newMovSubmitting || !newMovDesc || !newMovAmount}
-                                    className="flex-1 px-4 py-2.5 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
-                                    {newMovSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />} Pendiente
                                 </button>
                             </div>
                         </div>
@@ -663,7 +650,7 @@ export default function CashDrawer() {
                                     <tbody className="divide-y divide-white/5">
                                         {!selectedArchive.movements || selectedArchive.movements.length === 0 ? (
                                             <tr><td colSpan={5} className="p-6 text-center text-gray-400">Sin movimientos registrados</td></tr>
-                                        ) : selectedArchive.movements.map((m: any, idx: number) => (
+                                        ) : (selectedArchive.movements as unknown as ArchiveMovement[]).map((m, idx) => (
                                             <tr key={m.id || idx} className="hover:bg-[#1a1a1a]">
                                                 <td className="px-4 py-2 text-gray-400">{new Date(m.created_at).toLocaleString('es-MX')}</td>
                                                 <td className="px-4 py-2">

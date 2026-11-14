@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 describe('seed.sql — Validación de datos reales', () => {
-    const seedContent = readFileSync(resolve(__dirname, '../supabase/seed.sql'), 'utf-8');
+    const seedContent = readFileSync(resolve(__dirname, '../supabase/legacy/seed.sql'), 'utf-8');
 
     describe('Barberos', () => {
         it('incluye a Deya', () => {

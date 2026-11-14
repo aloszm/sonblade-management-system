@@ -1,9 +1,35 @@
 import { useState } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
-import { getActiveSession, getSessionMovements, closeCashSession, openCashSession } from '@/lib/services/cash';
+import { toUiMovement, type CashMovementRow } from '@/lib/cash/session-view';
 import type { CashSession, CashMovement, CashSessionArchive, DeletedRecord } from '@/types';
 
 export type ViewMode = 'current' | 'history' | 'archives' | 'deleted';
+
+// Llama a las rutas del servidor y conserva el mensaje real del error para mostrarlo.
+async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
+    const res = await fetch(url, {
+        ...init,
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+        const message = body?.error ?? 'No se pudo completar la operación.';
+        throw new Error(body?.detail ? `${message} (${body.detail})` : message);
+    }
+    return body as T;
+}
+
+const getActiveSession = () => apiJson<CashSession | null>('/api/cash/session');
+const getSessionMovements = async (sessionId: string): Promise<CashMovement[]> =>
+    (await apiJson<CashMovementRow[]>(`/api/cash/movements?session_id=${sessionId}`)).map(toUiMovement);
+const openCashSession = (openingCash: number) =>
+    apiJson<CashSession>('/api/cash/session', { method: 'POST', body: JSON.stringify({ opening_cash: openingCash }) });
+const closeCashSession = (sessionId: string, data: { physical_count: number }) =>
+    apiJson<CashSession>('/api/cash/session/close', {
+        method: 'POST',
+        body: JSON.stringify({ session_id: sessionId, physical_count: data.physical_count }),
+    });
 
 export function useCashDrawer() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,7 +53,7 @@ export function useCashDrawer() {
     const [newMovSubmitting, setNewMovSubmitting] = useState(false);
 
     // Confirmation modal
-    const [confirmAction, setConfirmAction] = useState<{ type: string; id?: string; data?: any } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: string; id?: string; data?: unknown } | null>(null);
     const [confirmLoading, setConfirmLoading] = useState(false);
 
     // Reset
@@ -50,7 +76,7 @@ export function useCashDrawer() {
             refetchSession();
         } catch (err) {
             console.error('Error closing session:', err);
-            alert('Error al cerrar caja');
+            alert(err instanceof Error ? err.message : 'Error al cerrar caja');
         } finally {
             setClosing(false);
         }
@@ -64,26 +90,24 @@ export function useCashDrawer() {
             refetchSession();
         } catch (err) {
             console.error('Error opening session:', err);
-            alert('Error al abrir caja');
+            alert(err instanceof Error ? err.message : 'Error al abrir caja');
         } finally {
             setOpening(false);
         }
     };
 
-    const handleNewMovement = async (status: 'confirmed' | 'pending') => {
+    const handleNewMovement = async () => {
         if (!session || !newMovDesc || !newMovAmount) return;
         setNewMovSubmitting(true);
         try {
-            await fetch('/api/cash/movements', {
+            await apiJson('/api/cash/movements', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    session_id: session.id,
-                    type: newMovType,
-                    description: newMovDesc,
+                    cash_session_id: session.id,
+                    movement_type: newMovType,
+                    method: 'cash',
                     amount: Number(newMovAmount),
-                    payment_method: 'cash',
-                    status,
+                    description: newMovDesc,
                 }),
             });
             setNewMovDesc('');
@@ -92,7 +116,10 @@ export function useCashDrawer() {
             setConfirmAction(null);
             refetchMovements();
             refetchSession();
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            alert(e instanceof Error ? e.message : 'No se pudo registrar el movimiento');
+        }
         finally { setNewMovSubmitting(false); }
     };
 
