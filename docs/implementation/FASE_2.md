@@ -33,12 +33,9 @@ Regla: lo que no aparece en "Subido y verificado" no debe presentarse como funci
 - Pantalla `/administracion` con la utilidad real: ingresos − comisiones − costo de producto − gastos, con margen. Solo dueño y gerente. **No se ha probado en navegador** y **no tiene entrada en el menú**.
 - Borrador del aviso de privacidad en `docs/legal/`. **No verificado contra el texto oficial de la ley; no publicar.**
 
-### No terminado de la Fase 1 (no está en GitHub al momento de escribir esto)
+### Marca e íconos
 
-- **Marca Gallo 4:20, acento bronce y contraste medido.** La aplicación todavía dice "Sonblade" (`lib/brand.ts`, `public/manifest.json`, `components/Header.tsx`). El trabajo estaba en curso en la sesión que lleva `feat/v2-integration`.
-- **Íconos de la app.** Generados en esa misma sesión, sin integrar.
-
-Antes de dar la Fase 1 por cerrada: confirmar que esos dos puntos llegaron a `feat/v2-integration` y unir ahí la rama `claude/gallant-euler-yuh7gb`.
+Subidos a `feat/v2-integration` el 15 de noviembre (commit `80ec48d`): marca Gallo 4:20, logo, íconos, acento bronce y prueba automática de contraste. Con esto la Fase 1 queda cerrada.
 
 ## Fase 2 — lista de trabajo, en orden sugerido
 
@@ -87,11 +84,29 @@ Antes de dar la Fase 1 por cerrada: confirmar que esos dos puntos llegaron a `fe
 
 27. Aviso de privacidad: verificar la ley vigente en el Diario Oficial y que lo revise un abogado. Datos que debe dar el dueño: responsable (nombre o razón social), contacto para solicitudes de privacidad, si se guarda correo del cliente, qué datos del personal se guardan, uso para promociones o WhatsApp, terceros con los que se comparten datos y si se podrá reservar para menores.
 
+## Comentarios y decisiones del dueño (15 de noviembre de 2026)
+
+Esto es lo prioritario de la Fase 2, antes que el resto de la lista.
+
+1. **Productos reales.** Comisión de 20 % en todos.
+
+   | Producto | Costo | Precio de venta |
+   |---|---|---|
+   | Pomada Negra (150 ml) | $45 | $180 |
+   | Pomada Roja (150 ml) | $45 | $180 |
+   | Peine de textura | $27 | $80 |
+   | Polvo de textura | $115 | $225 |
+
+   Por confirmar con el dueño: la marca de las pomadas (la escribió como "Baregk") y las existencias iniciales de cada producto.
+2. **Propinas.** Son 100 % del barbero. No son ingreso del negocio y no se restan de la utilidad; se muestran aparte.
+3. **Reporte financiero.** El reporte actual muestra lo facturado y las comisiones, pero no desglosa propinas ni utilidad neta. Debe ser un reporte de balance y financiero: completo, claro, entendible y que no aburra.
+4. **Folios más cortos y con sentido.** El del ticket de venta es demasiado largo y uno como `A0001` es demasiado básico. Formato elegido (se puede cambiar antes de producción):
+   - Ticket de venta: `V2611-0042` = venta, año 26, mes 11, número 42 del mes.
+   - Comprobante de pago al equipo: `P2646-03` = pago, año 26, semana 46, número 3 de esa semana.
+5. Lo demás de la lista sigue sin comentarios, en el orden escrito.
+6. El dueño tiene más pendientes nuevos por dictar.
+
 ## Decisiones abiertas del dueño
 
-- **Propinas en la utilidad.** El ROADMAP dice "− propinas"; la pantalla no las resta porque nunca entran a los ingresos (se pagan completas al barbero) y las muestra aparte. Confirmar.
-- **Lista real de productos.** Solo se sabe "cualquier producto $180"; los productos de la base son de demostración.
-
-## Comentarios y pendientes nuevos del dueño
-
-_(Sin capturar todavía. Se anotan aquí, con fecha, en cuanto el dueño los dicte.)_
+- Marca de las pomadas y existencias iniciales de los cuatro productos.
+- Datos para el aviso de privacidad (punto 27).
