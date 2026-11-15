@@ -3,6 +3,7 @@ import type { Sale, SaleItem } from '@/types';
 // Filas tal como las devuelve la base (esquema v2).
 export type SaleRow = {
     id: string;
+    folio: string;
     created_at: string;
     status: string;
     total_amount: number | string;
@@ -44,6 +45,7 @@ export function toSaleView(row: SaleRow, employees: Map<string, string>, clients
 
     return {
         id: row.id,
+        folio: row.folio,
         status: row.status,
         barber_id: barberId,
         client_id: row.client_id,

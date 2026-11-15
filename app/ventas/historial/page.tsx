@@ -160,12 +160,12 @@ export default function SalesHistoryPage() {
             const d = new Date(s.created_at);
             const srvs = s.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(' | ') || '';
             const prds = s.items?.filter(i => i.item_type === 'product').map(i => i.item_name).join(' | ') || '';
-            return [format(d, 'yyyy-MM-dd'), format(d, 'HH:mm'), s.barber?.name || '', s.client?.name || '', srvs, prds, s.tip || 0,
+            return [s.folio || '', format(d, 'yyyy-MM-dd'), format(d, 'HH:mm'), s.barber?.name || '', s.client?.name || '', srvs, prds, s.tip || 0,
                 methodLabel[s.payment_method] || s.payment_method, s.cash_amount || 0, s.card_amount || 0, s.transfer_amount || 0, s.total,
                 s.status === 'refunded' ? 'Anulada' : 'Pagada'];
         });
         downloadCsv(`ventas_${format(new Date(), 'yyyy-MM-dd')}.csv`,
-            ['Fecha', 'Hora', 'Barbero', 'Cliente', 'Servicio', 'Producto', 'Propina', 'Método de pago', 'Efectivo', 'Tarjeta', 'Transferencia', 'Total', 'Estado'], rows);
+            ['Folio', 'Fecha', 'Hora', 'Barbero', 'Cliente', 'Servicio', 'Producto', 'Propina', 'Método de pago', 'Efectivo', 'Tarjeta', 'Transferencia', 'Total', 'Estado'], rows);
     };
 
     const totalPages = Math.ceil(sales.length / itemsPerPage);
@@ -234,6 +234,7 @@ export default function SalesHistoryPage() {
                     <table className="w-full text-left text-sm">
                         <thead className="text-bos-muted">
                             <tr>
+                                <th className={th}>Folio</th>
                                 <th className={th}>Fecha</th>
                                 <th className={th}>Hora</th>
                                 <th className={th}>Barbero</th>
@@ -247,15 +248,16 @@ export default function SalesHistoryPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr className="border-t border-bos-border"><td colSpan={9} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={10} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
                             ) : page.length === 0 ? (
-                                <tr className="border-t border-bos-border"><td colSpan={9} className="p-8 text-center text-bos-muted">Sin resultados para {periodLabel}</td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={10} className="p-8 text-center text-bos-muted">Sin resultados para {periodLabel}</td></tr>
                             ) : page.map(sale => {
                                 const d = new Date(sale.created_at);
                                 const srvs = sale.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(', ') || '—';
                                 const prds = sale.items?.filter(i => i.item_type === 'product').map(i => `${i.item_name}${(i.quantity || 1) > 1 ? ` x${i.quantity}` : ''}`).join(', ') || '—';
                                 return (
                                     <tr key={sale.id} className="border-t border-bos-border hover:bg-bos-raised">
+                                        <td className="px-4 py-3 font-medium whitespace-nowrap tabular-nums" data-testid="sale-folio">{sale.folio || '—'}</td>
                                         <td className="px-4 py-3 font-medium whitespace-nowrap">{format(d, 'MMM dd, yyyy')}</td>
                                         <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{format(d, 'hh:mm a')}</td>
                                         <td className="px-4 py-3 font-medium">{sale.barber?.name || '—'}</td>

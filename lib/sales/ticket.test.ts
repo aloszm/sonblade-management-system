@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ticketFolio, toTicket, type TicketSaleRow } from './ticket';
+import { toTicket, type TicketSaleRow } from './ticket';
 
 const row: TicketSaleRow = {
     id: 'ab12cd34-0000-4000-8000-000000000000',
+    folio: 'V2611-0042',
     created_at: '2026-11-15T02:30:00Z', // sábado 14, 8:30 pm en CDMX
     status: 'paid',
     subtotal_amount: '360.00', discount_amount: '50.00', total_amount: '310.00',
@@ -20,12 +21,12 @@ const row: TicketSaleRow = {
 const names = { employees: new Map([['e1', 'Deya']]), client: 'Juan Pérez', cashier: 'Dago' };
 
 describe('ticket de venta', () => {
-    it('el folio usa la fecha de la barbería, no la de UTC', () => {
-        expect(ticketFolio(row.id, row.created_at, 'America/Mexico_City')).toBe('V-20261114-AB12CD');
+    it('el folio es el que la base asignó al cobrar, no se calcula en la pantalla', () => {
+        expect(toTicket(row, names).folio).toBe('V2611-0042');
     });
 
     it('separa venta, descuento y propina, y suma lo pagado por método', () => {
-        const t = toTicket(row, names, 'America/Mexico_City');
+        const t = toTicket(row, names);
         expect(t.subtotal).toBe(360);
         expect(t.discount).toBe(50);
         expect(t.total).toBe(310);
@@ -42,7 +43,7 @@ describe('ticket de venta', () => {
             ...row, status: 'refunded',
             payments: row.payments.map((p) => ({ ...p, status: 'reversed' })),
             sale_tips: [{ amount: '40.00', method: 'card', status: 'reversed' }],
-        }, names, 'America/Mexico_City');
+        }, names);
         expect(t.cancelled).toBe(true);
         expect(t.tip).toBe(0);
         expect(t.payments).toEqual([]);

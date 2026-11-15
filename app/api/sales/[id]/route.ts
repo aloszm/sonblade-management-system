@@ -20,7 +20,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         const supabase = await createSupabaseServerClient();
         const [sale, business, branch] = await Promise.all([
             supabase.from('sales')
-                .select('id, created_at, status, subtotal_amount, discount_amount, total_amount, client_id, created_by, sale_items(item_type, item_name_snapshot, quantity, unit_price, discount_amount, line_total, employee_id), payments(method, amount, status), sale_tips(amount, method, status)')
+                .select('id, folio, created_at, status, subtotal_amount, discount_amount, total_amount, client_id, created_by, sale_items(item_type, item_name_snapshot, quantity, unit_price, discount_amount, line_total, employee_id), payments(method, amount, status), sale_tips(amount, method, status)')
                 .eq('business_id', context.businessId).eq('branch_id', context.branchId).eq('id', id.data).maybeSingle(),
             supabase.from('businesses').select('name, currency, timezone').eq('id', context.businessId).single(),
             supabase.from('branches').select('name, address, phone').eq('id', context.branchId).single(),
@@ -42,7 +42,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
             employees: new Map(((employees.data ?? []) as unknown as { id: string; display_name: string }[]).map((e) => [e.id, e.display_name])),
             client: (client.data as unknown as { full_name: string } | null)?.full_name ?? null,
             cashier: (cashier.data as unknown as { full_name: string | null } | null)?.full_name ?? null,
-        }, biz.timezone);
+        });
         return Response.json({ ...ticket, business: biz, branch: branch.data }, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);

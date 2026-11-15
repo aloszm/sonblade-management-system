@@ -32,7 +32,7 @@ test.describe('cobro', () => {
         await link.click();
         const ticket = page.getByTestId('ticket');
         await expect(ticket).toBeVisible();
-        await expect(page.getByTestId('ticket-folio')).toHaveText(/^V-\d{8}-[0-9A-F]{6}$/);
+        await expect(page.getByTestId('ticket-folio')).toHaveText(/^V\d{4}-\d{4,}$/);
         const text = flat(await ticket.innerText());
         expect(text).toContain('Corte de cabello');
         expect(text).toContain('Te atendió Deya');

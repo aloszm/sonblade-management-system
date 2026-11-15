@@ -86,6 +86,8 @@ export interface BarberPayment {
 
 export interface Sale {
     id: string;
+    /** Folio corto del ticket (V2611-0042). */
+    folio?: string;
     status?: string;
     barber_id: string | null;
     client_id: string | null;
