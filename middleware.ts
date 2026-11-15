@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'La cuenta no tiene un negocio asignado.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/onboarding', request.url));
         }
-        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/configuracion', '/ventas'];
+        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/cuadre', '/configuracion', '/ventas'];
         if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin'].includes(membership.role)) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/pos', request.url));

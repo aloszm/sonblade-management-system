@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, LogOut, Package, Scissors,
-    Settings, ShoppingCart, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon,
-} from 'lucide-react';
+    Settings, ShoppingCart, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon, Scale } from 'lucide-react';
 import { CLIENT_LOGO, CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
 
 interface SidebarProps { isOpen: boolean }
@@ -32,6 +31,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
         title: 'Negocio',
         items: [
             { href: '/ventas/historial', label: 'Ventas', icon: FileText, roles: ['admin'] },
+            { href: '/cuadre', label: 'Cuadre', icon: Scale, roles: ['admin'] },
             { href: '/gastos', label: 'Gastos', icon: TrendingDown, roles: ['admin'] },
             { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin'] },
             { href: '/servicios', label: 'Servicios', icon: Scissors, roles: ['admin'] },

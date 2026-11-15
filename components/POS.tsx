@@ -43,12 +43,12 @@ export default function POS() {
         selectedBarber, selectedClient, servicePayment, serviceSplit, serviceTotal, productPayment, cart, tip, tipPayment,
         clientSearch, submitting, showSuccess, lastSale, loadingBarbers, loadingServices,
         visibleBarbers, filteredClients, services, products, serviceItems, productItems, subtotal, total,
-        discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller,
+        discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, appointment, appointmentError,
     } = state;
     const {
         setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment, setTip, setTipPayment,
         setClientSearch, addService, addProduct, removeFromCart, handleSubmit,
-        setItemDiscount, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setServiceSplit,
+        setItemDiscount, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setServiceSplit, clearAppointment,
     } = actions;
 
     const [catalogFilter, setCatalogFilter] = React.useState('');
@@ -104,6 +104,22 @@ export default function POS() {
         <div className="max-w-[1400px] mx-auto grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
             {/* Lo que se vende */}
             <div className="space-y-8 min-w-0">
+                {(appointment || appointmentError) && (
+                    <div data-testid="pos-appointment" role={appointmentError ? 'alert' : undefined}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bos-border bg-bos-surface p-4">
+                        {appointment ? (
+                            <p className="text-sm">
+                                <span className="font-semibold">Cobrando la cita de {appointment.client_name}</span>
+                                <span className="text-bos-muted"> · {new Date(appointment.scheduled_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                    {appointment.barber ? ` con ${appointment.barber.name}` : ''}{appointment.notes ? ` · ${appointment.notes}` : ''}</span>
+                                <span className="block text-bos-muted">Al cobrar, la cita queda como atendida y ligada a este ticket.</span>
+                            </p>
+                        ) : <p className="text-sm text-bos-danger">{appointmentError}</p>}
+                        <button type="button" onClick={clearAppointment} className="min-h-11 px-4 rounded-xl border border-bos-border text-sm font-semibold hover:bg-bos-raised">
+                            {appointment ? 'Quitar la cita' : 'Cerrar'}
+                        </button>
+                    </div>
+                )}
                 <section aria-labelledby="pos-barber" className="space-y-3">
                     <h2 id="pos-barber" className={sectionTitle}>1 · ¿Quién atendió?</h2>
                     {loadingBarbers ? <Loader2 className="h-5 w-5 animate-spin text-bos-muted" /> : (

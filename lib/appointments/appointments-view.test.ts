@@ -58,3 +58,18 @@ describe('toAppointmentView', () => {
         expect(view.barber).toBeNull();
     });
 });
+
+import { layoutLanes } from './appointments-view';
+
+describe('layoutLanes', () => {
+    it('pone lado a lado las citas que se enciman y deja solas las que no', () => {
+        const lanes = layoutLanes([
+            { id: 'a', start: 600, end: 630 },
+            { id: 'b', start: 610, end: 640 },
+            { id: 'c', start: 700, end: 730 },
+        ]);
+        expect(lanes.get('a')).toEqual({ lane: 0, lanes: 2 });
+        expect(lanes.get('b')).toEqual({ lane: 1, lanes: 2 });
+        expect(lanes.get('c')).toEqual({ lane: 0, lanes: 1 });
+    });
+});

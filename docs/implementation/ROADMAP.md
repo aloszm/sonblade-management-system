@@ -29,8 +29,11 @@ Acceso por puesto, cobro con propina y descuento, ticket del cliente, caja con c
 3. ~~Métricas con filtros~~ (hecho, en el panel): cortes por barbero y de la barbería por día, semana y mes; hora exacta de cada registro; horas y días fuertes; todo filtrable. La base ya guarda la hora exacta de cada cobro, pago, cita y cambio; falta verlo.
 4. ~~Agenda: la cita se abre en una ventana flotante~~ (hecho) que se cierra al hacer clic afuera, en lugar de aparecer abajo y obligar a desplazarse.
 5. ~~Pago dividido en servicios~~ (hecho): poder cobrar un mismo servicio con dos métodos (por ejemplo, parte en efectivo y parte con tarjeta).
-6. **Diseño nuevo en el resto de pantallas**: agenda, clientes, pago semanal, panel del dueño, reportes, inventario, equipo, configuración, bitácora. Hoy solo cobro y caja lo tienen; las demás conservan fondo claro aunque se elija modo oscuro.
-7. **Agenda propia**: horario de cada barbero (días, horas, descansos), vista general por barbero y vista personal en celular.
+6. ~~Diseño nuevo en el resto de pantallas~~ (hecho): todas usan modo claro/oscuro; ticket y recibo se imprimen en blanco y negro.
+6a. ~~Reporte completo~~ (hecho): diez secciones, PDF y Excel, versión para contador sin datos de clientes, folio consecutivo y código de verificación (`/reportes/verificar`).
+6b. ~~Agenda entrelazada~~ (hecho): horario visible de 8 a.m. a 10 p.m.; cobrar una cita la liga al ticket y la completa; un cobro sin cita queda en la agenda del barbero como "sin cita"; anular la venta lo anota en la agenda. Pantalla **Cuadre** (dueño y gerente): agenda vs. cobros vs. comisión vs. recibo por barbero y día, con cada diferencia y su causa.
+6c. ~~Ausencias de barberos~~ (hecho): bloquean el horario en la base (no se puede agendar encima), guardan motivo, cuándo y cómo avisó, quién la registró; se cancelan con motivo, nunca se borran.
+7. **Horario de cada barbero**: días, horas y descansos fijos (las ausencias ya existen), y vista personal en celular.
 8. **Página de reservas para clientes** (celular primero): por barbero o por hora; nombre y teléfono, sin cuenta; límite de intentos; enlace para cancelar; aviso de privacidad.
 9. **Barbero confirma el servicio** y recepción solo cobra (opcional; caja siempre puede cobrar directo).
 10. **Administración**: utilidad real (ingresos − comisiones − propinas − costo de producto − gastos) y **apartados tipo sobres**. Hoy cada cierre guarda cuánto se apartó, pero no hay pantalla que lo sume ni que registre cuándo se usa.
@@ -45,11 +48,13 @@ Acceso por puesto, cobro con propina y descuento, ticket del cliente, caja con c
 - El retiro del cierre de caja no registra a quién se entrega el dinero; solo quién cerró.
 - La anulación de una venta con reembolso en efectivo no está limitada por el efectivo en caja.
 - Quien cobra elige quién autoriza el descuento; esa persona no confirma nada (se resolverá con el PIN).
-- Los avisos de error del cobro salen como ventana del navegador; deben pasar a mensajes dentro de la pantalla.
+- Los avisos de error del cobro (pantalla Cobro) aún salen como ventana del navegador; las demás pantallas ya usan mensajes dentro de la pantalla.
 - En pantallas bajas el resumen del cobro es más alto que la ventana.
 - El folio del ticket no es consecutivo.
 - El acceso dice "revisa tus credenciales" aunque el problema sea de conexión.
-- Quedan funciones anteriores renombradas y sin permisos (`confirm_sale_legacy`, `close_cash_session_legacy`) por borrar en la limpieza final.
+- Quedan funciones anteriores renombradas y sin permisos (`confirm_sale_legacy`, `confirm_sale_legacy2`, `close_cash_session_legacy`) por borrar en la limpieza final.
+- Las ventas hechas antes del 15 de noviembre (base de desarrollo) aparecen en el Cuadre como "cobro sin agenda": son reales, porque entonces el cobro no pasaba por la agenda. En producción no existirán.
+- Si recepción cobra sin abrir la cita desde la agenda, la cita queda abierta y aparte se crea un registro "sin cita": el Cuadre lo marca para corregirlo.
 - Las pruebas de navegador no corren solas en GitHub en cada cambio.
 - Lint: 32 avisos de estilo en Reportes, Panel y configuración de pruebas.
 - La base de desarrollo tiene datos de prueba que no se pueden borrar; por eso producción arranca en una base nueva.

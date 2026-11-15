@@ -1,4 +1,5 @@
 import 'server-only';
+import { isUserFacingDbMessage } from '@/lib/auth/db-messages';
 
 import { cookies } from 'next/headers';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -93,7 +94,10 @@ export function authErrorResponse(error: unknown) {
     const known = dbError && typeof dbError.code === 'string' ? DB_ERRORS[dbError.code] : undefined;
     if (known) {
         const detail = typeof dbError?.message === 'string' ? dbError.message : undefined;
-        return Response.json({ error: known.message, detail }, { status: known.status, headers });
+        // Las reglas de negocio escritas en la base ya traen su mensaje en español para el usuario
+        // (p. ej. "Dani no estará disponible en ese horario (Cita médica)."); se muestran tal cual.
+        const message = detail && isUserFacingDbMessage(detail) ? detail : known.message;
+        return Response.json({ error: message, detail }, { status: known.status, headers });
     }
     console.error('[api] error no controlado:', error);
     return Response.json({ error: 'No se pudo completar la operación.' }, { status: 500, headers });

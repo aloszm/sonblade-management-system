@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import type { Barber, Service, Product, Client } from '@/types';
+import type { Appointment, Barber, Service, Product, Client } from '@/types';
 
 export interface CartItem {
     id: string;
@@ -57,6 +57,43 @@ export function usePOS() {
     const [clients, setClients] = useState<Client[] | null>(null);
     const [loadingBarbers, setLoadingBarbers] = useState(true);
     const [loadingServices, setLoadingServices] = useState(true);
+    // Cita que se está cobrando (llega desde la agenda con ?cita=<id>). La venta queda ligada a ella.
+    const [appointment, setAppointment] = useState<Appointment | null>(null);
+    const [appointmentError, setAppointmentError] = useState('');
+
+    useEffect(() => {
+        const id = new URLSearchParams(window.location.search).get('cita');
+        if (!id) return;
+        fetch(`/api/appointments/${encodeURIComponent(id)}`, { cache: 'no-store' })
+            .then(async (r) => {
+                const body = await r.json().catch(() => null);
+                if (!r.ok) throw new Error(body?.error || 'No se encontró la cita.');
+                const apt = body as Appointment;
+                if (apt.sale) throw new Error('Esa cita ya se cobró.');
+                if (!['scheduled', 'confirmed', 'checked_in', 'in_progress'].includes(apt.status)) throw new Error('Esa cita ya fue cerrada o cancelada.');
+                setAppointment(apt);
+            })
+            .catch((e) => setAppointmentError(e instanceof Error ? e.message : 'No se encontró la cita.'));
+    }, []);
+
+    // Con la cita y los catálogos cargados, se preseleccionan su barbero y su cliente.
+    useEffect(() => {
+        if (!appointment) return;
+        if (appointment.barber_id && barbers) {
+            const barber = barbers.find((b) => b.id === appointment.barber_id);
+            if (barber) setSelectedBarber(barber);
+        }
+        if (appointment.client_id && clients) {
+            const client = clients.find((c) => c.id === appointment.client_id);
+            if (client) setSelectedClient(client);
+        }
+    }, [appointment, barbers, clients]);
+
+    const clearAppointment = () => {
+        setAppointment(null);
+        setAppointmentError('');
+        window.history.replaceState(null, '', '/pos');
+    };
 
     useEffect(() => {
         fetch('/api/barbers').then(r => r.json()).then(data => {
@@ -304,6 +341,7 @@ export function usePOS() {
                     payments,
                     ...(discountTotal > 0 ? { discount_reason: discountReason.trim(), discount_authorized_by: discountAuthorizer } : {}),
                     tips: tip > 0 && selectedBarber ? [{ employee_id: selectedBarber.id, amount: tip, method: tipPayment }] : [],
+                    appointment_id: appointment?.id ?? null,
                 }),
             });
 
@@ -324,6 +362,7 @@ export function usePOS() {
             setProductPayment('cash');
             setDiscountReason('');
             setProductSellerChoice('');
+            if (appointment) clearAppointment();
             setLastSaleTotal(total);
             setLastSale({ id: saved?.sale_id ?? null, saleTotal, tip: selectedBarber ? tip : 0, total: selectedBarber ? total : saleTotal, barberName: selectedBarber?.name ?? null });
             // La confirmación se queda en pantalla hasta que recepción empieza otra venta.
@@ -352,12 +391,14 @@ export function usePOS() {
             services: services ?? [], products: products ?? [],
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
-            discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller
+            discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller,
+            appointment, appointmentError
         },
         actions: {
             setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setItemQuantity, setServiceSplit
+            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setItemQuantity, setServiceSplit,
+            clearAppointment
         }
     };
 }

@@ -1662,6 +1662,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agenda_reconciliation: {
+        Args: { p_branch_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       create_time_off: {
         Args: { p_branch_id: string; p_employee_id: string; p_ends_at: string; p_reason: string; p_requested_at: string; p_requested_via: string; p_starts_at: string }
         Returns: Json
