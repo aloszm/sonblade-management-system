@@ -53,10 +53,18 @@ const BarberDashboard: React.FC = () => {
     }, [barberId]);
 
     const tier = stats?.tier ?? null;
-    const now = new Date();
-    const dayName = now.toLocaleDateString('es-MX', { weekday: 'long' });
-    const dateStr = now.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    // La fecha se calcula en el dispositivo, después de cargar: si se calculara al generar la página
+    // saldría la hora del servidor (UTC), seis horas adelantada respecto a la barbería.
+    const [nowLabel, setNowLabel] = useState('');
+    useEffect(() => {
+        const update = () => {
+            const now = new Date();
+            setNowLabel(`${now.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} | ${now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
+        };
+        update();
+        const timer = setInterval(update, 60_000);
+        return () => clearInterval(timer);
+    }, []);
 
     if (loadingBarbers) {
         return (
@@ -84,7 +92,13 @@ const BarberDashboard: React.FC = () => {
             <header className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div className="flex items-center gap-5">
                     <div className="relative">
-                        <img src={barber.avatar_url || `https://picsum.photos/seed/${barber.id}/100/100`} alt="Profile" className="w-[60px] h-[60px] rounded-full object-cover border-2 border-gray-100 shadow-sm" />
+                        {barber.avatar_url ? (
+                            <img src={barber.avatar_url} alt={`Foto de ${barber.name}`} className="w-[60px] h-[60px] rounded-full object-cover border-2 border-gray-100 shadow-sm" />
+                        ) : (
+                            <div aria-hidden="true" className="w-[60px] h-[60px] rounded-full bg-gradient-to-br from-black to-gray-700 text-sonblade-gold text-2xl font-black flex items-center justify-center border-2 border-gray-100 shadow-sm">
+                                {barber.name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
                         <div className={`absolute bottom-0 right-0 w-4 h-4 border-2 border-white rounded-full ${barber.status === 'active' ? 'bg-green-500' : barber.status === 'busy' ? 'bg-red-500' : 'bg-gray-400'}`}></div>
                     </div>
                     <div>
@@ -101,7 +115,7 @@ const BarberDashboard: React.FC = () => {
                         </div>
                         <div className="text-gray-500 text-sm flex items-center gap-2 mt-1">
                             <Clock className="h-4 w-4" />
-                            <span className="capitalize">{dayName}, {dateStr} | {timeStr}</span>
+                            <span className="first-letter:uppercase" data-testid="barber-now">{nowLabel}</span>
                         </div>
                     </div>
                 </div>
