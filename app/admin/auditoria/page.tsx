@@ -21,6 +21,7 @@ const ACTION_LABELS: Record<string, string> = {
     commission_adjustment_approved: 'Ajuste de comisión aprobado',
     commission_adjustment_rejected: 'Ajuste de comisión rechazado',
     business_profile_updated: 'Cambio del perfil del negocio',
+    commission_defaults_changed: 'Cambio de tasas de comisión',
 };
 
 const TABLE_LABELS: Record<string, string> = {

@@ -23,16 +23,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const employeeId = parsedId.data;
         const supabase = await createSupabaseServerClient();
 
-        const [{ data: employee }, { data: rule }] = await Promise.all([
+        const [{ data: employee }, { data: rule }, { data: business }] = await Promise.all([
             supabase.from('employees').select('id, display_name').eq('business_id', context.businessId).eq('id', employeeId).maybeSingle(),
             supabase.from('commission_rules').select('percentage')
                 .eq('business_id', context.businessId).eq('is_active', true).eq('target_type', 'service')
                 .or(`employee_id.is.null,employee_id.eq.${employeeId}`)
                 .order('priority', { ascending: false }).order('effective_from', { ascending: false }).limit(1).maybeSingle(),
+            supabase.from('businesses').select('service_commission_pct').eq('id', context.businessId).maybeSingle(),
         ]);
         if (!employee) throw new AuthorizationError('Barbero no encontrado', 404);
 
-        const rate = Number((rule as { percentage: number | string } | null)?.percentage ?? 0);
+        // Tasa de servicios: la regla específica si existe; si no, la tasa general del negocio.
+        const rate = Number((rule as { percentage: number | string } | null)?.percentage
+            ?? (business as unknown as { service_commission_pct: number | string } | null)?.service_commission_pct ?? 0);
         const name = (employee as { display_name: string }).display_name;
         const query = request.nextUrl.searchParams;
 

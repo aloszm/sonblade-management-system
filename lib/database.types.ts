@@ -1531,6 +1531,10 @@ export type Database = {
         Args: { p_branch_id: string; p_minimum_quantity: number; p_product_id: string }
         Returns: Json
       }
+      set_commission_defaults: {
+        Args: { p_business_id: string; p_product_pct: number; p_service_pct: number }
+        Returns: Json
+      }
       settle_commissions: {
         Args: { p_branch_id: string; p_employee_id: string; p_payments: Json; p_period_end: string; p_period_start: string }
         Returns: Json

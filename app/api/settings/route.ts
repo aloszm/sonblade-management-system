@@ -21,10 +21,16 @@ const ProfileSchema = z.object({
     openTime: time.optional().default('09:00'),
     closeTime: time.optional().default('20:00'),
     taxId: z.string().trim().max(40).optional().default(''),
+    // Tasas generales de comisión. Si no llegan, no se tocan.
+    serviceCommissionPct: z.number().min(0).max(100).optional(),
+    productCommissionPct: z.number().min(0).max(100).optional(),
 });
 const UpdateSchema = z.object({ key: z.literal('shop_profile'), value: ProfileSchema });
 
-type BusinessRow = { name: string; currency: string; timezone: string; settings: Record<string, unknown> | null };
+type BusinessRow = {
+    name: string; currency: string; timezone: string; settings: Record<string, unknown> | null;
+    service_commission_pct: number | string; product_commission_pct: number | string;
+};
 type BranchRow = { address: string | null; phone: string | null };
 
 export async function GET(request: NextRequest) {
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest) {
         }
         const supabase = await createSupabaseServerClient();
         const [business, branch] = await Promise.all([
-            supabase.from('businesses').select('name, currency, timezone, settings').eq('id', context.businessId).single(),
+            supabase.from('businesses').select('name, currency, timezone, settings, service_commission_pct, product_commission_pct').eq('id', context.businessId).single(),
             supabase.from('branches').select('address, phone').eq('id', context.branchId).single(),
         ]);
         if (business.error) throw business.error;
@@ -49,6 +55,8 @@ export async function GET(request: NextRequest) {
             timezone: b.timezone,
             address: br.address ?? '',
             phone: br.phone ?? '',
+            serviceCommissionPct: Number(b.service_commission_pct),
+            productCommissionPct: Number(b.product_commission_pct),
         }, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);
@@ -76,6 +84,19 @@ export async function POST(request: NextRequest) {
             p_settings: { city: p.city, email: p.email, openTime: p.openTime, closeTime: p.closeTime, taxId: p.taxId },
         } as never);
         if (error) throw error;
+
+        // Las tasas de comisión se cambian con su propia función para que el cambio quede en la bitácora.
+        if (p.serviceCommissionPct !== undefined && p.productCommissionPct !== undefined) {
+            const current = await supabase.from('businesses').select('service_commission_pct, product_commission_pct').eq('id', context.businessId).single();
+            if (current.error) throw current.error;
+            const row = current.data as unknown as { service_commission_pct: number | string; product_commission_pct: number | string };
+            if (Number(row.service_commission_pct) !== p.serviceCommissionPct || Number(row.product_commission_pct) !== p.productCommissionPct) {
+                const rates = await supabase.rpc('set_commission_defaults', {
+                    p_business_id: context.businessId, p_service_pct: p.serviceCommissionPct, p_product_pct: p.productCommissionPct,
+                });
+                if (rates.error) throw rates.error;
+            }
+        }
         return Response.json({ success: true }, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);

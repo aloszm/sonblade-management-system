@@ -41,6 +41,8 @@ export default function SettingsPage() {
         openTime: '09:00',
         closeTime: '20:00',
         taxId: '',
+        serviceCommissionPct: 50,
+        productCommissionPct: 20,
     });
 
     useEffect(() => {
@@ -258,29 +260,30 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
-                {/* Commission Rules (Read-Only) */}
+                {/* Tasas generales de comisión: vienen de la base y las cambia el dueño */}
                 <div className="bg-gray-900 rounded-3xl p-8 text-white shadow-xl">
-                    <h2 className="text-lg font-black text-sonblade-gold mb-6 flex items-center gap-2">
-                        <Percent className="h-5 w-5" /> Reglas de Comisiones Activas
+                    <h2 className="text-lg font-black text-sonblade-gold mb-2 flex items-center gap-2">
+                        <Percent className="h-5 w-5" /> Comisiones
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <p className="text-xs text-gray-400 mb-6">
+                        Aplican a las ventas nuevas. Las ventas ya registradas conservan la tasa con la que se calcularon.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                            <h3 className="font-black text-white text-sm mb-3">Comisión por Servicios</h3>
-                            <div className="space-y-2 text-xs text-gray-300">
-                                <div className="flex justify-between"><span>1 a 24 cortes</span><span className="font-bold text-sonblade-gold">40%</span></div>
-                                <div className="flex justify-between"><span>25 a 49 cortes</span><span className="font-bold text-sonblade-gold">45%</span></div>
-                                <div className="flex justify-between"><span>50+ cortes</span><span className="font-bold text-sonblade-gold">50% MAX</span></div>
-                            </div>
+                            <label htmlFor="service-commission" className="block font-black text-white text-sm mb-3">Servicios (%)</label>
+                            <input id="service-commission" type="number" min={0} max={100} step={0.5} required
+                                value={profile.serviceCommissionPct}
+                                onChange={e => setProfile({ ...profile, serviceCommissionPct: Number(e.target.value) })}
+                                className="w-32 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-2xl font-black text-sonblade-gold outline-none focus:ring-2 focus:ring-sonblade-gold" />
+                            <p className="text-xs text-gray-400 mt-3">Sobre el precio de lista del servicio. Si se da un descuento, el barbero gana lo mismo.</p>
                         </div>
                         <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                            <h3 className="font-black text-white text-sm mb-3">Comisión por Productos</h3>
-                            <p className="text-2xl font-black text-sonblade-gold">20%</p>
-                            <p className="text-xs text-gray-400 mt-2">Fijo por venta de stock</p>
-                        </div>
-                        <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                            <h3 className="font-black text-white text-sm mb-3">Propinas</h3>
-                            <p className="text-2xl font-black text-green-400">100%</p>
-                            <p className="text-xs text-gray-400 mt-2">Íntegras para el barbero</p>
+                            <label htmlFor="product-commission" className="block font-black text-white text-sm mb-3">Productos (%)</label>
+                            <input id="product-commission" type="number" min={0} max={100} step={0.5} required
+                                value={profile.productCommissionPct}
+                                onChange={e => setProfile({ ...profile, productCommissionPct: Number(e.target.value) })}
+                                className="w-32 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-2xl font-black text-sonblade-gold outline-none focus:ring-2 focus:ring-sonblade-gold" />
+                            <p className="text-xs text-gray-400 mt-3">Sobre lo realmente cobrado por el producto, para quien lo vendió.</p>
                         </div>
                     </div>
                 </div>
