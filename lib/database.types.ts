@@ -1478,6 +1478,7 @@ export type Database = {
           name: string
           price: number
           updated_at: string
+          variable_price: boolean
         }
         Insert: {
           business_id: string
@@ -1489,6 +1490,7 @@ export type Database = {
           name: string
           price: number
           updated_at?: string
+          variable_price?: boolean
         }
         Update: {
           business_id?: string
@@ -1500,6 +1502,7 @@ export type Database = {
           name?: string
           price?: number
           updated_at?: string
+          variable_price?: boolean
         }
         Relationships: [
           {

@@ -4,7 +4,7 @@ import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 type RouteContext = { params: Promise<{ id: string }> };
-const PatchSchema = z.object({ name: z.string().trim().min(2).max(120).optional(), price: z.number().finite().positive().max(100000).optional(), duration_minutes: z.number().int().min(5).max(480).optional(), description: z.string().max(500).nullable().optional(), is_active: z.boolean().optional() }).strict().refine((value) => Object.keys(value).length > 0);
+const PatchSchema = z.object({ name: z.string().trim().min(2).max(120).optional(), price: z.number().finite().min(0).max(100000).optional(), duration_minutes: z.number().int().min(5).max(480).optional(), description: z.string().max(500).nullable().optional(), is_active: z.boolean().optional(), variable_price: z.boolean().optional() }).strict().refine((value) => Object.keys(value).length > 0);
 
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
     try {
@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 // se toman solo los campos editables y se aplica igual que PATCH.
 export async function PUT(request: NextRequest, context: RouteContext) {
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-    const editable = ['name', 'price', 'duration_minutes', 'description', 'is_active'];
+    const editable = ['name', 'price', 'duration_minutes', 'description', 'is_active', 'variable_price'];
     const picked = body && typeof body === 'object'
         ? Object.fromEntries(editable.filter((key) => body[key] !== undefined && body[key] !== null).map((key) => [key, body[key]]))
         : null;

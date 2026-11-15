@@ -48,6 +48,9 @@ export interface Service {
     duration_minutes: number;
     is_active: boolean;
     created_at: string;
+    description?: string | null;
+    /** Precio libre: quien cobra escribe el precio en cada venta (p. ej. grecas). */
+    variable_price?: boolean;
 }
 
 export interface Product {
