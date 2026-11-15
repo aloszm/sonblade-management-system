@@ -1,0 +1,41 @@
+# Revisión automática en cada cambio: tipos, lint, pruebas unitarias y compilación.
+# Las pruebas de navegador (e2e) NO corren aquí: registran ventas reales que el sistema
+# no permite borrar y necesitan las cuentas de la base de desarrollo (ver e2e/README.md).
+name: CI
+
+on:
+  push:
+    branches: [main, feat/v2-integration]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Valores ficticios: la compilación solo necesita que existan, no se conecta a ninguna base.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tipos
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Pruebas unitarias
+        run: npm test
+      - name: Compilación
+        run: npm run build
