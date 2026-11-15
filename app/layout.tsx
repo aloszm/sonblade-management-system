@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Space_Grotesk } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
 import Providers from '@/components/Providers';
@@ -10,11 +10,6 @@ const inter = Inter({
     variable: '--font-inter',
 });
 
-const display = Space_Grotesk({
-    subsets: ['latin'],
-    weight: ['500', '600', '700'],
-    variable: '--font-display-face',
-});
 
 // Se ejecuta antes de pintar para que no haya un destello con el modo equivocado.
 // Oscuro por omisión; si la persona eligió claro en este dispositivo, se respeta.
@@ -56,7 +51,7 @@ export default function RootLayout({
             <head>
                 <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
             </head>
-            <body className={`${inter.variable} ${display.variable} font-sans bg-bos-bg text-bos-text antialiased`}>
+            <body className={`${inter.variable} font-sans bg-bos-bg text-bos-text antialiased`}>
                 <Providers>
                     <AppShell>{children}</AppShell>
                 </Providers>

@@ -8,7 +8,12 @@ test.describe('agenda', () => {
         await login(page, USERS.reception);
         await page.goto('/citas', { waitUntil: 'networkidle' });
 
+        // La agenda abre en la vista por día, con una columna por barbero.
+        await expect(page.getByTestId('day-view')).toBeVisible();
+        await expect(page.getByTestId('day-view')).toContainText('Deya');
+
         // Un día del mes que viene, a una hora rara, para no chocar con otras pruebas.
+        await page.getByRole('button', { name: 'Mes', exact: true }).click();
         await page.getByRole('button', { name: 'Mes siguiente' }).click();
         const now = new Date();
         const next = new Date(now.getFullYear(), now.getMonth() + 1, 1 + (now.getMinutes() % 27));
@@ -46,5 +51,12 @@ test.describe('agenda', () => {
         await page.locator('#cancel-reason').fill('Prueba automática');
         await page.getByRole('button', { name: 'Cancelar cita' }).click();
         await expect(page.getByTestId('day-modal').getByText('Cancelada: Prueba automática').first()).toBeVisible();
+
+        // Solo se ofrecen confirmar, llegó y cancelar.
+        const other = page.getByTestId('day-modal').getByTestId('appointment').filter({ hasText: 'Agendada' }).first();
+        if (await other.count()) {
+            await expect(other.getByRole('button', { name: 'Iniciar servicio' })).toHaveCount(0);
+            await expect(other.getByRole('button', { name: 'No llegó' })).toHaveCount(0);
+        }
     });
 });

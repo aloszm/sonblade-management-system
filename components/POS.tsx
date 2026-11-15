@@ -14,7 +14,7 @@ const METHODS: { id: PaymentType; label: string }[] = [
 ];
 const QUICK_TIPS = [0, 20, 50, 100];
 
-const sectionTitle = 'text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted';
+const sectionTitle = 'text-[13px] font-medium text-bos-muted';
 const fieldClass = 'w-full h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
 
 /** Tarjeta que se enciende en dorado al elegirla. */
@@ -113,7 +113,7 @@ export default function POS() {
                                 return (
                                     <button key={b.id} type="button" aria-pressed={selected} onClick={() => setSelectedBarber(selected ? null : b)}
                                         className={`inline-flex items-center gap-3 min-h-14 pl-2 pr-5 rounded-full border text-[15px] font-semibold transition-colors ${selected ? 'border-bos-accent bg-bos-accent-soft text-bos-text' : 'border-bos-border bg-bos-surface text-bos-text hover:bg-bos-raised'}`}>
-                                        <span aria-hidden="true" className={`h-10 w-10 rounded-full inline-flex items-center justify-center font-display font-bold ${selected ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised text-bos-text'}`}>{b.name.charAt(0).toUpperCase()}</span>
+                                        <span aria-hidden="true" className={`h-10 w-10 rounded-full inline-flex items-center justify-center font-display font-semibold ${selected ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised text-bos-text'}`}>{b.name.charAt(0).toUpperCase()}</span>
                                         {b.name}
                                     </button>
                                 );
@@ -174,7 +174,7 @@ export default function POS() {
                                         className={`${choiceClass(selected)} min-h-24 p-4 flex flex-col justify-between gap-3`}>
                                         <span className="text-[15px] font-semibold text-bos-text">{s.name}</span>
                                         <span className="flex items-baseline justify-between gap-2">
-                                            <span className={`font-display text-2xl font-bold tabular-nums ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(s.price))}</span>
+                                            <span className={`font-display text-2xl font-semibold tabular-nums ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(s.price))}</span>
                                             <span className="text-xs text-bos-muted">{s.duration_minutes} min</span>
                                         </span>
                                     </button>
@@ -198,7 +198,7 @@ export default function POS() {
                                         <span className="block text-[15px] font-semibold text-bos-text truncate">{p.name}</span>
                                         <span className="block text-xs text-bos-muted">{left > 0 ? `Quedan ${left}` : 'Agotado'}</span>
                                     </span>
-                                    <span className={`font-display text-lg font-bold tabular-nums ${inCart ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(p.price))}</span>
+                                    <span className={`font-display text-lg font-semibold tabular-nums ${inCart ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(p.price))}</span>
                                 </button>
                             );
                         })}
@@ -208,7 +208,7 @@ export default function POS() {
             </div>
 
             {/* La venta y el cobro */}
-            <aside aria-label="Resumen de la venta" className="lg:sticky lg:top-0 rounded-3xl border border-bos-border bg-bos-surface p-6 min-h-[560px] flex flex-col">
+            <aside aria-label="Resumen de la venta" className="lg:sticky lg:top-0 rounded-xl border border-bos-border bg-bos-surface p-6 min-h-[560px] flex flex-col">
                 {showSuccess && lastSale ? (
                     <div role="status" aria-live="polite" data-testid="pos-success" className="flex-1 flex flex-col items-center justify-center gap-5 text-center">
                         <div className="relative h-24 w-24">
@@ -218,8 +218,8 @@ export default function POS() {
                             </span>
                         </div>
                         <div className="bos-rise space-y-1" style={{ animationDelay: '.25s' }}>
-                            <p className="text-sm font-semibold uppercase tracking-[0.1em] text-bos-muted">Cobro realizado</p>
-                            <p data-testid="pos-paid-amount" className="font-display text-6xl leading-none font-bold text-bos-success tabular-nums">+{money(paidAmount)}</p>
+                            <p className="text-sm font-medium text-bos-muted">Cobro realizado</p>
+                            <p data-testid="pos-paid-amount" className="font-display text-6xl leading-none font-semibold text-bos-success tabular-nums">+{money(paidAmount)}</p>
                         </div>
                         <ul className="bos-rise w-full rounded-2xl border border-bos-border p-4 space-y-2.5 text-left text-[15px]" style={{ animationDelay: '.45s' }}>
                             <li className="flex items-center gap-2.5"><Check aria-hidden="true" className="h-4 w-4 text-bos-success shrink-0" /> Registrado en caja</li>
@@ -343,7 +343,7 @@ export default function POS() {
                                 {tip > 0 && selectedBarber && <div className="flex justify-between text-bos-muted"><dt>Propina</dt><dd className="tabular-nums">{money(tip)}</dd></div>}
                                 <div className="flex justify-between items-baseline pt-3 border-t border-bos-border">
                                     <dt className="font-semibold text-bos-text">Total a cobrar</dt>
-                                    <dd data-testid="pos-total" className="font-display text-4xl font-bold text-bos-accent-text tabular-nums">{money(total)}</dd>
+                                    <dd data-testid="pos-total" className="font-display text-4xl font-semibold text-bos-accent-text tabular-nums">{money(total)}</dd>
                                 </div>
                             </dl>
                             <button type="button" onClick={handleSubmit} disabled={empty || submitting}

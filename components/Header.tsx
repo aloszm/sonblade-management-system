@@ -72,13 +72,13 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const initials = userName ? userName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '?';
 
   return (
-    <header className="h-16 bg-bos-surface border-b border-bos-border flex items-center justify-between px-4 md:px-6 z-10">
+    <header className="h-16 bg-bos-bg border-b border-bos-border flex items-center justify-between px-4 md:px-8 z-10">
       <div className="flex items-center gap-6 flex-1">
         <button onClick={toggleSidebar} aria-label="Abrir o cerrar el menú" className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised md:hidden">
           <Menu className="h-6 w-6" />
         </button>
 
-        <h1 className="font-display text-lg font-semibold text-bos-text truncate">{title}</h1>
+        <p className="md:hidden font-display text-lg font-semibold text-bos-text truncate">{title}</p>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
@@ -96,7 +96,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             onClick={() => setMenuOpen(!menuOpen)}
             className="flex items-center gap-2 focus:outline-none group"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-black to-gray-700 flex items-center justify-center text-sonblade-gold font-bold text-xs ring-2 ring-transparent group-hover:ring-sonblade-primary/50 transition-all">
+            <div className="w-8 h-8 rounded-full bg-bos-raised flex items-center justify-center text-bos-text font-bold text-xs ring-2 ring-transparent group-hover:ring-sonblade-primary/50 transition-all">
               {initials}
             </div>
             <span className="hidden md:block text-sm font-medium text-bos-text transition-colors">

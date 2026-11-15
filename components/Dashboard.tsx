@@ -14,8 +14,8 @@ const money = (n: number) => `$${Math.round(n).toLocaleString('es-MX')}`;
 const money2 = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
 const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? 'am' : 'pm'}`;
 
-const card = 'rounded-2xl border border-bos-border bg-bos-surface';
-const label = 'text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted';
+const card = 'rounded-xl border border-bos-border bg-bos-surface';
+const label = 'text-[13px] font-medium text-bos-muted';
 const AXIS = { fill: 'var(--bos-muted)', fontSize: 12 };
 const TOOLTIP = {
     contentStyle: { background: 'var(--bos-surface)', border: '1px solid var(--bos-border)', borderRadius: 12, color: 'var(--bos-text)', fontSize: 13 },
@@ -42,7 +42,7 @@ function BigStat({ title, value, current, previous, testId, invert }: { title: s
     return (
         <div className={`${card} p-5 flex flex-col gap-2`}>
             <p className={label}>{title}</p>
-            <p data-testid={testId} className="font-display text-4xl font-bold tabular-nums leading-none">{value}</p>
+            <p data-testid={testId} className="font-display text-4xl font-semibold tabular-nums leading-none">{value}</p>
             <Delta current={current} previous={previous} invert={invert} />
         </div>
     );
@@ -155,7 +155,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto space-y-6">
             <header className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-bold">Panel</h1>
+                    <h1 className="font-display text-3xl font-semibold">Panel</h1>
                     <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="range-label">{rangeLabel}</p>
                 </div>
                 <div role="group" aria-label="Periodo" className="flex flex-wrap gap-1 p-1 rounded-xl bg-bos-raised">
@@ -185,7 +185,7 @@ export default function Dashboard() {
                 <div role="group" aria-label="Filtrar por persona" className="flex flex-wrap gap-2">
                     {[{ id: '', name: 'Toda la barbería' }, ...team].map((t) => (
                         <button key={t.id || 'all'} type="button" aria-pressed={barber === t.id} onClick={() => setBarber(t.id)}
-                            className={`min-h-10 px-4 rounded-full border text-sm font-semibold transition-colors ${barber === t.id ? 'border-bos-accent bg-bos-accent-soft text-bos-text' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
+                            className={`min-h-10 px-4 rounded-full border text-sm font-semibold transition-colors ${barber === t.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
                             {t.name}
                         </button>
                     ))}
@@ -282,7 +282,7 @@ export default function Dashboard() {
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[720px] text-[15px] mt-3">
                                 <thead>
-                                    <tr className="text-left text-xs uppercase tracking-[0.08em] text-bos-muted">
+                                    <tr className="text-left text-[13px] text-bos-muted">
                                         <th className="px-5 py-3 font-semibold">Persona</th>
                                         <th className="px-5 py-3 font-semibold">Cortes</th>
                                         <th className="px-5 py-3 font-semibold text-right">Ingresos</th>
@@ -387,7 +387,7 @@ export default function Dashboard() {
                         <div className="overflow-x-auto mt-3">
                             <table className="w-full min-w-[760px] text-[15px]">
                                 <thead>
-                                    <tr className="text-left text-xs uppercase tracking-[0.08em] text-bos-muted">
+                                    <tr className="text-left text-[13px] text-bos-muted">
                                         <th className="px-5 py-3 font-semibold">Fecha y hora</th>
                                         <th className="px-5 py-3 font-semibold">Persona</th>
                                         <th className="px-5 py-3 font-semibold">Concepto</th>

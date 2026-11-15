@@ -136,15 +136,20 @@ async function toViews(supabase: SupabaseClient, sessions: CashSessionRow[]): Pr
     const ids = sessions.map((s) => s.id);
     const userIds = Array.from(new Set(sessions.map((s) => s.opened_by)));
 
-    const [{ data: movements, error: movementsError }, { data: profiles }] = await Promise.all([
+    // El nombre sale de la ficha de empleado (visible para todo el equipo); el perfil solo lo ve su dueño.
+    const [{ data: movements, error: movementsError }, { data: profiles }, { data: employees }] = await Promise.all([
         supabase.from('cash_movements').select(MOVEMENT_COLUMNS).in('cash_session_id', ids).limit(5000),
         supabase.from('profiles').select('user_id, full_name').in('user_id', userIds),
+        supabase.from('employees').select('user_id, display_name').in('user_id', userIds),
     ]);
     if (movementsError) throw movementsError;
 
     const names = new Map<string, string>();
     for (const p of (profiles ?? []) as { user_id: string; full_name: string | null }[]) {
         if (p.full_name) names.set(p.user_id, p.full_name);
+    }
+    for (const e of (employees ?? []) as { user_id: string | null; display_name: string }[]) {
+        if (e.user_id && !names.has(e.user_id)) names.set(e.user_id, e.display_name);
     }
     const bySession = new Map<string, CashMovementRow[]>();
     for (const m of (movements ?? []) as unknown as CashMovementRow[]) {

@@ -19,8 +19,8 @@ const MOVEMENT_TYPES = [
     { id: 'deposit', label: 'Entrada', hint: 'Se metió efectivo a la caja (cambio, fondo extra).' },
 ] as const;
 
-const card = 'rounded-2xl border border-bos-border bg-bos-surface';
-const label = 'text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted';
+const card = 'rounded-xl border border-bos-border bg-bos-surface';
+const label = 'text-[13px] font-medium text-bos-muted';
 const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
 const primary = 'min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 const secondary = 'min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised inline-flex items-center justify-center gap-2';
@@ -35,7 +35,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
     return (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
-            <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-bos-border bg-bos-surface p-6 text-bos-text">
+            <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-xl border border-bos-border bg-bos-surface p-6 text-bos-text">
                 <div className="flex items-center justify-between gap-3 mb-5">
                     <h2 className="font-display text-xl font-semibold">{title}</h2>
                     <button type="button" aria-label="Cerrar" onClick={onClose} className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><X className="h-5 w-5" /></button>
@@ -56,7 +56,7 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
             <div className={`${card} overflow-x-auto`}>
                 <table className="w-full min-w-[640px] text-[15px]">
                     <thead>
-                        <tr className="text-left text-xs uppercase tracking-[0.08em] text-bos-muted">
+                        <tr className="text-left text-[13px] text-bos-muted">
                             <th className="px-4 py-3 font-semibold">Día</th>
                             <th className="px-4 py-3 font-semibold text-right">Vendido</th>
                             <th className="px-4 py-3 font-semibold text-right">Contado</th>
@@ -69,7 +69,7 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
                     <tbody>
                         {sessions.map((s) => (
                             <tr key={s.id} className="border-t border-bos-border tabular-nums">
-                                <td className="px-4 py-3 capitalize">{day(s.closed_at)}</td>
+                                <td className="px-4 py-3 first-letter:uppercase">{day(s.closed_at)}</td>
                                 <td className="px-4 py-3 text-right">{money(s.total_sales)}</td>
                                 <td className="px-4 py-3 text-right">{value(s.physical_count)}</td>
                                 <td className={`px-4 py-3 text-right font-semibold ${s.difference === 0 ? 'text-bos-success' : 'text-bos-danger'}`}>
@@ -269,14 +269,14 @@ export default function CashRegister() {
                     <div className="flex items-center gap-3">
                         <span aria-hidden="true" className="h-11 w-11 rounded-full bg-bos-raised inline-flex items-center justify-center"><Lock className="h-5 w-5 text-bos-muted" /></span>
                         <div>
-                            <h1 className="font-display text-2xl font-bold">La caja está cerrada</h1>
+                            <h1 className="font-display text-2xl font-semibold">La caja está cerrada</h1>
                             <p className="text-sm text-bos-muted">Ábrela para empezar a cobrar.</p>
                         </div>
                     </div>
                     <div className="space-y-2">
                         <label htmlFor="open-amount" className={label}>Efectivo con el que abre</label>
                         <input id="open-amount" type="number" min={0} step="0.5" inputMode="decimal" required value={openAmount}
-                            onChange={(e) => setOpenAmount(e.target.value)} className={`${field} h-14 text-2xl font-display font-bold`} />
+                            onChange={(e) => setOpenAmount(e.target.value)} className={`${field} h-14 text-2xl font-display font-semibold`} />
                         <p className="text-sm text-bos-muted">
                             {left !== null ? `En el último cierre se dejaron ${money(left)}.` : `El fondo habitual es de ${money(settings?.float_target ?? 0)}.`}
                         </p>
@@ -305,7 +305,7 @@ export default function CashRegister() {
         <div className="max-w-6xl mx-auto space-y-6">
             <header className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-bold">Caja abierta</h1>
+                    <h1 className="font-display text-3xl font-semibold">Caja abierta</h1>
                     <p className="text-sm text-bos-muted">Abierta por {session.opened_by} a las {timeOf(session.opened_at)}</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -325,23 +325,23 @@ export default function CashRegister() {
             <section aria-label="Totales del turno" className="grid gap-4 grid-cols-2 lg:grid-cols-4">
                 <div className={`${card} p-5 col-span-2 lg:col-span-1 relative`}>
                     <p className={label}>Efectivo en caja</p>
-                    <p data-testid="cash-expected" className="mt-2 font-display text-4xl font-bold tabular-nums">{money(expected)}</p>
+                    <p data-testid="cash-expected" className="mt-2 font-display text-4xl font-semibold tabular-nums">{money(expected)}</p>
                     <p className="mt-1 text-sm text-bos-muted">Fondo inicial {money(session.initial_amount)}</p>
                 </div>
                 <div className={`${card} p-5 relative overflow-hidden`}>
                     <p className={label}>Vendido</p>
-                    <p data-testid="cash-sold" className="mt-2 font-display text-3xl font-bold tabular-nums">{money(session.total_sales)}</p>
+                    <p data-testid="cash-sold" className="mt-2 font-display text-3xl font-semibold tabular-nums">{money(session.total_sales)}</p>
                     {gain && (
-                        <span key={gain.key} aria-hidden="true" data-testid="cash-gain" className="bos-float absolute right-4 top-4 font-display text-2xl font-bold text-bos-success">+{money(gain.amount)}</span>
+                        <span key={gain.key} aria-hidden="true" data-testid="cash-gain" className="bos-float absolute right-4 top-4 font-display text-2xl font-semibold text-bos-success">+{money(gain.amount)}</span>
                     )}
                 </div>
                 <div className={`${card} p-5`}>
                     <p className={label}>Tarjeta y transferencia</p>
-                    <p className="mt-2 font-display text-3xl font-bold tabular-nums">{money(nonCash)}</p>
+                    <p className="mt-2 font-display text-3xl font-semibold tabular-nums">{money(nonCash)}</p>
                 </div>
                 <div className={`${card} p-5`}>
                     <p className={label}>Propinas de barberos</p>
-                    <p className="mt-2 font-display text-3xl font-bold tabular-nums text-bos-accent-text">{money(session.total_tips ?? 0)}</p>
+                    <p className="mt-2 font-display text-3xl font-semibold tabular-nums text-bos-accent-text">{money(session.total_tips ?? 0)}</p>
                 </div>
             </section>
 
@@ -364,7 +364,7 @@ export default function CashRegister() {
                                         <p className="text-[15px] font-medium truncate">{m.description}</p>
                                         <p className="text-sm text-bos-muted">{timeOf(m.created_at)} · {METHOD_LABELS[m.payment_method] ?? m.payment_method}</p>
                                     </div>
-                                    <span className={`font-display text-lg font-bold tabular-nums ${incoming ? 'text-bos-success' : 'text-bos-danger'}`}>
+                                    <span className={`font-display text-lg font-semibold tabular-nums ${incoming ? 'text-bos-success' : 'text-bos-danger'}`}>
                                         {incoming ? '+' : '−'}{money(m.amount)}
                                     </span>
                                 </li>
@@ -431,12 +431,12 @@ export default function CashRegister() {
                             <div className="space-y-2">
                                 <label htmlFor="counted-total" className={label}>Efectivo contado</label>
                                 <input id="counted-total" type="number" min={0} step="0.5" inputMode="decimal" placeholder="0" value={countedTotal}
-                                    onChange={(e) => setCountedTotal(e.target.value)} className={`${field} h-14 text-2xl font-display font-bold`} />
+                                    onChange={(e) => setCountedTotal(e.target.value)} className={`${field} h-14 text-2xl font-display font-semibold`} />
                             </div>
                         )}
 
                         <dl className="rounded-2xl bg-bos-raised p-4 space-y-2 text-[15px]">
-                            <div className="flex justify-between"><dt className="text-bos-muted">Contado</dt><dd data-testid="close-counted" className="font-display text-2xl font-bold tabular-nums">{money(counted)}</dd></div>
+                            <div className="flex justify-between"><dt className="text-bos-muted">Contado</dt><dd data-testid="close-counted" className="font-display text-2xl font-semibold tabular-nums">{money(counted)}</dd></div>
                             <div className="flex justify-between"><dt className="text-bos-muted">Debería haber</dt><dd className="font-semibold tabular-nums">{money(expected)}</dd></div>
                             <div className="flex justify-between">
                                 <dt className="text-bos-muted">Diferencia</dt>
@@ -465,7 +465,7 @@ export default function CashRegister() {
                         </div>
                         <div className="rounded-2xl bg-bos-raised p-4 flex items-baseline justify-between">
                             <span className="text-[15px] text-bos-muted">Retiro (lo que sobra)</span>
-                            <span data-testid="close-withdrawn" className={`font-display text-3xl font-bold tabular-nums ${withdrawn === null ? 'text-bos-danger' : 'text-bos-accent-text'}`}>{withdrawn === null ? 'No alcanza' : money(withdrawn)}</span>
+                            <span data-testid="close-withdrawn" className={`font-display text-3xl font-semibold tabular-nums ${withdrawn === null ? 'text-bos-danger' : 'text-bos-accent-text'}`}>{withdrawn === null ? 'No alcanza' : money(withdrawn)}</span>
                         </div>
                         {withdrawn === null && <p role="alert" className="text-sm text-bos-danger">El fondo más el apartado no pueden ser más que lo contado.</p>}
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}

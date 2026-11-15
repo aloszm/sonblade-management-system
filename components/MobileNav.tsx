@@ -17,7 +17,8 @@ import {
 const mobileItems = [
     { href: '/', label: 'Inicio', icon: LayoutDashboard, roles: ['admin'] },
     // Cada puesto ve solo lo que puede usar: el barbero no cobra ni maneja caja.
-    { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'] },
+    // El cobro es solo en computadora; en el celular no se ofrece.
+    { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: [] as string[] },
     { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
     { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber'] },
     { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'barber', 'recepcion'] },
@@ -50,29 +51,29 @@ const MobileNav = () => {
     const visibleItems = mobileItems.filter(item => item.roles.includes(role));
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-sonblade-dark border-t border-white/10 flex items-center justify-around px-2 z-50">
+        <nav aria-label="Principal" className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-bos-surface border-t border-bos-border flex items-center justify-around px-1 z-50">
             {visibleItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                     <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-colors ${isActive ? 'text-sonblade-gold' : 'text-gray-400'
-                            }`}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-colors ${isActive ? 'text-bos-text' : 'text-bos-muted'}`}
                     >
                         <item.icon className="h-5 w-5" />
-                        <span className="text-[10px] font-medium">{item.label}</span>
+                        <span className={`text-[11px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
                     </Link>
                 );
             })}
             <button
                 onClick={handleLogout}
-                className="flex flex-col items-center justify-center gap-1 w-full h-full transition-colors text-red-500 hover:text-red-400"
+                className="flex flex-col items-center justify-center gap-1 w-full h-full transition-colors text-bos-muted hover:text-bos-text"
             >
                 <LogOut className="h-5 w-5" />
-                <span className="text-[10px] font-medium">Salir</span>
+                <span className="text-[11px] font-medium">Salir</span>
             </button>
-        </div>
+        </nav>
     );
 };
 

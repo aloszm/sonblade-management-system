@@ -16,8 +16,8 @@ type BarberStats = {
 type Me = { id: string; role: 'admin' | 'recepcion' | 'barber'; employeeId: string | null };
 
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
-const card = 'rounded-2xl border border-bos-border bg-bos-surface';
-const label = 'text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted';
+const card = 'rounded-xl border border-bos-border bg-bos-surface';
+const label = 'text-[13px] font-medium text-bos-muted';
 const PODIUM_HEIGHTS = ['h-28', 'h-20', 'h-14']; // primero, segundo, tercero
 
 function Podium({ rows }: { rows: RankedRow[] }) {
@@ -36,12 +36,12 @@ function Podium({ rows }: { rows: RankedRow[] }) {
                 return (
                     <div key={row.employee_id} data-testid="podium-slot" className="flex flex-col items-center gap-2">
                         <div className="bos-rise flex flex-col items-center gap-1.5" style={{ animationDelay: delay }}>
-                            <span aria-hidden="true" className={`rounded-full inline-flex items-center justify-center font-display font-bold ${winner ? 'h-16 w-16 text-2xl bg-bos-accent text-bos-on-accent' : 'h-12 w-12 text-lg bg-bos-raised text-bos-text'}`}>{row.name.charAt(0).toUpperCase()}</span>
+                            <span aria-hidden="true" className={`rounded-full inline-flex items-center justify-center font-display font-semibold ${winner ? 'h-16 w-16 text-2xl bg-bos-accent text-bos-on-accent' : 'h-12 w-12 text-lg bg-bos-raised text-bos-text'}`}>{row.name.charAt(0).toUpperCase()}</span>
                             <span className="text-sm font-semibold text-center leading-tight">{row.name}{row.is_me && <span className="block text-xs font-medium text-bos-accent-text">Tú</span>}</span>
-                            <span className={`font-display font-bold tabular-nums ${winner ? 'text-2xl text-bos-accent-text' : 'text-xl text-bos-text'}`}>{row.cuts}</span>
+                            <span className={`font-display font-semibold tabular-nums ${winner ? 'text-2xl text-bos-accent-text' : 'text-xl text-bos-text'}`}>{row.cuts}</span>
                         </div>
                         <div className={`bos-grow w-full ${height} rounded-t-xl border border-b-0 flex items-start justify-center pt-2 ${winner ? 'border-bos-accent bg-bos-accent-soft' : 'border-bos-border bg-bos-raised'}`} style={{ animationDelay: delay }}>
-                            <span className={`font-display text-2xl font-bold ${winner ? 'text-bos-accent-text' : 'text-bos-muted'}`}>{row.place}</span>
+                            <span className={`font-display text-2xl font-semibold ${winner ? 'text-bos-accent-text' : 'text-bos-muted'}`}>{row.place}</span>
                         </div>
                     </div>
                 );
@@ -109,14 +109,14 @@ export default function BarberDashboard() {
         <div className="max-w-3xl mx-auto space-y-6">
             <header className="space-y-1">
                 <p className="text-sm text-bos-muted first-letter:uppercase">{today}</p>
-                <h1 className="font-display text-3xl font-bold">{mine ? `Hola, ${stats.barber.name}` : stats.barber.name}</h1>
+                <h1 className="font-display text-3xl font-semibold">{mine ? `Hola, ${stats.barber.name}` : stats.barber.name}</h1>
             </header>
 
             {canPick && barbers.length > 1 && (
                 <div role="group" aria-label="Barbero" className="flex flex-wrap gap-2">
                     {barbers.map((b) => (
                         <button key={b.id} type="button" aria-pressed={selectedId === b.id} onClick={() => setSelectedId(b.id)}
-                            className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${selectedId === b.id ? 'border-bos-accent bg-bos-accent-soft text-bos-text' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>
+                            className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${selectedId === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>
                             {b.name}
                         </button>
                     ))}
@@ -126,7 +126,7 @@ export default function BarberDashboard() {
             <section aria-labelledby="week-earned" className={`${card} p-6 space-y-5`}>
                 <div>
                     <p id="week-earned" className={label}>{mine ? 'Esta semana llevas' : 'Esta semana lleva'}</p>
-                    <p data-testid="week-earned" className="mt-1 font-display text-5xl font-bold text-bos-accent-text tabular-nums">{money(earned)}</p>
+                    <p data-testid="week-earned" className="mt-1 font-display text-5xl font-semibold text-bos-accent-text tabular-nums">{money(earned)}</p>
                     <p className="mt-1 text-sm text-bos-muted">Se paga el sábado, al cierre de las 8:00 pm.</p>
                 </div>
                 <dl className="space-y-2 text-[15px] border-t border-bos-border pt-4">
@@ -137,9 +137,9 @@ export default function BarberDashboard() {
             </section>
 
             <section aria-label="Resumen" className="grid grid-cols-3 gap-3">
-                <div className={`${card} p-4`}><p className={label}>Cortes semana</p><p data-testid="week-cuts" className="mt-1 font-display text-3xl font-bold tabular-nums">{week.cuts}</p></div>
-                <div className={`${card} p-4`}><p className={label}>Cortes hoy</p><p className="mt-1 font-display text-3xl font-bold tabular-nums">{stats.todayStats.cuts}</p></div>
-                <div className={`${card} p-4`}><p className={label}>Propinas hoy</p><p className="mt-1 font-display text-3xl font-bold tabular-nums">{money(stats.todayStats.tips)}</p></div>
+                <div className={`${card} p-4`}><p className={label}>Cortes semana</p><p data-testid="week-cuts" className="mt-1 font-display text-3xl font-semibold tabular-nums">{week.cuts}</p></div>
+                <div className={`${card} p-4`}><p className={label}>Cortes hoy</p><p className="mt-1 font-display text-3xl font-semibold tabular-nums">{stats.todayStats.cuts}</p></div>
+                <div className={`${card} p-4`}><p className={label}>Propinas hoy</p><p className="mt-1 font-display text-3xl font-semibold tabular-nums">{money(stats.todayStats.tips)}</p></div>
             </section>
 
             {podium && (
@@ -156,7 +156,7 @@ export default function BarberDashboard() {
                             <ol className="space-y-2 border-t border-bos-border pt-4">
                                 {podium.map((row) => (
                                     <li key={row.employee_id} className="grid grid-cols-[24px_minmax(0,1fr)_minmax(0,2fr)_48px] items-center gap-3 text-[15px]">
-                                        <span className={`font-display font-bold ${row.place === 1 ? 'text-bos-accent-text' : 'text-bos-muted'}`}>{row.place}</span>
+                                        <span className={`font-display font-semibold ${row.place === 1 ? 'text-bos-accent-text' : 'text-bos-muted'}`}>{row.place}</span>
                                         <span className={`truncate ${row.is_me ? 'font-semibold' : ''}`}>{row.name}</span>
                                         <span aria-hidden="true" className="h-2 rounded-full bg-bos-raised overflow-hidden">
                                             <span className={`block h-full rounded-full transition-[width] duration-500 ${row.place === 1 ? 'bg-bos-accent' : 'bg-bos-muted'}`} style={{ width: `${Math.round(row.share * 100)}%` }} />
@@ -182,7 +182,7 @@ export default function BarberDashboard() {
                                     <p className="text-[15px] font-medium truncate">{sale.items.map((i) => i.item_name).join(' + ') || 'Venta'}</p>
                                     <p className="text-sm text-bos-muted">{new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                                 </div>
-                                <span className="font-display text-lg font-bold tabular-nums">{money(Number(sale.total))}</span>
+                                <span className="font-display text-lg font-semibold tabular-nums">{money(Number(sale.total))}</span>
                             </li>
                         ))}
                     </ul>

@@ -1,221 +1,127 @@
 'use client';
-import { CLIENT_LOGO, CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Banknote,
-  Wallet,
-  Users,
-  Settings,
-  UserCircle,
-  ShieldCheck,
-  FileText,
-  LogOut,
-  Calendar,
-  TrendingDown,
-  Scissors,
-  BarChart3,
-  Layers,
-  ChevronRight,
-  UserPlus
+    BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, LogOut, Package, Scissors,
+    Settings, ShoppingCart, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon,
 } from 'lucide-react';
+import { CLIENT_LOGO, CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
 
-interface SidebarProps {
-  isOpen: boolean;
-}
+interface SidebarProps { isOpen: boolean }
+interface MenuItem { href: string; label: string; icon: LucideIcon; roles: Role[]; ownerOnly?: boolean }
+type Role = 'admin' | 'recepcion' | 'barber';
+type User = { name: string; role: Role; id: string; isOwner?: boolean; title?: string };
 
-interface MenuItem {
-  href: string;
-  label: string;
-  icon: any;
-  adminOnly?: boolean;
-}
-
-interface MenuSection {
-  title: string;
-  items: MenuItem[];
-}
-
-// Items allowed per role (by href prefix)
-const BARBER_ALLOWED = ['/barbero', '/clientes', '/liquidaciones'];
-const RECEPCION_ALLOWED = ['/pos', '/clientes', '/caja', '/citas', '/liquidaciones'];
-
-const menuSections: MenuSection[] = [
-  {
-    title: 'PRINCIPAL',
-    items: [
-      { href: '/', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
-      { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart },
-      { href: '/ventas/historial', label: 'Historial de Ventas', icon: FileText, adminOnly: true },
-    ]
-  },
-  {
-    title: 'OPERACIONES',
-    items: [
-      { href: '/citas', label: 'Agenda / Citas', icon: Calendar, adminOnly: true },
-      { href: '/caja', label: 'Control de Caja', icon: Banknote },
-      { href: '/gastos', label: 'Gastos e Insumos', icon: TrendingDown, adminOnly: true },
-      { href: '/inventario', label: 'Inventario / Stock', icon: Package, adminOnly: true },
-    ]
-  },
-  {
-    title: 'MI ESPACIO',
-    items: [
-      { href: '/barbero', label: 'Mi Panel Personal', icon: UserCircle },
-      { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet },
-    ]
-  },
-  {
-    title: 'GESTIÓN',
-    items: [
-      { href: '/equipo', label: 'Equipo de Barberos', icon: Users, adminOnly: true },
-      { href: '/clientes', label: 'Cartera de Clientes', icon: UserPlus },
-    ]
-  },
-  {
-    title: 'ADMINISTRACIÓN',
-    items: [
-      { href: '/admin', label: 'Resumen Financiero', icon: ShieldCheck, adminOnly: true },
-      { href: '/servicios', label: 'Catálogo de Servicios', icon: Scissors, adminOnly: true },
-      { href: '/reportes', label: 'Reportes y PDF', icon: BarChart3, adminOnly: true },
-      { href: '/admin/auditoria', label: 'Auditoría de Sistema', icon: Layers, adminOnly: true },
-    ]
-  }
+// Cada puesto ve solo lo que usa. Pocas secciones y nombres cortos.
+const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
+    {
+        title: null,
+        items: [
+            { href: '/', label: 'Panel', icon: LayoutDashboard, roles: ['admin'] },
+            { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin'] },
+            { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'] },
+            { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
+            { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion'] },
+            { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'recepcion', 'barber'] },
+            { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet, roles: ['admin', 'recepcion', 'barber'] },
+        ],
+    },
+    {
+        title: 'Negocio',
+        items: [
+            { href: '/ventas/historial', label: 'Ventas', icon: FileText, roles: ['admin'] },
+            { href: '/gastos', label: 'Gastos', icon: TrendingDown, roles: ['admin'] },
+            { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin'] },
+            { href: '/servicios', label: 'Servicios', icon: Scissors, roles: ['admin'] },
+            { href: '/equipo', label: 'Equipo', icon: Users, roles: ['admin'] },
+            { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['admin'] },
+            { href: '/admin/auditoria', label: 'Bitácora', icon: Layers, roles: ['admin'] },
+            { href: '/configuracion', label: 'Configuración', icon: Settings, roles: ['admin'], ownerOnly: true },
+        ],
+    },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [user, setUser] = React.useState<{ name: string, role: string, id: string, isOwner?: boolean, title?: string } | null>(null);
+    const pathname = usePathname();
+    const [user, setUser] = React.useState<User | null>(null);
 
-  React.useEffect(() => {
-    fetch('/api/auth/me', { cache: 'no-store' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.authenticated) setUser(data.user);
-      });
-  }, []);
+    React.useEffect(() => {
+        fetch('/api/auth/me', { cache: 'no-store' })
+            .then((res) => res.json())
+            .then((data) => { if (data.authenticated) setUser(data.user); })
+            .catch(() => {});
+    }, []);
 
-  const handleLogout = async () => {
-    if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return;
-    await fetch('/api/auth/login', { method: 'DELETE' });
-    window.location.href = '/login';
-  };
+    const handleLogout = async () => {
+        if (!window.confirm('¿Cerrar sesión?')) return;
+        await fetch('/api/auth/login', { method: 'DELETE' });
+        window.location.href = '/login';
+    };
 
-  if (!isOpen) return null;
+    if (!isOpen) return null;
 
-  return (
-    <aside className="h-full bg-[#0a0a0a] text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-2xl w-64 border-r border-white/5">
-      {/* Brand Header */}
-      <div className="h-20 flex items-center px-6 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg group-hover:scale-105 transition-all duration-300">
-            <img src={CLIENT_LOGO} alt={`Logo de ${CLIENT_NAME}`} className="w-full h-full object-contain" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-black text-lg tracking-tighter text-white leading-none uppercase">{CLIENT_NAME}</span>
-            <span className="text-[10px] text-sonblade-gold font-bold tracking-[0.2em] mt-1">{SYSTEM_NAME}</span>
-          </div>
-        </Link>
-      </div>
+    const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`));
+    const allowed = (item: MenuItem) => Boolean(user) && item.roles.includes(user!.role) && (!item.ownerOnly || Boolean(user!.isOwner));
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-8 overflow-y-auto scrollbar-sonblade">
-        {menuSections.map((section, idx) => {
-          // Filter items based on user role
-          const visibleItems = section.items.filter(item => {
-            if (item.href === '/configuracion' && !user?.isOwner) return false; // solo el dueño
-            if (user?.role === 'recepcion') {
-              return RECEPCION_ALLOWED.some(p => item.href.startsWith(p));
-            }
-            if (user?.role !== 'admin') {
-              // Barbers only see non-adminOnly items whose href is in the allowed list
-              if (item.adminOnly) return false;
-              return BARBER_ALLOWED.some(p => item.href.startsWith(p));
-            }
-            return true;
-          });
-
-          if (visibleItems.length === 0) return null;
-
-          return (
-            <div key={idx} className="space-y-1">
-              <h3 className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">
-                {section.title}
-              </h3>
-              <div className="space-y-0.5">
-                {visibleItems.map((item) => {
-                  const href = item.href;
-                  const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={href}
-                      className={`group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive
-                        ? 'bg-sonblade-primary/10 text-sonblade-gold border border-sonblade-gold/20'
-                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                        }`}
-                    >
-                      <div className="flex items-center">
-                        <item.icon
-                          className={`mr-3 h-4 w-4 ${isActive ? 'text-sonblade-gold' : 'text-gray-500 group-hover:text-white'
-                            }`}
-                        />
-                        {item.label}
-                      </div>
-                      {isActive && <ChevronRight className="h-3 w-3" />}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </nav>
-
-      {/* Account Info & Logout */}
-      <div className="mt-auto p-4 border-t border-white/5 bg-black/20">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl border border-white/10 bg-sonblade-dark flex items-center justify-center font-bold text-white uppercase text-sm shadow-inner">
-              {user ? user.name.charAt(0) : '?'}
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-[#0a0a0a] rounded-full"></div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">{user ? user.name : 'Cargando...'}</p>
-            {user && user.name.toLowerCase() !== 'administrador' && user.name.toLowerCase() !== 'admin' && (
-              <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">
-                {(user.title ?? '').toUpperCase()}
-              </p>
-            )}
-            {!user && (
-              <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">CARGANDO...</p>
-            )}
-          </div>
-          {user?.role === 'admin' && (
-            <Link href="/configuracion" className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-              <Settings className="h-4 w-4" />
+    return (
+        <aside className="h-full w-60 flex flex-col shrink-0 bg-bos-surface text-bos-text border-r border-bos-border">
+            <Link href={user?.role === 'barber' ? '/barbero' : user?.role === 'recepcion' ? '/pos' : '/'} className="flex items-center gap-3 h-16 px-5 border-b border-bos-border">
+                <span className="h-8 w-8 rounded-lg bg-white p-1 inline-flex items-center justify-center shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={CLIENT_LOGO} alt="" className="h-full w-full object-contain" />
+                </span>
+                <span className="min-w-0 leading-tight">
+                    <span className="block text-[15px] font-semibold tracking-tight">{CLIENT_NAME}</span>
+                    <span className="block text-xs text-bos-muted">{SYSTEM_NAME}</span>
+                </span>
             </Link>
-          )}
-        </div>
 
-        <button
-          onClick={handleLogout}
-          className="w-full group flex items-center px-4 py-2.5 text-xs font-bold rounded-xl text-red-500 hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/20"
-        >
-          <LogOut className="mr-3 h-4 w-4" />
-          CERRAR SESIÓN
-        </button>
-      </div>
-    </aside>
-  );
+            <nav aria-label="Principal" className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+                {SECTIONS.map((section, i) => {
+                    const items = section.items.filter(allowed);
+                    if (items.length === 0) return null;
+                    return (
+                        <div key={section.title ?? i}>
+                            {section.title && <p className="px-3 mb-1.5 text-xs font-medium text-bos-muted">{section.title}</p>}
+                            <ul className="space-y-0.5">
+                                {items.map((item) => {
+                                    const active = isActive(item.href);
+                                    const Icon = item.icon;
+                                    return (
+                                        <li key={item.href}>
+                                            <Link href={item.href} aria-current={active ? 'page' : undefined}
+                                                className={`flex items-center gap-3 h-9 px-3 rounded-lg text-sm transition-colors ${active ? 'bg-bos-raised text-bos-text font-semibold' : 'text-bos-muted font-medium hover:text-bos-text hover:bg-bos-raised/60'}`}>
+                                                <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active ? 'text-bos-accent-text' : ''}`} />
+                                                {item.label}
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    );
+                })}
+            </nav>
+
+            <div className="p-3 border-t border-bos-border">
+                <div className="flex items-center gap-3 px-2 py-2">
+                    <span aria-hidden="true" className="h-8 w-8 rounded-full bg-bos-raised inline-flex items-center justify-center text-sm font-semibold shrink-0">
+                        {user ? user.name.charAt(0).toUpperCase() : ''}
+                    </span>
+                    <span className="min-w-0 flex-1 leading-tight">
+                        <span className="block truncate text-sm font-medium">{user?.name ?? ''}</span>
+                        <span className="block text-xs text-bos-muted">{user?.title ?? ''}</span>
+                    </span>
+                    <button type="button" onClick={handleLogout} aria-label="Cerrar sesión" title="Cerrar sesión"
+                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-bos-muted hover:text-bos-text hover:bg-bos-raised">
+                        <LogOut className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+        </aside>
+    );
 };
 
 export default Sidebar;

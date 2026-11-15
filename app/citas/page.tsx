@@ -17,13 +17,19 @@ const STATUS_STYLE: Record<AppointmentStatus, string> = {
     cancelled: 'bg-bos-raised text-bos-danger',
     no_show: 'bg-bos-raised text-bos-muted',
 };
+// En la agenda solo se usan estas acciones: confirmar, marcar que llegó y cancelar.
+const UI_ACTIONS: AppointmentStatus[] = ['confirmed', 'checked_in', 'cancelled'];
+const actionsFor = (status: AppointmentStatus) => nextStatuses(status).filter((s) => UI_ACTIONS.includes(s));
+// Un color discreto por barbero para distinguirlos en el calendario.
+const BARBER_COLORS = ['#D4AF37', '#6E9CF0', '#4FB7A0', '#D9869B', '#9C8CE8', '#E08A4F'];
+const HOUR_PX = 64; // alto de una hora en la vista por día
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DURATIONS = [30, 45, 60, 90, 120];
 const EMPTY_FORM = { client_id: '', customer_name: '', customer_phone: '', barber_id: '', date: '', time: '', duration: 30, service_note: '' };
 
 const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
-const fieldLabel = 'block text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted mb-1.5';
+const fieldLabel = 'block text-[13px] font-medium text-bos-muted mb-1.5';
 const primary = 'min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 inline-flex items-center justify-center gap-2';
 const secondary = 'min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised inline-flex items-center justify-center gap-2';
 
@@ -38,6 +44,10 @@ async function readError(res: Response, fallback: string): Promise<string> {
 export default function AppointmentsPage() {
     const [today] = useState(() => new Date());
     const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+    const [view, setView] = useState<'month' | 'day'>('day');
+    const [barberFilter, setBarberFilter] = useState('');
+    const [dayKey, setDayKey] = useState(() => localDateKey(today));
+    const [onlyApt, setOnlyApt] = useState<string | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
@@ -90,17 +100,36 @@ export default function AppointmentsPage() {
             }).catch(() => {});
     }, []);
 
+    const activeBarbers = useMemo(() => barbers.filter((b) => b.status === 'active'), [barbers]);
+    const colorOf = useCallback((id: string | null | undefined) => {
+        const i = activeBarbers.findIndex((b) => b.id === id);
+        return i < 0 ? 'var(--bos-muted)' : BARBER_COLORS[i % BARBER_COLORS.length];
+    }, [activeBarbers]);
+    const visible = useMemo(() => (barberFilter ? appointments.filter((a) => a.barber?.id === barberFilter) : appointments), [appointments, barberFilter]);
+
     const byDay = useMemo(() => {
         const map = new Map<string, Appointment[]>();
-        for (const a of appointments) {
+        for (const a of visible) {
             const key = dayOf(a.scheduled_at);
             map.set(key, [...(map.get(key) ?? []), a]);
         }
         return map;
-    }, [appointments]);
+    }, [visible]);
 
-    const openForm = (date: string) => {
-        setForm({ ...EMPTY_FORM, date });
+    // Ir a un día: si cae en otro mes, se cargan las citas de ese mes.
+    const goToDay = (key: string) => {
+        setDayKey(key);
+        const d = new Date(`${key}T12:00:00`);
+        if (d.getFullYear() !== year || d.getMonth() !== month) setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    };
+    const shiftDay = (delta: number) => {
+        const d = new Date(`${dayKey}T12:00:00`);
+        d.setDate(d.getDate() + delta);
+        goToDay(localDateKey(d));
+    };
+
+    const openForm = (date: string, time = '', barberId = '') => {
+        setForm({ ...EMPTY_FORM, date, time, barber_id: barberId });
         setFormError('');
         setShowForm(true);
     };
@@ -128,7 +157,7 @@ export default function AppointmentsPage() {
             if (!res.ok) throw new Error(await readError(res, 'No se pudo guardar la cita.'));
             await fetchAppointments();
             setShowForm(false);
-            setOpenDay(form.date);
+            if (view === 'month') setOpenDay(form.date);
         } catch (err) {
             setFormError(err instanceof Error ? err.message : 'No se pudo guardar la cita.');
         } finally { setSubmitting(false); }
@@ -165,34 +194,134 @@ export default function AppointmentsPage() {
     while (cells.length % 7 !== 0) cells.push(null);
 
     const dayTitle = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
-    const dayList = openDay ? (byDay.get(openDay) ?? []) : [];
+    const dayAll = openDay ? (byDay.get(openDay) ?? []) : [];
+    const dayList = onlyApt ? dayAll.filter((a) => a.id === onlyApt) : dayAll;
+
+    // Vista por día: una columna por barbero (o solo el elegido) y otra si hay citas sin barbero.
+    const dayAppointments = byDay.get(dayKey) ?? [];
+    const columns = [
+        ...(barberFilter ? activeBarbers.filter((b) => b.id === barberFilter) : activeBarbers).map((b) => ({ id: b.id as string | null, name: b.name })),
+        ...(!barberFilter && dayAppointments.some((a) => !a.barber) ? [{ id: null, name: 'Sin asignar' }] : []),
+    ];
+    const minutesOf = (iso: string) => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); };
+    const startHour = Math.min(9, ...dayAppointments.map((a) => Math.floor(minutesOf(a.scheduled_at) / 60)));
+    const endHour = Math.max(21, ...dayAppointments.map((a) => Math.ceil((a.end_at ? minutesOf(a.end_at) : minutesOf(a.scheduled_at) + 30) / 60)));
+    const hoursRange = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
+    const nowMinutes = today.getHours() * 60 + today.getMinutes();
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             <header className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-bold">Agenda</h1>
-                    <p className="text-sm text-bos-muted">Toca un día para ver sus citas.</p>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Agenda</h1>
+                    <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="calendar-label">
+                        {view === 'day' ? dayTitle(dayKey) : `${MONTHS[month]} ${year}`}
+                    </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center rounded-xl border border-bos-border bg-bos-surface">
-                        <button type="button" aria-label="Mes anterior" onClick={() => setCursor(new Date(year, month - 1, 1))}
-                            className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronLeft className="h-5 w-5" /></button>
-                        <span className="w-40 text-center font-semibold" data-testid="calendar-month">{MONTHS[month]} {year}</span>
-                        <button type="button" aria-label="Mes siguiente" onClick={() => setCursor(new Date(year, month + 1, 1))}
-                            className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronRight className="h-5 w-5" /></button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <div role="group" aria-label="Vista" className="flex p-1 rounded-lg bg-bos-raised">
+                        {([['day', 'Día'], ['month', 'Mes']] as const).map(([id, text]) => (
+                            <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}
+                                className={`h-9 px-4 rounded-md text-sm font-medium transition-colors ${view === id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
+                        ))}
+                    </div>
+                    <div className="flex items-center rounded-lg border border-bos-border bg-bos-surface">
+                        <button type="button" aria-label={view === 'day' ? 'Día anterior' : 'Mes anterior'}
+                            onClick={() => (view === 'day' ? shiftDay(-1) : setCursor(new Date(year, month - 1, 1)))}
+                            className="h-10 w-10 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronLeft className="h-5 w-5" /></button>
+                        <button type="button" onClick={() => { goToDay(todayKey); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); }}
+                            className="h-10 px-3 text-sm font-medium text-bos-text hover:bg-bos-raised">Hoy</button>
+                        <button type="button" aria-label={view === 'day' ? 'Día siguiente' : 'Mes siguiente'}
+                            onClick={() => (view === 'day' ? shiftDay(1) : setCursor(new Date(year, month + 1, 1)))}
+                            className="h-10 w-10 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronRight className="h-5 w-5" /></button>
                     </div>
                     {canManage && (
-                        <button type="button" onClick={() => openForm(todayKey)} className={primary}><Plus className="h-5 w-5" /> Nueva cita</button>
+                        <button type="button" onClick={() => openForm(view === 'day' ? dayKey : todayKey, '', barberFilter)} className={primary}><Plus className="h-5 w-5" /> Nueva cita</button>
                     )}
                 </div>
             </header>
 
+            <div role="group" aria-label="Barbero" className="flex flex-wrap gap-2">
+                {[{ id: '', name: 'Todos' }, ...activeBarbers].map((b) => (
+                    <button key={b.id || 'all'} type="button" aria-pressed={barberFilter === b.id} onClick={() => setBarberFilter(b.id)}
+                        className={`inline-flex items-center gap-2 h-9 px-3.5 rounded-full border text-sm font-medium transition-colors ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
+                        {b.id && <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: colorOf(b.id) }} />}
+                        {b.name}
+                    </button>
+                ))}
+            </div>
+
             {loadError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-4 text-bos-danger">{loadError}</p>}
 
-            <section aria-label="Calendario" className="rounded-2xl border border-bos-border bg-bos-surface overflow-hidden">
+            {view === 'day' && (
+                <section aria-label="Agenda del día por barbero" data-testid="day-view" className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
+                    {loading ? (
+                        <div className="flex items-center justify-center h-80"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>
+                    ) : columns.length === 0 ? (
+                        <p className="p-10 text-center text-bos-muted">No hay barberos activos.</p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <div className="min-w-[560px]" style={{ display: 'grid', gridTemplateColumns: `56px repeat(${columns.length}, minmax(160px, 1fr))` }}>
+                                <div className="sticky left-0 z-10 bg-bos-surface border-b border-bos-border" />
+                                {columns.map((c) => {
+                                    const count = dayAppointments.filter((a) => (a.barber?.id ?? null) === c.id && isActive(a.status)).length;
+                                    return (
+                                        <div key={c.id ?? 'none'} className="px-3 py-3 border-b border-l border-bos-border">
+                                            <p className="flex items-center gap-2 text-sm font-semibold">
+                                                <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: c.id ? colorOf(c.id) : 'var(--bos-muted)' }} />{c.name}
+                                            </p>
+                                            <p className="text-xs text-bos-muted">{count === 0 ? 'Sin citas' : `${count} cita${count === 1 ? '' : 's'}`}</p>
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="sticky left-0 z-10 bg-bos-surface">
+                                    {hoursRange.map((h) => (
+                                        <div key={h} style={{ height: HOUR_PX }} className="pr-2 text-right text-xs text-bos-muted tabular-nums -translate-y-2">
+                                            {h % 12 === 0 ? 12 : h % 12} {h < 12 ? 'a.m.' : 'p.m.'}
+                                        </div>
+                                    ))}
+                                </div>
+                                {columns.map((c) => (
+                                    <div key={c.id ?? 'none'} className="relative border-l border-bos-border" style={{ height: hoursRange.length * HOUR_PX }}>
+                                        {hoursRange.map((h) => (
+                                            <button key={h} type="button" disabled={!canManage}
+                                                aria-label={canManage ? `Agendar con ${c.name} a las ${h}:00` : undefined}
+                                                onClick={() => openForm(dayKey, `${String(h).padStart(2, '0')}:00`, c.id ?? '')}
+                                                style={{ top: (h - startHour) * HOUR_PX, height: HOUR_PX }}
+                                                className="absolute inset-x-0 border-t border-bos-border/60 enabled:hover:bg-bos-raised/60 disabled:cursor-default" />
+                                        ))}
+                                        {dayKey === todayKey && nowMinutes >= startHour * 60 && nowMinutes < endHour * 60 && (
+                                            <div aria-hidden="true" className="absolute inset-x-0 h-px bg-bos-danger z-10" style={{ top: ((nowMinutes - startHour * 60) / 60) * HOUR_PX }} />
+                                        )}
+                                        {dayAppointments.filter((a) => (a.barber?.id ?? null) === c.id).map((a) => {
+                                            const start = minutesOf(a.scheduled_at);
+                                            const end = a.end_at ? minutesOf(a.end_at) : start + 30;
+                                            const top = ((start - startHour * 60) / 60) * HOUR_PX;
+                                            const height = Math.max(((end - start) / 60) * HOUR_PX - 2, 30);
+                                            const live = isActive(a.status);
+                                            return (
+                                                <button key={a.id} type="button" data-testid="day-appointment"
+                                                    onClick={() => { setActionError(''); setOnlyApt(a.id); setOpenDay(dayKey); }}
+                                                    style={{ top: top + 1, height, borderLeftColor: c.id ? colorOf(c.id) : 'var(--bos-muted)' }}
+                                                    className={`absolute left-1 right-1 z-20 overflow-hidden rounded-md border border-bos-border border-l-[3px] px-2 py-1 text-left transition-colors ${live ? 'bg-bos-raised hover:bg-bos-bg' : 'bg-bos-surface opacity-60'}`}>
+                                                    <span className={`block truncate text-[13px] font-semibold ${live ? '' : 'line-through'}`}>{a.client_name}</span>
+                                                    <span className="block truncate text-xs text-bos-muted">{timeOf(a.scheduled_at)} · {STATUS_LABELS[a.status]}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </section>
+            )}
+
+            {view === 'month' && (
+            <section aria-label="Calendario" className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                 <div className="grid grid-cols-7 border-b border-bos-border">
-                    {WEEK.map((d) => <div key={d} className="py-3 text-center text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted">{d}</div>)}
+                    {WEEK.map((d) => <div key={d} className="py-3 text-center text-[13px] font-medium text-bos-muted">{d}</div>)}
                 </div>
                 {loading ? (
                     <div className="flex items-center justify-center h-80"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>
@@ -226,11 +355,12 @@ export default function AppointmentsPage() {
                     </div>
                 )}
             </section>
+            )}
 
             {/* Citas del día: ventana flotante */}
             {openDay && !showForm && !cancelTarget && (
-                <Modal title={dayTitle(openDay)} subtitle={dayList.length === 0 ? 'Sin citas' : `${dayList.length} cita${dayList.length === 1 ? '' : 's'}`}
-                    onClose={() => setOpenDay(null)} size="lg" testId="day-modal">
+                <Modal title={dayTitle(openDay)} subtitle={onlyApt ? undefined : dayList.length === 0 ? 'Sin citas' : `${dayList.length} cita${dayList.length === 1 ? '' : 's'}`}
+                    onClose={() => { setOpenDay(null); setOnlyApt(null); }} size="lg" testId="day-modal">
                     {actionError && <p role="alert" className="mb-3 rounded-xl bg-bos-raised p-3 text-sm text-bos-danger">{actionError}</p>}
                     {dayList.length === 0 ? (
                         <p className="py-8 text-center text-bos-muted">No hay citas este día.</p>
@@ -253,9 +383,9 @@ export default function AppointmentsPage() {
                                             {timeOf(apt.scheduled_at)}{apt.end_at ? ` – ${timeOf(apt.end_at)}` : ''}
                                         </span>
                                     </div>
-                                    {canManage && nextStatuses(apt.status).length > 0 && (
+                                    {canManage && actionsFor(apt.status).length > 0 && (
                                         <div className="flex flex-wrap gap-2 mt-3">
-                                            {nextStatuses(apt.status).map((next) => (
+                                            {actionsFor(apt.status).map((next) => (
                                                 <button key={next} type="button" disabled={busyId === apt.id}
                                                     onClick={() => { if (next === 'cancelled') { setActionError(''); setCancelReason(''); setCancelTarget(apt); } else changeStatus(apt, next); }}
                                                     className={`min-h-11 px-4 rounded-xl border text-sm font-semibold disabled:opacity-50 ${next === 'cancelled' ? 'border-bos-border text-bos-danger hover:bg-bos-raised' : 'border-bos-border text-bos-text hover:bg-bos-raised'}`}>
@@ -268,7 +398,7 @@ export default function AppointmentsPage() {
                             ))}
                         </ul>
                     )}
-                    {canManage && (
+                    {canManage && !onlyApt && (
                         <button type="button" onClick={() => openForm(openDay)} className={`${secondary} w-full mt-5`}><Plus className="h-5 w-5" /> Agendar en este día</button>
                     )}
                 </Modal>

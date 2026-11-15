@@ -37,7 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible">
                 <div className="print:hidden"><Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} /></div>
 
-                <main className={`flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 pb-20 md:pb-6 relative print:overflow-visible print:bg-white print:p-0 ${redesigned ? 'bg-bos-bg text-bos-text' : 'scrollbar-sonblade-light bg-gray-100 text-slate-800'}`}>
+                <main className={`flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 relative print:overflow-visible print:bg-white print:p-0 ${redesigned ? 'bg-bos-bg text-bos-text' : 'scrollbar-sonblade-light bg-gray-100 text-slate-800'}`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={pathname}
