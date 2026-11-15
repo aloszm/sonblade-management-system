@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Download, Loader2, Search } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { localDateKey } from '@/lib/utils/dates';
 import { downloadCsv } from '@/lib/utils/csv';
 import {
@@ -223,28 +223,38 @@ export default function Dashboard() {
                         </p>
                     )}
 
-                    <section aria-labelledby="trend-title" className={`${card} p-5`}>
-                        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-                            <h2 id="trend-title" className="font-display text-lg font-semibold">{singleDay ? 'Cortes e ingresos por hora' : 'Cortes e ingresos por día'}</h2>
-                            <p className="text-sm text-bos-muted">
-                                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-bos-accent align-middle mr-1.5" />Cortes
-                                <span className="inline-block h-0.5 w-4 bg-bos-text align-middle ml-4 mr-1.5" />Ingresos
-                            </p>
-                        </div>
-                        <div className="h-72">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={singleDay ? hours : days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                                    <CartesianGrid vertical={false} stroke="var(--bos-border)" />
-                                    <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={16} />
-                                    <YAxis yAxisId="cuts" allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={32} />
-                                    <YAxis yAxisId="money" orientation="right" tick={AXIS} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => money(v)} />
-                                    <Tooltip {...TOOLTIP} formatter={(v, name) => (name === 'Ingresos' ? money2(Number(v ?? 0)) : Number(v ?? 0))} />
-                                    <Bar yAxisId="cuts" dataKey="cuts" name="Cortes" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} maxBarSize={36} />
-                                    <Line yAxisId="money" dataKey="revenue" name="Ingresos" stroke="var(--bos-text)" strokeWidth={2} dot={{ r: 2.5, fill: "var(--bos-text)", strokeWidth: 0 }} activeDot={{ r: 4 }} type="linear" />
-                                </ComposedChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </section>
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        <section aria-labelledby="cuts-chart-title" className={`${card} p-5`}>
+                            <h2 id="cuts-chart-title" className="font-display text-lg font-semibold">{singleDay ? 'Cortes por hora' : 'Cortes por día'}</h2>
+                            <p className="text-sm text-bos-muted mb-4">Cuántos servicios se cobraron. Cada barra es {singleDay ? "una hora" : "un día"}.</p>
+                            <div className="h-64" data-testid="chart-cuts">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={singleDay ? hours : days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                                        <CartesianGrid vertical={false} stroke="var(--bos-border)" />
+                                        <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={16} />
+                                        <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={32} />
+                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Cortes']} />
+                                        <Bar dataKey="cuts" name="Cortes" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </section>
+                        <section aria-labelledby="revenue-chart-title" className={`${card} p-5`}>
+                            <h2 id="revenue-chart-title" className="font-display text-lg font-semibold">{singleDay ? 'Ingresos por hora' : 'Ingresos por día'}</h2>
+                            <p className="text-sm text-bos-muted mb-4">Pesos cobrados, con servicios y productos.</p>
+                            <div className="h-64" data-testid="chart-revenue">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={singleDay ? hours : days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                                        <CartesianGrid vertical={false} stroke="var(--bos-border)" />
+                                        <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={16} />
+                                        <YAxis tick={AXIS} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => money(v)} />
+                                        <Tooltip {...TOOLTIP} formatter={(v) => [money2(Number(v ?? 0)), 'Ingresos']} />
+                                        <Area dataKey="revenue" name="Ingresos" type="linear" stroke="var(--bos-text)" strokeWidth={2} fill="var(--bos-text)" fillOpacity={0.1} dot={{ r: 2.5, fill: 'var(--bos-text)', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </section>
+                    </div>
 
                     <div className="grid gap-6 lg:grid-cols-2">
                         <section aria-labelledby="hours-title" className={`${card} p-5`}>

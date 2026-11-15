@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSessionView, toUiMovement, type CashMovementRow, type CashSessionRow } from './session-view';
+import { buildSessionView, movementTag, toUiMovement, type CashMovementRow, type CashSessionRow } from './session-view';
 
 const session: CashSessionRow = {
     id: 'sess-1',
@@ -102,5 +102,17 @@ describe('toUiMovement', () => {
     it('usa una descripción por defecto y marca todo como confirmado', () => {
         const ui = toUiMovement(movement({ id: 'm1', description: '  ', amount: '55.5', method: 'transfer' }));
         expect(ui).toMatchObject({ id: 'm1', session_id: 'sess-1', description: 'Cobro de venta', amount: 55.5, payment_method: 'transfer', status: 'confirmed' });
+    });
+});
+
+describe('movementTag', () => {
+    it('etiqueta cada movimiento de la lista de caja', () => {
+        expect(movementTag(movement({ movement_type: 'sale_payment' }))).toBe('Venta');
+        expect(movementTag(movement({ movement_type: 'deposit', sale_id: 's1' }))).toBe('Propina');
+        expect(movementTag(movement({ movement_type: 'withdrawal', direction: 'out', sale_id: 's1' }))).toBe('Propina');
+        expect(movementTag(movement({ movement_type: 'expense', direction: 'out' }))).toBe('Gasto');
+        expect(movementTag(movement({ movement_type: 'withdrawal', direction: 'out' }))).toBe('Retiro');
+        expect(movementTag(movement({ movement_type: 'deposit' }))).toBe('Entrada');
+        expect(movementTag(movement({ movement_type: 'refund', direction: 'out' }))).toBe('Reembolso');
     });
 });

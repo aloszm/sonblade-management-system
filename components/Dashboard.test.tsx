@@ -44,6 +44,15 @@ describe('Panel del dueño', () => {
         expect(screen.getAllByTestId('log-row')[0]).toHaveTextContent('Deya');
     });
 
+    it('separa cortes e ingresos en dos gráficas, cada una con su título', async () => {
+        mockApi();
+        render(<Dashboard />);
+        expect(await screen.findByRole('heading', { name: 'Cortes por día' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Ingresos por día' })).toBeInTheDocument();
+        expect(screen.getByTestId('chart-cuts')).toBeInTheDocument();
+        expect(screen.getByTestId('chart-revenue')).toBeInTheDocument();
+    });
+
     it('ofrece los periodos y el filtro por persona', async () => {
         mockApi();
         render(<Dashboard />);

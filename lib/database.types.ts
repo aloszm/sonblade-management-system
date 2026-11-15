@@ -931,6 +931,28 @@ export type Database = {
           },
         ]
       }
+      employee_time_off: {
+        Row: {
+          branch_id: string
+          business_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string
+          employee_id: string
+          ends_at: string
+          id: string
+          reason: string
+          requested_at: string
+          requested_via: string
+          starts_at: string
+        }
+        // Solo se escribe con create_time_off / cancel_time_off.
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       employees: {
         Row: {
           business_id: string
@@ -1326,6 +1348,39 @@ export type Database = {
           },
         ]
       }
+      report_exports: {
+        Row: {
+          audience: string
+          branch_id: string
+          business_id: string
+          folio: string
+          generated_at: string
+          generated_by: string
+          id: string
+          period_from: string
+          period_to: string
+          sha256: string
+          snapshot: Json
+        }
+        Insert: never
+        Update: never
+        Relationships: [
+          {
+            foreignKeyName: "report_exports_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_exports_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           appointment_id: string | null
@@ -1549,6 +1604,18 @@ export type Database = {
         Args: { p_branch_id: string; p_employee_id?: string; p_from: string; p_to: string }
         Returns: Json
       }
+      business_full_report: {
+        Args: { p_audience: string; p_branch_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      register_report_export: {
+        Args: { p_audience: string; p_branch_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      verify_report_export: {
+        Args: { p_code: string; p_folio: string }
+        Returns: Json
+      }
       set_cash_settings: {
         Args: { p_branch_id: string; p_float_target: number; p_reserve_amount: number; p_reserve_label: string }
         Returns: Json
@@ -1591,7 +1658,16 @@ export type Database = {
           p_notes?: string
           p_payments: Json
           p_tips?: Json
+          p_appointment_id?: string
         }
+        Returns: Json
+      }
+      create_time_off: {
+        Args: { p_branch_id: string; p_employee_id: string; p_ends_at: string; p_reason: string; p_requested_at: string; p_requested_via: string; p_starts_at: string }
+        Returns: Json
+      }
+      cancel_time_off: {
+        Args: { p_reason: string; p_time_off_id: string }
         Returns: Json
       }
       create_catalog_product: {

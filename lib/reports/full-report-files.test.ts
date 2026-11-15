@@ -1,0 +1,82 @@
+// @vitest-environment node
+import { describe, expect, it } from 'vitest';
+import ExcelJS from 'exceljs';
+import { buildReportModel } from './full-report';
+import { sampleReport } from './full-report.fixture';
+import { buildReportPdf, pdfSafe } from './full-report-pdf';
+import { buildReportXlsx, excelValue, spreadsheetSafe } from './full-report-xlsx';
+
+const CODE = '75fea062d75600fc8a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef';
+const issued = (audience: 'interno' | 'contador') => buildReportModel(sampleReport(audience), { folio: 'REP-000007', sha256: CODE });
+const asText = (bytes: Uint8Array) => Buffer.from(bytes).toString('latin1');
+
+describe('PDF del reporte', () => {
+    it('es un PDF con el folio y los primeros 16 caracteres del código en cada página', async () => {
+        const bytes = await buildReportPdf(issued('interno'));
+        expect(asText(bytes).startsWith('%PDF-')).toBe(true);
+        const text = asText(bytes);
+        const pages = (text.match(/\/Type \/Page\b/g) ?? []).length;
+        expect(pages).toBeGreaterThanOrEqual(8);
+        const footers = text.match(/Folio REP-000007 · Código 75fea062d75600fc/g) ?? [];
+        expect(footers.length).toBe(pages);
+        expect(text).toContain('Página 1 de');
+    });
+
+    it('con audiencia contador no contiene ningún nombre ni teléfono de cliente', async () => {
+        const external = asText(await buildReportPdf(issued('contador')));
+        for (const secret of ['Juan', 'Rez', 'María', '5551234567', '5557654321']) expect(external).not.toContain(secret);
+        const internal = asText(await buildReportPdf(issued('interno')));
+        expect(internal).toContain('5551234567');
+    });
+
+    it('cambia los caracteres que las fuentes del PDF no traen', () => {
+        expect(pdfSafe('Utilidad − costos → ≥ 5 ✓')).toBe('Utilidad - costos -> >= 5 ');
+        expect(pdfSafe('Corte · Año ñ é ¿?')).toBe('Corte · Año ñ é ¿?');
+    });
+});
+
+describe('Excel del reporte', () => {
+    it('trae una hoja por sección, con los nombres esperados', async () => {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(issued('interno'))) as unknown as ArrayBuffer);
+        expect(workbook.worksheets.map((s) => s.name)).toEqual(['Portada', 'Resumen', 'Ventas', 'Caja', 'Gastos', 'Comisiones', 'Inventario', 'Agenda', 'Bitácora', 'Anexo']);
+        expect(workbook.title).toContain('REP-000007');
+    });
+
+    it('guarda importes como números y las horas en la zona del negocio', async () => {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(issued('interno'))) as unknown as ArrayBuffer);
+        const annex = workbook.getWorksheet('Anexo')!;
+        const rows: unknown[][] = [];
+        annex.eachRow((row) => rows.push((row.values as unknown[]).slice(1)));
+        const first = rows.find((r) => r[1] === '5DD4C7BF')!;
+        // 20:06:09 UTC del 10 de noviembre = 14:06:09 en Ciudad de México
+        expect((first[0] as Date).toISOString()).toBe('2026-11-10T14:06:09.000Z');
+        expect(first[7]).toBe(200);
+        expect(first[10]).toBe('Juan Pérez');
+    });
+
+    it('el Excel contador no lleva clientes y la portada trae el código completo', async () => {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(issued('contador'))) as unknown as ArrayBuffer);
+        const everything: string[] = [];
+        workbook.eachSheet((sheet) => sheet.eachRow((row) => row.eachCell((cell) => everything.push(String(cell.value)))));
+        const joined = everything.join('|');
+        for (const secret of ['Juan', 'María', '5551234567']) expect(joined).not.toContain(secret);
+        expect(joined).toContain(CODE);
+    });
+
+    it('neutraliza fórmulas en el texto', async () => {
+        expect(spreadsheetSafe('=HYPERLINK("http://x")')).toBe(`'=HYPERLINK("http://x")`);
+        expect(spreadsheetSafe('+52 55')).toBe("'+52 55");
+        expect(spreadsheetSafe('-5')).toBe('-5');
+        expect(spreadsheetSafe('Corte')).toBe('Corte');
+        expect(excelValue({ header: 'x', type: 'text' }, '@cmd', 'UTC')).toBe("'@cmd");
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(issued('interno'))) as unknown as ArrayBuffer);
+        const sales = workbook.getWorksheet('Ventas')!;
+        let found = false;
+        sales.eachRow((row) => row.eachCell((cell) => { if (String(cell.value).includes('HYPERLINK')) { found = true; expect(String(cell.value).startsWith("'=")).toBe(true); } }));
+        expect(found).toBe(true);
+    });
+});

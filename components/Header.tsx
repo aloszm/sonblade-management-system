@@ -23,6 +23,7 @@ const pageTitles: Record<string, string> = {
   '/equipo': 'Equipo',
   '/liquidaciones': 'Pago semanal',
   '/reportes': 'Reportes',
+  '/reportes/verificar': 'Verificar reporte',
   '/admin': 'Administración',
   '/admin/auditoria': 'Bitácora',
   '/configuracion': 'Configuración',

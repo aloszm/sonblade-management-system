@@ -43,6 +43,8 @@ vi.mock('recharts', () => ({
     LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
     ComposedChart: ({ children }: any) => <div data-testid="composed-chart">{children}</div>,
     Line: () => <div />,
+    AreaChart: ({ children }: { children?: React.ReactNode }) => <div data-testid="area-chart">{children}</div>,
+    Area: () => <div />,
     PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
     Pie: ({ children }: any) => <div>{children}</div>,
     Cell: () => <div />,

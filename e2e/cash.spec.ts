@@ -31,7 +31,7 @@ test.describe('caja', () => {
 
         // No puede salir más efectivo del que hay.
         await page.getByRole('button', { name: 'Gasto, retiro o entrada' }).click();
-        await page.getByRole('button', { name: 'Retiro', exact: true }).click();
+        await page.getByRole('button', { name: /^Retiro/ }).click();
         await page.locator('#movement-concept').fill('Retiro imposible E2E');
         await page.locator('#movement-amount').fill(String(expectedBefore + 5000));
         await page.getByRole('button', { name: 'Registrar', exact: true }).click();

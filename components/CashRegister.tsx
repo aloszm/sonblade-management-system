@@ -14,10 +14,19 @@ const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigi
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
 const MOVEMENT_TYPES = [
-    { id: 'expense', label: 'Gasto', hint: 'Se pagó algo con dinero de la caja (agua, basura, insumos).' },
-    { id: 'withdrawal', label: 'Retiro', hint: 'Se sacó efectivo de la caja.' },
-    { id: 'deposit', label: 'Entrada', hint: 'Se metió efectivo a la caja (cambio, fondo extra).' },
+    { id: 'expense', label: 'Gasto', short: 'Pagas algo del negocio', example: 'Agua, basura, insumos, material de limpieza.', affects: true, effect: 'Baja la utilidad: es un costo del negocio.' },
+    { id: 'withdrawal', label: 'Retiro', short: 'El dinero cambia de lugar', example: 'Llevar efectivo al banco o a la caja fuerte, entregárselo al dueño, pagar comisiones en efectivo.', affects: false, effect: 'No baja la utilidad: el dinero sigue siendo del negocio, solo sale de la caja.' },
+    { id: 'deposit', label: 'Entrada', short: 'Metes efectivo a la caja', example: 'Cambio en billetes y monedas, fondo extra.', affects: false, effect: 'No sube la utilidad: no es una venta.' },
 ] as const;
+const TAG_STYLES: Record<NonNullable<CashMovement['tag']>, string> = {
+    Venta: 'bg-bos-success-soft text-bos-success',
+    Propina: 'bg-bos-success-soft text-bos-success',
+    Gasto: 'bg-bos-raised text-bos-danger',
+    Retiro: 'bg-bos-raised text-bos-text',
+    Entrada: 'bg-bos-raised text-bos-text',
+    Reembolso: 'bg-bos-raised text-bos-danger',
+    Ajuste: 'bg-bos-raised text-bos-muted',
+};
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface';
 const label = 'text-[13px] font-medium text-bos-muted';
@@ -362,7 +371,10 @@ export default function CashRegister() {
                                     </span>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-[15px] font-medium truncate">{m.description}</p>
-                                        <p className="text-sm text-bos-muted">{timeOf(m.created_at)} · {METHOD_LABELS[m.payment_method] ?? m.payment_method}</p>
+                                        <p className="text-sm text-bos-muted flex flex-wrap items-center gap-x-2">
+                                            {m.tag && <span data-testid="movement-tag" className={`inline-flex rounded-md px-1.5 py-0.5 text-xs font-semibold ${TAG_STYLES[m.tag]}`}>{m.tag}</span>}
+                                            <span>{timeOf(m.created_at)} · {METHOD_LABELS[m.payment_method] ?? m.payment_method}</span>
+                                        </p>
                                     </div>
                                     <span className={`font-display text-lg font-semibold tabular-nums ${incoming ? 'text-bos-success' : 'text-bos-danger'}`}>
                                         {incoming ? '+' : '−'}{money(m.amount)}
@@ -380,13 +392,30 @@ export default function CashRegister() {
             {movementOpen && (
                 <Dialog title="Registrar movimiento" onClose={() => setMovementOpen(false)}>
                     <form onSubmit={handleMovement} className="space-y-5">
-                        <div role="group" aria-label="Tipo de movimiento" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-bos-raised">
-                            {MOVEMENT_TYPES.map((t) => (
-                                <button key={t.id} type="button" aria-pressed={movementType === t.id} onClick={() => setMovementType(t.id)}
-                                    className={`h-11 rounded-lg text-sm font-semibold ${movementType === t.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{t.label}</button>
-                            ))}
+                        <div role="group" aria-label="Tipo de movimiento" className="grid gap-2">
+                            {MOVEMENT_TYPES.map((t) => {
+                                const selected = movementType === t.id;
+                                return (
+                                    <button key={t.id} type="button" aria-pressed={selected} onClick={() => setMovementType(t.id)}
+                                        className={`text-left rounded-xl border px-4 py-3 transition-colors ${selected ? 'border-bos-text bg-bos-raised' : 'border-bos-border hover:bg-bos-raised'}`}>
+                                        <span className="flex items-center justify-between gap-3">
+                                            <span className="font-semibold text-[15px]">{t.label}</span>
+                                            <span className={`text-xs font-medium ${t.affects ? 'text-bos-danger' : 'text-bos-muted'}`}>Afecta la utilidad: {t.affects ? 'sí' : 'no'}</span>
+                                        </span>
+                                        <span className="block text-sm text-bos-muted">{t.short}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
-                        <p className="text-sm text-bos-muted">{MOVEMENT_TYPES.find((t) => t.id === movementType)?.hint}</p>
+                        {(() => {
+                            const t = MOVEMENT_TYPES.find((x) => x.id === movementType)!;
+                            return (
+                                <div data-testid="movement-explain" className="rounded-xl bg-bos-raised px-4 py-3 text-sm space-y-1">
+                                    <p><span className="font-semibold">Ejemplos:</span> <span className="text-bos-muted">{t.example}</span></p>
+                                    <p className="text-bos-muted">{t.effect}</p>
+                                </div>
+                            );
+                        })()}
                         <div className="space-y-2">
                             <label htmlFor="movement-concept" className={label}>Concepto</label>
                             <input id="movement-concept" type="text" maxLength={300} placeholder="Ej. Agua, basura, cambio" value={movementConcept}

@@ -103,6 +103,19 @@ export function buildSessionView(
     };
 }
 
+/** Etiqueta corta del movimiento para la lista de la pantalla de caja. */
+export function movementTag(row: Pick<CashMovementRow, 'movement_type' | 'sale_id'>): NonNullable<CashMovement['tag']> {
+    if (isTipMovement(row)) return 'Propina';
+    switch (row.movement_type) {
+        case 'sale_payment': return 'Venta';
+        case 'expense': return 'Gasto';
+        case 'withdrawal': return 'Retiro';
+        case 'deposit': return 'Entrada';
+        case 'refund': return 'Reembolso';
+        default: return 'Ajuste';
+    }
+}
+
 /** Traduce un movimiento de la base al formato que muestra la pantalla. */
 export function toUiMovement(row: CashMovementRow): CashMovement {
     let type: CashMovement['type'];
@@ -125,6 +138,7 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
         payment_method: row.method,
         status: 'confirmed',
         created_at: row.created_at ?? '',
+        tag: movementTag(row),
     };
 }
 

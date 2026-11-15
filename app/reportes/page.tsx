@@ -1,285 +1,193 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { BarChart3, Download, TrendingUp, TrendingDown, Users, Scissors, PieChart as PieIcon, LineChart as LineIcon, Loader2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
-import { CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Check, FileSpreadsheet, FileText, Loader2, ShieldCheck } from 'lucide-react';
+import ReportPreview from '@/components/ReportPreview';
 import { localDateKey } from '@/lib/utils/dates';
+import {
+    AUDIENCE_LABELS, AUDIENCE_NOTES, REPORT_PRESETS, buildReportModel, reportFileName, reportPresetRange, validateRange,
+    type ReportPresetId,
+} from '@/lib/reports/full-report';
+import type { Audience, ExportedReport, FullReport } from '@/lib/reports/full-report-types';
 
-interface ReportData {
-    kpis: any;
-    serviceBreakdown: any[];
-    paymentBreakdown: any;
-    dailySales: any[];
+const card = 'rounded-xl border border-bos-border bg-bos-surface';
+const label = 'text-[13px] font-medium text-bos-muted';
+const field = 'h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text';
+const primary = 'min-h-[48px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
+const secondary = 'min-h-[48px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
+
+type Kind = 'pdf' | 'xlsx';
+const MIME: Record<Kind, string> = { pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+
+function saveFile(bytes: Uint8Array, filename: string, mime: string) {
+    const blob = new Blob([bytes as BlobPart], { type: mime });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
 }
 
-const COLORS = ['#D4AF37', '#000000', '#4B5563', '#9CA3AF'];
-
-const PERIOD_LABELS: Record<string, string> = { today: 'Hoy', week: 'Esta Semana', month: 'Este Mes' };
-
 export default function ReportsPage() {
-    const [data, setData] = useState<ReportData | null>(null);
+    const [today, setToday] = useState('');
+    const [preset, setPreset] = useState<ReportPresetId>('week');
+    const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+    const [audience, setAudience] = useState<Audience>('interno');
+    const [report, setReport] = useState<FullReport | null>(null);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState('week');
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState<Kind | null>(null);
+    const [issued, setIssued] = useState<{ folio: string; sha256: string; kind: Kind } | null>(null);
 
-    const generatePDF = async () => {
-        if (!data) return;
-        const { default: jsPDF } = await import('jspdf');
-        const { default: autoTable } = await import('jspdf-autotable');
-
-        const doc = new jsPDF();
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
-
-        // Header
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.text(CLIENT_NAME.toUpperCase(), 14, 20);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(120);
-        doc.text('Reporte Ejecutivo — ' + PERIOD_LABELS[period], 14, 28);
-        doc.text(`Generado con ${SYSTEM_NAME}: ` + dateStr, 14, 34);
-        doc.setTextColor(0);
-
-        // KPIs
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Resumen', 14, 46);
-
-        autoTable(doc, {
-            startY: 50,
-            head: [['Métrica', 'Valor']],
-            body: [
-                ['Ingresos Totales', `$${data.kpis.totalRevenue.toFixed(2)}`],
-                ['Comisiones', `$${data.kpis.totalCommissions.toFixed(2)}`],
-                ['Ticket Promedio', `$${data.kpis.avgTicket.toFixed(2)}`],
-                ['Visitas', String(data.kpis.totalSales)],
-                ['Efectivo', `$${data.paymentBreakdown.cash.toFixed(2)}`],
-                ['Tarjeta', `$${data.paymentBreakdown.card.toFixed(2)}`],
-                ['Transferencia', `$${data.paymentBreakdown.transfer.toFixed(2)}`],
-            ],
-            styles: { fontSize: 10 },
-            headStyles: { fillColor: [0, 0, 0], textColor: [212, 175, 55] },
-            alternateRowStyles: { fillColor: [248, 248, 248] },
-        });
-
-        // Top Services
-        if (data.serviceBreakdown.length > 0) {
-            const afterKpis = (doc as any).lastAutoTable.finalY + 12;
-            doc.setFontSize(13);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Servicios más Populares', 14, afterKpis);
-
-            autoTable(doc, {
-                startY: afterKpis + 4,
-                head: [['#', 'Servicio', 'Cantidad', 'Ingresos']],
-                body: data.serviceBreakdown.slice(0, 8).map((s, i) => [
-                    `#${i + 1}`, s.name, String(s.count), `$${s.revenue.toFixed(2)}`
-                ]),
-                styles: { fontSize: 10 },
-                headStyles: { fillColor: [0, 0, 0], textColor: [212, 175, 55] },
-            });
-        }
-
-        // Daily trend
-        if (data.dailySales.length > 0) {
-            const afterSvc = (doc as any).lastAutoTable.finalY + 12;
-            doc.setFontSize(13);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Tendencia Diaria', 14, afterSvc);
-
-            autoTable(doc, {
-                startY: afterSvc + 4,
-                head: [['Día', 'Ingresos', 'Ventas']],
-                body: data.dailySales.map((d: any) => [d.day, `$${Number(d.revenue).toFixed(2)}`, String(d.sales ?? '')]),
-                styles: { fontSize: 9 },
-                headStyles: { fillColor: [0, 0, 0], textColor: [212, 175, 55] },
-            });
-        }
-
-        doc.save(`${CLIENT_NAME.toLowerCase()}-reporte-${period}-${localDateKey(now)}.pdf`);
-    };
-
+    // "Hoy" se calcula en el dispositivo (la barbería), nunca en el servidor.
     useEffect(() => {
-        fetchData();
-    }, [period]);
+        const t = localDateKey(new Date());
+        setToday(t);
+        setRange(reportPresetRange('week', t));
+    }, []);
 
-    const fetchData = async () => {
+    const rangeError = range ? validateRange(range.from, range.to) : null;
+
+    const load = useCallback(async () => {
+        if (!range || validateRange(range.from, range.to)) return;
         setLoading(true);
         try {
-            const res = await fetch(`/api/admin/summary?period=${period}`);
-            if (res.ok) {
-                setData(await res.json());
-            }
+            const qs = new URLSearchParams({ from: range.from, to: range.to, audience });
+            const res = await fetch(`/api/reports/full?${qs}`, { cache: 'no-store' });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body?.detail && /[áéíóúñ¿]/.test(body.detail) ? body.detail : body?.error ?? 'No se pudo armar el reporte.');
+            setReport(body as FullReport);
+            setError('');
         } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
+            setReport(null);
+            setError(e instanceof Error ? e.message : 'No se pudo armar el reporte.');
+        } finally { setLoading(false); }
+    }, [range, audience]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const pickPreset = (id: ReportPresetId) => {
+        setPreset(id);
+        if (id !== 'custom' && today) setRange(reportPresetRange(id, today));
     };
 
-    if (loading || !data) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-sonblade-gold" />
-                <p className="text-gray-500 font-bold animate-pulse">Generando reportes inteligentes...</p>
-            </div>
-        );
-    }
+    const model = useMemo(() => (report ? buildReportModel(report) : null), [report]);
 
-    const pieData = [
-        { name: 'Efectivo', value: data.paymentBreakdown.cash },
-        { name: 'Tarjeta', value: data.paymentBreakdown.card },
-        { name: 'Transferencia', value: data.paymentBreakdown.transfer },
-    ].filter(d => d.value > 0);
+    // Cada archivo sale con un folio y un código nuevos, que la base registra antes de generarlo.
+    const download = async (kind: Kind) => {
+        if (!range || rangeError) return;
+        setBusy(kind);
+        setError('');
+        try {
+            const res = await fetch('/api/reports/export', {
+                method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from: range.from, to: range.to, audience }),
+            });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body?.error ?? 'No se pudo emitir el reporte.');
+            const exported = body as ExportedReport;
+            const finalModel = buildReportModel(exported.report, { folio: exported.folio, sha256: exported.sha256 });
+            const bytes = kind === 'pdf'
+                ? await (await import('@/lib/reports/full-report-pdf')).buildReportPdf(finalModel)
+                : await (await import('@/lib/reports/full-report-xlsx')).buildReportXlsx(finalModel);
+            saveFile(bytes, `${reportFileName(finalModel)}.${kind}`, MIME[kind]);
+            setIssued({ folio: exported.folio, sha256: exported.sha256, kind });
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'No se pudo generar el archivo.');
+        } finally { setBusy(null); }
+    };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 pb-12">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+            <header className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 flex items-center gap-3">
-                        <BarChart3 className="text-sonblade-gold h-8 w-8" />
-                        Centro de Reportes
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1">Análisis estadístico y exportación de datos operativos</p>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Reportes</h1>
+                    <p className="text-sm text-bos-muted max-w-2xl">Un reporte completo del periodo para el dueño, la gerencia y el contador. Cada archivo lleva un folio y un código para comprobar que es auténtico.</p>
                 </div>
+                <Link href="/reportes/verificar" className={`${secondary} min-h-[44px]`}>
+                    <ShieldCheck aria-hidden="true" className="h-5 w-5" /> Verificar un reporte
+                </Link>
+            </header>
 
-                <div className="flex items-center gap-3">
-                    <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
-                        {['today', 'week', 'month'].map(p => (
-                            <button
-                                key={p}
-                                onClick={() => setPeriod(p)}
-                                className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all ${period === p ? 'bg-black text-sonblade-gold shadow-md' : 'text-gray-400'}`}
-                            >
-                                {p === 'today' ? 'HOY' : p === 'week' ? 'SEMANA' : 'MES'}
+            <section aria-label="Opciones del reporte" className={`${card} p-5 space-y-5`}>
+                <div className="space-y-2">
+                    <p className={label}>Periodo</p>
+                    <div role="group" aria-label="Periodo" className="flex flex-wrap gap-1 p-1 rounded-xl bg-bos-raised w-fit max-w-full">
+                        {REPORT_PRESETS.map((pr) => (
+                            <button key={pr.id} type="button" aria-pressed={preset === pr.id} onClick={() => pickPreset(pr.id)}
+                                className={`h-10 px-4 rounded-lg text-sm font-semibold transition-colors ${preset === pr.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
+                                {pr.label}
                             </button>
                         ))}
                     </div>
-                    <button onClick={generatePDF} title="Descargar PDF" className="bg-sonblade-gold text-black p-2.5 rounded-xl hover:bg-yellow-500 transition-all shadow-lg">
-                        <Download className="h-5 w-5" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {[
-                    { label: 'Ingresos Totales', value: `$${data.kpis.totalRevenue.toFixed(2)}`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-                    { label: 'Comisiones Generadas', value: `$${data.kpis.totalCommissions.toFixed(2)}`, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50' },
-                    { label: 'Ticket Promedio', value: `$${data.kpis.avgTicket.toFixed(2)}`, icon: PieIcon, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { label: 'Visitas Totales', value: data.kpis.totalSales, icon: Users, color: 'text-sonblade-gold', bg: 'bg-yellow-50' },
-                ].map((kpi, i) => (
-                    <div key={i} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-                        <div className={`absolute top-0 right-0 w-16 h-16 ${kpi.bg} rounded-bl-full -mr-4 -mt-4 opacity-50`}></div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{kpi.label}</p>
-                        <p className={`text-2xl font-black ${kpi.color}`}>{kpi.value}</p>
-                        <kpi.icon className={`absolute bottom-4 right-4 h-5 w-5 ${kpi.color.replace('text-', 'text- opacity-20')}`} />
-                    </div>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="font-black text-gray-900 flex items-center gap-2"><LineIcon className="h-5 w-5 text-sonblade-gold" /> Tendencia de Ingresos</h3>
-                    </div>
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={data.dailySales}>
-                                <defs>
-                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
-                                    formatter={(v: any) => [`$${v}`, 'Ingresos']}
-                                />
-                                <Area type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="font-black text-gray-900 flex items-center gap-2"><PieIcon className="h-5 w-5 text-sonblade-gold" /> Métodos de Pago</h3>
-                        <div className="flex gap-4">
-                            {pieData.map((d, i) => (
-                                <div key={i} className="flex items-center gap-1.5">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{d.name}</span>
-                                </div>
-                            ))}
+                    {preset === 'custom' && range && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <label className="sr-only" htmlFor="report-from">Desde</label>
+                            <input id="report-from" type="date" value={range.from} max={range.to} onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })} className={field} />
+                            <span className="text-bos-muted">a</span>
+                            <label className="sr-only" htmlFor="report-to">Hasta</label>
+                            <input id="report-to" type="date" value={range.to} min={range.from} onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })} className={field} />
                         </div>
-                    </div>
-                    <div className="h-[300px] w-full flex items-center justify-center">
-                        {pieData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={pieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={110}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(v: any) => `$${v.toFixed(2)}`} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <p className="text-gray-400 italic">No hay datos de pago</p>
-                        )}
-                    </div>
+                    )}
+                    {rangeError && <p role="alert" className="text-sm text-bos-danger">{rangeError}</p>}
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm overflow-hidden">
-                    <h3 className="font-black text-gray-900 mb-6 flex items-center gap-2"><Scissors className="h-5 w-5 text-sonblade-gold" /> Ranking de Popularidad</h3>
-                    <div className="space-y-6">
-                        {data.serviceBreakdown.slice(0, 5).map((svc, i) => (
-                            <div key={i} className="space-y-2">
-                                <div className="flex justify-between items-end">
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-6 h-6 rounded-lg bg-gray-900 text-sonblade-gold text-[10px] font-black flex items-center justify-center">#{i + 1}</span>
-                                        <span className="font-bold text-gray-900 text-sm">{svc.name}</span>
-                                    </div>
-                                    <span className="text-xs font-black text-gray-400">{svc.count} servicios</span>
-                                </div>
-                                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-sonblade-gold rounded-full"
-                                        style={{ width: `${(svc.revenue / data.kpis.totalRevenue) * 100}%` }}
-                                    ></div>
-                                </div>
-                            </div>
+                <div className="space-y-2">
+                    <p className={label}>¿Para quién es?</p>
+                    <div role="group" aria-label="Audiencia" className="grid gap-2 sm:grid-cols-2">
+                        {(['interno', 'contador'] as const).map((a) => (
+                            <button key={a} type="button" aria-pressed={audience === a} onClick={() => setAudience(a)} data-testid={`audience-${a}`}
+                                className={`text-left rounded-xl border px-4 py-3 transition-colors ${audience === a ? 'border-bos-text bg-bos-raised' : 'border-bos-border hover:bg-bos-raised'}`}>
+                                <span className="block font-semibold text-[15px]">{AUDIENCE_LABELS[a]}</span>
+                                <span className="block text-sm text-bos-muted">{AUDIENCE_NOTES[a]}</span>
+                            </button>
                         ))}
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-sonblade-gold / 10 to-transparent rounded-[2rem] p-8 border border-sonblade-gold/20 flex flex-col justify-center items-center text-center">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-xl flex items-center justify-center mb-6">
-                        <Download className="h-8 w-8 text-sonblade-gold" />
-                    </div>
-                    <h3 className="font-black text-xl text-gray-900 mb-2">Reporte Ejecutivo PDF</h3>
-                    <p className="text-sm text-gray-500 mb-6">Genera un documento profesional con todos los KPIs para impresión o envío por correo.</p>
-                    <button onClick={generatePDF} className="w-full py-4 bg-black text-sonblade-gold font-black rounded-2xl hover:scale-105 transition-transform shadow-xl shadow-sonblade-gold/10">
-                        DESCARGAR PDF
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <button type="button" data-testid="download-pdf" onClick={() => download('pdf')} disabled={busy !== null || !report || !!rangeError} className={primary}>
+                        {busy === 'pdf' ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <FileText aria-hidden="true" className="h-5 w-5" />} Descargar PDF
                     </button>
+                    <button type="button" data-testid="download-xlsx" onClick={() => download('xlsx')} disabled={busy !== null || !report || !!rangeError} className={secondary}>
+                        {busy === 'xlsx' ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <FileSpreadsheet aria-hidden="true" className="h-5 w-5" />} Descargar Excel
+                    </button>
+                    <p className="text-sm text-bos-muted">Al descargar se emite un folio nuevo y queda anotado en la bitácora.</p>
                 </div>
-            </div>
+            </section>
+
+            {issued && (
+                <section aria-live="polite" data-testid="issued" className={`${card} p-5 flex flex-wrap items-start gap-4`}>
+                    <span aria-hidden="true" className="h-10 w-10 rounded-full bg-bos-success-soft text-bos-success inline-flex items-center justify-center shrink-0"><Check className="h-5 w-5" /></span>
+                    <div className="min-w-0 space-y-1">
+                        <p className="font-semibold">Reporte emitido: {issued.kind === 'pdf' ? 'PDF' : 'Excel'} descargado</p>
+                        <p className="text-sm text-bos-muted">Anota estos datos al archivarlo. Se comprueban en Verificar un reporte.</p>
+                        <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+                            <dt className="text-bos-muted">Folio</dt><dd data-testid="issued-folio" className="font-semibold tabular-nums">{issued.folio}</dd>
+                            <dt className="text-bos-muted">Código</dt><dd data-testid="issued-code" className="font-mono text-[13px] break-all">{issued.sha256}</dd>
+                        </dl>
+                    </div>
+                </section>
+            )}
+
+            {error && <p role="alert" className={`${card} p-4 text-bos-danger`}>{error}</p>}
+            {loading && !model && !error && <div className="flex justify-center py-24"><Loader2 aria-label="Cargando" className="h-8 w-8 animate-spin text-bos-muted" /></div>}
+
+            {model && (
+                <>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <div>
+                            <h2 className="font-display text-xl font-semibold">Vista previa</h2>
+                            <p className="text-sm text-bos-muted" data-testid="preview-period">{model.period.label} · {AUDIENCE_LABELS[model.audience]}. Todavía no tiene folio: se asigna al descargar.</p>
+                        </div>
+                        {loading && <Loader2 aria-label="Actualizando" className="h-5 w-5 animate-spin text-bos-muted" />}
+                    </div>
+                    <ReportPreview model={model} />
+                </>
+            )}
         </div>
     );
 }

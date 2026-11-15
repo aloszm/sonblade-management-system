@@ -148,6 +148,8 @@ export interface CashMovement {
     payment_method: string;
     status: 'confirmed' | 'pending';
     created_at: string;
+    /** Etiqueta para la lista de movimientos: Venta, Propina, Gasto, Retiro, Entrada o Reembolso. */
+    tag?: 'Venta' | 'Propina' | 'Gasto' | 'Retiro' | 'Entrada' | 'Reembolso' | 'Ajuste';
 }
 
 export type { AppointmentView as Appointment, AppointmentStatus } from '@/lib/appointments/appointments-view';
