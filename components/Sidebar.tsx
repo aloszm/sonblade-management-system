@@ -49,7 +49,7 @@ const menuSections: MenuSection[] = [
   {
     title: 'PRINCIPAL',
     items: [
-      { href: '/', label: 'Panel Dashboard', icon: LayoutDashboard, adminOnly: true },
+      { href: '/', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
       { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart },
       { href: '/ventas/historial', label: 'Historial de Ventas', icon: FileText, adminOnly: true },
     ]

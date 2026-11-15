@@ -41,6 +41,7 @@ vi.mock('recharts', () => ({
     BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
     Bar: () => <div />,
     LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+    ComposedChart: ({ children }: any) => <div data-testid="composed-chart">{children}</div>,
     Line: () => <div />,
     PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
     Pie: ({ children }: any) => <div>{children}</div>,

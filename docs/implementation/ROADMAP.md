@@ -24,18 +24,21 @@ Acceso por puesto, cobro con propina y descuento, ticket del cliente, caja con c
 
 ### Pendiente, en orden de ejecución
 
-1. **Perfil de gerente** (en curso).
-2. **Panel del barbero en celular** con podio de cortes (en curso).
-3. **Diseño nuevo en el resto de pantallas**: agenda, clientes, pago semanal, panel del dueño, reportes, inventario, equipo, configuración, bitácora. Hoy solo cobro y caja lo tienen; las demás conservan fondo claro aunque se elija modo oscuro.
-4. **Agenda propia**: horario de cada barbero (días, horas, descansos), vista general por barbero y vista personal en celular.
-5. **Página de reservas para clientes** (celular primero): por barbero o por hora; nombre y teléfono, sin cuenta; límite de intentos; enlace para cancelar; aviso de privacidad.
-6. **Barbero confirma el servicio** y recepción solo cobra (opcional; caja siempre puede cobrar directo).
-7. **Administración**: utilidad real (ingresos − comisiones − propinas − costo de producto − gastos) y **apartados tipo sobres**. Hoy cada cierre guarda cuánto se apartó, pero no hay pantalla que lo sume ni que registre cuándo se usa.
-8. **Historial por cliente**, cliente por cada servicio de la venta, familiares a cargo y reglas de puntos.
-9. **Metas de comisión**: como bono al cerrar la semana, no cambiando el porcentaje de cada corte.
-10. **Cuentas con nombre y PIN** (6 dígitos) y alta de personal desde la app. Requiere `SUPABASE_SERVICE_ROLE_KEY` como variable sensible en Vercel.
-11. **Producción**: base nueva y limpia en plan Pro, datos reales (servicios, precios, productos, existencias, gastos fijos, sueldos), variables de Vercel, y unificar nombres en GitHub, Vercel y Supabase. Requiere aprobación expresa del dueño paso por paso.
-12. Más adelante: espejo en Google Calendar, recordatorios por WhatsApp, factura fiscal si se necesita.
+1. ~~Perfil de gerente~~ (hecho) y ~~panel del barbero con podio de cortes~~ (hecho).
+2. **Panel del dueño rehecho** (en curso): estilo tipo Apple, elegante y ejecutivo, buen contraste en toda la página.
+3. **Métricas con filtros**: cortes por barbero y de la barbería por día, semana y mes; hora exacta de cada registro; horas y días fuertes; todo filtrable. La base ya guarda la hora exacta de cada cobro, pago, cita y cambio; falta verlo.
+4. **Agenda: la cita se abre en una ventana flotante** que se cierra al hacer clic afuera, en lugar de aparecer abajo y obligar a desplazarse.
+5. **Pago dividido en servicios**: poder cobrar un mismo servicio con dos métodos (por ejemplo, parte en efectivo y parte con tarjeta).
+6. **Diseño nuevo en el resto de pantallas**: agenda, clientes, pago semanal, panel del dueño, reportes, inventario, equipo, configuración, bitácora. Hoy solo cobro y caja lo tienen; las demás conservan fondo claro aunque se elija modo oscuro.
+7. **Agenda propia**: horario de cada barbero (días, horas, descansos), vista general por barbero y vista personal en celular.
+8. **Página de reservas para clientes** (celular primero): por barbero o por hora; nombre y teléfono, sin cuenta; límite de intentos; enlace para cancelar; aviso de privacidad.
+9. **Barbero confirma el servicio** y recepción solo cobra (opcional; caja siempre puede cobrar directo).
+10. **Administración**: utilidad real (ingresos − comisiones − propinas − costo de producto − gastos) y **apartados tipo sobres**. Hoy cada cierre guarda cuánto se apartó, pero no hay pantalla que lo sume ni que registre cuándo se usa.
+11. **Historial por cliente**, cliente por cada servicio de la venta, familiares a cargo y reglas de puntos.
+12. **Metas de comisión**: como bono al cerrar la semana, no cambiando el porcentaje de cada corte.
+13. **Cuentas con nombre y PIN** (6 dígitos) y alta de personal desde la app. Requiere `SUPABASE_SERVICE_ROLE_KEY` como variable sensible en Vercel.
+14. **Producción**: base nueva y limpia en plan Pro, datos reales (servicios, precios, productos, existencias, gastos fijos, sueldos), variables de Vercel, y unificar nombres en GitHub, Vercel y Supabase. Requiere aprobación expresa del dueño paso por paso.
+15. Más adelante: espejo en Google Calendar, recordatorios por WhatsApp, factura fiscal si se necesita.
 
 ### Detalles conocidos por resolver
 

@@ -1545,6 +1545,10 @@ export type Database = {
         Args: { p_branch_id: string }
         Returns: Json
       }
+      business_metrics: {
+        Args: { p_branch_id: string; p_employee_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       set_cash_settings: {
         Args: { p_branch_id: string; p_float_target: number; p_reserve_amount: number; p_reserve_label: string }
         Returns: Json

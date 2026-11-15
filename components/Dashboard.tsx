@@ -1,311 +1,429 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Calendar, DollarSign, Scissors, TrendingDown, Gift, Loader2, Award } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { motion, Variants } from 'framer-motion';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowDownRight, ArrowUpRight, Download, Loader2, Search } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { localDateKey } from '@/lib/utils/dates';
+import { downloadCsv } from '@/lib/utils/csv';
+import {
+    METHOD_LABELS, PRESETS, WEEKDAYS, activityRows, busiestHour, delta, presetRange,
+    type Kpis, type Metrics, type PresetId,
+} from '@/lib/reports/metrics';
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
-  }
+const money = (n: number) => `$${Math.round(n).toLocaleString('es-MX')}`;
+const money2 = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? 'am' : 'pm'}`;
+
+const card = 'rounded-2xl border border-bos-border bg-bos-surface';
+const label = 'text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted';
+const AXIS = { fill: 'var(--bos-muted)', fontSize: 12 };
+const TOOLTIP = {
+    contentStyle: { background: 'var(--bos-surface)', border: '1px solid var(--bos-border)', borderRadius: 12, color: 'var(--bos-text)', fontSize: 13 },
+    labelStyle: { color: 'var(--bos-muted)', marginBottom: 4 },
+    itemStyle: { color: 'var(--bos-text)' },
+    cursor: { fill: 'var(--bos-raised)' },
 };
 
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-};
-
-interface DashboardData {
-  kpis: {
-    revenue: number;
-    cuts: number;
-    tips: number;
-    expenses: number;
-  };
-  barbersTable: {
-    id: string;
-    name: string;
-    avatar_url: string;
-    cuts: number;
-    revenue: number;
-    commission: number;
-    rate: number;
-  }[];
-  charts: {
-    weekBar: { name: string; revenue: number }[];
-    monthLine: { name: string; revenue: number }[];
-    paymentDonut: { name: string; value: number }[];
-  };
+function Delta({ current, previous, invert = false }: { current: number; previous: number; invert?: boolean }) {
+    const d = delta(current, previous);
+    if (d === null) return <span className="text-sm text-bos-muted">Sin datos para comparar</span>;
+    if (d === 0) return <span className="text-sm text-bos-muted">Igual que el periodo anterior</span>;
+    const good = invert ? d < 0 : d > 0;
+    const Icon = d > 0 ? ArrowUpRight : ArrowDownRight;
+    return (
+        <span className={`inline-flex items-center gap-1 text-sm font-semibold ${good ? 'text-bos-success' : 'text-bos-danger'}`}>
+            <Icon aria-hidden="true" className="h-4 w-4" />{d > 0 ? '+' : ''}{d}%
+            <span className="font-normal text-bos-muted">vs. periodo anterior</span>
+        </span>
+    );
 }
 
-const PIE_COLORS = ['#D4AF37', '#000000', '#4B5563'];
+function BigStat({ title, value, current, previous, testId, invert }: { title: string; value: string; current: number; previous: number; testId: string; invert?: boolean }) {
+    return (
+        <div className={`${card} p-5 flex flex-col gap-2`}>
+            <p className={label}>{title}</p>
+            <p data-testid={testId} className="font-display text-4xl font-bold tabular-nums leading-none">{value}</p>
+            <Delta current={current} previous={previous} invert={invert} />
+        </div>
+    );
+}
+
+function SmallStat({ title, value }: { title: string; value: string }) {
+    return (
+        <div className="px-4 py-3 rounded-xl bg-bos-raised">
+            <p className="text-xs text-bos-muted">{title}</p>
+            <p className="mt-0.5 font-display text-xl font-semibold tabular-nums">{value}</p>
+        </div>
+    );
+}
 
 export default function Dashboard() {
-  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+    const [today, setToday] = useState('');
+    const [preset, setPreset] = useState<PresetId>('week');
+    const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+    const [barber, setBarber] = useState('');
+    const [team, setTeam] = useState<{ id: string; name: string }[]>([]);
+    const [data, setData] = useState<Metrics | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [search, setSearch] = useState('');
+    const [kind, setKind] = useState<'all' | 'service' | 'product'>('all');
+    const [shown, setShown] = useState(25);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/dashboard?period=${period}`);
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        }
-      } catch (error) {
-        console.error('Failed to fetch dashboard', error);
-      } finally {
-        setLoading(false);
-      }
+    // "Hoy" se calcula en el dispositivo (la barbería), nunca en el servidor.
+    useEffect(() => {
+        const t = localDateKey(new Date());
+        setToday(t);
+        setRange(presetRange('week', t));
+        fetch('/api/barbers?scope=team', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])).then((rows) => {
+            if (Array.isArray(rows)) setTeam(rows.map((r: { id: string; name: string }) => ({ id: r.id, name: r.name })));
+        }).catch(() => {});
+    }, []);
+
+    const load = useCallback(async () => {
+        if (!range) return;
+        setLoading(true);
+        try {
+            const qs = new URLSearchParams({ from: range.from, to: range.to, ...(barber ? { barber } : {}) });
+            const res = await fetch(`/api/metrics?${qs}`, { cache: 'no-store' });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar las métricas.');
+            setData(body as Metrics);
+            setError('');
+            setShown(25);
+        } catch (e) { setError(e instanceof Error ? e.message : 'No se pudieron cargar las métricas.'); }
+        finally { setLoading(false); }
+    }, [range, barber]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const pickPreset = (id: PresetId) => {
+        setPreset(id);
+        if (id !== 'custom' && today) setRange(presetRange(id, today));
     };
-    fetchDashboard();
-  }, [period]);
 
-  if (loading && !data) {
+    const k: Kpis | undefined = data?.kpis;
+    const p: Kpis | undefined = data?.previous;
+    const singleDay = (data?.range.days ?? 1) === 1;
+    const tz = data?.range.timezone ?? 'America/Mexico_City';
+
+    const hours = useMemo(() => {
+        if (!data) return [];
+        const withData = data.hourly.filter((h) => h.cuts > 0 || h.revenue > 0).map((h) => h.hour);
+        const first = Math.min(9, ...withData);
+        const last = Math.max(20, ...withData);
+        return data.hourly.filter((h) => h.hour >= first && h.hour <= last).map((h) => ({ ...h, label: hourLabel(h.hour) }));
+    }, [data]);
+
+    const days = useMemo(() => (data?.daily ?? []).map((d) => ({
+        ...d,
+        label: new Date(`${d.day}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }),
+    })), [data]);
+
+    const weekdays = useMemo(() => {
+        if (!data) return [];
+        // Lunes a domingo, que es como se lee la semana en la barbería.
+        return [1, 2, 3, 4, 5, 6, 0].map((dow) => {
+            const w = data.weekday.find((x) => x.dow === dow);
+            return { label: WEEKDAYS[dow].slice(0, 3), cuts: w?.cuts ?? 0, revenue: w?.revenue ?? 0 };
+        });
+    }, [data]);
+
+    const activity = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        return (data?.activity ?? []).filter((a) => (kind === 'all' || a.type === kind)
+            && (!term || [a.item, a.employee, a.client].some((v) => (v ?? '').toLowerCase().includes(term))));
+    }, [data, search, kind]);
+
+    const payTotal = data ? data.payments.cash + data.payments.card + data.payments.transfer + data.payments.other : 0;
+    const topBarberCuts = Math.max(1, ...(data?.barbers ?? []).map((b) => b.cuts));
+    const peak = data ? busiestHour(data.hourly) : null;
+    const rangeLabel = data
+        ? (data.range.from === data.range.to
+            ? new Date(`${data.range.from}T12:00:00Z`).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
+            : `${new Date(`${data.range.from}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' })} – ${new Date(`${data.range.to}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`)
+        : '';
+
+    const exportActivity = () => {
+        if (!data) return;
+        downloadCsv(`registro_${data.range.from}_a_${data.range.to}.csv`,
+            ['Fecha', 'Hora', 'Barbero', 'Tipo', 'Concepto', 'Cantidad', 'Importe', 'Forma de pago', 'Cliente'],
+            activityRows(activity, tz));
+    };
+
     return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <Loader2 className="animate-spin text-sonblade-gold h-8 w-8" />
-      </div>
-    );
-  }
-
-  const kpis = data?.kpis || { revenue: 0, cuts: 0, tips: 0, expenses: 0 };
-  const barbersTable = data?.barbersTable || [];
-  const charts = data?.charts || { weekBar: [], monthLine: [], paymentDonut: [] };
-
-  const stats = [
-    { label: 'Ingresos Totales', value: `$${kpis.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-sonblade-gold', bg: 'bg-yellow-50' },
-    { label: 'Servicios (Cortes)', value: kpis.cuts.toString(), icon: Scissors, color: 'text-gray-800', bg: 'bg-gray-100' },
-    { label: 'Propinas Generadas', value: `$${kpis.tips.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, icon: Gift, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'Egresos Caja', value: `$${kpis.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-50' },
-  ];
-
-  const periodLabel = period === 'today' ? 'Hoy' : period === 'week' ? 'Esta Semana' : 'Este Mes';
-
-  return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header & Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Super Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">Análisis en tiempo real de tu barbería</p>
-        </div>
-        <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-sm relative z-10">
-          <button
-            onClick={() => setPeriod('today')}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${period === 'today' ? 'bg-black text-sonblade-gold shadow' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            Día
-          </button>
-          <button
-            onClick={() => setPeriod('week')}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${period === 'week' ? 'bg-black text-sonblade-gold shadow' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            Semana
-          </button>
-          <button
-            onClick={() => setPeriod('month')}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${period === 'month' ? 'bg-black text-sonblade-gold shadow' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            Mes
-          </button>
-        </div>
-      </div>
-
-      {/* KPIs Grid */}
-      <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative">
-        {loading && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex items-center justify-center rounded-xl">
-            <Loader2 className="h-6 w-6 animate-spin text-sonblade-gold" />
-          </div>
-        )}
-        {stats.map((stat, idx) => (
-          <motion.div variants={itemVariants} key={idx} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-sonblade-gold/50 transition-colors">
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-2 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded text-gray-500 bg-gray-50 uppercase tracking-widest border border-gray-200">
-                {periodLabel}
-              </span>
-            </div>
-            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">{stat.label}</p>
-            <h3 className="text-3xl font-bold text-gray-900 truncate">{stat.value}</h3>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Income vs Expenses summary card */}
-      <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 shadow-md border border-gray-800 flex items-center justify-between text-white">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20">
-            <DollarSign className="h-8 w-8 text-sonblade-gold" />
-          </div>
-          <div>
-            <p className="text-gray-300 text-sm font-medium uppercase tracking-wider">Flujo de Caja ({periodLabel})</p>
-            <h2 className="text-2xl lg:text-3xl font-black mt-1 flex items-baseline gap-2">
-              ${(kpis.revenue - kpis.expenses).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              <span className="text-xs font-normal text-gray-400 bg-white/10 px-2 py-0.5 rounded-full">Utilidad Bruta</span>
-            </h2>
-          </div>
-        </div>
-        <div className="hidden md:flex gap-8 text-right">
-          <div>
-            <p className="text-green-400 text-xs font-bold uppercase tracking-wider">Ingresos (+)</p>
-            <p className="text-lg font-bold">${kpis.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div>
-            <p className="text-red-400 text-xs font-bold uppercase tracking-wider">Egresos (-)</p>
-            <p className="text-lg font-bold">${kpis.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
-      </div>
-
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Bar Chart (Current Week) */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
-          <h2 className="text-lg font-bold text-gray-900 mb-6">Ingresos (Semana Actual)</h2>
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.weekBar} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12, fontWeight: 500 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
-                <Tooltip
-                  cursor={{ fill: '#F3F4F6' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Ingreso']}
-                />
-                <Bar dataKey="revenue" fill="#D4AF37" radius={[4, 4, 0, 0]} maxBarSize={50} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Pie Chart (Payment Methods) */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 flex flex-col items-center">
-          <h2 className="text-lg font-bold text-gray-900 mb-2 w-full text-left">Métodos de Pago</h2>
-          <p className="text-xs text-gray-500 w-full text-left mb-4 uppercase">{periodLabel}</p>
-          <div className="h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                {charts.paymentDonut && charts.paymentDonut.length > 0 && (
-                  <Pie
-                    data={charts.paymentDonut}
-                    cx="50%" cy="50%"
-                    innerRadius={60} outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {charts.paymentDonut.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+        <div className="max-w-7xl mx-auto space-y-6">
+            <header className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h1 className="font-display text-3xl font-bold">Panel</h1>
+                    <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="range-label">{rangeLabel}</p>
+                </div>
+                <div role="group" aria-label="Periodo" className="flex flex-wrap gap-1 p-1 rounded-xl bg-bos-raised">
+                    {PRESETS.map((pr) => (
+                        <button key={pr.id} type="button" aria-pressed={preset === pr.id} onClick={() => pickPreset(pr.id)}
+                            className={`h-10 px-4 rounded-lg text-sm font-semibold transition-colors ${preset === pr.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
+                            {pr.label}
+                        </button>
                     ))}
-                  </Pie>
+                </div>
+            </header>
+
+            <div className="flex flex-wrap items-center gap-3">
+                {preset === 'custom' && range && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <label className="sr-only" htmlFor="metrics-from">Desde</label>
+                        <input id="metrics-from" type="date" value={range.from} max={range.to}
+                            onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })}
+                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text" />
+                        <span className="text-bos-muted">a</span>
+                        <label className="sr-only" htmlFor="metrics-to">Hasta</label>
+                        <input id="metrics-to" type="date" value={range.to} min={range.from}
+                            onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })}
+                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text" />
+                    </div>
                 )}
-                <Tooltip
-                  formatter={(value: any) => `$${Number(value).toFixed(2)}`}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="w-full grid grid-cols-2 gap-2 mt-4">
-            {charts.paymentDonut.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}></span>
-                {item.name}: <span className="text-gray-900">${item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Line Chart (Last 4 Weeks) */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:col-span-3">
-          <h2 className="text-lg font-bold text-gray-900 mb-6">Tendencia últimas 4 Semanas</h2>
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={charts.monthLine} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12, fontWeight: 500 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
-                <Tooltip
-                  cursor={{ stroke: '#D4AF37', strokeWidth: 1, strokeDasharray: '3 3' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Ingreso']}
-                />
-                <Line type="monotone" dataKey="revenue" stroke="#000000" strokeWidth={3} dot={{ r: 4, fill: '#D4AF37', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#D4AF37', stroke: '#000000', strokeWidth: 2 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Barber Summary Table (Always Weekly per requirements) */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm lg:col-span-3 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Award className="h-5 w-5 text-sonblade-gold" />
-                Rendimiento de Barberos
-              </h2>
-              <p className="text-xs text-gray-500 mt-1 uppercase font-semibold">Semana Actual (Domingo a Sábado)</p>
+                <div role="group" aria-label="Filtrar por persona" className="flex flex-wrap gap-2">
+                    {[{ id: '', name: 'Toda la barbería' }, ...team].map((t) => (
+                        <button key={t.id || 'all'} type="button" aria-pressed={barber === t.id} onClick={() => setBarber(t.id)}
+                            className={`min-h-10 px-4 rounded-full border text-sm font-semibold transition-colors ${barber === t.id ? 'border-bos-accent bg-bos-accent-soft text-bos-text' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
+                            {t.name}
+                        </button>
+                    ))}
+                </div>
+                {loading && data && <Loader2 aria-label="Actualizando" className="h-5 w-5 animate-spin text-bos-muted" />}
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-white text-gray-500 border-b border-gray-100">
-                <tr>
-                  <th className="p-4 font-semibold text-xs uppercase">Barbero</th>
-                  <th className="p-4 font-semibold text-xs uppercase text-center">Cortes (Semana)</th>
-                  <th className="p-4 font-semibold text-xs uppercase text-center">Tasa Actual (%)</th>
-                  <th className="p-4 font-semibold text-xs uppercase text-right">Ingresos (Semana)</th>
-                  <th className="p-4 font-semibold text-xs uppercase text-right">Comisión Proyectada</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {barbersTable.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-400 font-medium">No hay actividad de barberos esta semana</td>
-                  </tr>
-                )}
-                {barbersTable.map((barber) => (
-                  <tr key={barber.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-black to-gray-700 flex items-center justify-center text-sonblade-gold font-bold text-xs ring-2 ring-sonblade-gold/20">
-                          {barber.name.charAt(0)}
-                        </div>
-                        <Link href={`/barberos/${barber.id}`} className="font-bold text-gray-900 hover:text-sonblade-gold underline decoration-dotted underline-offset-4 transition-colors">{barber.name}</Link>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center font-bold text-gray-800">
-                      {barber.cuts}
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className="inline-flex bg-sonblade-gold text-black px-2 py-0.5 rounded text-xs font-bold">
-                        {barber.rate}%
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-bold text-gray-900">
-                      ${barber.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-4 text-right font-black text-sonblade-gold">
-                      ${barber.commission.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-      </motion.div>
-    </div>
-  );
+            {error && <p role="alert" className={`${card} p-4 text-bos-danger`}>{error}</p>}
+            {!data && loading && <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>}
+
+            {data && k && p && (
+                <>
+                    <section aria-label="Indicadores principales" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <BigStat title="Ingresos" value={money(k.revenue)} current={k.revenue} previous={p.revenue} testId="kpi-revenue" />
+                        <BigStat title="Cortes" value={String(k.cuts)} current={k.cuts} previous={p.cuts} testId="kpi-cuts" />
+                        <BigStat title="Ticket promedio" value={money(k.avg_ticket)} current={k.avg_ticket} previous={p.avg_ticket} testId="kpi-ticket" />
+                        {barber ? (
+                            <BigStat title="Comisión generada" value={money(k.commissions)} current={k.commissions} previous={p.commissions} testId="kpi-net" />
+                        ) : (
+                            <BigStat title="Utilidad" value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
+                        )}
+                    </section>
+
+                    <section aria-label="Más indicadores" className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                        <SmallStat title="Ventas" value={String(k.tickets)} />
+                        <SmallStat title="Clientes atendidos" value={String(k.clients)} />
+                        <SmallStat title="Clientes nuevos" value={String(data.new_clients)} />
+                        <SmallStat title="Productos vendidos" value={String(k.products)} />
+                        <SmallStat title="Propinas" value={money(k.tips)} />
+                        {barber ? <SmallStat title="Ventas registradas" value={String(data.activity.length)} /> : <SmallStat title="Comisiones" value={money(k.commissions)} />}
+                    </section>
+                    {!barber && (
+                        <p className="text-sm text-bos-muted">
+                            Utilidad = ingresos − comisiones − gastos ({money(k.expenses)}). Todavía no descuenta el costo de los productos ni los gastos fijos.
+                        </p>
+                    )}
+
+                    <section aria-labelledby="trend-title" className={`${card} p-5`}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+                            <h2 id="trend-title" className="font-display text-lg font-semibold">{singleDay ? 'Cortes e ingresos por hora' : 'Cortes e ingresos por día'}</h2>
+                            <p className="text-sm text-bos-muted">
+                                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-bos-accent align-middle mr-1.5" />Cortes
+                                <span className="inline-block h-0.5 w-4 bg-bos-text align-middle ml-4 mr-1.5" />Ingresos
+                            </p>
+                        </div>
+                        <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={singleDay ? hours : days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                                    <CartesianGrid vertical={false} stroke="var(--bos-border)" />
+                                    <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={16} />
+                                    <YAxis yAxisId="cuts" allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={32} />
+                                    <YAxis yAxisId="money" orientation="right" tick={AXIS} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => money(v)} />
+                                    <Tooltip {...TOOLTIP} formatter={(v, name) => (name === 'Ingresos' ? money2(Number(v ?? 0)) : Number(v ?? 0))} />
+                                    <Bar yAxisId="cuts" dataKey="cuts" name="Cortes" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                                    <Line yAxisId="money" dataKey="revenue" name="Ingresos" stroke="var(--bos-text)" strokeWidth={2} dot={{ r: 2.5, fill: "var(--bos-text)", strokeWidth: 0 }} activeDot={{ r: 4 }} type="linear" />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </section>
+
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        <section aria-labelledby="hours-title" className={`${card} p-5`}>
+                            <h2 id="hours-title" className="font-display text-lg font-semibold">Horas fuertes</h2>
+                            <p className="text-sm text-bos-muted mb-4">{peak === null ? 'Aún no hay cortes en este periodo.' : `La hora con más cortes es de ${hourLabel(peak)} a ${hourLabel(peak + 1)}.`}</p>
+                            <div className="h-56">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={hours} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                                        <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval={1} />
+                                        <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={28} />
+                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Cortes']} />
+                                        <Bar dataKey="cuts" name="Cortes" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </section>
+                        <section aria-labelledby="days-title" className={`${card} p-5`}>
+                            <h2 id="days-title" className="font-display text-lg font-semibold">Días fuertes</h2>
+                            <p className="text-sm text-bos-muted mb-4">Cortes por día de la semana en el periodo.</p>
+                            <div className="h-56">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={weekdays} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                                        <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} />
+                                        <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={28} />
+                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Cortes']} />
+                                        <Bar dataKey="cuts" name="Cortes" fill="var(--bos-text)" radius={[6, 6, 0, 0]} maxBarSize={44} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </section>
+                    </div>
+
+                    <section aria-labelledby="team-title" className={`${card} overflow-hidden`}>
+                        <h2 id="team-title" className="font-display text-lg font-semibold px-5 pt-5">Equipo</h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[720px] text-[15px] mt-3">
+                                <thead>
+                                    <tr className="text-left text-xs uppercase tracking-[0.08em] text-bos-muted">
+                                        <th className="px-5 py-3 font-semibold">Persona</th>
+                                        <th className="px-5 py-3 font-semibold">Cortes</th>
+                                        <th className="px-5 py-3 font-semibold text-right">Ingresos</th>
+                                        <th className="px-5 py-3 font-semibold text-right">Ticket prom.</th>
+                                        <th className="px-5 py-3 font-semibold text-right">Propinas</th>
+                                        <th className="px-5 py-3 font-semibold text-right">Comisión</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.barbers.map((b, i) => (
+                                        <tr key={b.id} data-testid="team-row" className="border-t border-bos-border tabular-nums">
+                                            <td className="px-5 py-3">
+                                                <span className="inline-flex items-center gap-3">
+                                                    <span aria-hidden="true" className={`h-8 w-8 rounded-full inline-flex items-center justify-center text-sm font-bold ${i === 0 && b.cuts > 0 ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised'}`}>{b.name.charAt(0)}</span>
+                                                    <span className="font-medium">{b.name}</span>
+                                                    {!b.is_barber && <span className="text-xs text-bos-muted">Recepción</span>}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3">
+                                                <span className="flex items-center gap-3">
+                                                    <span className="w-8 font-semibold">{b.cuts}</span>
+                                                    <span aria-hidden="true" className="hidden sm:block h-1.5 w-28 rounded-full bg-bos-raised overflow-hidden">
+                                                        <span className="block h-full rounded-full bg-bos-accent" style={{ width: `${Math.round((b.cuts / topBarberCuts) * 100)}%` }} />
+                                                    </span>
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3 text-right font-semibold">{money(b.revenue)}</td>
+                                            <td className="px-5 py-3 text-right">{money(b.avg_ticket)}</td>
+                                            <td className="px-5 py-3 text-right">{money(b.tips)}</td>
+                                            <td className="px-5 py-3 text-right">{money(b.commission)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                        <section aria-labelledby="services-title" className={`${card} p-5`}>
+                            <h2 id="services-title" className="font-display text-lg font-semibold mb-3">Lo más vendido</h2>
+                            {data.services.length === 0 ? <p className="text-bos-muted">Sin ventas en este periodo.</p> : (
+                                <ol className="space-y-2">
+                                    {data.services.slice(0, 8).map((s) => (
+                                        <li key={`${s.type}-${s.name}`} className="flex items-center justify-between gap-3 py-1.5 border-b border-bos-border last:border-b-0">
+                                            <span className="min-w-0">
+                                                <span className="block font-medium truncate">{s.name}</span>
+                                                <span className="text-xs text-bos-muted">{s.type === 'service' ? 'Servicio' : 'Producto'}</span>
+                                            </span>
+                                            <span className="text-right tabular-nums">
+                                                <span className="block font-semibold">{s.count}</span>
+                                                <span className="text-xs text-bos-muted">{money(s.revenue)}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ol>
+                            )}
+                        </section>
+                        <section aria-labelledby="pay-title" className={`${card} p-5`}>
+                            <h2 id="pay-title" className="font-display text-lg font-semibold mb-3">Cómo pagan</h2>
+                            {payTotal === 0 ? <p className="text-bos-muted">Sin pagos en este periodo.</p> : (
+                                <>
+                                    <div aria-hidden="true" className="flex h-3 rounded-full overflow-hidden bg-bos-raised mb-4">
+                                        <span className="bg-bos-accent" style={{ width: `${(data.payments.cash / payTotal) * 100}%` }} />
+                                        <span className="bg-bos-text" style={{ width: `${(data.payments.card / payTotal) * 100}%` }} />
+                                        <span className="bg-bos-muted" style={{ width: `${(data.payments.transfer / payTotal) * 100}%` }} />
+                                    </div>
+                                    <dl className="space-y-2 text-[15px]">
+                                        {([['cash', 'bg-bos-accent'], ['card', 'bg-bos-text'], ['transfer', 'bg-bos-muted']] as const).map(([m, color]) => (
+                                            <div key={m} className="flex items-center justify-between gap-3">
+                                                <dt className="flex items-center gap-2"><span aria-hidden="true" className={`h-2.5 w-2.5 rounded-sm ${color}`} />{METHOD_LABELS[m]}</dt>
+                                                <dd className="tabular-nums"><span className="font-semibold">{money(data.payments[m])}</span> <span className="text-bos-muted">· {Math.round((data.payments[m] / payTotal) * 100)}%</span></dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                    {barber && <p className="mt-3 text-xs text-bos-muted">Incluye el total de las ventas donde participó, también lo de otras personas en la misma venta.</p>}
+                                </>
+                            )}
+                        </section>
+                    </div>
+
+                    <section aria-labelledby="log-title" className={`${card} overflow-hidden`}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
+                            <div>
+                                <h2 id="log-title" className="font-display text-lg font-semibold">Registro</h2>
+                                <p className="text-sm text-bos-muted">Cada servicio y producto cobrado, con su hora exacta.</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="relative">
+                                    <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-bos-muted" />
+                                    <input type="search" aria-label="Buscar en el registro" placeholder="Buscar" value={search} onChange={(e) => setSearch(e.target.value)}
+                                        className="h-10 w-44 pl-9 pr-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent" />
+                                </div>
+                                <select aria-label="Tipo" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}
+                                    className="h-10 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text">
+                                    <option value="all">Todo</option><option value="service">Servicios</option><option value="product">Productos</option>
+                                </select>
+                                <button type="button" onClick={exportActivity} className="h-10 px-4 rounded-xl border border-bos-border text-sm font-semibold inline-flex items-center gap-2 hover:bg-bos-raised">
+                                    <Download aria-hidden="true" className="h-4 w-4" /> Descargar
+                                </button>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto mt-3">
+                            <table className="w-full min-w-[760px] text-[15px]">
+                                <thead>
+                                    <tr className="text-left text-xs uppercase tracking-[0.08em] text-bos-muted">
+                                        <th className="px-5 py-3 font-semibold">Fecha y hora</th>
+                                        <th className="px-5 py-3 font-semibold">Persona</th>
+                                        <th className="px-5 py-3 font-semibold">Concepto</th>
+                                        <th className="px-5 py-3 font-semibold">Pago</th>
+                                        <th className="px-5 py-3 font-semibold text-right">Importe</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {activity.slice(0, shown).map((a, i) => (
+                                        <tr key={`${a.sale_id}-${i}`} data-testid="log-row" className="border-t border-bos-border">
+                                            <td className="px-5 py-3 tabular-nums whitespace-nowrap">
+                                                {new Date(a.at).toLocaleString('es-MX', { timeZone: tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                            </td>
+                                            <td className="px-5 py-3">{a.employee ?? '—'}</td>
+                                            <td className="px-5 py-3">
+                                                {a.item}{a.quantity > 1 ? ` × ${a.quantity}` : ''}
+                                                {a.client && <span className="block text-xs text-bos-muted">{a.client}</span>}
+                                            </td>
+                                            <td className="px-5 py-3 text-bos-muted">{(a.methods ?? '').split(',').filter(Boolean).map((m) => METHOD_LABELS[m] ?? m).join(' + ')}</td>
+                                            <td className="px-5 py-3 text-right font-semibold tabular-nums">{money2(a.amount)}</td>
+                                        </tr>
+                                    ))}
+                                    {activity.length === 0 && <tr><td colSpan={5} className="px-5 py-8 text-center text-bos-muted">Nada que mostrar con estos filtros.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                        {activity.length > shown && (
+                            <div className="p-4 border-t border-bos-border text-center">
+                                <button type="button" onClick={() => setShown(shown + 50)} className="min-h-11 px-5 rounded-xl text-sm font-semibold text-bos-muted hover:text-bos-text hover:bg-bos-raised">
+                                    Ver más ({activity.length - shown} restantes)
+                                </button>
+                            </div>
+                        )}
+                    </section>
+                </>
+            )}
+        </div>
+    );
 }

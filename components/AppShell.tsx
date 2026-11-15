@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import MobileNav from '@/components/MobileNav';
 
 const REDESIGNED = ['/pos', '/caja', '/barbero'];
+const REDESIGNED_EXACT = ['/'];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
@@ -17,7 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     // Pantallas ya pasadas al diseño nuevo (colores centrales, modo oscuro y claro). Las demás
     // conservan su fondo claro original hasta que se migren, para que su texto siga legible.
-    const redesigned = REDESIGNED.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    const redesigned = REDESIGNED_EXACT.includes(pathname) || REDESIGNED.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 
     return (
         <div className="flex h-screen overflow-hidden bg-bos-bg flex-col md:flex-row print:block print:h-auto print:overflow-visible">
