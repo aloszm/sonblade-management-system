@@ -2,8 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Check, Loader2, Minus, Plus, Search, X } from 'lucide-react';
-import { usePOS, type CartItem, type PaymentType } from '@/hooks/usePOS';
+import { Check, Loader2, Lock, Minus, Plus, Search, X } from 'lucide-react';
+import { usePOS, MAX_FREE_PRICE, MIN_FREE_PRICE, parseFreePrice, type CartItem, type PaymentType, type PosError, type PosErrorField } from '@/hooks/usePOS';
 import { useCountUp } from '@/hooks/useCountUp';
 
 const money = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;
@@ -37,6 +37,19 @@ function MethodPicker({ label, value, onChange }: { label: string; value: Paymen
     );
 }
 
+/** Mensaje en línea junto al bloque que lo causa; al aparecer se desplaza hasta él. */
+function InlineError({ error, field, id, className = '' }: { error: PosError | null; field: PosErrorField; id?: string; className?: string }) {
+    const ref = React.useRef<HTMLParagraphElement>(null);
+    const shown = error && error.field === field ? error : null;
+    React.useEffect(() => {
+        if (!shown || !ref.current) return;
+        const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        ref.current.scrollIntoView?.({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+    }, [shown]);
+    if (!shown) return null;
+    return <p ref={ref} id={id} role="alert" className={`rounded-xl bg-bos-raised px-3 py-2 text-sm font-medium text-bos-danger ${className}`}>{shown.message}</p>;
+}
+
 export default function POS() {
     const { state, actions } = usePOS();
     const {
@@ -44,11 +57,12 @@ export default function POS() {
         clientSearch, submitting, showSuccess, lastSale, loadingBarbers, loadingServices,
         visibleBarbers, filteredClients, services, products, serviceItems, productItems, subtotal, total,
         discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, appointment, appointmentError,
+        error, cashStatus, canCharge,
     } = state;
     const {
         setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment, setTip, setTipPayment,
         setClientSearch, addService, addProduct, removeFromCart, handleSubmit,
-        setItemDiscount, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setServiceSplit, clearAppointment,
+        setItemDiscount, setItemPrice, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setServiceSplit, clearAppointment,
     } = actions;
 
     const [catalogFilter, setCatalogFilter] = React.useState('');
@@ -62,16 +76,20 @@ export default function POS() {
     const empty = cart.length === 0;
 
     const toggleService = (service: (typeof services)[number]) => {
+        // Un servicio de precio libre se agrega cada vez; se quita desde su renglón.
+        if (service.variable_price) { addService(service); return; }
         const inCart = cart.find((i) => i.service_id === service.id);
         if (inCart) removeFromCart(inCart.id); else addService(service);
     };
+
+    const firstBadPriceId = cart.find((i) => i.variable_price && parseFreePrice(i.price_input) === null)?.id;
 
     const line = (item: CartItem) => (
         <li key={item.id} className="py-3 border-b border-bos-border last:border-b-0">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-[15px] font-medium text-bos-text truncate">{item.name}</p>
-                    <p className="text-xs text-bos-muted">{item.quantity} × {money(item.price)}</p>
+                    <p className="text-xs text-bos-muted">{item.variable_price && item.price === 0 ? 'Precio al cobrar' : `${item.quantity} × ${money(item.price)}`}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {item.type === 'product' && (
@@ -83,11 +101,27 @@ export default function POS() {
                                 className="h-9 w-9 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><Plus className="h-4 w-4" /></button>
                         </div>
                     )}
-                    <span className="w-16 text-right text-[15px] font-semibold tabular-nums">{money(item.price * item.quantity - (item.discount ?? 0))}</span>
+                    <span className="w-16 text-right text-[15px] font-semibold tabular-nums">{item.variable_price && item.price === 0 ? '—' : money(item.price * item.quantity - (item.discount ?? 0))}</span>
                     <button type="button" aria-label={`Quitar ${item.name}`} onClick={() => removeFromCart(item.id)}
                         className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-bos-muted hover:text-bos-danger hover:bg-bos-raised"><X className="h-4 w-4" /></button>
                 </div>
             </div>
+            {item.variable_price && (
+                <div className="mt-2">
+                    <div className="flex items-center justify-between gap-3 text-sm text-bos-muted">
+                        <label htmlFor={`pos-price-${item.id}`}>Precio de {item.name}</label>
+                        <span className="relative">
+                            <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bos-muted">$</span>
+                            <input id={`pos-price-${item.id}`} type="text" inputMode="decimal" autoComplete="off" placeholder={`${MIN_FREE_PRICE} a ${MAX_FREE_PRICE}`}
+                                aria-invalid={error?.field === 'variable_price' && item.id === firstBadPriceId ? true : undefined}
+                                aria-describedby={error?.field === 'variable_price' && item.id === firstBadPriceId ? 'pos-price-error' : undefined}
+                                value={item.price_input ?? ''} onChange={(e) => setItemPrice(item.id, e.target.value)}
+                                className="w-32 h-11 pl-6 pr-3 rounded-lg bg-bos-bg border border-bos-border text-right text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent" />
+                        </span>
+                    </div>
+                    {item.id === firstBadPriceId && <InlineError error={error} field="variable_price" id="pos-price-error" className="mt-2" />}
+                </div>
+            )}
             {showDiscounts && (
                 <label className="mt-2 flex items-center justify-between gap-3 text-sm text-bos-muted">
                     Descuento en pesos
@@ -102,6 +136,15 @@ export default function POS() {
 
     return (
         <div className="max-w-[1400px] mx-auto grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+            {cashStatus === 'closed' && (
+                <div data-testid="pos-cash-closed" role="status" className="lg:col-span-2 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-bos-accent bg-bos-accent-soft p-4">
+                    <p className="flex items-center gap-3 text-[15px] font-semibold text-bos-text">
+                        <Lock aria-hidden="true" className="h-5 w-5 shrink-0 text-bos-accent-text" />
+                        La caja está cerrada. Ábrela antes de cobrar.
+                    </p>
+                    <Link href="/caja" className="min-h-11 px-5 inline-flex items-center justify-center rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105">Abrir caja</Link>
+                </div>
+            )}
             {/* Lo que se vende */}
             <div className="space-y-8 min-w-0">
                 {(appointment || appointmentError) && (
@@ -137,6 +180,7 @@ export default function POS() {
                             {visibleBarbers.length === 0 && <p className="text-sm text-bos-muted">No hay barberos activos. Agrégalos en Equipo.</p>}
                         </div>
                     )}
+                    <InlineError error={error} field="barber" />
                 </section>
 
                 <section aria-labelledby="pos-client" className="space-y-3">
@@ -185,13 +229,16 @@ export default function POS() {
                         <div className="grid gap-3 grid-cols-2 xl:grid-cols-3">
                             {shownServices.map((s) => {
                                 const selected = cart.some((i) => i.service_id === s.id);
+                                const count = s.variable_price ? cart.filter((i) => i.service_id === s.id).length : 0;
                                 return (
                                     <button key={s.id} type="button" aria-pressed={selected} onClick={() => toggleService(s)}
                                         className={`${choiceClass(selected)} min-h-24 p-4 flex flex-col justify-between gap-3`}>
                                         <span className="text-[15px] font-semibold text-bos-text">{s.name}</span>
                                         <span className="flex items-baseline justify-between gap-2">
-                                            <span className={`font-display text-2xl font-semibold tabular-nums ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(s.price))}</span>
-                                            <span className="text-xs text-bos-muted">{s.duration_minutes} min</span>
+                                            {s.variable_price
+                                                ? <span className={`font-display text-lg font-semibold ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>Precio al cobrar</span>
+                                                : <span className={`font-display text-2xl font-semibold tabular-nums ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(s.price))}</span>}
+                                            <span className="text-xs text-bos-muted">{count > 1 ? `${count} en la venta · ` : ''}{s.duration_minutes} min</span>
                                         </span>
                                     </button>
                                 );
@@ -224,7 +271,7 @@ export default function POS() {
             </div>
 
             {/* La venta y el cobro */}
-            <aside aria-label="Resumen de la venta" className="lg:sticky lg:top-0 rounded-xl border border-bos-border bg-bos-surface p-6 min-h-[560px] flex flex-col">
+            <aside aria-label="Resumen de la venta" className="lg:sticky lg:top-8 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto [&>*]:shrink-0 rounded-xl border border-bos-border bg-bos-surface p-6 lg:pb-0 min-h-[560px] lg:min-h-[min(560px,calc(100dvh-8rem))] flex flex-col">
                 {showSuccess && lastSale ? (
                     <div role="status" aria-live="polite" data-testid="pos-success" className="flex-1 flex flex-col items-center justify-center gap-5 text-center">
                         <div className="relative h-24 w-24">
@@ -269,6 +316,8 @@ export default function POS() {
                             <ul className="mt-2">{cart.map(line)}</ul>
                         )}
 
+                        <InlineError error={error} field="cart" className="mt-3" />
+
                         {!empty && (
                             <div className="mt-5 space-y-5">
                                 {discountTotal > 0 && (
@@ -281,6 +330,7 @@ export default function POS() {
                                             <option value="">¿Quién autoriza?</option>
                                             {authorizers.map((a) => <option key={a.user_id} value={a.user_id}>{a.name}</option>)}
                                         </select>
+                                        <InlineError error={error} field="discount" />
                                     </div>
                                 )}
 
@@ -314,10 +364,11 @@ export default function POS() {
                                                         <span className="text-bos-muted">Resto con {METHODS.find((m) => m.id === serviceSplit.second)?.label.toLowerCase()}</span>
                                                         <span data-testid="pos-split-rest" className={`font-semibold tabular-nums ${valid ? 'text-bos-text' : 'text-bos-danger'}`}>{valid ? money(rest) : '—'}</span>
                                                     </p>
-                                                    {serviceSplit.second === servicePayment && <p role="alert" className="text-sm text-bos-danger">Elige dos formas de pago distintas.</p>}
+                                                    <InlineError error={error} field="split" />
                                                 </div>
                                             );
                                         })()}
+                                        {!serviceSplit && <InlineError error={error} field="split" />}
                                     </div>
                                 )}
 
@@ -330,6 +381,7 @@ export default function POS() {
                                             <option value="">¿Quién lo vendió?</option>
                                             {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                                         </select>
+                                        <InlineError error={error} field="seller" />
                                     </div>
                                 )}
 
@@ -352,7 +404,9 @@ export default function POS() {
                             </div>
                         )}
 
-                        <div className="mt-auto pt-6 space-y-4">
+                        <div className="mt-auto pt-6 space-y-4 lg:sticky lg:bottom-0 lg:-mx-6 lg:px-6 lg:pb-6 lg:bg-bos-surface">
+                            <InlineError error={error} field="payment" />
+                            <InlineError error={error} field="server" />
                             <dl className="space-y-2 text-[15px]">
                                 <div className="flex justify-between text-bos-muted"><dt>Venta</dt><dd className="tabular-nums">{money(subtotal)}</dd></div>
                                 {discountTotal > 0 && <div className="flex justify-between text-bos-danger"><dt>Descuento</dt><dd className="tabular-nums">− {money(discountTotal)}</dd></div>}
@@ -362,9 +416,9 @@ export default function POS() {
                                     <dd data-testid="pos-total" className="font-display text-4xl font-semibold text-bos-accent-text tabular-nums">{money(total)}</dd>
                                 </div>
                             </dl>
-                            <button type="button" onClick={handleSubmit} disabled={empty || submitting}
-                                className={`w-full min-h-[60px] rounded-2xl text-[17px] font-bold transition-colors inline-flex items-center justify-center gap-2 ${empty ? 'bg-bos-raised text-bos-muted cursor-not-allowed' : 'bg-bos-accent text-bos-on-accent hover:brightness-105'}`}>
-                                {submitting ? <><Loader2 className="h-5 w-5 animate-spin" /> Registrando…</> : empty ? 'Agrega algo para cobrar' : `Cobrar ${money(total)}`}
+                            <button type="button" onClick={handleSubmit} disabled={empty || submitting || !canCharge}
+                                className={`w-full min-h-[60px] rounded-2xl text-[17px] font-bold transition-colors inline-flex items-center justify-center gap-2 ${empty || cashStatus === 'closed' ? 'bg-bos-raised text-bos-muted cursor-not-allowed' : 'bg-bos-accent text-bos-on-accent hover:brightness-105 disabled:cursor-not-allowed'}`}>
+                                {submitting ? <><Loader2 className="h-5 w-5 animate-spin" /> Registrando…</> : cashStatus === 'closed' ? 'Abre la caja para cobrar' : empty ? 'Agrega algo para cobrar' : `Cobrar ${money(total)}`}
                             </button>
                         </div>
                     </>

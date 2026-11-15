@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Appointment, Barber, Service, Product, Client } from '@/types';
 
 export interface CartItem {
@@ -11,6 +11,26 @@ export interface CartItem {
     service_id?: string;
     /** Descuento en pesos sobre el renglón completo. */
     discount?: number;
+    /** Servicio de precio libre: el precio se escribe al cobrar. */
+    variable_price?: boolean;
+    /** Lo que se escribió en el campo de precio (solo precio libre). */
+    price_input?: string;
+}
+
+export type PosErrorField = 'barber' | 'seller' | 'discount' | 'split' | 'cart' | 'payment' | 'server' | 'variable_price';
+export interface PosError { field: PosErrorField; message: string }
+/** 'checking': primera consulta; 'forbidden': esta persona no maneja caja (el servidor decide); 'unknown': no se pudo consultar. */
+export type CashStatus = 'checking' | 'open' | 'closed' | 'forbidden' | 'unknown';
+
+export const MIN_FREE_PRICE = 1;
+export const MAX_FREE_PRICE = 5000;
+
+/** Lee el precio escrito; devuelve null si falta o está fuera de 1 a 5000. */
+export function parseFreePrice(raw: string | undefined): number | null {
+    const text = (raw ?? '').trim().replace(',', '.');
+    if (!/^\d+(\.\d{1,2})?$/.test(text)) return null;
+    const value = Number(text);
+    return value >= MIN_FREE_PRICE && value <= MAX_FREE_PRICE ? value : null;
 }
 
 export interface DiscountAuthorizer { user_id: string; name: string }
@@ -20,6 +40,8 @@ export interface LastSale { id: string | null; saleTotal: number; tip: number; t
 const cents = (value: number) => Math.round(value * 100);
 const lineList = (item: CartItem) => item.price * item.quantity;
 const lineDiscount = (item: CartItem) => Math.min(Math.max(item.discount ?? 0, 0), lineList(item));
+const invalidFreePrice = (item: CartItem) => item.type === 'service' && Boolean(item.variable_price) && parseFreePrice(item.price_input) === null;
+let freeLineCounter = 0;
 
 export type PaymentType = 'cash' | 'card' | 'transfer';
 
@@ -38,6 +60,8 @@ export function usePOS() {
     const [productSearch, setProductSearch] = useState('');
     const [barberSearch, setBarberSearch] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<PosError | null>(null);
+    const [cashStatus, setCashStatus] = useState<CashStatus>('checking');
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastSaleTotal, setLastSaleTotal] = useState(0);
     const [lastSaleId, setLastSaleId] = useState<string | null>(null);
@@ -124,6 +148,32 @@ export function usePOS() {
         }).catch(console.error);
     }, []);
 
+    // La caja cerrada no deja cobrar: se consulta al abrir, al volver a la pestaña y tras cada venta.
+    const refreshCash = useCallback(async () => {
+        const keepIfKnown = (s: CashStatus): CashStatus => (s === 'checking' ? 'unknown' : s);
+        try {
+            const res = await fetch('/api/cash/session', { cache: 'no-store' });
+            if (res.status === 401 || res.status === 403) { setCashStatus('forbidden'); return; }
+            if (!res.ok) { setCashStatus(keepIfKnown); return; }
+            const body = await res.json().catch(() => undefined);
+            if (body === undefined) { setCashStatus(keepIfKnown); return; }
+            setCashStatus(body ? 'open' : 'closed');
+        } catch {
+            setCashStatus(keepIfKnown);
+        }
+    }, []);
+
+    useEffect(() => {
+        refreshCash();
+        const onVisible = () => { if (document.visibilityState === 'visible') refreshCash(); };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [refreshCash]);
+
+    const canCharge = cashStatus !== 'checking' && cashStatus !== 'closed';
+
+    const clearError = (...fields: PosErrorField[]) => setError((e) => (e && fields.includes(e.field) ? null : e));
+
     // Fetch user identity
     const [userRole, setUserRole] = useState<'admin' | 'recepcion' | 'barber' | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
@@ -203,19 +253,30 @@ export function usePOS() {
 
     const setItemDiscount = (id: string, amount: number) => {
         setCart(prev => prev.map(i => i.id === id ? { ...i, discount: Number.isFinite(amount) && amount > 0 ? amount : 0 } : i));
+        clearError('discount');
+    };
+
+    // El precio escrito alimenta el total, el pago dividido, la propina y los descuentos.
+    const setItemPrice = (id: string, raw: string) => {
+        const parsed = parseFreePrice(raw);
+        setCart(prev => prev.map(i => i.id === id ? { ...i, price_input: raw, price: parsed ?? 0 } : i));
+        clearError('variable_price');
     };
 
     const addService = (service: Service) => {
-        const existing = cart.find(i => i.service_id === service.id);
-        if (existing) return;
+        const free = Boolean(service.variable_price);
+        // Cada servicio de precio libre es un renglón propio; los demás no se repiten.
+        if (!free && cart.some(i => i.service_id === service.id)) return;
         setCart(prev => [...prev, {
-            id: `s-${service.id}`,
+            id: free ? `s-${service.id}-${++freeLineCounter}` : `s-${service.id}`,
             name: service.name,
-            price: service.price,
+            price: free ? 0 : service.price,
             type: 'service',
             quantity: 1,
             service_id: service.id,
+            ...(free ? { variable_price: true, price_input: '' } : {}),
         }]);
+        clearError('cart', 'variable_price', 'server');
         setServiceSearch('');
     };
 
@@ -235,11 +296,13 @@ export function usePOS() {
                 product_id: product.id,
             }]);
         }
+        clearError('cart', 'server');
         setProductSearch('');
     };
 
     const removeFromCart = (id: string) => {
         setCart(prev => prev.filter(i => i.id !== id));
+        clearError('cart', 'variable_price', 'server');
     };
 
     const computePaymentAmounts = () => {
@@ -277,45 +340,30 @@ export function usePOS() {
     // Una clave por venta: si se reintenta o se hace doble clic, la base no duplica el cobro.
     const idempotencyKey = useRef<string | null>(null);
 
+    const fail = (field: PosErrorField, message: string) => setError({ field, message });
+
     const handleSubmit = async () => {
-        if (cart.length === 0) {
-            alert('Agrega al menos un servicio o producto.');
-            return;
+        if (submitting || !canCharge) return;
+        if (cart.length === 0) return fail('cart', 'Agrega al menos un servicio o producto.');
+        const badPrice = cart.find(invalidFreePrice);
+        if (badPrice) {
+            return fail('variable_price', `Escribe el precio de ${badPrice.name}: de $${MIN_FREE_PRICE} a $${MAX_FREE_PRICE.toLocaleString('es-MX')}.`);
         }
         const hasServices = cart.some(i => i.type === 'service');
         const hasProducts = cart.some(i => i.type === 'product');
-        if ((hasServices || tip > 0) && !selectedBarber) {
-            alert('Selecciona al barbero que hizo el servicio.');
-            return;
-        }
-        if (hasProducts && !productSeller) {
-            alert('Indica quién vendió el producto.');
-            return;
-        }
-        if (submitting) return;
-        if (discountTotal > 0 && discountReason.trim().length < 3) {
-            alert('Escribe el motivo del descuento.');
-            return;
-        }
-        if (discountTotal > 0 && !discountAuthorizer) {
-            alert('Indica quién autoriza el descuento.');
-            return;
-        }
-        if (saleTotal <= 0) {
-            alert('El descuento no puede cubrir toda la venta.');
-            return;
-        }
+        if ((hasServices || tip > 0) && !selectedBarber) return fail('barber', 'Selecciona al barbero que hizo el servicio.');
+        if (hasProducts && !productSeller) return fail('seller', 'Indica quién vendió el producto.');
+        if (discountTotal > 0 && discountReason.trim().length < 3) return fail('discount', 'Escribe el motivo del descuento.');
+        if (discountTotal > 0 && !discountAuthorizer) return fail('discount', 'Indica quién autoriza el descuento.');
+        if (saleTotal <= 0) return fail('discount', 'El descuento no puede cubrir toda la venta.');
         if (serviceSplit && serviceTotal > 0) {
             const first = Number(serviceSplit.firstAmount);
             if (!(first > 0) || cents(first) >= cents(serviceTotal)) {
-                alert(`En el pago dividido, la primera parte debe ser mayor a $0 y menor a $${serviceTotal}.`);
-                return;
+                return fail('split', `En el pago dividido, la primera parte debe ser mayor a $0 y menor a $${serviceTotal}.`);
             }
-            if (serviceSplit.second === servicePayment) {
-                alert('Elige dos formas de pago distintas para dividir.');
-                return;
-            }
+            if (serviceSplit.second === servicePayment) return fail('split', 'Elige dos formas de pago distintas para dividir.');
         }
+        setError(null);
 
         setSubmitting(true);
         try {
@@ -325,7 +373,7 @@ export function usePOS() {
                 { method: 'card', amount: cardAmount },
                 { method: 'transfer', amount: transferAmount },
             ].filter(p => p.amount > 0);
-            if (payments.length === 0) throw new Error('Elige la forma de pago.');
+            if (payments.length === 0) return fail('payment', 'Elige la forma de pago.');
             if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID();
 
             // El servidor calcula precios y total desde el catálogo; aquí solo se indica qué se vende.
@@ -336,7 +384,7 @@ export function usePOS() {
                     idempotency_key: idempotencyKey.current,
                     client_id: selectedClient?.id || null,
                     items: cart.map(item => item.type === 'service'
-                        ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber?.id, discount_amount: lineDiscount(item) }
+                        ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber?.id, discount_amount: lineDiscount(item), ...(item.variable_price ? { unit_price: item.price } : {}) }
                         : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [productSeller], discount_amount: lineDiscount(item) }),
                     payments,
                     ...(discountTotal > 0 ? { discount_reason: discountReason.trim(), discount_authorized_by: discountAuthorizer } : {}),
@@ -346,8 +394,11 @@ export function usePOS() {
             });
 
             if (!res.ok) {
-                const errData = await res.json().catch(() => null);
-                throw new Error(errData?.detail ? `${errData.error} (${errData.detail})` : errData?.error || 'Error del servidor');
+                const errData = await res.json().catch(() => null) as { error?: string } | null;
+                const message = errData?.error || 'No se pudo registrar la venta. Intenta de nuevo.';
+                if (res.status === 409 && /caja/i.test(message)) setCashStatus('closed');
+                setError({ field: 'server', message });
+                return;
             }
 
             const saved = await res.json().catch(() => null) as { sale_id?: string } | null;
@@ -367,9 +418,10 @@ export function usePOS() {
             setLastSale({ id: saved?.sale_id ?? null, saleTotal, tip: selectedBarber ? tip : 0, total: selectedBarber ? total : saleTotal, barberName: selectedBarber?.name ?? null });
             // La confirmación se queda en pantalla hasta que recepción empieza otra venta.
             setShowSuccess(true);
+            refreshCash();
         } catch (err) {
             console.error('Error creating sale:', err);
-            alert(`Error al registrar la venta: ${err instanceof Error ? err.message : 'desconocido'}`);
+            setError({ field: 'server', message: 'No se pudo registrar la venta. Revisa tu conexión e intenta de nuevo.' });
         } finally {
             setSubmitting(false);
         }
@@ -384,8 +436,18 @@ export function usePOS() {
         }));
     };
 
+    const chooseBarber = (barber: Barber | null) => { setSelectedBarber(barber); clearError('barber'); };
+    const chooseServicePayment = (m: PaymentType) => { setServicePayment(m); clearError('split', 'payment', 'server'); };
+    const chooseProductPayment = (m: PaymentType) => { setProductPayment(m); clearError('payment', 'server'); };
+    const chooseTipPayment = (m: PaymentType) => { setTipPayment(m); clearError('payment', 'server'); };
+    const changeSplit = (value: { second: PaymentType; firstAmount: string } | null) => { setServiceSplit(value); clearError('split', 'server'); };
+    const changeDiscountReason = (value: string) => { setDiscountReason(value); clearError('discount'); };
+    const changeDiscountAuthorizer = (value: string) => { setDiscountAuthorizer(value); clearError('discount'); };
+    const chooseSeller = (value: string) => { setProductSellerChoice(value); clearError('seller'); };
+
     return {
         state: {
+            error, cashStatus, canCharge,
             selectedBarber, selectedClient, servicePayment, serviceSplit, serviceTotal, tipPayment, productPayment, tip, cart,
             clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, lastSaleId, lastSale,
             services: services ?? [], products: products ?? [],
@@ -395,10 +457,10 @@ export function usePOS() {
             appointment, appointmentError
         },
         actions: {
-            setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
+            setSelectedBarber: chooseBarber, setSelectedClient, setServicePayment: chooseServicePayment, setTipPayment: chooseTipPayment, setProductPayment: chooseProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setItemQuantity, setServiceSplit,
-            clearAppointment
+            setCart, setItemDiscount, setItemPrice, setDiscountReason: changeDiscountReason, setDiscountAuthorizer: changeDiscountAuthorizer, setProductSellerChoice: chooseSeller, startNewSale, setItemQuantity, setServiceSplit: changeSplit,
+            clearAppointment, refreshCash
         }
     };
 }
