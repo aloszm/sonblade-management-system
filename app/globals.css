@@ -75,15 +75,19 @@
 @keyframes bos-rise { 0% { transform: translateY(14px); opacity: 0 } 100% { transform: translateY(0); opacity: 1 } }
 @keyframes bos-float { 0% { transform: translateY(8px); opacity: 0 } 18% { transform: translateY(0); opacity: 1 } 70% { transform: translateY(-14px); opacity: 1 } 100% { transform: translateY(-28px); opacity: 0 } }
 @keyframes bos-grow { 0% { transform: scaleY(.08) } 100% { transform: scaleY(1) } }
+@keyframes bos-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes bos-sheet { from { transform: translateY(16px) scale(.98); opacity: 0 } to { transform: none; opacity: 1 } }
 @keyframes bos-ring { 0% { transform: scale(.8); opacity: .55 } 100% { transform: scale(1.9); opacity: 0 } }
 .bos-pop { animation: bos-pop .45s cubic-bezier(.2, .9, .3, 1.2) both }
 .bos-ring { animation: bos-ring 1.1s ease-out .15s both }
 .bos-draw { stroke-dasharray: 24; stroke-dashoffset: 24; animation: bos-draw .35s ease-out .3s forwards }
 .bos-rise { animation: bos-rise .4s ease-out both }
 .bos-float { animation: bos-float 1.6s ease-out forwards }
+.bos-fade { animation: bos-fade .18s ease-out both }
+.bos-sheet { animation: bos-sheet .22s cubic-bezier(.2, .8, .2, 1) both }
 .bos-grow { transform-origin: bottom; animation: bos-grow .6s cubic-bezier(.2, .8, .2, 1) both }
 @media (prefers-reduced-motion: reduce) {
-  .bos-pop, .bos-ring, .bos-draw, .bos-rise, .bos-grow { animation: none; stroke-dashoffset: 0 }
+  .bos-pop, .bos-ring, .bos-draw, .bos-rise, .bos-grow, .bos-fade, .bos-sheet { animation: none; stroke-dashoffset: 0 }
   .bos-float { animation: none; opacity: 0 }
 }
 

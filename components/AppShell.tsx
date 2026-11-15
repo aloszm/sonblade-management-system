@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import MobileNav from '@/components/MobileNav';
 
-const REDESIGNED = ['/pos', '/caja', '/barbero'];
+const REDESIGNED = ['/pos', '/caja', '/barbero', '/citas'];
 const REDESIGNED_EXACT = ['/'];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

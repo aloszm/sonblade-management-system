@@ -1,23 +1,31 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, User, Plus, Loader2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Clock, Loader2, Plus } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
 import type { Appointment, AppointmentStatus, Barber, Client } from '@/types';
 import {
     ACTION_LABELS, STATUS_LABELS, isActive, localDateKey, localDateTimeToIso, monthRange, nextStatuses,
 } from '@/lib/appointments/appointments-view';
 
-const STATUS_COLORS: Record<AppointmentStatus, string> = {
-    scheduled: 'bg-yellow-100 text-yellow-700',
-    confirmed: 'bg-blue-100 text-blue-700',
-    checked_in: 'bg-indigo-100 text-indigo-700',
-    in_progress: 'bg-purple-100 text-purple-700',
-    completed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-600',
-    no_show: 'bg-gray-200 text-gray-600',
+const STATUS_STYLE: Record<AppointmentStatus, string> = {
+    scheduled: 'bg-bos-raised text-bos-text',
+    confirmed: 'bg-bos-accent-soft text-bos-accent-text',
+    checked_in: 'bg-bos-success-soft text-bos-success',
+    in_progress: 'bg-bos-success-soft text-bos-success',
+    completed: 'bg-bos-success-soft text-bos-success',
+    cancelled: 'bg-bos-raised text-bos-danger',
+    no_show: 'bg-bos-raised text-bos-muted',
 };
+const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DURATIONS = [30, 45, 60, 90, 120];
 const EMPTY_FORM = { client_id: '', customer_name: '', customer_phone: '', barber_id: '', date: '', time: '', duration: 30, service_note: '' };
+
+const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+const fieldLabel = 'block text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted mb-1.5';
+const primary = 'min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 inline-flex items-center justify-center gap-2';
+const secondary = 'min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised inline-flex items-center justify-center gap-2';
 
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 const dayOf = (iso: string) => localDateKey(new Date(iso));
@@ -28,32 +36,28 @@ async function readError(res: Response, fallback: string): Promise<string> {
 }
 
 export default function AppointmentsPage() {
-    const today = new Date();
-    const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-    const [selectedDate, setSelectedDate] = useState<Date>(today);
+    const [today] = useState(() => new Date());
+    const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
-    const [showModal, setShowModal] = useState(false);
     const [canManage, setCanManage] = useState(false);
-
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
+
+    const [openDay, setOpenDay] = useState<string | null>(null);
+    const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
-
     const [busyId, setBusyId] = useState<string | null>(null);
     const [actionError, setActionError] = useState('');
     const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
     const [cancelReason, setCancelReason] = useState('');
 
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const todayKey = localDateKey(today);
 
     const fetchAppointments = useCallback(async () => {
         setLoading(true);
@@ -80,25 +84,32 @@ export default function AppointmentsPage() {
                 // El botón "Nueva Cita" del encabezado llega con ?nueva=1 para abrir el formulario.
                 if (manage && new URLSearchParams(window.location.search).get('nueva') === '1') {
                     setForm({ ...EMPTY_FORM, date: localDateKey(new Date()) });
-                    setShowModal(true);
+                    setShowForm(true);
                     window.history.replaceState(null, '', '/citas');
                 }
             }).catch(() => {});
     }, []);
 
-    const isToday = (d: number) => today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
-    const isSelected = (d: number) => selectedDate.getDate() === d && selectedDate.getMonth() === month && selectedDate.getFullYear() === year;
+    const byDay = useMemo(() => {
+        const map = new Map<string, Appointment[]>();
+        for (const a of appointments) {
+            const key = dayOf(a.scheduled_at);
+            map.set(key, [...(map.get(key) ?? []), a]);
+        }
+        return map;
+    }, [appointments]);
 
-    const selectedStr = localDateKey(selectedDate);
+    const openForm = (date: string) => {
+        setForm({ ...EMPTY_FORM, date });
+        setFormError('');
+        setShowForm(true);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError('');
-        if (!form.date || !form.time) { setFormError('Fecha y hora son requeridas'); return; }
-        if (!form.client_id && form.customer_name.trim().length < 2) {
-            setFormError('Elige un cliente o escribe el nombre de quien reserva.');
-            return;
-        }
+        if (!form.date || !form.time) { setFormError('Elige la fecha y la hora.'); return; }
+        if (!form.client_id && form.customer_name.trim().length < 2) { setFormError('Elige un cliente o escribe el nombre de quien reserva.'); return; }
         setSubmitting(true);
         try {
             const res = await fetch('/api/appointments', {
@@ -114,15 +125,13 @@ export default function AppointmentsPage() {
                     service_note: form.service_note.trim() || null,
                 }),
             });
-            if (!res.ok) throw new Error(await readError(res, 'Error al crear cita'));
+            if (!res.ok) throw new Error(await readError(res, 'No se pudo guardar la cita.'));
             await fetchAppointments();
-            setShowModal(false);
-            setForm(EMPTY_FORM);
-        } catch (err: unknown) {
-            setFormError(err instanceof Error ? err.message : 'Error desconocido');
-        } finally {
-            setSubmitting(false);
-        }
+            setShowForm(false);
+            setOpenDay(form.date);
+        } catch (err) {
+            setFormError(err instanceof Error ? err.message : 'No se pudo guardar la cita.');
+        } finally { setSubmitting(false); }
     };
 
     const changeStatus = async (apt: Appointment, status: AppointmentStatus, reason?: string): Promise<boolean> => {
@@ -130,8 +139,7 @@ export default function AppointmentsPage() {
         setBusyId(apt.id);
         try {
             const res = await fetch(`/api/appointments/${apt.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status, reason: reason ?? null }),
             });
             if (!res.ok) throw new Error(await readError(res, 'No se pudo actualizar la cita.'));
@@ -140,294 +148,212 @@ export default function AppointmentsPage() {
         } catch (err) {
             setActionError(err instanceof Error ? err.message : 'No se pudo actualizar la cita.');
             return false;
-        } finally {
-            setBusyId(null);
-        }
+        } finally { setBusyId(null); }
     };
 
     const confirmCancel = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!cancelTarget) return;
-        if (cancelReason.trim().length < 3) { setActionError('Indica el motivo de la cancelación.'); return; }
-        if (await changeStatus(cancelTarget, 'cancelled', cancelReason.trim())) {
-            setCancelTarget(null);
-            setCancelReason('');
-        }
+        if (cancelReason.trim().length < 3) { setActionError('Escribe el motivo de la cancelación.'); return; }
+        if (await changeStatus(cancelTarget, 'cancelled', cancelReason.trim())) { setCancelTarget(null); setCancelReason(''); }
     };
 
-    // Build calendar grid
+    // Cuadrícula del mes: de domingo a sábado, como la semana del negocio.
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
-    const days = [];
+    const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+    while (cells.length % 7 !== 0) cells.push(null);
 
-    for (let i = 0; i < firstDay; i++) {
-        days.push(<div key={`empty-${i}`} className="h-24 md:h-32 p-2 border border-gray-100 bg-gray-50/50" />);
-    }
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = localDateKey(new Date(year, month, d));
-        const dayApts = appointments.filter(a => dayOf(a.scheduled_at) === dateStr);
-        days.push(
-            <div key={`day-${d}`} data-testid={`day-${dateStr}`} onClick={() => setSelectedDate(new Date(year, month, d))}
-                className={`h-24 md:h-32 p-2 border border-gray-100 relative cursor-pointer transition-colors overflow-hidden hover:border-sonblade-gold/50
-                ${isSelected(d) ? 'bg-sonblade-gold/5 ring-1 ring-inset ring-sonblade-gold' : 'bg-white hover:bg-gray-50'}`}
-            >
-                <div className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full mb-1
-                    ${isToday(d) ? 'bg-sonblade-primary text-white font-bold' : isSelected(d) ? 'bg-sonblade-gold text-black' : 'text-gray-700'}`}>
-                    {d}
-                </div>
-                <div className="space-y-1 overflow-y-auto no-scrollbar max-h-[60px] md:max-h-[80px]">
-                    {dayApts.map(apt => (
-                        <div key={apt.id}
-                            className={`text-[10px] md:text-xs px-1.5 py-1 rounded border truncate ${isActive(apt.status)
-                                ? 'bg-sonblade-light text-sonblade-primary border-sonblade-gold/20'
-                                : 'bg-gray-100 text-gray-400 border-gray-200 line-through'}`}
-                            title={`${timeOf(apt.scheduled_at)} — ${apt.client_name} (${STATUS_LABELS[apt.status]})`}>
-                            {timeOf(apt.scheduled_at)} {apt.client_name}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-    const totalSlots = days.length > 35 ? 42 : 35;
-    for (let i = days.length; i < totalSlots; i++) {
-        days.push(<div key={`empty-end-${i}`} className="h-24 md:h-32 p-2 border border-gray-100 bg-gray-50/50" />);
-    }
-
-    const selectedApts = appointments.filter(a => dayOf(a.scheduled_at) === selectedStr);
+    const dayTitle = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+    const dayList = openDay ? (byDay.get(openDay) ?? []) : [];
 
     return (
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="max-w-6xl mx-auto space-y-6">
+            <header className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <CalendarIcon className="h-6 w-6 text-sonblade-gold" /> Calendario
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1">Gestiona las reservas de tus clientes</p>
+                    <h1 className="font-display text-3xl font-bold">Agenda</h1>
+                    <p className="text-sm text-bos-muted">Toca un día para ver sus citas.</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    {canManage && (
-                        <button
-                            onClick={() => { setForm({ ...EMPTY_FORM, date: selectedStr }); setFormError(''); setShowModal(true); }}
-                            className="bg-sonblade-primary text-sonblade-gold px-4 py-2 rounded-lg text-sm font-medium hover:bg-black transition-colors flex items-center gap-2"
-                        >
-                            <Plus className="h-4 w-4" /> Nueva Cita
-                        </button>
-                    )}
-                    <div className="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm">
-                        <button aria-label="Mes anterior" onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="p-2 hover:bg-gray-50 rounded-l-lg border-r border-gray-200">
-                            <ChevronLeft className="h-5 w-5 text-gray-600" />
-                        </button>
-                        <div className="px-4 py-2 font-semibold w-40 text-center text-gray-800 capitalize">
-                            {monthNames[month]} {year}
-                        </div>
-                        <button aria-label="Mes siguiente" onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="p-2 hover:bg-gray-50 rounded-r-lg border-l border-gray-200">
-                            <ChevronRight className="h-5 w-5 text-gray-600" />
-                        </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center rounded-xl border border-bos-border bg-bos-surface">
+                        <button type="button" aria-label="Mes anterior" onClick={() => setCursor(new Date(year, month - 1, 1))}
+                            className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronLeft className="h-5 w-5" /></button>
+                        <span className="w-40 text-center font-semibold" data-testid="calendar-month">{MONTHS[month]} {year}</span>
+                        <button type="button" aria-label="Mes siguiente" onClick={() => setCursor(new Date(year, month + 1, 1))}
+                            className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronRight className="h-5 w-5" /></button>
                     </div>
+                    {canManage && (
+                        <button type="button" onClick={() => openForm(todayKey)} className={primary}><Plus className="h-5 w-5" /> Nueva cita</button>
+                    )}
                 </div>
-            </div>
+            </header>
 
-            {loadError && <div role="alert" className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">{loadError}</div>}
+            {loadError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-4 text-bos-danger">{loadError}</p>}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-                    {weekDays.map((day, i) => (
-                        <div key={day} className={`text-center py-3 text-xs font-bold uppercase tracking-wider ${i === 0 ? 'text-red-500' : 'text-gray-500'}`}>
-                            {day}
-                        </div>
-                    ))}
+            <section aria-label="Calendario" className="rounded-2xl border border-bos-border bg-bos-surface overflow-hidden">
+                <div className="grid grid-cols-7 border-b border-bos-border">
+                    {WEEK.map((d) => <div key={d} className="py-3 text-center text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted">{d}</div>)}
                 </div>
                 {loading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <Loader2 className="h-8 w-8 animate-spin text-sonblade-gold" />
-                    </div>
+                    <div className="flex items-center justify-center h-80"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>
                 ) : (
-                    <div className="grid grid-cols-7">{days}</div>
+                    <div className="grid grid-cols-7">
+                        {cells.map((d, i) => {
+                            if (d === null) return <div key={`e${i}`} className="min-h-24 md:min-h-32 border-b border-r border-bos-border bg-bos-bg/40" />;
+                            const key = localDateKey(new Date(year, month, d));
+                            const list = byDay.get(key) ?? [];
+                            const active = list.filter((a) => isActive(a.status));
+                            const isToday = key === todayKey;
+                            return (
+                                <button key={key} type="button" data-testid={`day-${key}`} onClick={() => { setActionError(''); setOpenDay(key); }}
+                                    aria-label={`${dayTitle(key)}: ${active.length === 0 ? 'sin citas' : `${active.length} cita${active.length === 1 ? '' : 's'}`}`}
+                                    className="min-h-24 md:min-h-32 p-2 border-b border-r border-bos-border text-left align-top hover:bg-bos-raised transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bos-accent">
+                                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${isToday ? 'bg-bos-accent text-bos-on-accent' : 'text-bos-text'}`}>{d}</span>
+                                    <span className="hidden md:flex flex-col gap-1 mt-1">
+                                        {list.slice(0, 3).map((a) => (
+                                            <span key={a.id} className={`truncate rounded-md px-1.5 py-0.5 text-xs ${isActive(a.status) ? 'bg-bos-raised text-bos-text' : 'text-bos-muted line-through'}`}>
+                                                {timeOf(a.scheduled_at)} {a.client_name}
+                                            </span>
+                                        ))}
+                                        {list.length > 3 && <span className="text-xs text-bos-muted px-1.5">+{list.length - 3} más</span>}
+                                    </span>
+                                    {active.length > 0 && (
+                                        <span className="md:hidden mt-1 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-bos-accent-soft text-xs font-bold text-bos-accent-text">{active.length}</span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
                 )}
-            </div>
+            </section>
 
-            {/* Appointments for selected day */}
-            <div className="mt-8 bg-white p-6 rounded-xl border border-gray-200 shadow-sm" data-testid="day-list">
-                <h3 className="font-bold text-gray-900 mb-4 capitalize border-b pb-2">
-                    Citas del {selectedDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </h3>
-                {actionError && !cancelTarget && <div role="alert" className="mb-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">{actionError}</div>}
-                {selectedApts.length > 0 ? (
-                    <div className="space-y-3">
-                        {selectedApts.map(apt => (
-                            <div key={apt.id} data-testid="appointment" className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-start gap-3 min-w-0">
-                                        <div className="bg-sonblade-gold/20 p-2 rounded-full shrink-0">
-                                            <User className="h-4 w-4 text-sonblade-gold" />
-                                        </div>
+            {/* Citas del día: ventana flotante */}
+            {openDay && !showForm && !cancelTarget && (
+                <Modal title={dayTitle(openDay)} subtitle={dayList.length === 0 ? 'Sin citas' : `${dayList.length} cita${dayList.length === 1 ? '' : 's'}`}
+                    onClose={() => setOpenDay(null)} size="lg" testId="day-modal">
+                    {actionError && <p role="alert" className="mb-3 rounded-xl bg-bos-raised p-3 text-sm text-bos-danger">{actionError}</p>}
+                    {dayList.length === 0 ? (
+                        <p className="py-8 text-center text-bos-muted">No hay citas este día.</p>
+                    ) : (
+                        <ul className="space-y-3">
+                            {dayList.map((apt) => (
+                                <li key={apt.id} data-testid="appointment" className="rounded-2xl border border-bos-border p-4">
+                                    <div className="flex flex-col-reverse sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                                         <div className="min-w-0">
-                                            <p className={`font-semibold ${isActive(apt.status) ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{apt.client_name}</p>
-                                            <p className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[apt.status] ?? 'bg-gray-100 text-gray-500'}`}>
-                                                    {STATUS_LABELS[apt.status] ?? apt.status}
-                                                </span>
-                                                <span>· {apt.barber ? apt.barber.name : 'Sin barbero asignado'}</span>
+                                            <p className={`text-[15px] font-semibold ${isActive(apt.status) ? '' : 'text-bos-muted line-through'}`}>{apt.client_name}</p>
+                                            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-bos-muted">
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLE[apt.status]}`}>{STATUS_LABELS[apt.status]}</span>
+                                                <span>{apt.barber ? apt.barber.name : 'Sin barbero asignado'}</span>
                                                 {apt.customer_phone && <span>· {apt.customer_phone}</span>}
                                             </p>
-                                            {apt.notes && <p className="text-xs text-gray-600 mt-1 whitespace-pre-line">{apt.notes}</p>}
+                                            {apt.notes && <p className="mt-2 text-sm text-bos-muted whitespace-pre-line">{apt.notes}</p>}
                                         </div>
+                                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[15px] font-semibold tabular-nums">
+                                            <Clock aria-hidden="true" className="h-4 w-4 text-bos-muted" />
+                                            {timeOf(apt.scheduled_at)}{apt.end_at ? ` – ${timeOf(apt.end_at)}` : ''}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-1 text-gray-600 font-medium whitespace-nowrap text-sm">
-                                        <Clock className="h-4 w-4" />
-                                        {timeOf(apt.scheduled_at)}{apt.end_at ? ` – ${timeOf(apt.end_at)}` : ''}
-                                    </div>
-                                </div>
-                                {canManage && nextStatuses(apt.status).length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-3 pl-11">
-                                        {nextStatuses(apt.status).map(next => (
-                                            <button key={next} disabled={busyId === apt.id}
-                                                onClick={() => {
-                                                    if (next === 'cancelled') { setActionError(''); setCancelReason(''); setCancelTarget(apt); }
-                                                    else changeStatus(apt, next);
-                                                }}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50 ${next === 'cancelled'
-                                                    ? 'border-red-200 text-red-600 hover:bg-red-50'
-                                                    : next === 'no_show' ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                                                    : 'border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white'}`}>
-                                                {ACTION_LABELS[next]}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                                    {canManage && nextStatuses(apt.status).length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-3">
+                                            {nextStatuses(apt.status).map((next) => (
+                                                <button key={next} type="button" disabled={busyId === apt.id}
+                                                    onClick={() => { if (next === 'cancelled') { setActionError(''); setCancelReason(''); setCancelTarget(apt); } else changeStatus(apt, next); }}
+                                                    className={`min-h-11 px-4 rounded-xl border text-sm font-semibold disabled:opacity-50 ${next === 'cancelled' ? 'border-bos-border text-bos-danger hover:bg-bos-raised' : 'border-bos-border text-bos-text hover:bg-bos-raised'}`}>
+                                                    {ACTION_LABELS[next]}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {canManage && (
+                        <button type="button" onClick={() => openForm(openDay)} className={`${secondary} w-full mt-5`}><Plus className="h-5 w-5" /> Agendar en este día</button>
+                    )}
+                </Modal>
+            )}
+
+            {/* Nueva cita */}
+            {showForm && (
+                <Modal title="Nueva cita" onClose={() => setShowForm(false)}>
+                    {formError && <p role="alert" className="mb-4 rounded-xl bg-bos-raised p-3 text-sm text-bos-danger">{formError}</p>}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label htmlFor="apt-date" className={fieldLabel}>Fecha</label>
+                                <input id="apt-date" type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={field} />
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-gray-500 text-sm italic">No hay citas programadas para este día.</p>
-                )}
-            </div>
-
-            {/* Nueva Cita Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-5">
-                            <h2 className="text-lg font-bold flex items-center gap-2">
-                                <CalendarIcon className="h-5 w-5 text-sonblade-gold" /> Nueva Cita
-                            </h2>
-                            <button aria-label="Cerrar" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-900 bg-gray-100 rounded-full p-1.5 transition-colors">
-                                <X className="h-4 w-4" />
-                            </button>
+                            <div>
+                                <label htmlFor="apt-time" className={fieldLabel}>Hora</label>
+                                <input id="apt-time" type="time" required value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className={field} />
+                            </div>
                         </div>
-
-                        {formError && <div role="alert" className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">{formError}</div>}
-
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label htmlFor="apt-barber" className={fieldLabel}>Barbero</label>
+                            <select id="apt-barber" value={form.barber_id} onChange={(e) => setForm({ ...form, barber_id: e.target.value })} className={field}>
+                                <option value="">Sin barbero asignado</option>
+                                {barbers.filter((b) => b.status === 'active').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="apt-duration" className={fieldLabel}>Duración</label>
+                            <select id="apt-duration" value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })} className={field}>
+                                {DURATIONS.map((m) => <option key={m} value={m}>{m} minutos</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="apt-client" className={fieldLabel}>Cliente</label>
+                            <select id="apt-client" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} className={field}>
+                                <option value="">Cliente no registrado</option>
+                                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ''}</option>)}
+                            </select>
+                        </div>
+                        {!form.client_id && (
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label htmlFor="apt-date" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Fecha <span className="text-red-500">*</span></label>
-                                    <input id="apt-date" type="date" required value={form.date}
-                                        onChange={e => setForm({ ...form, date: e.target.value })}
-                                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black" />
+                                    <label htmlFor="apt-name" className={fieldLabel}>Nombre</label>
+                                    <input id="apt-name" type="text" maxLength={120} placeholder="Quién reserva" value={form.customer_name}
+                                        onChange={(e) => setForm({ ...form, customer_name: e.target.value })} className={field} />
                                 </div>
                                 <div>
-                                    <label htmlFor="apt-time" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Hora <span className="text-red-500">*</span></label>
-                                    <input id="apt-time" type="time" required value={form.time}
-                                        onChange={e => setForm({ ...form, time: e.target.value })}
-                                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black" />
+                                    <label htmlFor="apt-phone" className={fieldLabel}>Teléfono</label>
+                                    <input id="apt-phone" type="tel" maxLength={32} placeholder="Opcional" value={form.customer_phone}
+                                        onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} className={field} />
                                 </div>
                             </div>
-
-                            <div>
-                                <label htmlFor="apt-duration" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Duración</label>
-                                <select id="apt-duration" value={form.duration} onChange={e => setForm({ ...form, duration: Number(e.target.value) })}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black">
-                                    {DURATIONS.map(m => <option key={m} value={m}>{m} minutos</option>)}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label htmlFor="apt-client" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Cliente</label>
-                                <select id="apt-client" value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black">
-                                    <option value="">Cliente no registrado</option>
-                                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ''}</option>)}
-                                </select>
-                            </div>
-
-                            {!form.client_id && (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label htmlFor="apt-name" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Nombre <span className="text-red-500">*</span></label>
-                                        <input id="apt-name" type="text" value={form.customer_name} maxLength={120}
-                                            onChange={e => setForm({ ...form, customer_name: e.target.value })}
-                                            placeholder="Quién reserva"
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black" />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="apt-phone" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Teléfono</label>
-                                        <input id="apt-phone" type="tel" value={form.customer_phone} maxLength={32}
-                                            onChange={e => setForm({ ...form, customer_phone: e.target.value })}
-                                            placeholder="Opcional"
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black" />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div>
-                                <label htmlFor="apt-barber" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Barbero</label>
-                                <select id="apt-barber" value={form.barber_id} onChange={e => setForm({ ...form, barber_id: e.target.value })}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black">
-                                    <option value="">Sin barbero asignado</option>
-                                    {barbers.filter(b => b.status === 'active').map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label htmlFor="apt-note" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Nota / Servicio</label>
-                                <input id="apt-note" type="text" value={form.service_note} maxLength={500}
-                                    onChange={e => setForm({ ...form, service_note: e.target.value })}
-                                    placeholder="Ej. Corte degradado + barba"
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black" />
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => setShowModal(false)}
-                                    className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-50 transition-colors">
-                                    Cerrar
-                                </button>
-                                <button type="submit" disabled={submitting}
-                                    className="flex-1 px-4 py-2.5 bg-black text-sonblade-gold font-bold text-sm rounded-xl hover:bg-gray-900 transition-colors disabled:opacity-70 flex items-center justify-center gap-2">
-                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar Cita'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                        )}
+                        <div>
+                            <label htmlFor="apt-note" className={fieldLabel}>Nota o servicio</label>
+                            <input id="apt-note" type="text" maxLength={500} placeholder="Ej. Corte degradado + barba" value={form.service_note}
+                                onChange={(e) => setForm({ ...form, service_note: e.target.value })} className={field} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                            <button type="button" onClick={() => setShowForm(false)} className={secondary}>Cancelar</button>
+                            <button type="submit" disabled={submitting} className={primary}>{submitting && <Loader2 className="h-5 w-5 animate-spin" />} Guardar cita</button>
+                        </div>
+                    </form>
+                </Modal>
             )}
 
             {/* Cancelar cita: no se borra, queda registrada con su motivo */}
             {cancelTarget && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <form onSubmit={confirmCancel} className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-                        <h2 className="text-lg font-bold mb-1">Cancelar cita</h2>
-                        <p className="text-sm text-gray-500 mb-4">
-                            {cancelTarget.client_name} · {timeOf(cancelTarget.scheduled_at)}. La cita no se borra: queda registrada como cancelada.
-                        </p>
-                        {actionError && <div role="alert" className="mb-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">{actionError}</div>}
-                        <label htmlFor="cancel-reason" className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Motivo <span className="text-red-500">*</span></label>
-                        <textarea id="cancel-reason" value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={3} maxLength={300} autoFocus
-                            placeholder="Ej. El cliente avisó que no puede venir"
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black" />
-                        <div className="flex gap-3 pt-4">
-                            <button type="button" onClick={() => { setCancelTarget(null); setActionError(''); }}
-                                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-50 transition-colors">
-                                Volver
-                            </button>
-                            <button type="submit" disabled={busyId === cancelTarget.id}
-                                className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 transition-colors disabled:opacity-70">
-                                Cancelar cita
-                            </button>
+                <Modal title="Cancelar cita" subtitle={`${cancelTarget.client_name} · ${timeOf(cancelTarget.scheduled_at)}`} onClose={() => { setCancelTarget(null); setActionError(''); }}>
+                    <form onSubmit={confirmCancel} className="space-y-4">
+                        <p className="text-sm text-bos-muted">La cita no se borra: queda registrada como cancelada, con su motivo.</p>
+                        {actionError && <p role="alert" className="rounded-xl bg-bos-raised p-3 text-sm text-bos-danger">{actionError}</p>}
+                        <div>
+                            <label htmlFor="cancel-reason" className={fieldLabel}>Motivo</label>
+                            <textarea id="cancel-reason" rows={3} maxLength={300} autoFocus placeholder="Ej. El cliente avisó que no puede venir"
+                                value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
+                                className="w-full px-3 py-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button type="button" onClick={() => { setCancelTarget(null); setActionError(''); }} className={secondary}>Volver</button>
+                            <button type="submit" disabled={busyId === cancelTarget.id} className="min-h-[52px] rounded-xl bg-bos-danger text-bos-bg text-[15px] font-bold disabled:opacity-50">Cancelar cita</button>
                         </div>
                     </form>
-                </div>
+                </Modal>
             )}
         </div>
     );
