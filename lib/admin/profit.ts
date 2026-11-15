@@ -20,6 +20,16 @@
 //   del producto. Si falta (null), no se asume cero: se cuenta en productsWithoutCost.
 // - Gastos: expenses con status 'posted' por fecha incurred_at, agrupados por categoría.
 // - Dinero en centavos enteros; se convierte a pesos solo al entregar el resultado.
+//
+// Ampliación (tablero financiero), de dónde sale cada dato:
+// - Barbero de cada renglón de servicio: sale_items.employee_id. En productos, sale_items.commission_employee_id
+//   (quien vendió, por ejemplo recepción); si no hay, la venta de producto queda "Sin asignar".
+// - Dueño de cada comisión: commission_entries.employee_id. De cada propina: sale_tips.employee_id.
+// - Método de cada propina: sale_tips.method. Método de cada cobro: payments.method (solo status 'confirmed').
+// - Día de cada venta: sales.paid_at; de cada gasto: expenses.incurred_at; ambos en la hora de la barbería,
+//   nunca en UTC. Las propinas no entran en la serie por día porque no son ingreso ni egreso.
+
+import { addDays } from '@/lib/settlements/week';
 
 export type SaleRow = { id: string; status: string; paid_at: string | null };
 export type SaleItemRow = {
@@ -31,11 +41,15 @@ export type SaleItemRow = {
     quantity: number | string;
     discount_amount: number | string;
     line_total: number | string;
+    employee_id?: string | null;
+    commission_employee_id?: string | null;
 };
-export type CommissionRow = { sale_id: string; sale_item_id: string; commission_amount: number | string; status: string };
-export type TipRow = { sale_id: string; amount: number | string; status: string };
+export type CommissionRow = { sale_id: string; sale_item_id: string; commission_amount: number | string; status: string; employee_id?: string | null };
+export type TipRow = { sale_id: string; amount: number | string; status: string; employee_id?: string | null; method?: string | null };
+export type PaymentRow = { sale_id: string; method: string; amount: number | string; status: string };
+export type EmployeeRow = { id: string; display_name: string };
 export type ProductCostRow = { id: string; name: string; cost_price: number | string | null };
-export type ExpenseRow = { amount: number | string; category: string | null; status: string };
+export type ExpenseRow = { amount: number | string; category: string | null; status: string; incurred_at?: string | null };
 
 export type ProfitInput = {
     sales: SaleRow[];
@@ -44,12 +58,37 @@ export type ProfitInput = {
     tips: TipRow[];
     products: ProductCostRow[];
     expenses: ExpenseRow[];
+    /** Cobros de las ventas. Sin esto, payments sale vacío. */
+    payments?: PaymentRow[];
+    employees?: EmployeeRow[];
+    /** Periodo y zona horaria: sin esto no se arma la serie por día. */
+    period?: { from: string; to: string; timezone: string };
 };
+
+export type MethodTotal = { method: string; total: number; count: number };
+export type BarberRow = {
+    employeeId: string | null;
+    name: string;
+    /** Ventas netas de descuento que generó (servicios + productos). */
+    sales: number;
+    services: number;
+    products: number;
+    serviceUnits: number;
+    commission: number;
+    /** Costo de los productos que vendió. */
+    productCost: number;
+    /** Lo que deja al negocio: ventas − comisión − costo de sus productos (antes de gastos generales). */
+    keeps: number;
+    /** Propinas: son suyas al 100 %, no entran en lo anterior. */
+    tips: number;
+    tipCount: number;
+};
+export type DailyRow = { date: string; revenue: number; commissions: number; productCost: number; expenses: number; outflow: number; net: number };
 
 export type ProfitStatement = {
     revenue: { services: number; products: number; total: number; discounts: number };
     commissions: { services: number; products: number; total: number };
-    tips: { total: number; count: number };
+    tips: { total: number; count: number; byBarber: { employeeId: string | null; name: string; total: number; count: number }[]; byMethod: MethodTotal[] };
     productCost: { total: number; unitsWithoutCost: number; missing: { productId: string; name: string; units: number }[] };
     productsWithoutCost: number;
     expenses: { total: number; byCategory: { category: string; total: number; count: number }[] };
@@ -57,9 +96,22 @@ export type ProfitStatement = {
     /** Utilidad / ingresos × 100, a un decimal. null si no hubo ingresos (no se divide entre cero). */
     marginPct: number | null;
     counts: { sales: number; voidedExcluded: number; serviceUnits: number; productUnits: number };
+    barbers: BarberRow[];
+    /** Una fila por cada día del periodo (también los de cero). Vacío si no se indicó periodo. */
+    daily: DailyRow[];
+    /** Cobros de ventas por método de pago (efectivo, tarjeta, transferencia y, si hubo, otro). */
+    payments: { total: number; byMethod: (MethodTotal & { sharePct: number | null })[] };
 };
 
-export type ProfitReport = ProfitStatement & { period: { from: string; to: string; timezone: string } };
+export type Delta = { current: number; previous: number; delta: number; /** null si el periodo anterior vale cero (sin base). */ pct: number | null };
+export type PeriodComparison = {
+    period: { from: string; to: string };
+    /** false si el periodo anterior no tuvo ventas cobradas ni gastos. */
+    hasBase: boolean;
+    revenue: Delta; profit: Delta; expenses: Delta; commissions: Delta; tips: Delta;
+};
+
+export type ProfitReport = ProfitStatement & { period: { from: string; to: string; timezone: string }; comparison: PeriodComparison };
 
 /** Pesos (número o texto de numeric) a centavos enteros. */
 export function toCents(value: number | string | null | undefined): number {
@@ -70,34 +122,89 @@ export const fromCents = (cents: number) => cents / 100;
 
 const VOIDED = new Set(['refunded', 'partially_refunded']);
 
+const METHODS = ['cash', 'card', 'transfer'] as const;
+const NO_EMPLOYEE = '\u0000sin-asignar';
+
+/** Día 'YYYY-MM-DD' de un instante en la zona horaria de la barbería. */
+export function businessDayKey(iso: string, timeZone: string): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+}
+
+/** Todos los días 'YYYY-MM-DD' entre dos fechas, ambos incluidos. */
+export function eachDay(from: string, to: string): string[] {
+    const days: string[] = [];
+    for (let d = from; d <= to && days.length <= MAX_RANGE_DAYS; d = addDays(d, 1)) days.push(d);
+    return days;
+}
+
+function methodTotals(rows: { method: string; cents: number }[]): { method: string; cents: number; count: number }[] {
+    const map = new Map<string, { method: string; cents: number; count: number }>(METHODS.map((m) => [m, { method: m, cents: 0, count: 0 }]));
+    for (const r of rows) {
+        const entry = map.get(r.method) ?? { method: r.method, cents: 0, count: 0 };
+        entry.cents += r.cents;
+        entry.count += 1;
+        map.set(r.method, entry);
+    }
+    return [...map.values()].filter((m) => METHODS.includes(m.method as (typeof METHODS)[number]) || m.cents !== 0);
+}
+
 export function computeProfit(input: ProfitInput): ProfitStatement {
     const paidSales = new Set(input.sales.filter((s) => s.status === 'paid').map((s) => s.id));
     const voidedExcluded = input.sales.filter((s) => VOIDED.has(s.status)).length;
 
     const items = input.items.filter((i) => paidSales.has(i.sale_id));
     const itemType = new Map(items.map((i) => [i.id, i.item_type]));
+    const names = new Map((input.employees ?? []).map((e) => [e.id, e.display_name]));
+    type Acc = { services: number; products: number; serviceUnits: number; commission: number; productCost: number; tips: number; tipCount: number };
+    const accs = new Map<string, Acc>();
+    const acc = (employeeId: string | null | undefined): Acc => {
+        const key = employeeId || NO_EMPLOYEE;
+        let a = accs.get(key);
+        if (!a) { a = { services: 0, products: 0, serviceUnits: 0, commission: 0, productCost: 0, tips: 0, tipCount: 0 }; accs.set(key, a); }
+        return a;
+    };
+    const timezone = input.period?.timezone;
+    const days = new Map<string, { revenue: number; commissions: number; productCost: number; expenses: number }>(
+        input.period ? eachDay(input.period.from, input.period.to).map((d) => [d, { revenue: 0, commissions: 0, productCost: 0, expenses: 0 }]) : []);
+    const saleDay = new Map<string, string>();
+    if (timezone) for (const s of input.sales) if (s.paid_at && paidSales.has(s.id)) saleDay.set(s.id, businessDayKey(s.paid_at, timezone));
+    const day = (saleId: string) => days.get(saleDay.get(saleId) ?? '');
 
     let serviceRev = 0, productRev = 0, discounts = 0, serviceUnits = 0, productUnits = 0;
     for (const i of items) {
         const qty = Number(i.quantity);
-        if (i.item_type === 'service') { serviceRev += toCents(i.line_total); serviceUnits += qty; }
-        else { productRev += toCents(i.line_total); productUnits += qty; }
+        const cents = toCents(i.line_total);
+        if (i.item_type === 'service') {
+            serviceRev += cents; serviceUnits += qty;
+            const a = acc(i.employee_id); a.services += cents; a.serviceUnits += qty;
+        } else {
+            productRev += cents; productUnits += qty;
+            acc(i.commission_employee_id).products += cents;
+        }
         discounts += toCents(i.discount_amount);
+        const d = day(i.sale_id); if (d) d.revenue += cents;
     }
 
     let serviceComm = 0, productComm = 0;
     for (const c of input.commissions) {
         if (c.status !== 'generated' || !paidSales.has(c.sale_id)) continue;
         // La comisión de recepción por productos también cuelga de un renglón de producto.
-        if (itemType.get(c.sale_item_id) === 'product') productComm += toCents(c.commission_amount);
-        else serviceComm += toCents(c.commission_amount);
+        const cents = toCents(c.commission_amount);
+        if (itemType.get(c.sale_item_id) === 'product') productComm += cents;
+        else serviceComm += cents;
+        acc(c.employee_id).commission += cents;
+        const d = day(c.sale_id); if (d) d.commissions += cents;
     }
 
     let tipsTotal = 0, tipsCount = 0;
+    const tipRows: { method: string; cents: number }[] = [];
     for (const t of input.tips) {
         if (t.status !== 'generated' || !paidSales.has(t.sale_id)) continue;
-        tipsTotal += toCents(t.amount);
+        const cents = toCents(t.amount);
+        tipsTotal += cents;
         tipsCount += 1;
+        tipRows.push({ method: t.method ?? 'other', cents });
+        const a = acc(t.employee_id); a.tips += cents; a.tipCount += 1;
     }
 
     const products = new Map(input.products.map((p) => [p.id, p]));
@@ -116,7 +223,10 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
             missing.set(key, entry);
             continue;
         }
-        cogs += Math.round(qty * toCents(cost));
+        const itemCost = Math.round(qty * toCents(cost));
+        cogs += itemCost;
+        acc(i.commission_employee_id).productCost += itemCost;
+        const d = day(i.sale_id); if (d) d.productCost += itemCost;
     }
 
     const byCategory = new Map<string, { category: string; total: number; count: number }>();
@@ -125,11 +235,36 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
         if (e.status !== 'posted') continue;
         const category = e.category?.trim() || 'General';
         const entry = byCategory.get(category) ?? { category, total: 0, count: 0 };
-        entry.total += toCents(e.amount);
+        const cents = toCents(e.amount);
+        entry.total += cents;
         entry.count += 1;
         byCategory.set(category, entry);
-        expensesTotal += toCents(e.amount);
+        expensesTotal += cents;
+        if (timezone && e.incurred_at) { const d = days.get(businessDayKey(e.incurred_at, timezone)); if (d) d.expenses += cents; }
     }
+
+    let paymentsTotal = 0;
+    const paymentRows: { method: string; cents: number }[] = [];
+    for (const p of input.payments ?? []) {
+        if (p.status !== 'confirmed' || !paidSales.has(p.sale_id)) continue;
+        const cents = toCents(p.amount);
+        paymentsTotal += cents;
+        paymentRows.push({ method: p.method, cents });
+    }
+
+    const nameOf = (key: string) => key === NO_EMPLOYEE ? 'Sin asignar' : names.get(key) ?? 'Sin nombre';
+    const barbers: BarberRow[] = [...accs.entries()].map(([key, a]) => {
+        const sales = a.services + a.products;
+        return {
+            employeeId: key === NO_EMPLOYEE ? null : key, name: nameOf(key),
+            sales: fromCents(sales), services: fromCents(a.services), products: fromCents(a.products), serviceUnits: a.serviceUnits,
+            commission: fromCents(a.commission), productCost: fromCents(a.productCost), keeps: fromCents(sales - a.commission - a.productCost),
+            tips: fromCents(a.tips), tipCount: a.tipCount,
+        };
+    }).sort((x, y) => y.sales - x.sales || y.tips - x.tips || x.name.localeCompare(y.name, 'es'));
+    const tipsByBarber = barbers.filter((b) => b.tipCount > 0)
+        .map((b) => ({ employeeId: b.employeeId, name: b.name, total: b.tips, count: b.tipCount }))
+        .sort((x, y) => y.total - x.total);
 
     const revenue = serviceRev + productRev;
     const commissions = serviceComm + productComm;
@@ -139,7 +274,10 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
     return {
         revenue: { services: fromCents(serviceRev), products: fromCents(productRev), total: fromCents(revenue), discounts: fromCents(discounts) },
         commissions: { services: fromCents(serviceComm), products: fromCents(productComm), total: fromCents(commissions) },
-        tips: { total: fromCents(tipsTotal), count: tipsCount },
+        tips: {
+            total: fromCents(tipsTotal), count: tipsCount, byBarber: tipsByBarber,
+            byMethod: methodTotals(tipRows).map((m) => ({ method: m.method, total: fromCents(m.cents), count: m.count })),
+        },
         productCost: { total: fromCents(cogs), unitsWithoutCost, missing: [...missing.values()].sort((a, b) => b.units - a.units) },
         productsWithoutCost: missing.size,
         expenses: {
@@ -151,6 +289,47 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
         profit: fromCents(profit),
         marginPct,
         counts: { sales: paidSales.size, voidedExcluded, serviceUnits, productUnits },
+        barbers,
+        daily: [...days.entries()].map(([date, d]) => {
+            const outflow = d.commissions + d.productCost + d.expenses;
+            return { date, revenue: fromCents(d.revenue), commissions: fromCents(d.commissions), productCost: fromCents(d.productCost), expenses: fromCents(d.expenses), outflow: fromCents(outflow), net: fromCents(d.revenue - outflow) };
+        }),
+        payments: {
+            total: fromCents(paymentsTotal),
+            byMethod: methodTotals(paymentRows).map((m) => ({
+                method: m.method, total: fromCents(m.cents), count: m.count,
+                sharePct: paymentsTotal > 0 ? Math.round((m.cents / paymentsTotal) * 1000) / 10 : null,
+            })),
+        },
+    };
+}
+
+// ---------- Comparación con el periodo anterior ----------
+
+/** Diferencia en pesos y en %, sobre centavos enteros. pct es null si no hay base (anterior = 0). */
+export function compareValues(current: number, previous: number): Delta {
+    const cur = toCents(current), prev = toCents(previous);
+    return {
+        current, previous, delta: fromCents(cur - prev),
+        pct: prev === 0 ? null : Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10,
+    };
+}
+
+/** Periodo inmediatamente anterior, de la misma duración en días. */
+export function previousPeriod(from: string, to: string): { from: string; to: string } {
+    const days = rangeDays(from, to);
+    return { from: addDays(from, -days), to: addDays(from, -1) };
+}
+
+export function comparePeriods(current: ProfitStatement, previous: ProfitStatement, period: { from: string; to: string }): PeriodComparison {
+    return {
+        period,
+        hasBase: previous.counts.sales > 0 || previous.expenses.total > 0,
+        revenue: compareValues(current.revenue.total, previous.revenue.total),
+        profit: compareValues(current.profit, previous.profit),
+        expenses: compareValues(current.expenses.total, previous.expenses.total),
+        commissions: compareValues(current.commissions.total, previous.commissions.total),
+        tips: compareValues(current.tips.total, previous.tips.total),
     };
 }
 

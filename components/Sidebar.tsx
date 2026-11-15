@@ -33,7 +33,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
         items: [
             { href: '/ventas/historial', label: 'Ventas', icon: FileText, roles: ['admin'] },
             { href: '/cuadre', label: 'Cuadre', icon: Scale, roles: ['admin'] },
-            { href: '/administracion', label: 'Utilidad', icon: PiggyBank, roles: ['admin'] },
+            { href: '/administracion', label: 'Finanzas', icon: PiggyBank, roles: ['admin'] },
             { href: '/gastos', label: 'Gastos', icon: TrendingDown, roles: ['admin'] },
             { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin'] },
             { href: '/servicios', label: 'Servicios', icon: Scissors, roles: ['admin'] },

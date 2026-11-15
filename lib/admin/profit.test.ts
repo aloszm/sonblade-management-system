@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-    computeProfit, isValidDay, profitPresetRange, rangeDays, toCents,
+    businessDayKey, comparePeriods, compareValues, computeProfit, eachDay, isValidDay, previousPeriod, profitPresetRange, rangeDays, toCents,
     type CommissionRow, type ProfitInput, type SaleItemRow,
 } from './profit';
 
@@ -74,7 +74,7 @@ describe('utilidad real', () => {
             ...empty, sales: [sale('s1')], items: [service('i1', 's1', 200)], commissions: [comm('s1', 'i1', 100)],
             tips: [{ sale_id: 's1', amount: 40, status: 'generated' }, { sale_id: 's1', amount: 10, status: 'reversed' }],
         });
-        expect(r.tips).toEqual({ total: 40, count: 1 });
+        expect(r.tips).toMatchObject({ total: 40, count: 1 });
         expect(r.revenue.total).toBe(200);
         expect(r.profit).toBe(100);
     });
@@ -159,5 +159,151 @@ describe('periodos de Administración', () => {
         expect(profitPresetRange('last_month', '2026-11-15')).toEqual({ from: '2026-10-01', to: '2026-10-31' });
         expect(profitPresetRange('last_month', '2026-01-10')).toEqual({ from: '2025-12-01', to: '2025-12-31' });
         expect(profitPresetRange('last_month', '2028-03-31')).toEqual({ from: '2028-02-01', to: '2028-02-29' });
+    });
+});
+
+describe('desglose del tablero financiero', () => {
+    const employees = [{ id: 'e1', display_name: 'Luis' }, { id: 'e2', display_name: 'Marco' }, { id: 'e3', display_name: 'Ana' }];
+    const svc = (id: string, saleId: string, total: number, employee: string): SaleItemRow => ({ ...service(id, saleId, total), employee_id: employee });
+
+    it('propinas por barbero y por método; la propina anulada o de venta anulada no cuenta', () => {
+        const r = computeProfit({
+            ...empty, employees, sales: [sale('s1'), sale('s2', 'refunded')],
+            items: [svc('i1', 's1', 200, 'e1')],
+            tips: [
+                { sale_id: 's1', amount: 30, status: 'generated', employee_id: 'e1', method: 'cash' },
+                { sale_id: 's1', amount: '20.50', status: 'generated', employee_id: 'e1', method: 'card' },
+                { sale_id: 's1', amount: 10, status: 'reversed', employee_id: 'e1', method: 'cash' },
+                { sale_id: 's2', amount: 99, status: 'generated', employee_id: 'e2', method: 'cash' },
+            ],
+        });
+        expect(r.tips.total).toBe(50.5);
+        expect(r.tips.byBarber).toEqual([{ employeeId: 'e1', name: 'Luis', total: 50.5, count: 2 }]);
+        expect(r.tips.byMethod).toEqual([
+            { method: 'cash', total: 30, count: 1 }, { method: 'card', total: 20.5, count: 1 }, { method: 'transfer', total: 0, count: 0 },
+        ]);
+    });
+
+    it('barbero con propina pero sin venta propia aparece con ventas en cero', () => {
+        const r = computeProfit({
+            ...empty, employees, sales: [sale('s1')], items: [svc('i1', 's1', 200, 'e1')],
+            commissions: [{ ...comm('s1', 'i1', 100), employee_id: 'e1' }],
+            tips: [{ sale_id: 's1', amount: 25, status: 'generated', employee_id: 'e3', method: 'transfer' }],
+        });
+        const ana = r.barbers.find((b) => b.employeeId === 'e3');
+        expect(ana).toMatchObject({ name: 'Ana', sales: 0, commission: 0, keeps: 0, tips: 25, tipCount: 1 });
+        const luis = r.barbers.find((b) => b.employeeId === 'e1');
+        expect(luis).toMatchObject({ sales: 200, services: 200, commission: 100, keeps: 100, tips: 0, serviceUnits: 1 });
+        expect(r.profit).toBe(100); // la propina de Ana no mueve la utilidad
+    });
+
+    it('por barbero: ventas de servicios y productos, comisión y lo que deja al negocio', () => {
+        const r = computeProfit({
+            ...empty, employees, sales: [sale('s1'), sale('s2')],
+            items: [svc('i1', 's1', 300, 'e1'), svc('i2', 's2', 100, 'e2'), { ...product('i3', 's2', 'p1', 2, 200), commission_employee_id: 'e2' }, product('i4', 's2', 'p1', 1, 100)],
+            commissions: [
+                { ...comm('s1', 'i1', 150), employee_id: 'e1' }, { ...comm('s2', 'i2', 50), employee_id: 'e2' }, { ...comm('s2', 'i3', 20), employee_id: 'e2' },
+            ],
+            products: [{ id: 'p1', name: 'Cera', cost_price: 40 }],
+        });
+        const marco = r.barbers.find((b) => b.employeeId === 'e2');
+        expect(marco).toMatchObject({ services: 100, products: 200, sales: 300, commission: 70, productCost: 80, keeps: 150 });
+        const sinAsignar = r.barbers.find((b) => b.employeeId === null);
+        expect(sinAsignar).toMatchObject({ name: 'Sin asignar', products: 100, productCost: 40, keeps: 60 });
+        // lo que dejan todos = ingresos − comisiones − costo (antes de gastos)
+        const keeps = r.barbers.reduce((n, b) => n + b.keeps, 0);
+        expect(keeps).toBe(r.revenue.total - r.commissions.total - r.productCost.total);
+        expect(r.barbers.map((b) => b.name)).toEqual(['Luis', 'Marco', 'Sin asignar']);
+    });
+
+    it('cobros por método de pago, solo confirmados y de ventas cobradas', () => {
+        const r = computeProfit({
+            ...empty, sales: [sale('s1'), sale('s2', 'refunded')],
+            payments: [
+                { sale_id: 's1', method: 'cash', amount: 150, status: 'confirmed' },
+                { sale_id: 's1', method: 'card', amount: 50, status: 'confirmed' },
+                { sale_id: 's1', method: 'card', amount: 80, status: 'reversed' },
+                { sale_id: 's2', method: 'transfer', amount: 500, status: 'confirmed' },
+            ],
+        });
+        expect(r.payments.total).toBe(200);
+        expect(r.payments.byMethod).toEqual([
+            { method: 'cash', total: 150, count: 1, sharePct: 75 },
+            { method: 'card', total: 50, count: 1, sharePct: 25 },
+            { method: 'transfer', total: 0, count: 0, sharePct: 0 },
+        ]);
+        expect(computeProfit(empty).payments.byMethod.every((m) => m.sharePct === null)).toBe(true);
+    });
+
+    it('serie por día en la hora de la barbería: 11 pm en México no cae al día siguiente', () => {
+        const tz = 'America/Mexico_City'; // UTC-6 en noviembre
+        expect(businessDayKey('2026-11-11T05:30:00Z', tz)).toBe('2026-11-10');
+        const r = computeProfit({
+            ...empty, period: { from: '2026-11-10', to: '2026-11-12', timezone: tz },
+            sales: [
+                { id: 's1', status: 'paid', paid_at: '2026-11-11T05:30:00Z' }, // 10 nov, 11:30 pm
+                { id: 's2', status: 'paid', paid_at: '2026-11-11T18:00:00Z' }, // 11 nov, 12:00 pm
+            ],
+            items: [service('i1', 's1', 200), product('i2', 's2', 'p1', 1, 100)],
+            commissions: [comm('s1', 'i1', 100)],
+            products: [{ id: 'p1', name: 'Cera', cost_price: 30 }],
+            expenses: [{ amount: 50, category: 'General', status: 'posted', incurred_at: '2026-11-12T03:00:00Z' }], // 11 nov, 9 pm
+        });
+        expect(r.daily.map((d) => d.date)).toEqual(['2026-11-10', '2026-11-11', '2026-11-12']);
+        expect(r.daily[0]).toMatchObject({ revenue: 200, commissions: 100, outflow: 100, net: 100 });
+        expect(r.daily[1]).toMatchObject({ revenue: 100, productCost: 30, expenses: 50, outflow: 80, net: 20 });
+        expect(r.daily[2]).toMatchObject({ revenue: 0, outflow: 0, net: 0 });
+        const sum = (k: 'revenue' | 'outflow') => r.daily.reduce((n, d) => n + d[k], 0);
+        expect(sum('revenue')).toBe(r.revenue.total);
+        expect(sum('outflow')).toBe(r.commissions.total + r.productCost.total + r.expenses.total);
+    });
+
+    it('sin periodo no arma serie por día', () => {
+        expect(computeProfit(empty).daily).toEqual([]);
+        expect(eachDay('2026-02-27', '2026-03-02')).toEqual(['2026-02-27', '2026-02-28', '2026-03-01', '2026-03-02']);
+    });
+});
+
+describe('comparación con el periodo anterior', () => {
+    it('el periodo anterior tiene la misma duración y termina el día previo', () => {
+        expect(previousPeriod('2026-11-01', '2026-11-15')).toEqual({ from: '2026-10-17', to: '2026-10-31' });
+        expect(previousPeriod('2026-11-15', '2026-11-15')).toEqual({ from: '2026-11-14', to: '2026-11-14' });
+        expect(previousPeriod('2026-03-01', '2026-03-31')).toEqual({ from: '2026-01-29', to: '2026-02-28' });
+    });
+
+    it('diferencia en pesos y en %', () => {
+        expect(compareValues(150, 100)).toEqual({ current: 150, previous: 100, delta: 50, pct: 50 });
+        expect(compareValues(80, 100)).toMatchObject({ delta: -20, pct: -20 });
+        expect(compareValues(100.1, 100)).toMatchObject({ delta: 0.1, pct: 0.1 });
+    });
+
+    it('sin base (anterior en cero): pct es null y no se divide entre cero', () => {
+        expect(compareValues(120, 0)).toEqual({ current: 120, previous: 0, delta: 120, pct: null });
+        expect(compareValues(0, 0)).toEqual({ current: 0, previous: 0, delta: 0, pct: null });
+    });
+
+    it('utilidad que pasa de pérdida a ganancia usa el valor absoluto de la base', () => {
+        expect(compareValues(50, -100)).toMatchObject({ delta: 150, pct: 150 });
+    });
+
+    it('periodo anterior vacío: hasBase falso y todos los pct null', () => {
+        const current = computeProfit({ ...empty, sales: [sale('s1')], items: [service('i1', 's1', 200)], commissions: [comm('s1', 'i1', 100)] });
+        const c = comparePeriods(current, computeProfit(empty), { from: '2026-10-01', to: '2026-10-31' });
+        expect(c.hasBase).toBe(false);
+        expect(c.profit).toMatchObject({ current: 100, previous: 0, delta: 100, pct: null });
+        expect(c.revenue.pct).toBeNull();
+        expect(c.tips.pct).toBeNull();
+    });
+
+    it('con base: hasBase verdadero y % de cada concepto', () => {
+        const mk = (rev: number, comm_: number, exp: number) => computeProfit({
+            ...empty, sales: [sale('s1')], items: [service('i1', 's1', rev)], commissions: [comm('s1', 'i1', comm_)],
+            expenses: [{ amount: exp, category: 'General', status: 'posted' }],
+        });
+        const c = comparePeriods(mk(300, 100, 50), mk(200, 80, 20), { from: '2026-10-01', to: '2026-10-31' });
+        expect(c.hasBase).toBe(true);
+        expect(c.revenue).toMatchObject({ delta: 100, pct: 50 });
+        expect(c.profit).toMatchObject({ current: 150, previous: 100, delta: 50, pct: 50 });
+        expect(c.expenses).toMatchObject({ delta: 30, pct: 150 });
     });
 });

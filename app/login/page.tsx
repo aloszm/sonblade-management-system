@@ -6,6 +6,16 @@ import { Loader2 } from 'lucide-react';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 
+const OFFLINE = 'Sin conexión o el servidor no respondió. Revisa tu internet e inténtalo de nuevo.';
+
+/** Mensaje corto según qué falló: credenciales, demasiados intentos o conexión. Nunca revela si el correo existe. */
+function loginMessage(status: number, serverMessage: unknown): string {
+    if (status === 429) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.';
+    if (status === 401) return 'Correo o contraseña incorrectos.';
+    if (status === 400) return typeof serverMessage === 'string' && serverMessage ? serverMessage : 'Correo o contraseña no válidos.';
+    return OFFLINE; // 5xx, 503 de configuración o cualquier otra respuesta que no sea de credenciales
+}
+
 export default function LoginPage() {
     const router = useRouter();
     const [configurationMissing, setConfigurationMissing] = useState(false);
@@ -22,22 +32,31 @@ export default function LoginPage() {
         event.preventDefault();
         setSubmitting(true);
         setError('');
+        let response: Response;
         try {
-            const response = await fetch('/api/auth/login', {
+            response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 cache: 'no-store',
                 body: JSON.stringify({ email, password }),
             });
-            const body = await response.json();
-            if (!response.ok) throw new Error(body.error ?? 'No se pudo iniciar sesión.');
-            const profileResponse = await fetch('/api/auth/me', { cache: 'no-store' });
-            const profile = await profileResponse.json();
-            router.replace(profile.user?.role === 'barber' ? '/barbero' : profile.user?.role === 'recepcion' ? '/pos' : '/');
+        } catch {
+            // fetch rechazado: sin red o el servidor no contestó. La contraseña se conserva para reintentar.
+            setError(OFFLINE);
+            setSubmitting(false);
+            return;
+        }
+        try {
+            const body = await response.json().catch(() => null);
+            if (!response.ok) {
+                setError(loginMessage(response.status, body?.error));
+                // Solo se borra la contraseña cuando el problema fue de credenciales.
+                if (response.status === 401) setPassword('');
+                return;
+            }
+            const profile = await fetch('/api/auth/me', { cache: 'no-store' }).then((r) => r.json()).catch(() => null);
+            router.replace(profile?.user?.role === 'barber' ? '/barbero' : profile?.user?.role === 'recepcion' ? '/pos' : '/');
             router.refresh();
-        } catch (cause) {
-            setError(cause instanceof Error ? cause.message : 'Error de conexión.');
-            setPassword('');
         } finally {
             setSubmitting(false);
         }

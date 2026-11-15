@@ -6,7 +6,7 @@ import { login, USERS } from './helpers';
 // Contraste medido con axe (regla color-contrast, WCAG 2.2 AA) en cada pantalla que cada puesto puede abrir,
 // en modo oscuro y claro, en escritorio y en teléfono. SOLO LECTURA: no hace clics que creen datos.
 
-const SCREENS = ['/', '/barbero', '/pos', '/caja', '/citas', '/clientes', '/liquidaciones', '/ventas/historial', '/cuadre', '/gastos', '/inventario', '/servicios', '/equipo', '/reportes', '/admin/auditoria', '/configuracion', '/login'];
+const SCREENS = ['/', '/barbero', '/pos', '/caja', '/citas', '/clientes', '/liquidaciones', '/ventas/historial', '/cuadre', '/gastos', '/inventario', '/servicios', '/equipo', '/reportes', '/administracion', '/admin/auditoria', '/configuracion', '/login'];
 
 const ROLES = [
     { name: 'dueño', email: USERS.owner },

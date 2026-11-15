@@ -24,7 +24,7 @@ const pageTitles: Record<string, string> = {
   '/liquidaciones': 'Pago semanal',
   '/reportes': 'Reportes',
   '/cuadre': 'Cuadre',
-  '/administracion': 'Utilidad',
+  '/administracion': 'Finanzas',
   '/reportes/verificar': 'Verificar reporte',
   '/admin': 'Administración',
   '/admin/auditoria': 'Bitácora',
