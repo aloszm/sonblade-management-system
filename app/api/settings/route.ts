@@ -18,8 +18,11 @@ const ProfileSchema = z.object({
     email: z.union([z.literal(''), z.string().trim().email('El correo no es válido.').max(254)]).optional().default(''),
     currency: z.enum(['MXN', 'USD', 'EUR', 'COP', 'PEN']),
     timezone: z.string().trim().min(3).max(64),
-    openTime: time.optional().default('09:00'),
-    closeTime: time.optional().default('20:00'),
+    tagline: z.string().trim().max(80).optional().default(''),
+    // Horario por día: "0" (domingo) a "6" (sábado); null = cerrado. La base valida lo mismo.
+    hours: z.record(z.enum(['0', '1', '2', '3', '4', '5', '6']), z.object({ open: time, close: time }).nullable())
+        .refine((h) => Object.values(h).every((d) => !d || d.open < d.close), 'La apertura debe ser antes del cierre.')
+        .optional(),
     taxId: z.string().trim().max(40).optional().default(''),
     // Tasas generales de comisión. Si no llegan, no se tocan.
     serviceCommissionPct: z.number().min(0).max(100).optional(),
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
             p_timezone: p.timezone,
             p_address: p.address,
             p_phone: p.phone,
-            p_settings: { city: p.city, email: p.email, openTime: p.openTime, closeTime: p.closeTime, taxId: p.taxId },
+            p_settings: { city: p.city, email: p.email, taxId: p.taxId, tagline: p.tagline, ...(p.hours ? { hours: p.hours } : {}) },
         } as never);
         if (error) throw error;
 

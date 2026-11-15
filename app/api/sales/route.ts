@@ -30,6 +30,8 @@ const SaleSchema = z.object({
         employee_id: z.string().uuid().nullable().optional(),
         commission_employee_ids: z.array(z.string().uuid()).max(10).optional(),
         discount_amount: z.number().min(0).default(0),
+        // Solo para servicios de precio libre; la base rechaza un precio en cualquier otro servicio.
+        unit_price: z.number().positive('El precio debe ser mayor a cero.').max(5000, 'El precio no puede pasar de $5,000.').optional(),
     })).min(1).max(100),
     payments: z.array(z.object({
         method: z.enum(['cash', 'card', 'transfer', 'other']),

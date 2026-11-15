@@ -18,7 +18,7 @@ test.describe('agenda', () => {
         const now = new Date();
         const next = new Date(now.getFullYear(), now.getMonth() + 1, 1 + (now.getMinutes() % 27));
         const key = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
-        const time = `${pad(7 + (now.getSeconds() % 3))}:${pad((now.getMinutes() % 4) * 15)}`;
+        const time = `${pad(13 + (now.getSeconds() % 3))}:${pad((now.getMinutes() % 4) * 15)}`;
         const day = page.getByTestId(`day-${key}`);
 
         // Abre la ventana y se cierra tocando afuera.

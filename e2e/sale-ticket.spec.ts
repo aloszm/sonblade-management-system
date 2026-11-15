@@ -8,14 +8,14 @@ test.describe('cobro', () => {
         await login(page, USERS.reception);
         await ensureOpenCashSession(page.request);
 
-        const corte = (await (await page.request.get('/api/services')).json()).find((s: { name: string }) => s.name === 'Corte de cabello');
-        expect(corte, 'la base de demostración debe tener "Corte de cabello"').toBeTruthy();
+        const corte = (await (await page.request.get('/api/services')).json()).find((s: { name: string }) => s.name === 'Corte de cabello (prueba)');
+        expect(corte, 'la base de demostración debe tener "Corte de cabello (prueba)"').toBeTruthy();
         const price = Number(corte.price);
         const tip = 20;
 
         await page.goto('/pos', { waitUntil: 'networkidle' });
         await page.getByRole('button', { name: 'Deya', exact: true }).click();
-        await page.getByRole('button', { name: 'Corte de cabello' }).click();
+        await page.getByRole('button', { name: 'Corte de cabello (prueba)' }).click();
         await page.getByRole('button', { name: `$${tip}`, exact: true }).click();
         await expect(page.getByTestId('pos-total')).toHaveText(`$${price + tip}`);
 
@@ -51,12 +51,12 @@ test.describe('cobro', () => {
     test('un corte se puede pagar con dos métodos', async ({ page }) => {
         await login(page, USERS.reception);
         await ensureOpenCashSession(page.request);
-        const corte = (await (await page.request.get('/api/services')).json()).find((s: { name: string }) => s.name === 'Corte de cabello');
+        const corte = (await (await page.request.get('/api/services')).json()).find((s: { name: string }) => s.name === 'Corte de cabello (prueba)');
         const price = Number(corte.price);
 
         await page.goto('/pos', { waitUntil: 'networkidle' });
         await page.getByRole('button', { name: 'Dani', exact: true }).click();
-        await page.getByRole('button', { name: 'Corte de cabello' }).click();
+        await page.getByRole('button', { name: 'Corte de cabello (prueba)' }).click();
         await page.getByRole('button', { name: 'Dividir en dos' }).click();
         await page.locator('#pos-split-first').fill('50');
         await page.getByRole('group', { name: 'Forma de pago del resto' }).getByRole('button', { name: 'Tarjeta' }).click();
@@ -73,7 +73,7 @@ test.describe('cobro', () => {
     test('un descuento exige motivo y la base rechaza a quien no puede autorizarlo', async ({ page }) => {
         await login(page, USERS.reception);
         await ensureOpenCashSession(page.request);
-        const corte = (await (await page.request.get('/api/services')).json()).find((s: { name: string }) => s.name === 'Corte de cabello');
+        const corte = (await (await page.request.get('/api/services')).json()).find((s: { name: string }) => s.name === 'Corte de cabello (prueba)');
         const deya = (await (await page.request.get('/api/barbers')).json()).find((b: { name: string }) => b.name === 'Deya');
         const { authorizers } = await (await page.request.get('/api/discount-authorizers')).json();
         expect(authorizers.length).toBeGreaterThan(0);

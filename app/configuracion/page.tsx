@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
+import { WEEKDAYS, validWeekHours, type WeekHours } from '@/lib/appointments/hours';
 
 const TIMEZONES = [
     { value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)' },
@@ -40,12 +41,13 @@ export default function SettingsPage() {
         email: '',
         currency: 'MXN',
         timezone: 'America/Mexico_City',
-        openTime: '09:00',
-        closeTime: '20:00',
+        tagline: '',
         taxId: '',
         serviceCommissionPct: 50,
         productCommissionPct: 20,
     });
+    // Horario por día de la semana ("0" = domingo); null = cerrado. La agenda no acepta citas fuera de él.
+    const [hours, setHours] = useState<WeekHours>({});
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -54,7 +56,9 @@ export default function SettingsPage() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data && Object.keys(data).length > 0) {
-                        setProfile(prev => ({ ...prev, ...data }));
+                        const { hours: savedHours, ...rest } = data as { hours?: WeekHours } & Record<string, unknown>;
+                        setProfile(prev => ({ ...prev, ...rest }));
+                        if (savedHours) setHours(savedHours);
                     }
                 }
                 const cashRes = await fetch('/api/cash/settings', { cache: 'no-store' });
@@ -77,10 +81,12 @@ export default function SettingsPage() {
         setError(null);
         setSaved(false);
         try {
+            const hoursError = validWeekHours(hours);
+            if (hoursError) throw new Error(hoursError);
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: 'shop_profile', value: profile })
+                body: JSON.stringify({ key: 'shop_profile', value: { ...profile, hours } })
             });
             if (!res.ok) {
                 const data = await res.json();
@@ -145,6 +151,10 @@ export default function SettingsPage() {
                             <input id="shop-name" required type="text" value={profile.name} onChange={e => updateField('name', e.target.value)} placeholder="Mi Barbería" className={`${field} font-semibold`} />
                         </div>
                         <div>
+                            <label htmlFor="shop-tagline" className={label}>Frase debajo del nombre</label>
+                            <input id="shop-tagline" type="text" maxLength={80} value={profile.tagline} onChange={e => updateField('tagline', e.target.value)} placeholder="Barber Shop · desde 1989" className={field} />
+                        </div>
+                        <div>
                             <label htmlFor="shop-tax" className={label}>RFC / Tax ID (opcional)</label>
                             <input id="shop-tax" type="text" value={profile.taxId} onChange={e => updateField('taxId', e.target.value)} placeholder="XAXX010101000" className={field} />
                         </div>
@@ -191,18 +201,35 @@ export default function SettingsPage() {
                         </div>
                     </section>
 
-                    <section className={card}>
-                        <h2 className={h2}>Horario de operación</h2>
-                        <div className="space-y-5">
-                            <div>
-                                <label htmlFor="shop-open" className={label}>Hora de apertura</label>
-                                <input id="shop-open" type="time" value={profile.openTime} onChange={e => updateField('openTime', e.target.value)} className={`${field} font-semibold`} />
-                            </div>
-                            <div>
-                                <label htmlFor="shop-close" className={label}>Hora de cierre</label>
-                                <input id="shop-close" type="time" value={profile.closeTime} onChange={e => updateField('closeTime', e.target.value)} className={`${field} font-semibold`} />
-                            </div>
-                        </div>
+                    <section className={card} aria-labelledby="hours-title">
+                        <h2 id="hours-title" className={h2}>Horario de operación</h2>
+                        <p className="-mt-3 mb-4 text-sm text-bos-muted">La agenda no acepta citas fuera de este horario. Los cobros sin cita se registran a cualquier hora.</p>
+                        <ul className="divide-y divide-bos-border">
+                            {WEEKDAYS.map((dayName, weekday) => {
+                                const key = String(weekday) as keyof WeekHours;
+                                const day = hours[key] ?? null;
+                                const setDay = (value: WeekHours[typeof key]) => setHours((prev) => ({ ...prev, [key]: value }));
+                                return (
+                                    <li key={key} className="py-3 flex flex-wrap items-center gap-3" data-testid={`hours-${weekday}`}>
+                                        <span className="w-24 text-[15px] font-medium">{dayName}</span>
+                                        <label className="inline-flex items-center gap-2 min-h-11 text-sm">
+                                            <input type="checkbox" checked={!!day} onChange={(e) => setDay(e.target.checked ? { open: '10:00', close: '19:00' } : null)}
+                                                className="h-5 w-5 accent-[var(--bos-accent)]" />
+                                            {day ? 'Abierto' : 'Cerrado'}
+                                        </label>
+                                        {day && (
+                                            <span className="flex items-center gap-2">
+                                                <input type="time" aria-label={`${dayName}: abre`} value={day.open}
+                                                    onChange={(e) => setDay({ ...day, open: e.target.value })} className={`${field} w-32 font-semibold tabular-nums`} />
+                                                <span className="text-bos-muted">a</span>
+                                                <input type="time" aria-label={`${dayName}: cierra`} value={day.close}
+                                                    onChange={(e) => setDay({ ...day, close: e.target.value })} className={`${field} w-32 font-semibold tabular-nums`} />
+                                            </span>
+                                        )}
+                                    </li>
+                                );
+                            })}
+                        </ul>
                     </section>
                 </div>
 

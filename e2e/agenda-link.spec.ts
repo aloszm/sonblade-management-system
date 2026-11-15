@@ -12,7 +12,7 @@ async function barberId(request: APIRequestContext, name: string): Promise<strin
 
 async function corte(request: APIRequestContext): Promise<{ id: string; price: number }> {
     const services = await (await request.get('/api/services')).json() as { id: string; name: string; price: number }[];
-    const found = services.find((s) => s.name === 'Corte de cabello');
+    const found = services.find((s) => s.name === 'Corte de cabello (prueba)');
     expect(found).toBeTruthy();
     return { id: found!.id, price: Number(found!.price) };
 }
@@ -29,7 +29,7 @@ test.describe('agenda entrelazada', () => {
             return {
                 from: new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString(),
                 to: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString(),
-                inside: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 20, 30).toISOString(),
+                inside: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 15, 30).toISOString(),
             };
         });
 
@@ -41,8 +41,8 @@ test.describe('agenda entrelazada', () => {
         await page.reload({ waitUntil: 'networkidle' });
         await page.getByRole('button', { name: 'Ausencia', exact: true }).click();
         await page.locator('#off-barber').selectOption(id);
-        await page.locator('#off-from-time').fill('20:00');
-        await page.locator('#off-to-time').fill('21:30');
+        await page.locator('#off-from-time').fill('15:00');
+        await page.locator('#off-to-time').fill('16:30');
         await page.locator('#off-reason').fill('Prueba E2E ausencia');
         await page.locator('#off-via').selectOption('llamada');
         await page.getByRole('button', { name: 'Bloquear horario' }).click();
@@ -82,9 +82,14 @@ test.describe('agenda entrelazada', () => {
         const service = await corte(page.request);
 
         // Una cita en un día lejano y hora al azar para no chocar con otras corridas.
-        const when = new Date();
-        when.setDate(when.getDate() + 60 + Math.floor(Math.random() * 300));
-        when.setHours(10 + Math.floor(Math.random() * 9), [0, 15, 30, 45][Math.floor(Math.random() * 4)], 0, 0);
+        // Se calcula con el reloj del navegador (hora de la barbería) y dentro del horario de cualquier día (1 a 6 p.m.).
+        await page.goto('/pos', { waitUntil: 'networkidle' });
+        const when = new Date(await page.evaluate(() => {
+            const d = new Date();
+            d.setDate(d.getDate() + 60 + Math.floor(Math.random() * 300));
+            d.setHours(13 + Math.floor(Math.random() * 5), [0, 15, 30][Math.floor(Math.random() * 3)], 0, 0);
+            return d.toISOString();
+        }));
         const created = await page.request.post('/api/appointments', {
             data: { barber_id: deya, customer_name: 'Cliente cobro E2E', scheduled_at: when.toISOString(), duration_minutes: 30 },
         });
@@ -94,7 +99,7 @@ test.describe('agenda entrelazada', () => {
 
         await page.goto(`/pos?cita=${apt.id}`, { waitUntil: 'networkidle' });
         await expect(page.getByTestId('pos-appointment')).toContainText('Cobrando la cita de Cliente cobro E2E');
-        await page.getByRole('button', { name: 'Corte de cabello' }).click();
+        await page.getByRole('button', { name: 'Corte de cabello (prueba)' }).click();
         await page.getByRole('button', { name: `Cobrar $${service.price}` }).click();
         await expect(page.getByTestId('pos-success')).toBeVisible({ timeout: 20_000 });
 
@@ -124,6 +129,32 @@ test.describe('agenda entrelazada', () => {
 
         await page.goto('/citas', { waitUntil: 'networkidle' });
         await expect(page.getByTestId('day-view')).toContainText('Sin cita');
+    });
+
+    test('la agenda respeta el horario del negocio', async ({ page }) => {
+        await login(page, USERS.reception);
+        await page.goto('/citas', { waitUntil: 'networkidle' });
+        const deya = await barberId(page.request, 'Deya');
+        const schedule = await (await page.request.get('/api/schedule')).json() as { hours: Record<string, { open: string; close: string } | null> | null };
+        test.skip(!schedule.hours?.['2'], 'El negocio no tiene horario de martes configurado.');
+        const tuesdayOpen = schedule.hours!['2']!.open;
+        // Próximo martes a las 7:00 a.m. (antes de abrir) en el reloj de la barbería.
+        const early = await page.evaluate(() => {
+            const d = new Date();
+            d.setDate(d.getDate() + ((2 - d.getDay() + 7) % 7 || 7));
+            d.setHours(7, 0, 0, 0);
+            return d.toISOString();
+        });
+        const res = await page.request.post('/api/appointments', {
+            data: { barber_id: deya, customer_name: 'Fuera de horario E2E', scheduled_at: early, duration_minutes: 30 },
+        });
+        if (res.status() === 201) await page.request.patch(`/api/appointments/${(await res.json()).id}`, { data: { status: 'cancelled', reason: 'Limpieza de prueba' } });
+        expect(res.status()).toBe(409);
+        expect((await res.json()).error).toMatch(/^Fuera del horario (del negocio|de Deya) \(martes de /);
+        expect(tuesdayOpen).toMatch(/^\d{2}:\d{2}$/);
+
+        // La vista por día dice el horario del día.
+        await expect(page.getByTestId('day-hours')).toContainText(/Abierto de|El negocio cierra/);
     });
 
     test('el cuadre es solo para dueño y gerencia', async ({ page, browser }) => {

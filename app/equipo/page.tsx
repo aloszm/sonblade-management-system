@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Edit2, UserX, UserCheck, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import BarberScheduleModal from '@/components/BarberScheduleModal';
 import type { Barber } from '@/types';
 
 interface BarberLive {
@@ -18,6 +19,7 @@ export default function TeamPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formError, setFormError] = useState('');
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
+    const [scheduleFor, setScheduleFor] = useState<Barber | null>(null);
     const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true });
 
     const fetchBarbers = async () => {
@@ -145,6 +147,11 @@ export default function TeamPage() {
                                 <button onClick={() => openModal(barber)} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
                                     <Edit2 className="w-4 h-4" /> Editar
                                 </button>
+                                {(barber as { isBarber?: boolean }).isBarber !== false && active && (
+                                    <button onClick={() => setScheduleFor(barber)} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
+                                        <Clock className="w-4 h-4" /> Horario
+                                    </button>
+                                )}
                                 <button onClick={() => toggleStatus(barber)} className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border transition-colors hover:bg-bos-raised ${active ? 'text-bos-danger' : 'text-bos-success'}`}>
                                     {active ? <><UserX className="w-4 h-4" /> Desactivar</> : <><UserCheck className="w-4 h-4" /> Activar</>}
                                 </button>
@@ -153,6 +160,8 @@ export default function TeamPage() {
                     );
                 })}
             </div>
+
+            {scheduleFor && <BarberScheduleModal barber={{ id: scheduleFor.id, name: scheduleFor.name }} onClose={() => setScheduleFor(null)} />}
 
             {/* Ventana: agregar o editar persona */}
             {isModalOpen && (

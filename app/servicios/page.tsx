@@ -9,6 +9,8 @@ interface Service {
     price: number;
     duration_minutes: number;
     is_active: boolean;
+    /** Precio libre: se escribe al cobrar (p. ej. grecas). */
+    variable_price?: boolean;
 }
 
 export default function ServicesPage() {
@@ -18,7 +20,7 @@ export default function ServicesPage() {
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formError, setFormError] = useState('');
-    const [formData, setFormData] = useState({ name: '', price: 0, duration_minutes: 30, is_active: true });
+    const [formData, setFormData] = useState({ name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false });
 
     useEffect(() => {
         fetchServices();
@@ -55,7 +57,7 @@ export default function ServicesPage() {
                 fetchServices();
                 setIsAdding(false);
                 setEditingId(null);
-                setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true });
+                setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false });
             } else {
                 const body = await res.json().catch(() => null);
                 setFormError(body?.error || 'No se pudo guardar el servicio');
@@ -96,7 +98,7 @@ export default function ServicesPage() {
                     <p className="text-bos-muted text-sm mt-1">Administra los servicios ofrecidos en la barbería</p>
                 </div>
                 <button
-                    onClick={() => { setIsAdding(true); setFormError(''); setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true }); }}
+                    onClick={() => { setIsAdding(true); setFormError(''); setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false }); }}
                     className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                 >
                     <Plus className="h-4 w-4" /> Nuevo servicio
@@ -154,6 +156,10 @@ export default function ServicesPage() {
                                             value={formData.price}
                                             onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
                                         />
+                                        <label className="mt-2 flex items-center justify-center gap-2 text-xs text-bos-muted">
+                                            <input type="checkbox" checked={formData.variable_price} onChange={e => setFormData({ ...formData, variable_price: e.target.checked })} className="h-4 w-4 accent-[var(--bos-accent)]" />
+                                            Precio libre al cobrar
+                                        </label>
                                     </td>
                                     <td className="p-3">
                                         <input
@@ -214,6 +220,14 @@ export default function ServicesPage() {
                                                 value={formData.price}
                                                 onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
                                             />
+                                        ) : null}
+                                        {editingId === service.id ? (<>
+                                            <label className="mt-2 flex items-center justify-center gap-2 text-xs text-bos-muted">
+                                                <input type="checkbox" checked={formData.variable_price} onChange={e => setFormData({ ...formData, variable_price: e.target.checked })} className="h-4 w-4 accent-[var(--bos-accent)]" />
+                                                Precio libre al cobrar
+                                            </label></>
+                                        ) : service.variable_price ? (
+                                            <span className="text-sm font-medium text-bos-muted">Precio al cobrar</span>
                                         ) : (
                                             <span className="font-display font-semibold tabular-nums">${Number(service.price).toFixed(2)}</span>
                                         )}
@@ -255,7 +269,7 @@ export default function ServicesPage() {
                                                 <button
                                                     onClick={() => {
                                                         setEditingId(service.id);
-                                                        setFormData({ name: service.name, price: Number(service.price), duration_minutes: service.duration_minutes, is_active: service.is_active });
+                                                        setFormData({ name: service.name, price: Number(service.price), duration_minutes: service.duration_minutes, is_active: service.is_active, variable_price: !!service.variable_price });
                                                     }}
                                                     aria-label="Editar servicio"
                                                     className={iconBtn}
