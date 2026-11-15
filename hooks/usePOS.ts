@@ -15,6 +15,8 @@ export interface CartItem {
 
 export interface DiscountAuthorizer { user_id: string; name: string }
 
+export interface LastSale { id: string | null; saleTotal: number; tip: number; total: number; barberName: string | null }
+
 const cents = (value: number) => Math.round(value * 100);
 const lineList = (item: CartItem) => item.price * item.quantity;
 const lineDiscount = (item: CartItem) => Math.min(Math.max(item.discount ?? 0, 0), lineList(item));
@@ -37,6 +39,8 @@ export function usePOS() {
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastSaleTotal, setLastSaleTotal] = useState(0);
     const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+    // Resumen de la última venta confirmada por la base: alimenta la pantalla de "Cobro realizado".
+    const [lastSale, setLastSale] = useState<LastSale | null>(null);
     const [discountReason, setDiscountReason] = useState('');
     const [discountAuthorizer, setDiscountAuthorizer] = useState('');
     const [authorizers, setAuthorizers] = useState<DiscountAuthorizer[]>([]);
@@ -303,8 +307,9 @@ export function usePOS() {
             setDiscountReason('');
             setProductSellerChoice('');
             setLastSaleTotal(total);
+            setLastSale({ id: saved?.sale_id ?? null, saleTotal, tip: selectedBarber ? tip : 0, total: selectedBarber ? total : saleTotal, barberName: selectedBarber?.name ?? null });
+            // La confirmación se queda en pantalla hasta que recepción empieza otra venta.
             setShowSuccess(true);
-            setTimeout(() => setShowSuccess(false), 3000);
         } catch (err) {
             console.error('Error creating sale:', err);
             alert(`Error al registrar la venta: ${err instanceof Error ? err.message : 'desconocido'}`);
@@ -313,10 +318,20 @@ export function usePOS() {
         }
     };
 
+    const startNewSale = () => { setShowSuccess(false); setLastSale(null); };
+    const setItemQuantity = (id: string, quantity: number) => {
+        setCart(prev => prev.map(i => {
+            if (i.id !== id) return i;
+            const stock = products?.find(p => p.id === i.product_id)?.stock ?? quantity;
+            return { ...i, quantity: Math.max(1, Math.min(quantity, stock)) };
+        }));
+    };
+
     return {
         state: {
             selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
-            clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, lastSaleId,
+            clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, lastSaleId, lastSale,
+            services: services ?? [], products: products ?? [],
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
             discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller
@@ -324,7 +339,7 @@ export function usePOS() {
         actions: {
             setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice
+            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setItemQuantity
         }
     };
 }

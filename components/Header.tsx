@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, ChevronDown, Plus, LogOut } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -69,24 +70,26 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const initials = userName ? userName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '?';
 
   return (
-    <header className="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-6 z-10">
+    <header className="h-16 bg-bos-surface border-b border-bos-border flex items-center justify-between px-4 md:px-6 z-10">
       <div className="flex items-center gap-6 flex-1">
-        <button onClick={toggleSidebar} aria-label="Abrir o cerrar el menú" className="text-gray-500 hover:text-sonblade-primary">
+        <button onClick={toggleSidebar} aria-label="Abrir o cerrar el menú" className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised md:hidden">
           <Menu className="h-6 w-6" />
         </button>
 
-        <h1 className="text-base font-semibold text-gray-800 truncate">{title}</h1>
+        <h1 className="font-display text-lg font-semibold text-bos-text truncate">{title}</h1>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
         {(userRole === 'admin' || userRole === 'recepcion') && pathname !== '/citas' && (
-          <Link href="/citas?nueva=1" className="hidden md:flex items-center gap-2 bg-sonblade-primary hover:bg-sonblade-dark text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+          <Link href="/citas?nueva=1" className="hidden md:inline-flex items-center gap-2 h-11 px-4 rounded-xl border border-bos-border text-bos-text hover:bg-bos-raised text-sm font-semibold transition-colors">
             <Plus className="h-4 w-4" />
             Nueva Cita
           </Link>
         )}
 
-        <div className="relative ml-2" ref={menuRef}>
+        <ThemeToggle />
+
+        <div className="relative ml-1" ref={menuRef}>
           <button 
             onClick={() => setMenuOpen(!menuOpen)}
             className="flex items-center gap-2 focus:outline-none group"
@@ -94,22 +97,22 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-black to-gray-700 flex items-center justify-center text-sonblade-gold font-bold text-xs ring-2 ring-transparent group-hover:ring-sonblade-primary/50 transition-all">
               {initials}
             </div>
-            <span className="hidden md:block text-sm font-medium text-gray-700 group-hover:text-sonblade-primary transition-colors">
+            <span className="hidden md:block text-sm font-medium text-bos-text transition-colors">
               {userName || 'Cargando...'}
             </span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 group-hover:text-sonblade-primary transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-4 w-4 text-bos-muted transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-lg shadow-black/5 py-1 z-50">
-              <div className="block md:hidden px-4 py-2 border-b border-gray-100">
-                 <p className="text-sm font-semibold text-gray-800">{userName || 'Usuario'}</p>
-                 <p className="text-xs text-gray-500">{ROLE_LABELS[userRole] ?? userRole}</p>
+            <div className="absolute right-0 mt-2 w-52 bg-bos-surface border border-bos-border rounded-xl shadow-lg shadow-black/20 py-1 z-50">
+              <div className="px-4 py-3 border-b border-bos-border">
+                 <p className="text-sm font-semibold text-bos-text">{userName || 'Usuario'}</p>
+                 <p className="text-xs text-bos-muted">{ROLE_LABELS[userRole] ?? userRole}</p>
               </div>
               
               <button 
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
+                className="w-full flex items-center gap-2 px-4 min-h-11 text-sm text-bos-danger hover:bg-bos-raised transition-colors text-left"
               >
                 <LogOut className="h-4 w-4" /> Cerrar sesión
               </button>

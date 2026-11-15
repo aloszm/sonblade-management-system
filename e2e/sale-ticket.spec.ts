@@ -14,17 +14,20 @@ test.describe('cobro', () => {
         const tip = 20;
 
         await page.goto('/pos', { waitUntil: 'networkidle' });
-        await page.fill('input[placeholder="Buscar barbero..."]', 'Deya');
-        await page.locator('main').getByText('Deya').first().click();
-        await page.fill('input[placeholder="Buscar servicio..."]', 'Corte de cabello');
-        await page.locator('main').getByText('Corte de cabello').first().click();
-        await page.locator('#pos-tip').fill(String(tip));
+        await page.getByRole('button', { name: 'Deya', exact: true }).click();
+        await page.getByRole('button', { name: 'Corte de cabello' }).click();
+        await page.getByRole('button', { name: `$${tip}`, exact: true }).click();
         await expect(page.getByTestId('pos-total')).toHaveText(`$${price + tip}`);
 
-        await page.getByRole('button', { name: 'Confirmar Venta' }).click();
-        const link = page.getByRole('link', { name: 'Ver ticket de la última venta' });
-        await expect(link).toBeVisible({ timeout: 20_000 });
+        await page.getByRole('button', { name: `Cobrar $${price + tip}` }).click();
+
+        // Confirmación viva: solo aparece cuando la base ya registró el cobro.
+        await expect(page.getByTestId('pos-success')).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId('pos-success')).toContainText('Cobro realizado');
+        await expect(page.getByTestId('pos-paid-amount')).toHaveText(`+$${price + tip}`);
+        await expect(page.getByTestId('pos-success')).toContainText(`Propina de $${tip} para Deya`);
         expect(alerts, 'la venta no debe mostrar avisos de error').toEqual([]);
+        const link = page.getByRole('link', { name: 'Ver ticket' });
 
         await link.click();
         const ticket = page.getByTestId('ticket');

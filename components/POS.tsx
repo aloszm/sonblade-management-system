@@ -1,501 +1,329 @@
 'use client';
 
 import React from 'react';
-import {
-    Search, User, Scissors, Package, CreditCard, Banknote,
-    Trash2, Plus, Minus, ArrowRight, Loader2, Users
-} from 'lucide-react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { usePOS, PaymentType, CartItem } from '@/hooks/usePOS';
+import { Check, Loader2, Minus, Plus, Search, X } from 'lucide-react';
+import { usePOS, type CartItem, type PaymentType } from '@/hooks/usePOS';
+import { useCountUp } from '@/hooks/useCountUp';
+
+const money = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;
+const METHODS: { id: PaymentType; label: string }[] = [
+    { id: 'cash', label: 'Efectivo' },
+    { id: 'card', label: 'Tarjeta' },
+    { id: 'transfer', label: 'Transferencia' },
+];
+const QUICK_TIPS = [0, 20, 50, 100];
+
+const sectionTitle = 'text-xs font-semibold uppercase tracking-[0.08em] text-bos-muted';
+const fieldClass = 'w-full h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+
+/** Tarjeta que se enciende en dorado al elegirla. */
+function choiceClass(selected: boolean) {
+    return `text-left rounded-2xl border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bos-accent ${selected
+        ? 'border-bos-accent bg-bos-accent-soft'
+        : 'border-bos-border bg-bos-surface hover:bg-bos-raised'}`;
+}
+
+function MethodPicker({ label, value, onChange }: { label: string; value: PaymentType; onChange: (m: PaymentType) => void }) {
+    return (
+        <div role="group" aria-label={label} className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-bos-raised">
+            {METHODS.map((m) => (
+                <button key={m.id} type="button" aria-pressed={value === m.id} onClick={() => onChange(m.id)}
+                    className={`h-10 rounded-lg text-sm font-semibold transition-colors ${value === m.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
+                    {m.label}
+                </button>
+            ))}
+        </div>
+    );
+}
 
 export default function POS() {
     const { state, actions } = usePOS();
     const {
         selectedBarber, selectedClient, servicePayment, productPayment, cart, tip, tipPayment,
+        clientSearch, submitting, showSuccess, lastSale, loadingBarbers, loadingServices,
+        visibleBarbers, filteredClients, services, products, serviceItems, productItems, subtotal, total,
         discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller,
-        clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, lastSaleId,
-        loadingBarbers, loadingServices, filteredBarbers,
-        filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total
     } = state;
     const {
-        setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment,
-        setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-        setCart, setTip, setTipPayment, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice
+        setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment, setTip, setTipPayment,
+        setClientSearch, addService, addProduct, removeFromCart, handleSubmit,
+        setItemDiscount, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale,
     } = actions;
 
-    // Descuento en pesos sobre un renglón. El servidor valida quién puede autorizarlo.
-    const discountField = (item: CartItem) => (
-        <label className="flex items-center justify-between gap-2 text-[11px] text-gray-500 font-bold">
-            Descuento $
-            <input
-                type="number" min={0} max={item.price * item.quantity} step="1" inputMode="decimal"
-                aria-label={`Descuento para ${item.name}`}
-                value={item.discount ? item.discount : ''} placeholder="0"
-                onChange={(e) => setItemDiscount(item.id, Number(e.target.value))}
-                className="w-20 px-2 py-1 bg-black/50 border border-white/10 rounded-lg text-right text-xs text-white outline-none focus:border-sonblade-gold"
-            />
-        </label>
+    const [catalogFilter, setCatalogFilter] = React.useState('');
+    const [showDiscounts, setShowDiscounts] = React.useState(false);
+    const paidAmount = useCountUp(Math.round(lastSale?.total ?? 0), showSuccess);
+
+    const term = catalogFilter.trim().toLowerCase();
+    const shownServices = services.filter((s) => !term || s.name.toLowerCase().includes(term));
+    const shownProducts = products.filter((p) => !term || p.name.toLowerCase().includes(term));
+    const customTip = !QUICK_TIPS.includes(tip);
+    const empty = cart.length === 0;
+
+    const toggleService = (service: (typeof services)[number]) => {
+        const inCart = cart.find((i) => i.service_id === service.id);
+        if (inCart) removeFromCart(inCart.id); else addService(service);
+    };
+
+    const line = (item: CartItem) => (
+        <li key={item.id} className="py-3 border-b border-bos-border last:border-b-0">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="text-[15px] font-medium text-bos-text truncate">{item.name}</p>
+                    <p className="text-xs text-bos-muted">{item.quantity} × {money(item.price)}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    {item.type === 'product' && (
+                        <div className="flex items-center rounded-lg border border-bos-border">
+                            <button type="button" aria-label={`Quitar uno de ${item.name}`} disabled={item.quantity <= 1} onClick={() => setItemQuantity(item.id, item.quantity - 1)}
+                                className="h-9 w-9 inline-flex items-center justify-center text-bos-muted hover:text-bos-text disabled:opacity-40"><Minus className="h-4 w-4" /></button>
+                            <span className="w-6 text-center text-sm font-semibold tabular-nums">{item.quantity}</span>
+                            <button type="button" aria-label={`Agregar uno de ${item.name}`} onClick={() => setItemQuantity(item.id, item.quantity + 1)}
+                                className="h-9 w-9 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><Plus className="h-4 w-4" /></button>
+                        </div>
+                    )}
+                    <span className="w-16 text-right text-[15px] font-semibold tabular-nums">{money(item.price * item.quantity - (item.discount ?? 0))}</span>
+                    <button type="button" aria-label={`Quitar ${item.name}`} onClick={() => removeFromCart(item.id)}
+                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-bos-muted hover:text-bos-danger hover:bg-bos-raised"><X className="h-4 w-4" /></button>
+                </div>
+            </div>
+            {showDiscounts && (
+                <label className="mt-2 flex items-center justify-between gap-3 text-sm text-bos-muted">
+                    Descuento en pesos
+                    <input type="number" min={0} max={item.price * item.quantity} step="1" inputMode="decimal"
+                        aria-label={`Descuento para ${item.name}`} placeholder="0"
+                        value={item.discount ? item.discount : ''} onChange={(e) => setItemDiscount(item.id, Number(e.target.value))}
+                        className="w-24 h-10 px-3 rounded-lg bg-bos-surface border border-bos-border text-right text-base text-bos-text outline-none focus:border-bos-accent" />
+                </label>
+            )}
+        </li>
     );
 
-    const getPaymentButtonStyle = (current: PaymentType, type: PaymentType) =>
-        `flex-1 py-1 px-1 sm:px-2 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center gap-1 sm:gap-2
-        ${current === type
-            ? 'bg-sonblade-gold text-black border-sonblade-gold'
-            : 'bg-[#1a1a1a] text-gray-400 border-white/10 hover:bg-white/5 hover:text-white'}`;
-
     return (
-        <div className="flex h-[calc(100vh-7rem)] flex-col lg:flex-row gap-6 overflow-hidden">
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-2 gap-6 h-full min-h-0 overflow-hidden">
-                {/* 1. Barbero */}
-                <div className="bg-[#141414] rounded-2xl shadow-xl border border-white/5 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-white/5 flex-shrink-0">
-                        <h2 className="text-sm font-bold text-sonblade-gold uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <User className="h-4 w-4" /> 1. Barbero
-                        </h2>
-                        {selectedBarber ? (
-                            <div className="flex items-center justify-between p-2.5 border border-sonblade-gold/30 bg-sonblade-gold/10 rounded-xl">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden bg-sonblade-gold text-black">
-                                        {selectedBarber.avatar_url ? (
-                                            <img src={selectedBarber.avatar_url} alt={selectedBarber.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            selectedBarber.name.charAt(0).toUpperCase()
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="font-bold text-white text-sm">{selectedBarber.name}</span>
-                                        <span className="text-xs text-gray-400">Barbero</span>
-                                    </div>
-                                </div>
-                                <button onClick={() => { setSelectedBarber(null); setBarberSearch(''); }} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Buscar barbero..."
-                                    value={barberSearch || ''}
-                                    onChange={(e) => setBarberSearch(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl focus:ring-1 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none transition-all text-sm font-medium text-white placeholder-gray-600"
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-0 scrollbar-sonblade-light relative">
-                        {loadingBarbers ? (
-                            <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-sonblade-gold" /></div>
-                        ) : (
-                            <>
-                                {barberSearch && !selectedBarber && filteredBarbers.length > 0 ? (
-                                    <div className="flex flex-col divide-y divide-white/5">
-                                        {filteredBarbers.map((barber) => (
-                                            <button
-                                                key={barber.id}
-                                                onClick={() => { setSelectedBarber(barber); setBarberSearch(''); }}
-                                                className="flex items-center gap-3 p-4 text-left hover:bg-white/5 transition-colors"
-                                            >
-                                                <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0 bg-black/50 text-gray-400 overflow-hidden">
-                                                    {barber.avatar_url ? (
-                                                        <img src={barber.avatar_url} alt={barber.name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        barber.name.charAt(0).toUpperCase()
-                                                    )}
-                                                </div>
-                                                <span className="font-bold text-sm text-white">{barber.name}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    !selectedBarber && (
-                                        <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-500">
-                                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3">
-                                                <User className="h-6 w-6 text-gray-600" />
-                                            </div>
-                                            <p className="text-sm">Busca un barbero para esta venta.</p>
-                                        </div>
-                                    )
-                                )}
-                                {barberSearch && !selectedBarber && filteredBarbers.length === 0 && (
-                                    <div className="p-6 text-center text-gray-500 text-sm">Ningún barbero coincide.</div>
-                                )}
-                                {selectedBarber && (
-                                    <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-500">
-                                        <p className="text-sm text-sonblade-gold font-medium">Barbero vinculado a la venta</p>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {/* Cliente Opcional */}
-                <div className="bg-[#141414] rounded-2xl shadow-xl border border-white/5 flex flex-col overflow-hidden relative">
-                    <div className="p-4 border-b border-white/5 flex-shrink-0">
-                        <h2 className="text-sm font-bold text-sonblade-gold uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <Users className="h-4 w-4" /> Cliente (Opcional)
-                        </h2>
-                        
-                        {selectedClient ? (
-                            <div className="flex items-center justify-between p-2.5 border border-sonblade-gold/30 bg-sonblade-gold/10 rounded-xl">
-                                <div className="flex flex-col">
-                                    <span className="font-bold text-white text-sm">{selectedClient.name}</span>
-                                    <span className="text-xs text-gray-400">{selectedClient.client_number} {selectedClient.phone ? ` • ${selectedClient.phone}` : ''}</span>
-                                </div>
-                                <button onClick={() => { setSelectedClient(null); setClientSearch(''); }} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Teléfono, nombre o SB..."
-                                    value={clientSearch}
-                                    onChange={(e) => setClientSearch(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl focus:ring-1 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none transition-all text-sm font-medium text-white placeholder-gray-600"
-                                />
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-0 scrollbar-sonblade-light relative">
-                        {clientSearch && !selectedClient && filteredClients.length > 0 ? (
-                            <div className="flex flex-col divide-y divide-white/5">
-                                {filteredClients.map(c => (
-                                    <button
-                                        key={c.id}
-                                        onClick={() => { setSelectedClient(c); setClientSearch(''); }}
-                                        className="flex items-center justify-between p-4 text-left hover:bg-white/5 transition-colors"
-                                    >
-                                        <div>
-                                            <div className="font-bold text-white text-sm">{c.name}</div>
-                                            <div className="text-xs text-gray-400">{c.client_number} {c.phone ? `| ${c.phone}` : ''}</div>
-                                        </div>
-                                        {c.visits > 0 && (
-                                            <span className="bg-sonblade-gold/20 text-sonblade-gold text-[10px] px-2 py-1 rounded-md font-bold text-nowrap">
-                                                ★ {c.points}
-                                            </span>
-                                        )}
+        <div className="max-w-[1400px] mx-auto grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+            {/* Lo que se vende */}
+            <div className="space-y-8 min-w-0">
+                <section aria-labelledby="pos-barber" className="space-y-3">
+                    <h2 id="pos-barber" className={sectionTitle}>1 · ¿Quién atendió?</h2>
+                    {loadingBarbers ? <Loader2 className="h-5 w-5 animate-spin text-bos-muted" /> : (
+                        <div className="flex flex-wrap gap-3">
+                            {visibleBarbers.map((b) => {
+                                const selected = selectedBarber?.id === b.id;
+                                return (
+                                    <button key={b.id} type="button" aria-pressed={selected} onClick={() => setSelectedBarber(selected ? null : b)}
+                                        className={`inline-flex items-center gap-3 min-h-14 pl-2 pr-5 rounded-full border text-[15px] font-semibold transition-colors ${selected ? 'border-bos-accent bg-bos-accent-soft text-bos-text' : 'border-bos-border bg-bos-surface text-bos-text hover:bg-bos-raised'}`}>
+                                        <span aria-hidden="true" className={`h-10 w-10 rounded-full inline-flex items-center justify-center font-display font-bold ${selected ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised text-bos-text'}`}>{b.name.charAt(0).toUpperCase()}</span>
+                                        {b.name}
                                     </button>
-                                ))}
-                            </div>
-                        ) : (
-                            !selectedClient && (
-                                <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-500">
-                                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3">
-                                        <Users className="h-6 w-6 text-gray-600" />
-                                    </div>
-                                    <p className="text-sm">Busca un cliente para registrar la visita.</p>
-                                </div>
-                            )
-                        )}
-                        {clientSearch && !selectedClient && filteredClients.length === 0 && (
-                            <div className="p-6 text-center text-gray-500 text-sm">Ningún cliente coincide.</div>
-                        )}
-                        {selectedClient && (
-                             <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-500">
-                                 <p className="text-sm text-sonblade-gold font-medium">Cliente vinculado a la venta</p>
-                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 2. Servicios */}
-                <div className="flex-1 bg-[#141414] rounded-2xl shadow-xl border border-white/5 flex flex-col overflow-hidden">
-                        <div className="p-4 border-b border-white/5 flex-shrink-0">
-                            <h2 className="text-sm font-bold text-sonblade-gold uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <Scissors className="h-4 w-4" /> 2. Servicios
-                            </h2>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Buscar servicio..."
-                                    value={serviceSearch}
-                                    onChange={(e) => setServiceSearch(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl focus:ring-1 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none transition-all text-sm text-white placeholder-gray-600"
-                                />
-                            </div>
+                                );
+                            })}
+                            {visibleBarbers.length === 0 && <p className="text-sm text-bos-muted">No hay barberos activos. Agrégalos en Equipo.</p>}
                         </div>
+                    )}
+                </section>
 
-                        <div className="flex-1 overflow-y-auto p-4 scrollbar-sonblade-light">
-                            {loadingServices ? (
-                                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-sonblade-gold" /></div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {filteredServices.map(service => {
-                                        const inCart = cart.some(i => i.service_id === service.id);
-                                        return (
-                                            <button
-                                                key={service.id}
-                                                onClick={() => addService(service)}
-                                                disabled={inCart}
-                                                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left group
-                                                    ${inCart
-                                                        ? 'bg-sonblade-gold/5 border-sonblade-gold/20 opacity-40 cursor-not-allowed'
-                                                        : 'bg-[#1a1a1a] border-white/5 hover:bg-white/5 hover:border-sonblade-gold/50 cursor-pointer'}`}
-                                            >
-                                                <span className="font-bold text-white text-sm line-clamp-1">{service.name}</span>
-                                                <span className="text-sonblade-gold font-bold bg-sonblade-gold/10 px-2 py-1 rounded-lg text-xs">${service.price}</span>
+                <section aria-labelledby="pos-client" className="space-y-3">
+                    <h2 id="pos-client" className={sectionTitle}>Cliente (opcional)</h2>
+                    {selectedClient ? (
+                        <div className="inline-flex items-center gap-3 min-h-11 pl-4 pr-1 rounded-full border border-bos-border bg-bos-surface text-[15px]">
+                            <span className="font-semibold">{selectedClient.name}</span>
+                            {selectedClient.phone && <span className="text-bos-muted">{selectedClient.phone}</span>}
+                            <button type="button" aria-label="Quitar cliente" onClick={() => setSelectedClient(null)}
+                                className="h-9 w-9 inline-flex items-center justify-center rounded-full text-bos-muted hover:text-bos-text hover:bg-bos-raised"><X className="h-4 w-4" /></button>
+                        </div>
+                    ) : (
+                        <div className="relative max-w-md">
+                            <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-bos-muted" />
+                            <input type="search" aria-labelledby="pos-client" placeholder="Buscar por nombre o teléfono"
+                                value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className={`${fieldClass} pl-9`} />
+                            {clientSearch && (
+                                <ul className="absolute z-20 mt-1 w-full rounded-xl border border-bos-border bg-bos-surface shadow-lg overflow-hidden">
+                                    {filteredClients.map((c) => (
+                                        <li key={c.id}>
+                                            <button type="button" onClick={() => { setSelectedClient(c); setClientSearch(''); }}
+                                                className="w-full min-h-11 px-4 text-left text-[15px] hover:bg-bos-raised flex items-center justify-between gap-3">
+                                                <span className="font-medium">{c.name}</span>
+                                                <span className="text-sm text-bos-muted">{c.phone ?? ''}</span>
                                             </button>
-                                        );
-                                    })}
-                                    {filteredServices.length === 0 && (
-                                        <p className="text-gray-500 text-sm text-center py-6">No hay servicios.</p>
-                                    )}
-                                </div>
+                                        </li>
+                                    ))}
+                                    {filteredClients.length === 0 && <li className="px-4 py-3 text-sm text-bos-muted">Nadie con ese nombre. Regístralo en Clientes.</li>}
+                                </ul>
                             )}
                         </div>
+                    )}
+                </section>
+
+                {services.length + products.length > 9 && (
+                    <div className="relative max-w-md">
+                        <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-bos-muted" />
+                        <input type="search" aria-label="Filtrar servicios y productos" placeholder="Filtrar servicios y productos"
+                            value={catalogFilter} onChange={(e) => setCatalogFilter(e.target.value)} className={`${fieldClass} pl-9`} />
                     </div>
+                )}
 
-                    {/* 3. Productos */}
-                    <div className="flex-1 bg-[#141414] rounded-2xl shadow-xl border border-white/5 flex flex-col overflow-hidden">
-                        <div className="p-4 border-b border-white/5 flex-shrink-0">
-                            <h2 className="text-sm font-bold text-sonblade-gold uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <Package className="h-4 w-4" /> 3. Productos
-                            </h2>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Buscar producto..."
-                                    value={productSearch}
-                                    onChange={(e) => setProductSearch(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl focus:ring-1 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none transition-all text-sm text-white placeholder-gray-600"
-                                />
-                            </div>
+                <section aria-labelledby="pos-services" className="space-y-3">
+                    <h2 id="pos-services" className={sectionTitle}>2 · Servicios</h2>
+                    {loadingServices ? <Loader2 className="h-5 w-5 animate-spin text-bos-muted" /> : (
+                        <div className="grid gap-3 grid-cols-2 xl:grid-cols-3">
+                            {shownServices.map((s) => {
+                                const selected = cart.some((i) => i.service_id === s.id);
+                                return (
+                                    <button key={s.id} type="button" aria-pressed={selected} onClick={() => toggleService(s)}
+                                        className={`${choiceClass(selected)} min-h-24 p-4 flex flex-col justify-between gap-3`}>
+                                        <span className="text-[15px] font-semibold text-bos-text">{s.name}</span>
+                                        <span className="flex items-baseline justify-between gap-2">
+                                            <span className={`font-display text-2xl font-bold tabular-nums ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(s.price))}</span>
+                                            <span className="text-xs text-bos-muted">{s.duration_minutes} min</span>
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                            {shownServices.length === 0 && <p className="text-sm text-bos-muted col-span-full">No hay servicios que mostrar.</p>}
                         </div>
+                    )}
+                </section>
 
-                        <div className="flex-1 overflow-y-auto p-4 scrollbar-sonblade-light">
-                            <div className="space-y-2">
-                                {filteredProducts.map(product => {
-                                    const cartItem = cart.find(i => i.product_id === product.id);
-                                    const currentQty = cartItem?.quantity || 0;
-                                    const canAdd = currentQty < product.stock;
-
-                                    return (
-                                        <button
-                                            key={product.id}
-                                            onClick={() => addProduct(product)}
-                                            disabled={!canAdd}
-                                            className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left
-                                                ${!canAdd
-                                                    ? 'bg-black/40 border-white/5 opacity-40 cursor-not-allowed'
-                                                    : 'bg-[#1a1a1a] border-white/5 hover:bg-white/5 hover:border-sonblade-gold/50 cursor-pointer'}`}
-                                        >
-                                            <div className="flex-1 min-w-0 pr-3">
-                                                <div className="font-bold text-white text-sm line-clamp-1">{product.name}</div>
-                                                <div className="text-[11px] text-gray-500 mt-0.5 font-medium">Stock: {product.stock - currentQty}</div>
-                                            </div>
-                                            <span className="text-sonblade-gold font-bold bg-sonblade-gold/10 px-2 py-1 rounded-lg text-xs flex-shrink-0">${product.price}</span>
-                                        </button>
-                                    );
-                                })}
-                                {productSearch && filteredProducts.length === 0 && (
-                                    <div className="py-6 text-center text-sm text-gray-500">Ningún producto cumple la búsqueda.</div>
-                                )}
-                            </div>
-                        </div>
+                <section aria-labelledby="pos-products" className="space-y-3">
+                    <h2 id="pos-products" className={sectionTitle}>3 · Productos</h2>
+                    <div className="grid gap-3 grid-cols-2 xl:grid-cols-3">
+                        {shownProducts.map((p) => {
+                            const inCart = cart.find((i) => i.product_id === p.id);
+                            const left = p.stock - (inCart?.quantity ?? 0);
+                            return (
+                                <button key={p.id} type="button" aria-pressed={Boolean(inCart)} disabled={left <= 0 && !inCart} onClick={() => addProduct(p)}
+                                    className={`${choiceClass(Boolean(inCart))} min-h-[72px] px-4 py-3 flex items-center justify-between gap-3 disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                    <span className="min-w-0">
+                                        <span className="block text-[15px] font-semibold text-bos-text truncate">{p.name}</span>
+                                        <span className="block text-xs text-bos-muted">{left > 0 ? `Quedan ${left}` : 'Agotado'}</span>
+                                    </span>
+                                    <span className={`font-display text-lg font-bold tabular-nums ${inCart ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(p.price))}</span>
+                                </button>
+                            );
+                        })}
+                        {shownProducts.length === 0 && <p className="text-sm text-bos-muted col-span-full">No hay productos que mostrar.</p>}
                     </div>
+                </section>
             </div>
 
-            {/* Resumen / Carrito */}
-            <div className="lg:w-96 flex flex-col gap-6 flex-shrink-0 overflow-hidden">
-                <div className="bg-[#141414] rounded-2xl shadow-xl border border-white/5 flex flex-col flex-1 overflow-hidden">
-                    <div className="p-5 border-b border-white/5 flex-shrink-0">
-                        <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center justify-between">
-                            Resumen de Venta
-                            <span className="bg-sonblade-gold text-black text-[10px] px-2 py-0.5 rounded-full font-black">
-                                {cart.length} ITEMS
+            {/* La venta y el cobro */}
+            <aside aria-label="Resumen de la venta" className="lg:sticky lg:top-0 rounded-3xl border border-bos-border bg-bos-surface p-6 min-h-[560px] flex flex-col">
+                {showSuccess && lastSale ? (
+                    <div role="status" aria-live="polite" data-testid="pos-success" className="flex-1 flex flex-col items-center justify-center gap-5 text-center">
+                        <div className="relative h-24 w-24">
+                            <span aria-hidden="true" className="bos-ring absolute inset-0 rounded-full border-2 border-bos-success" />
+                            <span aria-hidden="true" className="bos-pop absolute inset-0 rounded-full bg-bos-success inline-flex items-center justify-center">
+                                <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--bos-bg)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path className="bos-draw" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
                             </span>
-                        </h2>
+                        </div>
+                        <div className="bos-rise space-y-1" style={{ animationDelay: '.25s' }}>
+                            <p className="text-sm font-semibold uppercase tracking-[0.1em] text-bos-muted">Cobro realizado</p>
+                            <p data-testid="pos-paid-amount" className="font-display text-6xl leading-none font-bold text-bos-success tabular-nums">+{money(paidAmount)}</p>
+                        </div>
+                        <ul className="bos-rise w-full rounded-2xl border border-bos-border p-4 space-y-2.5 text-left text-[15px]" style={{ animationDelay: '.45s' }}>
+                            <li className="flex items-center gap-2.5"><Check aria-hidden="true" className="h-4 w-4 text-bos-success shrink-0" /> Registrado en caja</li>
+                            <li className="flex items-center gap-2.5"><Check aria-hidden="true" className="h-4 w-4 text-bos-success shrink-0" /> Venta de {money(lastSale.saleTotal)}</li>
+                            {lastSale.tip > 0 && (
+                                <li className="flex items-center gap-2.5"><Check aria-hidden="true" className="h-4 w-4 text-bos-success shrink-0" /> Propina de {money(lastSale.tip)} para {lastSale.barberName}</li>
+                            )}
+                        </ul>
+                        <div className="bos-rise w-full grid grid-cols-2 gap-3" style={{ animationDelay: '.6s' }}>
+                            {lastSale.id ? (
+                                <Link href={`/ticket/${lastSale.id}`} className="h-13 min-h-[52px] inline-flex items-center justify-center rounded-xl border border-bos-border text-[15px] font-semibold text-bos-text hover:bg-bos-raised">Ver ticket</Link>
+                            ) : <span />}
+                            <button type="button" autoFocus onClick={startNewSale} className="min-h-[52px] rounded-xl bg-bos-text text-bos-bg text-[15px] font-bold hover:opacity-90">Nueva venta</button>
+                        </div>
                     </div>
+                ) : (
+                    <>
+                        <div className="flex items-center justify-between gap-3">
+                            <h2 className="font-display text-xl font-semibold">Venta</h2>
+                            {!empty && (
+                                <button type="button" aria-pressed={showDiscounts} onClick={() => setShowDiscounts(!showDiscounts)}
+                                    className="min-h-11 px-3 rounded-lg text-sm font-semibold text-bos-muted hover:text-bos-text hover:bg-bos-raised">
+                                    {showDiscounts ? 'Ocultar descuentos' : 'Aplicar descuento'}
+                                </button>
+                            )}
+                        </div>
 
-                    <div className="flex-1 overflow-y-auto p-5 space-y-5 scrollbar-sonblade-light">
-                        {cart.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-4">
-                                <div className="w-16 h-16 rounded-full bg-[#1a1a1a] flex items-center justify-center border border-white/5">
-                                    <ShoppingCartIcon className="h-6 w-6 text-gray-500" />
-                                </div>
-                                <p className="text-sm font-medium">Agrega servicios o productos</p>
-                            </div>
+                        {empty ? (
+                            <p className="mt-4 py-10 px-4 rounded-2xl border border-dashed border-bos-border text-center text-[15px] text-bos-muted">Elige un servicio o producto para empezar.</p>
                         ) : (
-                            <>
-                                {/* Servicios */}
-                                {serviceItems.length > 0 && (
-                                    <div className="space-y-3">
-                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Servicios</div>
-                                        {serviceItems.map((item) => (
-                                            <div key={item.id} className="flex flex-col gap-2 p-3 rounded-xl bg-[#1a1a1a] border border-white/5 group">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <div className="text-white font-bold text-sm">{item.name}</div>
-                                                        <div className="text-sonblade-gold text-xs font-bold">${item.price}</div>
-                                                    </div>
-                                                    <button onClick={() => removeFromCart(item.id)} className="text-gray-500 hover:text-red-400 p-1 bg-white/5 hover:bg-red-400/10 rounded transition-colors">
-                                                        <Minus className="h-3 w-3" />
-                                                    </button>
-                                                </div>
-                                                {discountField(item)}
-                                            </div>
-                                        ))}
+                            <ul className="mt-2">{cart.map(line)}</ul>
+                        )}
 
-                                        <div className="mt-2 text-[10px] text-gray-500 font-bold uppercase">Forma de Pago (Servicios)</div>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setServicePayment('cash')} className={getPaymentButtonStyle(servicePayment, 'cash')}>
-                                                <Banknote className="h-3 w-3" /> Efec
-                                            </button>
-                                            <button onClick={() => setServicePayment('card')} className={getPaymentButtonStyle(servicePayment, 'card')}>
-                                                <CreditCard className="h-3 w-3" /> Tarj
-                                            </button>
-                                            <button onClick={() => setServicePayment('transfer')} className={getPaymentButtonStyle(servicePayment, 'transfer')}>
-                                                <ArrowRight className="h-3 w-3" /> Transf
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Productos */}
-                                {productItems.length > 0 && (
-                                    <div className="space-y-3 pt-4 border-t border-white/5">
-                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Productos</div>
-                                        {productItems.map((item) => (
-                                            <div key={item.id} className="flex flex-col gap-2 p-3 rounded-xl bg-[#1a1a1a] border border-white/5">
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex-1 pr-2">
-                                                        <div className="text-white font-bold text-sm truncate">{item.name}</div>
-                                                        <div className="text-sonblade-gold text-xs font-bold">${item.price} c/u ({item.quantity})</div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 bg-black/50 border border-white/5 rounded-lg p-1">
-                                                        <button disabled={item.quantity <= 1} onClick={() => {
-                                                            const newCart = [...cart];
-                                                            const idx = newCart.findIndex((i) => i.id === item.id);
-                                                            if (idx > -1 && newCart[idx].quantity > 1) { newCart[idx].quantity -= 1; setCart(newCart); }
-                                                        }} className="p-1 hover:bg-white/10 rounded text-white disabled:opacity-30"><Minus className="h-3 w-3" /></button>
-                                                        <span className="text-white font-bold text-xs w-4 text-center">{item.quantity}</span>
-                                                        <button onClick={() => {
-                                                            const p = filteredProducts?.find((prod) => prod.id === item.product_id);
-                                                            if (p && item.quantity < p.stock) addProduct(p);
-                                                        }} className="p-1 hover:bg-white/10 rounded text-white"><Plus className="h-3 w-3" /></button>
-                                                    </div>
-                                                    <button onClick={() => removeFromCart(item.id)} className="text-gray-500 hover:text-red-400 transition-colors p-1.5 ml-1 bg-white/5 hover:bg-red-400/10 rounded-lg"><Trash2 className="h-3.5 w-3.5" /></button>
-                                                </div>
-                                                {discountField(item)}
-                                            </div>
-                                        ))}
-                                        <label htmlFor="pos-product-seller" className="mt-2 block text-[10px] text-gray-500 font-bold uppercase">Vendió el producto (gana la comisión)</label>
-                                        <select
-                                            id="pos-product-seller" value={productSeller} onChange={(e) => setProductSellerChoice(e.target.value)}
-                                            className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white outline-none focus:border-sonblade-gold"
-                                        >
-                                            <option value="">¿Quién lo vendió?</option>
-                                            {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                        <div className="mt-2 text-[10px] text-gray-500 font-bold uppercase">Forma de Pago (Prod)</div>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setProductPayment('cash')} className={getPaymentButtonStyle(productPayment, 'cash')}><Banknote className="h-3 w-3" /> Efec</button>
-                                            <button onClick={() => setProductPayment('card')} className={getPaymentButtonStyle(productPayment, 'card')}><CreditCard className="h-3 w-3" /> Tarj</button>
-                                            <button onClick={() => setProductPayment('transfer')} className={getPaymentButtonStyle(productPayment, 'transfer')}><ArrowRight className="h-3 w-3" /> Transf</button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Descuento: motivo y quién lo autoriza (queda registrado en la venta) */}
+                        {!empty && (
+                            <div className="mt-5 space-y-5">
                                 {discountTotal > 0 && (
-                                    <div className="space-y-2 pt-4 border-t border-white/5">
-                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Descuento</div>
-                                        <input
-                                            id="pos-discount-reason" type="text" maxLength={300}
-                                            aria-label="Motivo del descuento" placeholder="Motivo del descuento"
-                                            value={discountReason} onChange={(e) => setDiscountReason(e.target.value)}
-                                            className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-600 outline-none focus:border-sonblade-gold"
-                                        />
-                                        <select
-                                            id="pos-discount-authorizer" aria-label="Quién autoriza el descuento"
-                                            value={discountAuthorizer} onChange={(e) => setDiscountAuthorizer(e.target.value)}
-                                            className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white outline-none focus:border-sonblade-gold"
-                                        >
+                                    <div className="space-y-2">
+                                        <p className={sectionTitle}>Descuento</p>
+                                        <input id="pos-discount-reason" type="text" maxLength={300} aria-label="Motivo del descuento" placeholder="Motivo del descuento"
+                                            value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} className={fieldClass} />
+                                        <select id="pos-discount-authorizer" aria-label="Quién autoriza el descuento" value={discountAuthorizer}
+                                            onChange={(e) => setDiscountAuthorizer(e.target.value)} className={fieldClass}>
                                             <option value="">¿Quién autoriza?</option>
                                             {authorizers.map((a) => <option key={a.user_id} value={a.user_id}>{a.name}</option>)}
                                         </select>
                                     </div>
                                 )}
 
-                                {/* Propina: es del barbero y se le paga en su recibo semanal */}
-                                {selectedBarber && <div className="space-y-2 pt-4 border-t border-white/5">
-                                    <label htmlFor="pos-tip" className="text-xs font-bold text-gray-500 uppercase tracking-widest block">
-                                        Propina{selectedBarber ? ` para ${selectedBarber.name}` : ''}
-                                    </label>
-                                    <input
-                                        id="pos-tip" type="number" min={0} step="1" inputMode="decimal" placeholder="0"
-                                        value={tip ? tip : ''} onChange={(e) => setTip(Math.max(Number(e.target.value) || 0, 0))}
-                                        className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-600 outline-none focus:border-sonblade-gold"
-                                    />
-                                    {tip > 0 && (
-                                        <div className="flex gap-2" role="group" aria-label="Forma de pago de la propina">
-                                            <button onClick={() => setTipPayment('cash')} className={getPaymentButtonStyle(tipPayment, 'cash')}><Banknote className="h-3 w-3" /> Efec</button>
-                                            <button onClick={() => setTipPayment('card')} className={getPaymentButtonStyle(tipPayment, 'card')}><CreditCard className="h-3 w-3" /> Tarj</button>
-                                            <button onClick={() => setTipPayment('transfer')} className={getPaymentButtonStyle(tipPayment, 'transfer')}><ArrowRight className="h-3 w-3" /> Transf</button>
+                                {serviceItems.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className={sectionTitle}>{productItems.length > 0 ? 'Pago de servicios' : 'Forma de pago'}</p>
+                                        <MethodPicker label="Forma de pago de los servicios" value={servicePayment} onChange={setServicePayment} />
+                                    </div>
+                                )}
+
+                                {productItems.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className={sectionTitle}>{serviceItems.length > 0 ? 'Pago de productos' : 'Forma de pago'}</p>
+                                        <MethodPicker label="Forma de pago de los productos" value={productPayment} onChange={setProductPayment} />
+                                        <label htmlFor="pos-product-seller" className={`${sectionTitle} block pt-2`}>Vendió el producto</label>
+                                        <select id="pos-product-seller" value={productSeller} onChange={(e) => setProductSellerChoice(e.target.value)} className={fieldClass}>
+                                            <option value="">¿Quién lo vendió?</option>
+                                            {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {selectedBarber && (
+                                    <div className="space-y-2">
+                                        <p id="pos-tip-label" className={sectionTitle}>Propina para {selectedBarber.name}</p>
+                                        <div role="group" aria-labelledby="pos-tip-label" className="grid grid-cols-4 gap-2">
+                                            {QUICK_TIPS.map((amount) => (
+                                                <button key={amount} type="button" aria-pressed={tip === amount} onClick={() => setTip(amount)}
+                                                    className={`h-11 rounded-xl border text-sm font-semibold transition-colors ${tip === amount ? 'border-bos-accent bg-bos-accent-soft text-bos-accent-text' : 'border-bos-border text-bos-text hover:bg-bos-raised'}`}>
+                                                    {amount === 0 ? 'Sin' : money(amount)}
+                                                </button>
+                                            ))}
                                         </div>
-                                    )}
-                                </div>}
-                            </>
-                        )}
-                    </div>
-
-                    <div className="p-5 bg-[#0a0a0a] border-t border-white/5 rounded-b-2xl flex-shrink-0">
-                        <div className="space-y-2 mb-4">
-                            <div className="flex justify-between text-gray-400 text-sm font-medium"><span>Subtotal</span><span>${subtotal}</span></div>
-                            {discountTotal > 0 && <div className="flex justify-between text-red-400 text-sm font-medium"><span>Descuento</span><span>− ${discountTotal}</span></div>}
-                            {tip > 0 && <div className="flex justify-between text-gray-400 text-sm font-medium"><span>Propina</span><span>+ ${tip}</span></div>}
-                            <div className="flex justify-between items-end pt-3 border-t border-white/5">
-                                <span className="text-white font-bold text-sm">TOTAL A COBRAR</span>
-                                <span data-testid="pos-total" className="text-2xl font-black text-sonblade-gold">${total}</span>
+                                        <input id="pos-tip" type="number" min={0} step="1" inputMode="decimal" aria-label="Otra cantidad de propina" placeholder="Otra cantidad"
+                                            value={customTip ? tip : ''} onChange={(e) => setTip(Math.max(Number(e.target.value) || 0, 0))} className={fieldClass} />
+                                        {tip > 0 && <MethodPicker label="Forma de pago de la propina" value={tipPayment} onChange={setTipPayment} />}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-
-                        <button
-                            onClick={handleSubmit}
-                            disabled={cart.length === 0 || submitting}
-                            className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition-all uppercase
-                                ${cart.length === 0
-                                    ? 'bg-[#1a1a1a] text-gray-600 border border-white/5 cursor-not-allowed'
-                                    : 'bg-sonblade-gold hover:bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.2)]'
-                                }`}
-                        >
-                            {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Procesando...</> : 'Confirmar Venta'}
-                        </button>
-                        {lastSaleId && cart.length === 0 && (
-                            <Link href={`/ticket/${lastSaleId}`} className="mt-3 block text-center text-sm font-bold text-sonblade-gold underline underline-offset-4 hover:text-yellow-400">
-                                Ver ticket de la última venta
-                            </Link>
                         )}
-                    </div>
 
-                    <AnimatePresence>
-                        {showSuccess && (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-sonblade-gold/90 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center text-black z-30">
-                                <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mb-4 shadow-2xl">
-                                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.1, type: "spring" }}><Scissors className="h-8 w-8 text-sonblade-gold" /></motion.div>
+                        <div className="mt-auto pt-6 space-y-4">
+                            <dl className="space-y-2 text-[15px]">
+                                <div className="flex justify-between text-bos-muted"><dt>Venta</dt><dd className="tabular-nums">{money(subtotal)}</dd></div>
+                                {discountTotal > 0 && <div className="flex justify-between text-bos-danger"><dt>Descuento</dt><dd className="tabular-nums">− {money(discountTotal)}</dd></div>}
+                                {tip > 0 && selectedBarber && <div className="flex justify-between text-bos-muted"><dt>Propina</dt><dd className="tabular-nums">{money(tip)}</dd></div>}
+                                <div className="flex justify-between items-baseline pt-3 border-t border-bos-border">
+                                    <dt className="font-semibold text-bos-text">Total a cobrar</dt>
+                                    <dd data-testid="pos-total" className="font-display text-4xl font-bold text-bos-accent-text tabular-nums">{money(total)}</dd>
                                 </div>
-                                <h3 className="text-2xl font-black mb-1">¡VENTA REGISTRADA!</h3>
-                                <p className="font-bold bg-black text-sonblade-gold px-4 py-1 rounded-full text-sm">+ ${lastSaleTotal}</p>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
+                            </dl>
+                            <button type="button" onClick={handleSubmit} disabled={empty || submitting}
+                                className={`w-full min-h-[60px] rounded-2xl text-[17px] font-bold transition-colors inline-flex items-center justify-center gap-2 ${empty ? 'bg-bos-raised text-bos-muted cursor-not-allowed' : 'bg-bos-accent text-bos-on-accent hover:brightness-105'}`}>
+                                {submitting ? <><Loader2 className="h-5 w-5 animate-spin" /> Registrando…</> : empty ? 'Agrega algo para cobrar' : `Cobrar ${money(total)}`}
+                            </button>
+                        </div>
+                    </>
+                )}
+            </aside>
         </div>
     );
-}
-
-// Stub for ShoppingCart icon used above
-function ShoppingCartIcon(props: React.SVGProps<SVGSVGElement>) {
-    return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>;
 }
