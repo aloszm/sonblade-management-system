@@ -92,12 +92,12 @@ Esto es lo prioritario de la Fase 2, antes que el resto de la lista.
 
    | Producto | Costo | Precio de venta |
    |---|---|---|
-   | Pomada Negra (150 ml) | $45 | $180 |
-   | Pomada Roja (150 ml) | $45 | $180 |
+   | Pomada Negra Baregk (150 ml) | $45 | $180 |
+   | Pomada Roja Baregk (150 ml) | $45 | $180 |
    | Peine de textura | $27 | $80 |
    | Polvo de textura | $115 | $225 |
 
-   Por confirmar con el dueño: la marca de las pomadas (la escribió como "Baregk") y las existencias iniciales de cada producto.
+   Confirmado por el dueño: la marca de las pomadas es Baregk y las existencias iniciales quedan en 0.
 2. **Propinas.** Son 100 % del barbero. No son ingreso del negocio y no se restan de la utilidad; se muestran aparte.
 3. **Reporte financiero.** El reporte actual muestra lo facturado y las comisiones, pero no desglosa propinas ni utilidad neta. Debe ser un reporte de balance y financiero: completo, claro, entendible y que no aburra.
 4. **Folios más cortos y con sentido.** El del ticket de venta es demasiado largo y uno como `A0001` es demasiado básico. Formato elegido (se puede cambiar antes de producción):
@@ -108,5 +108,4 @@ Esto es lo prioritario de la Fase 2, antes que el resto de la lista.
 
 ## Decisiones abiertas del dueño
 
-- Marca de las pomadas y existencias iniciales de los cuatro productos.
 - Datos para el aviso de privacidad (punto 27).
