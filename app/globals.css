@@ -149,4 +149,11 @@
 @media print {
   @page { margin: 14mm; }
   body { background: #fff !important; }
+  /* En papel siempre texto negro sobre blanco, sin importar el modo elegido en pantalla. */
+  :root, [data-theme='dark'], [data-theme='light'] {
+    color-scheme: light;
+    --bos-bg: #FFFFFF; --bos-surface: #FFFFFF; --bos-raised: #F4F4F4; --bos-border: #BDBDBD;
+    --bos-text: #000000; --bos-muted: #3F3F46; --bos-accent-text: #000000; --bos-accent-soft: #FFFFFF;
+    --bos-success: #166534; --bos-success-soft: #FFFFFF; --bos-danger: #991B1B;
+  }
 }

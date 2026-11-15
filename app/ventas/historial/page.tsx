@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X, RefreshCw, Plus, Calendar, AlertTriangle } from 'lucide-react';
+import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileText, X, RefreshCw, Plus } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
 import Link from 'next/link';
 import type { Barber, Service, Product, Sale } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
@@ -12,18 +13,18 @@ function PaymentBadge({ sale }: { sale: Sale }) {
     const cash = Number(sale.cash_amount || 0);
     const card = Number(sale.card_amount || 0);
     const transfer = Number(sale.transfer_amount || 0);
+    const pill = 'inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-medium border border-bos-border bg-bos-raised text-bos-text';
 
     if (sale.payment_method === 'mixed' || [cash, card, transfer].filter(v => v > 0).length > 1) {
         const parts: string[] = [];
         if (cash > 0) parts.push(`Efect. $${cash.toFixed(0)}`);
         if (card > 0) parts.push(`Tarj. $${card.toFixed(0)}`);
         if (transfer > 0) parts.push(`Transf. $${transfer.toFixed(0)}`);
-        return <span className="text-xs text-purple-700 bg-purple-100 px-2 py-0.5 rounded font-semibold">{parts.join(' / ')}</span>;
+        return <span className={pill}>{parts.join(' / ')}</span>;
     }
 
     const methodLabel = sale.payment_method === 'cash' ? 'Efectivo' : sale.payment_method === 'card' ? 'Tarjeta' : sale.payment_method === 'transfer' ? 'Transferencia' : sale.payment_method;
-    const color = sale.payment_method === 'cash' ? 'bg-green-100 text-green-700' : sale.payment_method === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-[#1a1a1a] text-gray-300';
-    return <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${color}`}>{methodLabel} ${Number(sale.total).toFixed(0)}</span>;
+    return <span className={pill}>{methodLabel} ${Number(sale.total).toFixed(0)}</span>;
 }
 
 type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
@@ -57,6 +58,7 @@ export default function SalesHistoryPage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [reverseReason, setReverseReason] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
 
     // Filters
     const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('today');
@@ -133,6 +135,7 @@ export default function SalesHistoryPage() {
 
     const handleDelete = async (id: string) => {
         setDeletingId(id);
+        setDeleteError('');
         try {
             const res = await fetch(`/api/sales/${id}`, {
                 method: 'DELETE',
@@ -145,9 +148,9 @@ export default function SalesHistoryPage() {
                 setShowDeleteConfirm(null);
                 setReverseReason('');
             } else {
-                alert(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo anular la venta');
+                setDeleteError(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo anular la venta');
             }
-        } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Error'); }
+        } catch (e: unknown) { setDeleteError(e instanceof Error ? e.message : 'Error'); }
         finally { setDeletingId(null); }
     };
 
@@ -171,99 +174,101 @@ export default function SalesHistoryPage() {
     const serviceNames = [...new Set(services.map(s => s.name))];
     const productNames = [...new Set(products.map(p => p.name))];
 
-    const periodLabel = periodFilter === 'today' ? 'Hoy' : periodFilter === 'week' ? 'Esta Semana' : periodFilter === 'month' ? 'Este Mes' : 'Personalizado';
+    const periodLabel = periodFilter === 'today' ? 'Hoy' : periodFilter === 'week' ? 'Esta semana' : periodFilter === 'month' ? 'Este mes' : 'Personalizado';
+
+    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent';
+    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const th = 'px-4 py-3 text-[13px] font-medium';
+    const iconBtn = 'h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised align-middle';
 
     return (
         <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-2"><FileSpreadsheet className="text-sonblade-gold h-6 w-6" />Registro de Ventas</h1>
-                    <p className="text-gray-400 text-sm mt-1">Se actualiza cada 30 s · {sales.length} ventas ({periodLabel})</p>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Registro de ventas</h1>
+                    <p className="text-bos-muted text-sm mt-1">Se actualiza cada 30 s · {sales.length} ventas ({periodLabel})</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => fetchSales()} className="p-2 border border-white/10 rounded-lg hover:bg-[#1a1a1a]"><RefreshCw className="h-4 w-4 text-gray-400" /></button>
-                    <button onClick={() => setShowCreateModal(true)} className="bg-sonblade-gold text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-yellow-500/200 flex items-center gap-2">
-                        <Plus className="h-4 w-4" />Nueva Venta
-                    </button>
-                    <button onClick={exportCSV} className="bg-black text-sonblade-gold px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 flex items-center gap-2">
+                    <button onClick={() => fetchSales()} aria-label="Actualizar" title="Actualizar" className="h-[52px] w-[52px] inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><RefreshCw className="h-4 w-4" /></button>
+                    <button onClick={exportCSV} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised flex items-center gap-2">
                         <Download className="h-4 w-4" />CSV
                     </button>
+                    <button onClick={() => setShowCreateModal(true)} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 flex items-center gap-2">
+                        <Plus className="h-4 w-4" />Nueva venta
+                    </button>
                 </div>
+            </header>
+
+            {/* Periodo */}
+            <div role="group" aria-label="Periodo" className="flex flex-wrap gap-2">
+                {(['today', 'week', 'month', 'custom'] as PeriodFilter[]).map(p => (
+                    <button key={p} type="button" aria-pressed={periodFilter === p} onClick={() => handlePeriodChange(p)}
+                        className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${periodFilter === p ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>
+                        {p === 'today' ? 'Diaria' : p === 'week' ? 'Semanal' : p === 'month' ? 'Mensual' : 'Rango'}
+                    </button>
+                ))}
             </div>
 
-            {/* Period Quick Filters */}
-            <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <div className="flex bg-[#1a1a1a] p-1 rounded-lg border border-white/10">
-                    {(['today', 'week', 'month', 'custom'] as PeriodFilter[]).map(p => (
-                        <button key={p} onClick={() => handlePeriodChange(p)}
-                            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${periodFilter === p ? 'bg-black text-sonblade-gold shadow' : 'text-gray-400 hover:text-white'}`}>
-                            {p === 'today' ? 'Diaria' : p === 'week' ? 'Semanal' : p === 'month' ? 'Mensual' : 'Rango'}
-                        </button>
-                    ))}
+            {/* Filtros */}
+            <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                    <div><label htmlFor="f-start" className={label}>Fecha inicio</label><input id="f-start" type="date" value={dateRange.start} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, start: e.target.value })); setCurrentPage(1); }} className={field} /></div>
+                    <div><label htmlFor="f-end" className={label}>Fecha fin</label><input id="f-end" type="date" value={dateRange.end} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, end: e.target.value })); setCurrentPage(1); }} className={field} /></div>
+                    <div><label htmlFor="f-barber" className={label}>Barbero</label><select id="f-barber" value={selectedBarber} onChange={e => { setSelectedBarber(e.target.value); setCurrentPage(1); }} className={field}><option value="all">Todos</option>{barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+                    <div><label htmlFor="f-service" className={label}>Servicio</label><select id="f-service" value={selectedService} onChange={e => { setSelectedService(e.target.value); setCurrentPage(1); }} className={field}><option value="all">Todos</option>{serviceNames.map(sn => <option key={sn} value={sn}>{sn}</option>)}</select></div>
+                    <div><label htmlFor="f-product" className={label}>Producto</label><select id="f-product" value={selectedProduct} onChange={e => { setSelectedProduct(e.target.value); setCurrentPage(1); }} className={field}><option value="all">Todos</option>{productNames.map(pn => <option key={pn} value={pn}>{pn}</option>)}</select></div>
+                    <div><label htmlFor="f-method" className={label}>Método de pago</label><select id="f-method" value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value); setCurrentPage(1); }} className={field}><option value="all">Todos</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="mixed">Mixto</option></select></div>
                 </div>
+                <button onClick={clearFilters} className="min-h-11 text-sm text-bos-muted hover:text-bos-text font-semibold flex items-center gap-1.5"><X className="h-4 w-4" /> Limpiar filtros</button>
             </div>
 
-            {/* Filters */}
-            <div className="bg-[#141414] p-5 rounded-2xl shadow-sm border border-white/5 space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fecha Inicio</label><input type="date" value={dateRange.start} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, start: e.target.value })); setCurrentPage(1); }} className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-lg text-sm text-white bg-[#1a1a1a]" /></div>
-                    <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fecha Fin</label><input type="date" value={dateRange.end} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, end: e.target.value })); setCurrentPage(1); }} className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-lg text-sm text-white bg-[#1a1a1a]" /></div>
-                    <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Barbero</label><select value={selectedBarber} onChange={e => { setSelectedBarber(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-lg text-sm text-white bg-[#1a1a1a] appearance-none"><option value="all">Todos</option>{barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-                    <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Servicio</label><select value={selectedService} onChange={e => { setSelectedService(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-lg text-sm text-white bg-[#1a1a1a] appearance-none"><option value="all">Todos</option>{serviceNames.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                    <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Producto</label><select value={selectedProduct} onChange={e => { setSelectedProduct(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-lg text-sm text-white bg-[#1a1a1a] appearance-none"><option value="all">Todos</option>{productNames.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
-                    <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Método Pago</label><select value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-lg text-sm text-white bg-[#1a1a1a] appearance-none"><option value="all">Todos</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="mixed">Mixto</option></select></div>
-                </div>
-                <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 font-semibold flex items-center gap-1"><X className="h-3 w-3" /> Limpiar Filtros</button>
+            {/* Resumen */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Total generado</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums text-bos-accent-text">${totalFiltered.toFixed(2)}</p></div>
+                <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Ventas</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums">{sales.length}</p></div>
             </div>
 
-            {/* Summary */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#141414] p-4 rounded-xl shadow-sm border border-white/5 border-l-4 border-l-sonblade-gold"><p className="text-xs font-bold text-gray-400 uppercase">Total Generado</p><p className="text-2xl font-bold">${totalFiltered.toFixed(2)}</p></div>
-                <div className="bg-[#141414] p-4 rounded-xl shadow-sm border border-white/5 border-l-4 border-l-black"><p className="text-xs font-bold text-gray-400 uppercase">Ventas</p><p className="text-2xl font-bold">{sales.length}</p></div>
-            </div>
-
-            {/* Table */}
-            <div className="bg-[#141414] rounded-2xl shadow-sm border border-white/5 overflow-hidden">
+            {/* Tabla */}
+            <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-[#1a1a1a] text-gray-400">
+                        <thead className="text-bos-muted">
                             <tr>
-                                <th className="p-4 text-xs uppercase font-semibold">Fecha</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Hora</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Barbero</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Servicio</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Producto</th>
-                                <th className="p-4 text-xs uppercase font-semibold text-right">Propina</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Método de Pago</th>
-                                <th className="p-4 text-xs uppercase font-semibold text-right">Total</th>
-                                <th className="p-4 text-xs uppercase font-semibold text-center">Acciones</th>
+                                <th className={th}>Fecha</th>
+                                <th className={th}>Hora</th>
+                                <th className={th}>Barbero</th>
+                                <th className={th}>Servicio</th>
+                                <th className={th}>Producto</th>
+                                <th className={`${th} text-right`}>Propina</th>
+                                <th className={th}>Método de pago</th>
+                                <th className={`${th} text-right`}>Total</th>
+                                <th className={`${th} text-center`}>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                             {loading ? (
-                                <tr><td colSpan={9} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-sonblade-gold" /></td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={9} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
                             ) : page.length === 0 ? (
-                                <tr><td colSpan={9} className="p-8 text-center text-gray-400">Sin resultados para {periodLabel}</td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={9} className="p-8 text-center text-bos-muted">Sin resultados para {periodLabel}</td></tr>
                             ) : page.map(sale => {
                                 const d = new Date(sale.created_at);
                                 const srvs = sale.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(', ') || '—';
                                 const prds = sale.items?.filter(i => i.item_type === 'product').map(i => `${i.item_name}${(i.quantity || 1) > 1 ? ` x${i.quantity}` : ''}`).join(', ') || '—';
                                 return (
-                                    <tr key={sale.id} className="hover:bg-[#1a1a1a]">
-                                        <td className="p-4 font-medium">{format(d, 'MMM dd, yyyy')}</td>
-                                        <td className="p-4 text-gray-400">{format(d, 'hh:mm a')}</td>
-                                        <td className="p-4 font-medium">{sale.barber?.name || '—'}</td>
-                                        <td className="p-4 text-sm">{srvs}</td>
-                                        <td className="p-4 text-sm text-gray-400">{prds}</td>
-                                        <td className="p-4 text-right">${Number(sale.tip || 0).toFixed(2)}</td>
-                                        <td className="p-4"><PaymentBadge sale={sale} /></td>
-                                        <td className={`p-4 text-right font-bold ${sale.status === 'refunded' ? 'line-through text-gray-500' : ''}`}>${Number(sale.total).toFixed(2)}{sale.status === 'refunded' && <span className="ml-2 text-[10px] no-underline text-red-500 font-bold align-middle">ANULADA</span>}</td>
-                                        <td className="p-4 text-center whitespace-nowrap">
-                                            <Link href={`/ticket/${sale.id}`} aria-label="Ver ticket" title="Ver ticket" className="inline-flex p-1.5 mr-1 text-gray-300 hover:text-sonblade-gold rounded-lg align-middle">
-                                                <FileSpreadsheet className="h-4 w-4" />
+                                    <tr key={sale.id} className="border-t border-bos-border hover:bg-bos-raised">
+                                        <td className="px-4 py-3 font-medium whitespace-nowrap">{format(d, 'MMM dd, yyyy')}</td>
+                                        <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{format(d, 'hh:mm a')}</td>
+                                        <td className="px-4 py-3 font-medium">{sale.barber?.name || '—'}</td>
+                                        <td className="px-4 py-3">{srvs}</td>
+                                        <td className="px-4 py-3 text-bos-muted">{prds}</td>
+                                        <td className="px-4 py-3 text-right tabular-nums">${Number(sale.tip || 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3"><PaymentBadge sale={sale} /></td>
+                                        <td className={`px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${sale.status === 'refunded' ? 'line-through text-bos-muted' : ''}`}>${Number(sale.total).toFixed(2)}{sale.status === 'refunded' && <span className="ml-2 text-xs no-underline text-bos-danger font-semibold align-middle inline-block">Anulada</span>}</td>
+                                        <td className="px-4 py-1 text-center whitespace-nowrap">
+                                            <Link href={`/ticket/${sale.id}`} aria-label="Ver ticket" title="Ver ticket" className={iconBtn}>
+                                                <FileText className="h-4 w-4" />
                                             </Link>
-                                            <button onClick={() => setShowDeleteConfirm(sale.id)} disabled={deletingId === sale.id || sale.status === 'refunded'} aria-label="Anular venta" className="p-1.5 text-red-500 hover:bg-red-500/200/10 rounded-lg disabled:opacity-50">
+                                            <button onClick={() => { setDeleteError(''); setShowDeleteConfirm(sale.id); }} disabled={deletingId === sale.id || sale.status === 'refunded'} aria-label="Anular venta" className={`${iconBtn} hover:text-bos-danger disabled:opacity-40`}>
                                                 {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                             </button>
                                         </td>
@@ -274,47 +279,37 @@ export default function SalesHistoryPage() {
                     </table>
                 </div>
                 {totalPages > 1 && (
-                    <div className="p-4 border-t border-white/5 flex items-center justify-between">
-                        <span className="text-sm text-gray-400">Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, sales.length)} de {sales.length}</span>
-                        <div className="flex gap-2">
-                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 border rounded-lg hover:bg-[#1a1a1a] disabled:opacity-50"><ChevronLeft className="h-4 w-4" /></button>
-                            <span className="flex items-center px-4 font-semibold text-sm">{currentPage} / {totalPages}</span>
-                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 border rounded-lg hover:bg-[#1a1a1a] disabled:opacity-50"><ChevronRight className="h-4 w-4" /></button>
+                    <div className="p-4 border-t border-bos-border flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-sm text-bos-muted">Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, sales.length)} de {sales.length}</span>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} aria-label="Página anterior" className="h-11 w-11 inline-flex items-center justify-center border border-bos-border rounded-xl hover:bg-bos-raised disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+                            <span className="px-3 font-semibold text-sm tabular-nums">{currentPage} / {totalPages}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} aria-label="Página siguiente" className="h-11 w-11 inline-flex items-center justify-center border border-bos-border rounded-xl hover:bg-bos-raised disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Delete Confirmation Modal */}
+            {/* Confirmar anulación */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#141414] rounded-2xl shadow-2xl max-w-md w-full p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                                <AlertTriangle className="h-6 w-6 text-red-600" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-white">¿Anular esta venta?</h3>
-                                <p className="text-sm text-gray-400">Se devuelve el dinero a la caja abierta y las existencias, y queda registrado quién la anuló. La venta no se borra.</p>
-                            </div>
-                        </div>
-                        <label className="block text-sm text-gray-300 mb-4">Motivo de la anulación
-                            <textarea value={reverseReason} onChange={(e) => setReverseReason(e.target.value)} maxLength={500} rows={2} aria-label="Motivo de la anulación"
-                                className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg p-2 text-white" />
-                        </label>
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => { setShowDeleteConfirm(null); setReverseReason(''); }} className="px-4 py-2 text-gray-400 font-medium hover:text-white">Cancelar</button>
-                            <button onClick={() => handleDelete(showDeleteConfirm)} disabled={deletingId !== null || reverseReason.trim().length < 3}
-                                className="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
-                                {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                Anular venta
-                            </button>
-                        </div>
+                <Modal title="¿Anular esta venta?" subtitle="Se devuelve el dinero a la caja abierta y las existencias, y queda registrado quién la anuló. La venta no se borra."
+                    onClose={() => { setShowDeleteConfirm(null); setReverseReason(''); }}>
+                    <label htmlFor="reverse-reason" className={label}>Motivo de la anulación</label>
+                    <textarea id="reverse-reason" value={reverseReason} onChange={(e) => setReverseReason(e.target.value)} maxLength={500} rows={2}
+                        className="w-full px-3 py-2.5 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent resize-none" />
+                    {deleteError && <p role="alert" className="mt-3 text-sm text-bos-danger">{deleteError}</p>}
+                    <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                        <button onClick={() => { setShowDeleteConfirm(null); setReverseReason(''); }} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
+                        <button onClick={() => handleDelete(showDeleteConfirm)} disabled={deletingId !== null || reverseReason.trim().length < 3}
+                            className="min-h-[52px] px-5 rounded-xl border border-bos-danger text-bos-danger font-bold hover:bg-bos-raised disabled:opacity-50 flex items-center justify-center gap-2">
+                            {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            Anular venta
+                        </button>
                     </div>
-                </div>
+                </Modal>
             )}
 
-            {/* Create Sale Modal */}
+            {/* Crear venta manual */}
             <CreateSaleModal
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}

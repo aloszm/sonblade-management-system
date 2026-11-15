@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TrendingDown, Plus, Search, Loader2, Calendar, FileText, Trash2, Tag } from 'lucide-react';
+import { Plus, Search, Loader2, Info } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
 
 interface Gasto {
     id: string;
@@ -18,6 +19,7 @@ export default function GastosPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [newGasto, setNewGasto] = useState({ description: '', amount: '', payment_method: 'cash' });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formError, setFormError] = useState('');
 
     useEffect(() => {
         fetchGastos();
@@ -41,11 +43,12 @@ export default function GastosPage() {
     const handleAddGasto = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setFormError('');
         try {
             // Un gasto sale de la caja: necesita una caja abierta.
             const session = await fetch('/api/cash/session', { cache: 'no-store' }).then(r => r.ok ? r.json() : null);
             if (!session?.id) {
-                alert('Abre la caja para registrar un gasto.');
+                setFormError('Abre la caja para registrar un gasto.');
                 return;
             }
             const res = await fetch('/api/cash/movements', {
@@ -66,176 +69,178 @@ export default function GastosPage() {
                 fetchGastos();
             } else {
                 const body = await res.json().catch(() => null);
-                alert(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo registrar el gasto');
+                setFormError(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo registrar el gasto');
             }
         } catch (e) {
             console.error(e);
-            alert('No se pudo registrar el gasto');
+            setFormError('No se pudo registrar el gasto');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const totalGastos = gastos.reduce((acc, g) => acc + Number(g.amount), 0);
+    const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
     const filteredGastos = gastos.filter(g =>
         g.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const th = 'px-4 py-3 text-[13px] font-medium';
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
-                        <TrendingDown className="text-red-500 h-6 w-6" />
-                        Gastos e Insumos
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1">Control de egresos y compras de la barbería</p>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Gastos e insumos</h1>
+                    <p className="text-bos-muted text-sm mt-1">Control de egresos y compras de la barbería</p>
                 </div>
                 <button
-                    onClick={() => setShowAddModal(true)}
-                    className="bg-black text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
+                    onClick={() => { setFormError(''); setShowAddModal(true); }}
+                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                 >
-                    <Plus className="h-4 w-4" /> Registrar Gasto
+                    <Plus className="h-4 w-4" /> Registrar gasto
                 </button>
-            </div>
+            </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="md:col-span-1 space-y-4">
-                    <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm text-center">
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total del Período</p>
-                        <p className="text-4xl font-black text-red-600">${totalGastos.toFixed(2)}</p>
-                        <div className="mt-4 pt-4 border-t border-gray-50">
-                            <p className="text-xs text-gray-500 font-medium">{gastos.length} comprobantes registrados</p>
-                        </div>
-                    </div>
+            {/* Explicación para recepción */}
+            <section aria-labelledby="gasto-vs-retiro" className="rounded-xl border border-bos-border bg-bos-surface p-5">
+                <h2 id="gasto-vs-retiro" className="flex items-center gap-2 font-display font-semibold"><Info className="h-4 w-4 text-bos-muted" /> ¿Gasto, retiro o entrada?</h2>
+                <ul className="mt-3 space-y-2 text-sm text-bos-muted leading-relaxed">
+                    <li><strong className="text-bos-text">Gasto:</strong> sale dinero de la caja para PAGAR algo del negocio (agua, basura, insumos, una reparación). Baja la utilidad.</li>
+                    <li><strong className="text-bos-text">Retiro</strong> (se hace en la pantalla Caja): el dinero solo CAMBIA DE LUGAR, por ejemplo al banco, a la caja fuerte, al dueño o para pagar comisiones en efectivo. No baja la utilidad.</li>
+                    <li><strong className="text-bos-text">Entrada:</strong> metes efectivo a la caja, por ejemplo para tener cambio.</li>
+                </ul>
+            </section>
 
-                    <div className="bg-gray-900 rounded-3xl p-6 text-white shadow-xl">
-                        <h3 className="text-sm font-bold mb-4 flex items-center gap-2 text-sonblade-gold">
-                            <Tag className="h-4 w-4" /> Categorías Comunes
-                        </h3>
-                        <div className="space-y-2 text-xs">
-                            <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-400">Renta</span><span>$0.00</span></div>
-                            <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-400">Luz / Agua</span><span>$0.00</span></div>
-                            <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-400">Insumos (Geles, Navajas)</span><span>$0.00</span></div>
-                            <div className="flex justify-between py-1"><span className="text-gray-400">Otros</span><span>$0.00</span></div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-1">
+                    <div className="rounded-xl border border-bos-border bg-bos-surface p-6 text-center">
+                        <p className="text-[13px] font-medium text-bos-muted mb-2">Total del periodo</p>
+                        <p className="font-display text-4xl font-semibold tabular-nums">${totalGastos.toFixed(2)}</p>
+                        <div className="mt-4 pt-4 border-t border-bos-border">
+                            <p className="text-xs text-bos-muted">{gastos.length} comprobantes registrados</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="md:col-span-3 space-y-4">
-                    <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-4">
-                        <Search className="h-5 w-5 text-gray-400" />
+                    <div className="relative">
+                        <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-bos-muted" />
                         <input
                             type="text"
+                            aria-label="Buscar por descripción"
                             placeholder="Buscar por descripción..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="flex-1 outline-none text-sm"
+                            className={`${field} pl-11`}
                         />
                     </div>
 
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <table className="w-full text-left text-sm">
-                            <thead>
-                                <tr className="bg-gray-50 text-gray-500 border-b">
-                                    <th className="p-4 font-bold uppercase text-[10px]">Fecha</th>
-                                    <th className="p-4 font-bold uppercase text-[10px]">Descripción</th>
-                                    <th className="p-4 font-bold uppercase text-[10px]">Método</th>
-                                    <th className="p-4 font-bold uppercase text-[10px] text-right">Monto</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {loading ? (
-                                    <tr><td colSpan={4} className="p-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-sonblade-gold" /></td></tr>
-                                ) : filteredGastos.length === 0 ? (
-                                    <tr><td colSpan={4} className="p-10 text-center text-gray-400 italic">No hay gastos registrados</td></tr>
-                                ) : filteredGastos.map((gasto) => (
-                                    <tr key={gasto.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="p-4 text-gray-500">
-                                            {new Date(gasto.created_at).toLocaleDateString()}
-                                        </td>
-                                        <td className="p-4 font-bold text-gray-900">{gasto.description}</td>
-                                        <td className="p-4">
-                                            <span className="text-[10px] font-black uppercase text-gray-400 border border-gray-200 px-2 py-0.5 rounded">
-                                                {gasto.payment_method}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right font-black text-red-600">
-                                            -${Number(gasto.amount).toFixed(2)}
-                                        </td>
+                    <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="text-bos-muted">
+                                    <tr>
+                                        <th className={th}>Fecha</th>
+                                        <th className={th}>Descripción</th>
+                                        <th className={th}>Método</th>
+                                        <th className={`${th} text-right`}>Monto</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {loading ? (
+                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
+                                    ) : filteredGastos.length === 0 ? (
+                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-10 text-center text-bos-muted">No hay gastos registrados</td></tr>
+                                    ) : filteredGastos.map((gasto) => (
+                                        <tr key={gasto.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
+                                            <td className="px-4 py-3 text-bos-muted whitespace-nowrap">
+                                                {new Date(gasto.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-4 py-3 font-semibold">{gasto.description}</td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-xs font-medium text-bos-muted border border-bos-border px-2.5 py-0.5 rounded-full">
+                                                    {METHOD_LABELS[gasto.payment_method] ?? gasto.payment_method}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-semibold tabular-nums text-bos-danger whitespace-nowrap">
+                                                -${Number(gasto.amount).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {showAddModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
-                        <div className="p-6 border-b border-gray-100">
-                            <h2 className="text-xl font-black text-gray-900">Registrar Nuevo Gasto</h2>
-                            <p className="text-sm text-gray-500 mt-1">Completa los datos del egreso</p>
+                <Modal title="Registrar nuevo gasto" subtitle="Completa los datos del egreso" onClose={() => setShowAddModal(false)}>
+                    <form onSubmit={handleAddGasto} className="space-y-4">
+                        <div>
+                            <label htmlFor="gasto-description" className={label}>Descripción</label>
+                            <input
+                                id="gasto-description"
+                                required
+                                type="text"
+                                value={newGasto.description}
+                                onChange={e => setNewGasto({ ...newGasto, description: e.target.value })}
+                                placeholder="Ej: Pago de luz local"
+                                className={field}
+                            />
                         </div>
-                        <form onSubmit={handleAddGasto} className="p-6 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-black text-gray-400 uppercase mb-2">Descripción</label>
+                                <label htmlFor="gasto-amount" className={label}>Monto ($)</label>
                                 <input
+                                    id="gasto-amount"
                                     required
-                                    type="text"
-                                    value={newGasto.description}
-                                    onChange={e => setNewGasto({ ...newGasto, description: e.target.value })}
-                                    placeholder="Ej: Pago de luz local"
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-1 focus:ring-black outline-none"
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.01"
+                                    value={newGasto.amount}
+                                    onChange={e => setNewGasto({ ...newGasto, amount: e.target.value })}
+                                    placeholder="0.00"
+                                    className={`${field} font-semibold`}
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-black text-gray-400 uppercase mb-2">Monto ($)</label>
-                                    <input
-                                        required
-                                        type="number"
-                                        step="0.01"
-                                        value={newGasto.amount}
-                                        onChange={e => setNewGasto({ ...newGasto, amount: e.target.value })}
-                                        placeholder="0.00"
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-1 focus:ring-black outline-none font-bold"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-gray-400 uppercase mb-2">Método</label>
-                                    <select
-                                        value={newGasto.payment_method}
-                                        onChange={e => setNewGasto({ ...newGasto, payment_method: e.target.value })}
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-1 focus:ring-black outline-none font-bold"
-                                    >
-                                        <option value="cash">Efectivo</option>
-                                        <option value="card">Tarjeta</option>
-                                        <option value="transfer">Transferencia</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="pt-4 flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAddModal(false)}
-                                    className="flex-1 py-3 text-gray-500 font-bold hover:text-gray-900"
+                            <div>
+                                <label htmlFor="gasto-method" className={label}>Método</label>
+                                <select
+                                    id="gasto-method"
+                                    value={newGasto.payment_method}
+                                    onChange={e => setNewGasto({ ...newGasto, payment_method: e.target.value })}
+                                    className={field}
                                 >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="flex-1 py-3 bg-red-600 text-white font-black rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 flex items-center justify-center gap-2"
-                                >
-                                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingDown className="h-4 w-4" />}
-                                    Confirmar
-                                </button>
+                                    <option value="cash">Efectivo</option>
+                                    <option value="card">Tarjeta</option>
+                                    <option value="transfer">Transferencia</option>
+                                </select>
                             </div>
-                        </form>
-                    </div>
-                </div>
+                        </div>
+                        {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
+                        <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(false)}
+                                className="flex-1 min-h-[52px] px-5 border border-bos-border rounded-xl text-bos-text font-semibold hover:bg-bos-raised"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="flex-1 min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                                Confirmar
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
             )}
         </div>
     );

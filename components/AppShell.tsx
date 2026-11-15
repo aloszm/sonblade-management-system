@@ -7,18 +7,11 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import MobileNav from '@/components/MobileNav';
 
-const REDESIGNED = ['/pos', '/caja', '/barbero', '/citas'];
-const REDESIGNED_EXACT = ['/'];
-
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
     const pathname = usePathname();
 
     if (pathname === '/login' || pathname === '/onboarding') return <>{children}</>;
-
-    // Pantallas ya pasadas al diseño nuevo (colores centrales, modo oscuro y claro). Las demás
-    // conservan su fondo claro original hasta que se migren, para que su texto siga legible.
-    const redesigned = REDESIGNED_EXACT.includes(pathname) || REDESIGNED.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 
     return (
         <div className="flex h-screen overflow-hidden bg-bos-bg flex-col md:flex-row print:block print:h-auto print:overflow-visible">
@@ -37,7 +30,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible">
                 <div className="print:hidden"><Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} /></div>
 
-                <main className={`flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 relative print:overflow-visible print:bg-white print:p-0 ${redesigned ? 'bg-bos-bg text-bos-text' : 'scrollbar-sonblade-light bg-gray-100 text-slate-800'}`}>
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 relative bg-bos-bg text-bos-text print:overflow-visible print:bg-white print:p-0">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={pathname}

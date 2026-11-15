@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Store, Clock, Globe, Phone, MapPin, DollarSign, Percent, Building2, Mail } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 
 const TIMEZONES = [
     { value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)' },
@@ -109,233 +109,162 @@ export default function SettingsPage() {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-sonblade-gold" />
-                <p className="text-gray-500 font-bold animate-pulse">Cargando configuración...</p>
+                <Loader2 className="h-10 w-10 animate-spin text-bos-muted" />
+                <p className="text-bos-muted font-medium">Cargando configuración...</p>
             </div>
         );
     }
 
+    const card = 'rounded-xl border border-bos-border bg-bos-surface p-5 sm:p-6';
+    const h2 = 'font-display text-lg font-semibold mb-5';
+    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+
     return (
-        <div className="max-w-5xl mx-auto space-y-8 pb-12">
-            <div>
-                <h1 className="text-3xl font-black text-gray-900 flex items-center gap-3">
-                    <Store className="h-8 w-8 text-sonblade-gold" />
-                    Configuración del Negocio
-                </h1>
-                <p className="text-gray-500 text-sm mt-1">Administra el perfil, moneda, zona horaria y reglas operativas de tu barbería.</p>
-            </div>
+        <div className="max-w-5xl mx-auto space-y-6 pb-12">
+            <header>
+                <h1 className="font-display text-3xl font-semibold tracking-tight">Configuración del negocio</h1>
+                <p className="text-bos-muted text-sm mt-1">Administra el perfil, moneda, zona horaria y reglas operativas de tu barbería.</p>
+            </header>
 
             {error && (
-                <div className="bg-red-50 text-red-700 p-4 rounded-2xl border border-red-200 flex items-center gap-3">
-                    <span className="text-red-500 text-xl">⚠</span>
-                    <p className="font-semibold text-sm">{error}</p>
-                </div>
+                <p role="alert" className="rounded-xl border border-bos-danger bg-bos-surface p-4 text-sm font-semibold text-bos-danger">{error}</p>
             )}
 
             {saved && (
-                <div className="bg-green-50 text-green-700 p-4 rounded-2xl border border-green-200 flex items-center gap-3 animate-pulse">
-                    <span className="text-green-500 text-xl">✓</span>
-                    <p className="font-bold text-sm">¡Configuración guardada exitosamente!</p>
-                </div>
+                <p role="status" className="rounded-xl border border-bos-success bg-bos-success-soft p-4 text-sm font-semibold text-bos-success">Configuración guardada.</p>
             )}
 
-            <form onSubmit={handleSave} className="space-y-8">
-                {/* Business Identity */}
-                <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                    <h2 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-sonblade-gold" /> Identidad del Negocio
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSave} className="space-y-6">
+                {/* Identidad del negocio */}
+                <section className={card}>
+                    <h2 className={h2}>Identidad del negocio</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Nombre del Negocio</label>
-                            <input
-                                required
-                                type="text"
-                                value={profile.name}
-                                onChange={e => updateField('name', e.target.value)}
-                                placeholder="Mi Barbería"
-                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none font-bold text-gray-900"
-                            />
+                            <label htmlFor="shop-name" className={label}>Nombre del negocio</label>
+                            <input id="shop-name" required type="text" value={profile.name} onChange={e => updateField('name', e.target.value)} placeholder="Mi Barbería" className={`${field} font-semibold`} />
                         </div>
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">RFC / Tax ID (Opcional)</label>
-                            <input
-                                type="text"
-                                value={profile.taxId}
-                                onChange={e => updateField('taxId', e.target.value)}
-                                placeholder="XAXX010101000"
-                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none"
-                            />
+                            <label htmlFor="shop-tax" className={label}>RFC / Tax ID (opcional)</label>
+                            <input id="shop-tax" type="text" value={profile.taxId} onChange={e => updateField('taxId', e.target.value)} placeholder="XAXX010101000" className={field} />
                         </div>
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2"><Phone className="inline h-3 w-3 mr-1" />Teléfono</label>
-                            <input
-                                type="text"
-                                value={profile.phone}
-                                onChange={e => updateField('phone', e.target.value)}
-                                placeholder="+52 123 456 7890"
-                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none"
-                            />
+                            <label htmlFor="shop-phone" className={label}>Teléfono</label>
+                            <input id="shop-phone" type="text" value={profile.phone} onChange={e => updateField('phone', e.target.value)} placeholder="+52 123 456 7890" className={field} />
                         </div>
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2"><Mail className="inline h-3 w-3 mr-1" />Correo Electrónico</label>
-                            <input
-                                type="email"
-                                value={profile.email}
-                                onChange={e => updateField('email', e.target.value)}
-                                placeholder="info@mibarberia.com"
-                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none"
-                            />
+                            <label htmlFor="shop-email" className={label}>Correo electrónico</label>
+                            <input id="shop-email" type="email" value={profile.email} onChange={e => updateField('email', e.target.value)} placeholder="info@mibarberia.com" className={field} />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2"><MapPin className="inline h-3 w-3 mr-1" />Dirección Completa</label>
-                            <input
-                                type="text"
-                                value={profile.address}
-                                onChange={e => updateField('address', e.target.value)}
-                                placeholder="Av. Principal #123, Col. Centro"
-                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none"
-                            />
+                            <label htmlFor="shop-address" className={label}>Dirección completa</label>
+                            <input id="shop-address" type="text" value={profile.address} onChange={e => updateField('address', e.target.value)} placeholder="Av. Principal #123, Col. Centro" className={field} />
                         </div>
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Ciudad / Estado</label>
-                            <input
-                                type="text"
-                                value={profile.city}
-                                onChange={e => updateField('city', e.target.value)}
-                                placeholder="Monterrey, N.L."
-                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none"
-                            />
+                            <label htmlFor="shop-city" className={label}>Ciudad / estado</label>
+                            <input id="shop-city" type="text" value={profile.city} onChange={e => updateField('city', e.target.value)} placeholder="Monterrey, N.L." className={field} />
                         </div>
                     </div>
-                </div>
+                </section>
 
-                {/* Regional Settings */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                        <h2 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
-                            <Globe className="h-5 w-5 text-sonblade-gold" /> Configuración Regional
-                        </h2>
+                {/* Regional y horario */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <section className={card}>
+                        <h2 className={h2}>Configuración regional</h2>
                         <div className="space-y-5">
                             <div>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2"><DollarSign className="inline h-3 w-3 mr-1" />Moneda</label>
-                                <select
-                                    value={profile.currency}
-                                    onChange={e => updateField('currency', e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none font-bold"
-                                >
+                                <label htmlFor="shop-currency" className={label}>Moneda</label>
+                                <select id="shop-currency" value={profile.currency} onChange={e => updateField('currency', e.target.value)} className={field}>
                                     {CURRENCIES.map(c => (
                                         <option key={c.value} value={c.value}>{c.symbol} {c.label}</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2"><Clock className="inline h-3 w-3 mr-1" />Zona Horaria</label>
-                                <select
-                                    value={profile.timezone}
-                                    onChange={e => updateField('timezone', e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none font-bold"
-                                >
+                                <label htmlFor="shop-timezone" className={label}>Zona horaria</label>
+                                <select id="shop-timezone" value={profile.timezone} onChange={e => updateField('timezone', e.target.value)} className={field}>
                                     {TIMEZONES.map(tz => (
                                         <option key={tz.value} value={tz.value}>{tz.label}</option>
                                     ))}
                                 </select>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                        <h2 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
-                            <Clock className="h-5 w-5 text-sonblade-gold" /> Horario de Operación
-                        </h2>
+                    <section className={card}>
+                        <h2 className={h2}>Horario de operación</h2>
                         <div className="space-y-5">
                             <div>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Hora de Apertura</label>
-                                <input
-                                    type="time"
-                                    value={profile.openTime}
-                                    onChange={e => updateField('openTime', e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none font-bold text-lg"
-                                />
+                                <label htmlFor="shop-open" className={label}>Hora de apertura</label>
+                                <input id="shop-open" type="time" value={profile.openTime} onChange={e => updateField('openTime', e.target.value)} className={`${field} font-semibold`} />
                             </div>
                             <div>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Hora de Cierre</label>
-                                <input
-                                    type="time"
-                                    value={profile.closeTime}
-                                    onChange={e => updateField('closeTime', e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sonblade-gold outline-none font-bold text-lg"
-                                />
+                                <label htmlFor="shop-close" className={label}>Hora de cierre</label>
+                                <input id="shop-close" type="time" value={profile.closeTime} onChange={e => updateField('closeTime', e.target.value)} className={`${field} font-semibold`} />
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
 
                 {/* Caja: fondo y apartado del cierre */}
                 {cash && (
-                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-                        <h2 className="text-lg font-black text-gray-900 mb-2">Caja</h2>
-                        <p className="text-xs text-gray-500 mb-6">Al cerrar la caja se propone dejar el fondo para el día siguiente y separar el apartado; quien cierra puede ajustar los montos si ese día no alcanza.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <section className={card}>
+                        <h2 className="font-display text-lg font-semibold mb-1">Caja</h2>
+                        <p className="text-sm text-bos-muted mb-5">Al cerrar la caja se propone dejar el fondo para el día siguiente y separar el apartado; quien cierra puede ajustar los montos si ese día no alcanza.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <div>
-                                <label htmlFor="cash-float" className="block text-xs font-bold text-gray-600 uppercase mb-2">Fondo para el día siguiente ($)</label>
-                                <input id="cash-float" type="number" min={0} step={50} required value={cash.float_target}
-                                    onChange={e => setCash({ ...cash, float_target: Number(e.target.value) })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:ring-2 focus:ring-black" />
+                                <label htmlFor="cash-float" className={label}>Fondo para el día siguiente ($)</label>
+                                <input id="cash-float" type="number" inputMode="decimal" min={0} step={50} required value={cash.float_target}
+                                    onChange={e => setCash({ ...cash, float_target: Number(e.target.value) })} className={field} />
                             </div>
                             <div>
-                                <label htmlFor="cash-reserve" className="block text-xs font-bold text-gray-600 uppercase mb-2">Apartado diario ($)</label>
-                                <input id="cash-reserve" type="number" min={0} step={50} required value={cash.reserve_amount}
-                                    onChange={e => setCash({ ...cash, reserve_amount: Number(e.target.value) })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:ring-2 focus:ring-black" />
+                                <label htmlFor="cash-reserve" className={label}>Apartado diario ($)</label>
+                                <input id="cash-reserve" type="number" inputMode="decimal" min={0} step={50} required value={cash.reserve_amount}
+                                    onChange={e => setCash({ ...cash, reserve_amount: Number(e.target.value) })} className={field} />
                             </div>
                             <div>
-                                <label htmlFor="cash-reserve-label" className="block text-xs font-bold text-gray-600 uppercase mb-2">¿Para qué es el apartado?</label>
+                                <label htmlFor="cash-reserve-label" className={label}>¿Para qué es el apartado?</label>
                                 <input id="cash-reserve-label" type="text" minLength={2} maxLength={60} required value={cash.reserve_label}
-                                    onChange={e => setCash({ ...cash, reserve_label: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:ring-2 focus:ring-black" />
+                                    onChange={e => setCash({ ...cash, reserve_label: e.target.value })} className={field} />
                             </div>
                         </div>
-                    </div>
+                    </section>
                 )}
 
                 {/* Tasas generales de comisión: vienen de la base y las cambia el dueño */}
-                <div className="bg-gray-900 rounded-3xl p-8 text-white shadow-xl">
-                    <h2 className="text-lg font-black text-sonblade-gold mb-2 flex items-center gap-2">
-                        <Percent className="h-5 w-5" /> Comisiones
-                    </h2>
-                    <p className="text-xs text-gray-400 mb-6">
+                <section className={card}>
+                    <h2 className="font-display text-lg font-semibold mb-1">Comisiones</h2>
+                    <p className="text-sm text-bos-muted mb-5">
                         Aplican a las ventas nuevas. Las ventas ya registradas conservan la tasa con la que se calcularon.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                            <label htmlFor="service-commission" className="block font-black text-white text-sm mb-3">Servicios (%)</label>
-                            <input id="service-commission" type="number" min={0} max={100} step={0.5} required
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="rounded-xl border border-bos-border bg-bos-bg p-5">
+                            <label htmlFor="service-commission" className="block font-medium text-sm mb-3">Servicios (%)</label>
+                            <input id="service-commission" type="number" inputMode="decimal" min={0} max={100} step={0.5} required
                                 value={profile.serviceCommissionPct}
                                 onChange={e => setProfile({ ...profile, serviceCommissionPct: Number(e.target.value) })}
-                                className="w-32 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-2xl font-black text-sonblade-gold outline-none focus:ring-2 focus:ring-sonblade-gold" />
-                            <p className="text-xs text-gray-400 mt-3">Sobre el precio de lista del servicio. Si se da un descuento, el barbero gana lo mismo.</p>
+                                className="w-32 h-14 px-4 rounded-xl bg-bos-surface border border-bos-border font-display text-2xl font-semibold tabular-nums text-bos-accent-text outline-none focus:border-bos-accent" />
+                            <p className="text-xs text-bos-muted mt-3">Sobre el precio de lista del servicio. Si se da un descuento, el barbero gana lo mismo.</p>
                         </div>
-                        <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                            <label htmlFor="product-commission" className="block font-black text-white text-sm mb-3">Productos (%)</label>
-                            <input id="product-commission" type="number" min={0} max={100} step={0.5} required
+                        <div className="rounded-xl border border-bos-border bg-bos-bg p-5">
+                            <label htmlFor="product-commission" className="block font-medium text-sm mb-3">Productos (%)</label>
+                            <input id="product-commission" type="number" inputMode="decimal" min={0} max={100} step={0.5} required
                                 value={profile.productCommissionPct}
                                 onChange={e => setProfile({ ...profile, productCommissionPct: Number(e.target.value) })}
-                                className="w-32 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-2xl font-black text-sonblade-gold outline-none focus:ring-2 focus:ring-sonblade-gold" />
-                            <p className="text-xs text-gray-400 mt-3">Sobre lo realmente cobrado por el producto, para quien lo vendió.</p>
+                                className="w-32 h-14 px-4 rounded-xl bg-bos-surface border border-bos-border font-display text-2xl font-semibold tabular-nums text-bos-accent-text outline-none focus:border-bos-accent" />
+                            <p className="text-xs text-bos-muted mt-3">Sobre lo realmente cobrado por el producto, para quien lo vendió.</p>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                {/* Save Button */}
                 <div className="flex justify-end">
                     <button
                         type="submit"
                         disabled={saving}
-                        className="bg-black text-sonblade-gold px-8 py-4 rounded-2xl font-black text-sm hover:scale-105 transition-transform shadow-xl shadow-sonblade-gold/10 flex items-center gap-3 disabled:opacity-50"
+                        className="w-full sm:w-auto min-h-[52px] px-8 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                         {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                        {saving ? 'GUARDANDO...' : 'GUARDAR CONFIGURACIÓN'}
+                        {saving ? 'Guardando...' : 'Guardar configuración'}
                     </button>
                 </div>
             </form>

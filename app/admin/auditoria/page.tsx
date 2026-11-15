@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, Loader2, X, Clock, User, Zap } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import type { AuditLog } from '@/types';
 import { format } from 'date-fns';
 
@@ -40,13 +40,6 @@ function actionLabel(action: string): string {
     return action;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-    admin: 'bg-purple-100 text-purple-700',
-    recepcion: 'bg-blue-100 text-blue-700',
-    barbero: 'bg-green-100 text-green-700',
-    system: 'bg-gray-100 text-gray-600',
-};
-
 export default function AuditoriaPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -80,23 +73,23 @@ export default function AuditoriaPage() {
         setDateTo('');
     };
 
+    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent';
+    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const th = 'px-4 py-3 text-[13px] font-medium';
+
     return (
         <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Shield className="text-sonblade-gold h-6 w-6" /> Auditoría del Sistema
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1">Registro de todas las acciones realizadas · {logs.length} registros</p>
-                </div>
-            </div>
+            <header>
+                <h1 className="font-display text-3xl font-semibold tracking-tight">Auditoría del sistema</h1>
+                <p className="text-bos-muted text-sm mt-1">Registro de todas las acciones realizadas · {logs.length} registros</p>
+            </header>
 
-            {/* Filters */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Filtros */}
+            <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rol</label>
-                        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                        <label htmlFor="a-role" className={label}>Rol</label>
+                        <select id="a-role" value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className={field}>
                             <option value="all">Todos</option>
                             <option value="admin">Admin</option>
                             <option value="recepcion">Recepción</option>
@@ -105,81 +98,72 @@ export default function AuditoriaPage() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Acción</label>
-                        <select value={actionFilter} onChange={e => setActionFilter(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                        <label htmlFor="a-action" className={label}>Acción</label>
+                        <select id="a-action" value={actionFilter} onChange={e => setActionFilter(e.target.value)} className={field}>
                             <option value="all">Todas</option>
-                            {Object.entries(ACTION_LABELS).map(([key, label]) => (
-                                <option key={key} value={key}>{label}</option>
+                            {Object.entries(ACTION_LABELS).map(([key, text]) => (
+                                <option key={key} value={key}>{text}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde</label>
-                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" />
+                        <label htmlFor="a-from" className={label}>Desde</label>
+                        <input id="a-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={field} />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hasta</label>
-                        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" />
+                        <label htmlFor="a-to" className={label}>Hasta</label>
+                        <input id="a-to" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={field} />
                     </div>
                 </div>
-                <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 font-semibold flex items-center gap-1"><X className="h-3 w-3" /> Limpiar Filtros</button>
+                <button onClick={clearFilters} className="min-h-11 text-sm text-bos-muted hover:text-bos-text font-semibold flex items-center gap-1.5"><X className="h-4 w-4" /> Limpiar filtros</button>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Tabla */}
+            <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 text-gray-500">
+                        <thead className="text-bos-muted">
                             <tr>
-                                <th className="p-4 text-xs uppercase font-semibold">Fecha / Hora</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Usuario</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Rol</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Acción</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Entidad</th>
-                                <th className="p-4 text-xs uppercase font-semibold">Detalle</th>
+                                <th className={th}>Fecha / hora</th>
+                                <th className={th}>Usuario</th>
+                                <th className={th}>Rol</th>
+                                <th className={th}>Acción</th>
+                                <th className={th}>Entidad</th>
+                                <th className={th}>Detalle</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody>
                             {loading ? (
-                                <tr><td colSpan={6} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-sonblade-gold" /></td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={6} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
                             ) : logs.length === 0 ? (
-                                <tr><td colSpan={6} className="p-8 text-center text-gray-400">Sin registros de auditoría</td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={6} className="p-8 text-center text-bos-muted">Sin registros de auditoría</td></tr>
                             ) : logs.map(log => (
-                                <tr key={log.id} className="hover:bg-gray-50">
-                                    <td className="p-4 text-gray-500 text-xs whitespace-nowrap">
-                                        <div className="flex items-center gap-1.5">
-                                            <Clock className="h-3.5 w-3.5" />
-                                            {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')}
-                                        </div>
+                                <tr key={log.id} className="border-t border-bos-border hover:bg-bos-raised align-top">
+                                    <td className="px-4 py-3 text-bos-muted text-xs whitespace-nowrap tabular-nums">
+                                        {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')}
                                     </td>
-                                    <td className="p-4 font-medium text-gray-900">
-                                        <div className="flex items-center gap-1.5">
-                                            <User className="h-3.5 w-3.5 text-gray-400" />
-                                            {log.user_name ?? log.user_id}
-                                        </div>
+                                    <td className="px-4 py-3 font-medium">
+                                        {log.user_name ?? log.user_id}
                                     </td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${ROLE_COLORS[log.role] || 'bg-gray-100 text-gray-600'}`}>
+                                    <td className="px-4 py-3">
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-bos-raised text-bos-text border border-bos-border">
                                             {log.role}
                                         </span>
                                     </td>
-                                    <td className="p-4">
-                                        <span className="flex items-center gap-1.5">
-                                            <Zap className="h-3.5 w-3.5 text-sonblade-gold" />
-                                            <span className="font-semibold text-gray-900">{actionLabel(log.action)}</span>
-                                        </span>
+                                    <td className="px-4 py-3">
+                                        <span className="font-semibold">{actionLabel(log.action)}</span>
                                     </td>
-                                    <td className="p-4 text-gray-500 text-xs">
+                                    <td className="px-4 py-3 text-bos-muted text-xs">
                                         {log.entity}{log.entity_id ? ` #${log.entity_id.substring(0, 8)}...` : ''}
                                     </td>
-                                    <td className="p-4">
+                                    <td className="px-4 py-3">
                                         {log.details && Object.keys(log.details).length > 0 ? (
                                             <details className="cursor-pointer">
-                                                <summary className="text-xs text-blue-600 font-medium hover:text-blue-800">Ver detalle</summary>
-                                                <pre className="mt-2 text-xs bg-gray-50 p-2 rounded overflow-x-auto max-w-xs">{JSON.stringify(log.details, null, 2)}</pre>
+                                                <summary className="inline-block py-1 text-xs text-bos-accent-text font-medium hover:underline">Ver detalle</summary>
+                                                <pre className="mt-2 text-xs bg-bos-bg border border-bos-border p-2 rounded-xl overflow-x-auto max-w-xs">{JSON.stringify(log.details, null, 2)}</pre>
                                             </details>
                                         ) : (
-                                            <span className="text-gray-400 text-xs">—</span>
+                                            <span className="text-bos-muted text-xs">—</span>
                                         )}
                                     </td>
                                 </tr>

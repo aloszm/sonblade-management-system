@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Users, Search, Loader2, Star, Clock, FileText, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Loader2, Star, Clock, FileText, Pencil, Trash2 } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
 import type { Client } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -19,6 +20,7 @@ export default function ClientsPage() {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [listError, setListError] = useState('');
 
     const fetchClients = useCallback(async () => {
         try {
@@ -96,12 +98,13 @@ export default function ClientsPage() {
 
     const handleDelete = async (c: Client) => {
         if (!window.confirm(`¿Eliminar a ${c.name}? Esta acción no se puede deshacer.`)) return;
+        setListError('');
         try {
             const res = await fetch(`/api/clients/${c.id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error((await res.json()).error || 'Error al eliminar');
             await fetchClients();
         } catch (err: unknown) {
-            alert(err instanceof Error ? err.message : 'Error al eliminar');
+            setListError(err instanceof Error ? err.message : 'Error al eliminar');
         }
     };
 
@@ -112,129 +115,136 @@ export default function ClientsPage() {
         (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
+    const input = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const th = 'px-4 py-3 text-[13px] font-medium';
+
     return (
         <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Users className="text-sonblade-gold h-6 w-6" />Cartera de Clientes (CRM)
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1">Gestión de clientes y sistema de fidelización</p>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Cartera de clientes</h1>
+                    <p className="text-bos-muted text-sm mt-1">Gestión de clientes y sistema de fidelización</p>
                 </div>
                 <button
                     onClick={openCreate}
-                    className="bg-sonblade-gold text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-yellow-500 flex items-center justify-center gap-2 shadow-sm"
+                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 flex items-center justify-center gap-2"
                 >
-                    <Plus className="h-4 w-4" /> Registrar Cliente
+                    <Plus className="h-4 w-4" /> Registrar cliente
                 </button>
+            </header>
+
+            {listError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-3 text-sm text-bos-danger">{listError}</p>}
+
+            {/* Resumen */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-bos-border bg-bos-surface p-5">
+                    <p className="text-[13px] font-medium text-bos-muted">Total de clientes</p>
+                    <p className="mt-1 font-display text-3xl font-semibold tabular-nums">{clients.length}</p>
+                </div>
+                <div className="rounded-xl border border-bos-border bg-bos-surface p-5">
+                    <p className="text-[13px] font-medium text-bos-muted">Clientes con visitas</p>
+                    <p className="mt-1 font-display text-3xl font-semibold tabular-nums">{clients.filter(c => (c.visits ?? 0) > 0).length}</p>
+                </div>
+                <div className="rounded-xl border border-bos-border bg-bos-surface p-5">
+                    <p className="text-[13px] font-medium text-bos-muted">Puntos emitidos</p>
+                    <p className="mt-1 font-display text-3xl font-semibold tabular-nums">{clients.reduce((acc, c) => acc + (c.points ?? 0), 0)}</p>
+                </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-black">
-                    <p className="text-xs font-bold text-gray-500 uppercase">Total Clientes</p>
-                    <p className="text-3xl font-bold">{clients.length}</p>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-sonblade-gold">
-                    <p className="text-xs font-bold text-gray-500 uppercase">Clientes con Visitas</p>
-                    <p className="text-3xl font-bold">{clients.filter(c => c.visits > 0).length}</p>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-purple-500">
-                    <p className="text-xs font-bold text-gray-500 uppercase">Puntos Emitidos</p>
-                    <p className="text-3xl font-bold text-purple-600">{clients.reduce((acc, c) => acc + c.points, 0)}</p>
-                </div>
-            </div>
-
-            {/* Search */}
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
-                <div className="pl-3"><Search className="h-5 w-5 text-gray-400" /></div>
+            {/* Búsqueda */}
+            <div className="relative">
+                <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-bos-muted" />
                 <input
                     type="text"
+                    aria-label="Buscar clientes"
                     placeholder="Buscar por nombre, teléfono o email..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 outline-none"
+                    className={`${input} pl-11`}
                 />
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Tabla */}
+            <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 text-gray-500">
+                        <thead className="text-bos-muted">
                             <tr>
-                                <th className="p-4 font-semibold uppercase text-xs">Cliente</th>
-                                <th className="p-4 font-semibold uppercase text-xs">Contacto</th>
-                                <th className="p-4 font-semibold uppercase text-xs text-center">Fidelización</th>
-                                <th className="p-4 font-semibold uppercase text-xs text-right">Última Visita</th>
-                                <th className="p-4 font-semibold uppercase text-xs text-center">Acciones</th>
+                                <th className={th}>Cliente</th>
+                                <th className={th}>Contacto</th>
+                                <th className={`${th} text-center`}>Fidelización</th>
+                                <th className={`${th} text-right`}>Última visita</th>
+                                <th className={`${th} text-center`}>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody>
                             {loading ? (
-                                <tr>
+                                <tr className="border-t border-bos-border">
                                     <td colSpan={5} className="p-8 text-center">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-sonblade-gold" />
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" />
                                     </td>
                                 </tr>
                             ) : filteredClients.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="p-8 text-center text-gray-400">
+                                <tr className="border-t border-bos-border">
+                                    <td colSpan={5} className="p-8 text-center text-bos-muted">
                                         {searchQuery ? 'No se encontraron clientes coincidiendo con tu búsqueda' : 'No hay clientes registrados en el sistema'}
                                     </td>
                                 </tr>
                             ) : filteredClients.map(c => (
-                                <tr key={c.id} className="hover:bg-gray-50 group transition-colors">
-                                    <td className="p-4">
+                                <tr key={c.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
+                                    <td className="px-4 py-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center font-bold text-gray-600 group-hover:bg-sonblade-gold group-hover:text-black group-hover:border-transparent transition-all">
+                                            <div aria-hidden="true" className="w-10 h-10 shrink-0 rounded-full bg-bos-raised border border-bos-border flex items-center justify-center font-display font-semibold text-bos-text">
                                                 {c.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
-                                                <div className="font-bold text-gray-900">{c.name}</div>
-                                                <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                                <div className="font-semibold">{c.name}</div>
+                                                <div className="text-xs text-bos-muted mt-0.5 flex items-center gap-1 whitespace-nowrap">
                                                     <FileText className="h-3 w-3" /> {c.client_number} • Añadido el {format(new Date(c.created_at), 'dd MMM yyyy', { locale: es })}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="p-4 text-gray-500">
-                                        <div className="text-sm font-medium text-gray-700">{c.phone || 'Sin teléfono'}</div>
+                                    <td className="px-4 py-3 text-bos-muted">
+                                        <div className="text-sm font-medium text-bos-text">{c.phone || 'Sin teléfono'}</div>
                                         <div className="text-xs mt-0.5">{c.email || 'Sin email'}</div>
                                     </td>
-                                    <td className="p-4 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-1.5">
-                                            <span className="bg-purple-100 text-purple-700 px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                                                <Star className="h-3.5 w-3.5 fill-current" /> {c.points} pts
+                                    <td className="px-4 py-3 text-center">
+                                        <div className="flex flex-col items-center justify-center gap-1">
+                                            <span className="bg-bos-accent-soft text-bos-accent-text px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                                                <Star className="h-3.5 w-3.5 fill-current" /> {c.points ?? 0} pts
                                             </span>
-                                            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">
-                                                {c.visits} {c.visits === 1 ? 'visita' : 'visitas'}
+                                            <span className="text-xs text-bos-muted">
+                                                {c.visits ?? 0} {c.visits === 1 ? 'visita' : 'visitas'}
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="p-4 text-right">
+                                    <td className="px-4 py-3 text-right whitespace-nowrap">
                                         {c.last_visit_at ? (
-                                            <div className="flex items-center justify-end gap-1.5 text-sm font-medium text-gray-700">
-                                                <Clock className="h-4 w-4 text-gray-400" />
+                                            <div className="flex items-center justify-end gap-1.5 text-sm font-medium">
+                                                <Clock className="h-4 w-4 text-bos-muted" />
                                                 {format(new Date(c.last_visit_at), 'dd MMM, HH:mm', { locale: es })}
                                             </div>
                                         ) : (
-                                            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded font-medium">Nunca</span>
+                                            <span className="text-xs bg-bos-raised text-bos-muted px-2 py-1 rounded-full font-medium">Nunca</span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-center">
-                                        <div className="flex items-center justify-center gap-2">
+                                    <td className="px-4 py-2 text-center">
+                                        <div className="flex items-center justify-center gap-1">
                                             <button
                                                 onClick={() => openEdit(c)}
                                                 title="Editar cliente"
-                                                className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors"
+                                                aria-label={`Editar a ${c.name}`}
+                                                className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text hover:bg-bos-raised rounded-xl transition-colors"
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(c)}
                                                 title="Eliminar cliente"
-                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                aria-label={`Eliminar a ${c.name}`}
+                                                className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-danger hover:bg-bos-raised rounded-xl transition-colors"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </button>
@@ -247,79 +257,70 @@ export default function ClientsPage() {
                 </div>
             </div>
 
-            {/* Create / Edit Client Modal */}
+            {/* Ventana: registrar o editar cliente */}
             {showModal && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-lg font-bold flex items-center gap-2">
-                                <Users className="h-5 w-5 text-sonblade-gold" />
-                                {editingClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
-                            </h2>
-                            <button onClick={closeModal} className="text-gray-400 hover:text-gray-900 bg-gray-100 rounded-full p-1.5 transition-colors">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
+                <Modal title={editingClient ? 'Editar cliente' : 'Registrar nuevo cliente'} onClose={closeModal}>
+                    {error && <p role="alert" className="mb-4 p-3 rounded-xl border border-bos-border bg-bos-bg text-bos-danger text-sm font-medium">{error}</p>}
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label htmlFor="client-name" className={label}>Nombre completo <span className="text-bos-danger">*</span></label>
+                            <input
+                                id="client-name"
+                                type="text"
+                                required
+                                value={formData.name}
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                className={input}
+                                placeholder="Ej. Juan Pérez"
+                            />
                         </div>
 
-                        {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 font-medium">{error}</div>}
+                        <div>
+                            <label htmlFor="client-phone" className={label}>Teléfono (WhatsApp) <span className="text-bos-danger">*</span></label>
+                            <input
+                                id="client-phone"
+                                type="tel"
+                                required
+                                value={formData.phone}
+                                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                className={input}
+                                placeholder="10 dígitos"
+                                minLength={10}
+                                maxLength={15}
+                            />
+                        </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Nombre Completo <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm font-medium"
-                                    placeholder="Ej. Juan Pérez"
-                                />
-                            </div>
+                        <div>
+                            <label htmlFor="client-email" className={label}>Correo electrónico (opcional)</label>
+                            <input
+                                id="client-email"
+                                type="email"
+                                value={formData.email}
+                                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                className={input}
+                                placeholder="juan@ejemplo.com"
+                            />
+                        </div>
 
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Teléfono (WhatsApp) <span className="text-red-500">*</span></label>
-                                <input
-                                    type="tel"
-                                    required
-                                    value={formData.phone}
-                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm font-medium"
-                                    placeholder="10 dígitos"
-                                    minLength={10}
-                                    maxLength={15}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Correo Electrónico (Opcional)</label>
-                                <input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm font-medium"
-                                    placeholder="juan@ejemplo.com"
-                                />
-                            </div>
-
-                            <div className="pt-4 flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-50 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="flex-1 px-4 py-2.5 bg-black text-sonblade-gold font-bold text-sm rounded-xl hover:bg-gray-900 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
-                                >
-                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingClient ? 'Guardar Cambios' : 'Guardar Cliente'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                        <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3">
+                            <button
+                                type="button"
+                                onClick={closeModal}
+                                className="flex-1 min-h-[52px] px-5 border border-bos-border text-bos-text font-semibold rounded-xl hover:bg-bos-raised transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="flex-1 min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 disabled:opacity-70 flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingClient ? 'Guardar cambios' : 'Guardar cliente'}
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
             )}
         </div>
     );

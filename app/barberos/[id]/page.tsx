@@ -1,13 +1,24 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, use } from 'react';
-import { ArrowLeft, Scissors, DollarSign, TrendingUp, Award, Loader2, Calendar } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 
 interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; serviceCommission: number; productCommission: number; }
 interface Movement { id: string; date: string; services: string; products: string; payment_method: string; cash_amount: number; card_amount: number; transfer_amount: number; tip: number; total: number; commission: number; }
 interface ServiceBreak { name: string; count: number; revenue: number; }
+
+function PaymentDetail({ m }: { m: Movement }) {
+    const pill = 'inline-block whitespace-nowrap text-xs font-medium px-2.5 py-0.5 rounded-full border border-bos-border bg-bos-raised text-bos-text';
+    const parts: string[] = [];
+    if (m.cash_amount > 0) parts.push(`Efect. $${m.cash_amount.toFixed(0)}`);
+    if (m.card_amount > 0) parts.push(`Tarj. $${m.card_amount.toFixed(0)}`);
+    if (m.transfer_amount > 0) parts.push(`Transf. $${m.transfer_amount.toFixed(0)}`);
+    if (parts.length > 1) return <span className={pill}>{parts.join(' / ')}</span>;
+    const label = m.payment_method === 'cash' ? 'Efectivo' : m.payment_method === 'card' ? 'Tarjeta' : m.payment_method === 'transfer' ? 'Transferencia' : m.payment_method;
+    return <span className={pill}>{label}</span>;
+}
 
 export default function BarberProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -41,157 +52,152 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
     useEffect(() => { fetchStats(); }, [fetchStats]);
 
 
-    function PaymentDetail({ m }: { m: Movement }) {
-        const parts: string[] = [];
-        if (m.cash_amount > 0) parts.push(`Efect. $${m.cash_amount.toFixed(0)}`);
-        if (m.card_amount > 0) parts.push(`Tarj. $${m.card_amount.toFixed(0)}`);
-        if (m.transfer_amount > 0) parts.push(`Transf. $${m.transfer_amount.toFixed(0)}`);
-        if (parts.length > 1) return <span className="text-xs text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-semibold">{parts.join(' / ')}</span>;
-        const label = m.payment_method === 'cash' ? 'Efectivo' : m.payment_method === 'card' ? 'Tarjeta' : m.payment_method === 'transfer' ? 'Transferencia' : m.payment_method;
-        const color = m.payment_method === 'cash' ? 'bg-green-100 text-green-700' : m.payment_method === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700';
-        return <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${color}`}>{label}</span>;
-    }
-
-    if (loading && !barber) return <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-sonblade-gold" /></div>;
+    if (loading && !barber) return <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>;
 
     const svcTotal = serviceBreakdown.reduce((s, b) => s + b.revenue, 0);
+    const card = 'rounded-xl border border-bos-border bg-bos-surface';
+    const th = 'px-4 py-3 text-[13px] font-medium';
+    const dateField = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent';
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <Link href="/equipo" className="p-2 bg-white border rounded-lg hover:bg-gray-50"><ArrowLeft className="h-5 w-5 text-gray-500" /></Link>
-                <div className="flex items-center gap-3">
-                    <div className="w-14 h-14 bg-gradient-to-br from-black to-gray-700 rounded-full flex items-center justify-center text-2xl font-bold text-sonblade-gold ring-2 ring-sonblade-gold/20">
+            {/* Encabezado */}
+            <header className="flex items-center gap-4">
+                <Link href="/equipo" aria-label="Volver al equipo" className="h-11 w-11 shrink-0 inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><ArrowLeft className="h-5 w-5" /></Link>
+                <div className="flex items-center gap-3 min-w-0">
+                    <div aria-hidden="true" className="w-14 h-14 shrink-0 bg-bos-raised border border-bos-border rounded-full flex items-center justify-center font-display text-2xl font-semibold">
                         {barber?.name?.charAt(0) || '?'}
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{barber?.name}</h1>
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded uppercase ${barber?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{barber?.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+                    <div className="min-w-0">
+                        <h1 className="font-display text-3xl font-semibold tracking-tight truncate">{barber?.name}</h1>
+                        <span className={`inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${barber?.status === 'active' ? 'bg-bos-success-soft text-bos-success' : 'bg-bos-raised text-bos-muted border border-bos-border'}`}>{barber?.status === 'active' ? 'Activo' : 'Inactivo'}</span>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            {/* Period Toggle + Date Filter */}
-            <div className="flex flex-wrap items-center gap-3">
-                {['today', 'week', 'month'].map(p => (
-                    <button key={p} onClick={() => { setPeriod(p); setDateRange({ from: '', to: '' }); }}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${period === p && !dateRange.from ? 'bg-black text-sonblade-gold' : 'bg-white text-gray-600 border'}`}>
-                        {p === 'today' ? 'Hoy' : p === 'week' ? 'Semana' : 'Mes'}
-                    </button>
-                ))}
-                <div className="flex items-center gap-2 ml-auto">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <input type="date" value={dateRange.from} onChange={e => setDateRange(d => ({ ...d, from: e.target.value }))} className="px-3 py-2 border rounded-lg text-sm" />
-                    <span className="text-gray-400">—</span>
-                    <input type="date" value={dateRange.to} onChange={e => setDateRange(d => ({ ...d, to: e.target.value }))} className="px-3 py-2 border rounded-lg text-sm" />
+            {/* Periodo y fechas */}
+            <div className="flex flex-wrap items-center gap-2">
+                {['today', 'week', 'month'].map(p => {
+                    const selected = period === p && !dateRange.from;
+                    return (
+                        <button key={p} type="button" aria-pressed={selected} onClick={() => { setPeriod(p); setDateRange({ from: '', to: '' }); }}
+                            className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${selected ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>
+                            {p === 'today' ? 'Hoy' : p === 'week' ? 'Semana' : 'Mes'}
+                        </button>
+                    );
+                })}
+                <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
+                    <input type="date" aria-label="Desde" value={dateRange.from} onChange={e => setDateRange(d => ({ ...d, from: e.target.value }))} className={`${dateField} flex-1 min-w-0`} />
+                    <span className="text-bos-muted">—</span>
+                    <input type="date" aria-label="Hasta" value={dateRange.to} onChange={e => setDateRange(d => ({ ...d, to: e.target.value }))} className={`${dateField} flex-1 min-w-0`} />
                 </div>
             </div>
 
-            {/* KPI Cards + CommissionBar */}
+            {/* Cifras */}
             {kpis && (
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-gray-300">
-                            <div className="flex items-center gap-2 mb-1"><Scissors className="h-4 w-4 text-gray-500" /><span className="text-xs text-gray-500 font-semibold uppercase">Cortes</span></div>
-                            <p className="text-2xl font-bold text-gray-900">${kpis.serviceRevenue.toFixed(2)}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase">{kpis.cuts} servicios realizados</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className={`${card} p-4`}>
+                            <span className="text-[13px] font-medium text-bos-muted">Cortes</span>
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">${kpis.serviceRevenue.toFixed(2)}</p>
+                            <p className="text-xs text-bos-muted">{kpis.cuts} servicios realizados</p>
                         </div>
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-sonblade-gold">
-                            <div className="flex items-center gap-2 mb-1"><Award className="h-4 w-4 text-sonblade-gold" /><span className="text-xs text-gray-500 font-semibold uppercase">Comisión</span></div>
-                            <p className="text-2xl font-bold text-sonblade-gold">${kpis.serviceCommission.toFixed(2)}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase">{kpis.commissionRate}% de servicios</p>
+                        <div className={`${card} p-4`}>
+                            <span className="text-[13px] font-medium text-bos-muted">Comisión</span>
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">${kpis.serviceCommission.toFixed(2)}</p>
+                            <p className="text-xs text-bos-muted">{kpis.commissionRate}% de servicios</p>
                         </div>
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-blue-400">
-                            <div className="flex items-center gap-2 mb-1"><TrendingUp className="h-4 w-4 text-blue-600" /><span className="text-xs text-gray-500 font-semibold uppercase">Propina</span></div>
-                            <p className="text-2xl font-bold text-gray-900">${kpis.tips.toFixed(2)}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase">100% para el barbero</p>
+                        <div className={`${card} p-4`}>
+                            <span className="text-[13px] font-medium text-bos-muted">Propina</span>
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">${kpis.tips.toFixed(2)}</p>
+                            <p className="text-xs text-bos-muted">100% para el barbero</p>
                         </div>
-                        <div className="bg-black p-4 rounded-xl border border-gray-800 shadow-lg border-l-4 border-l-sonblade-gold">
-                            <div className="flex items-center gap-2 mb-1"><DollarSign className="h-4 w-4 text-sonblade-gold" /><span className="text-xs text-gray-400 font-semibold uppercase">Total a Recibir</span></div>
-                            <p className="text-2xl font-black text-white">${kpis.totalCommission.toFixed(2)}</p>
-                            {kpis.productCommission > 0 && <p className="text-[10px] text-sonblade-gold/60 font-medium">Incluye ${kpis.productCommission.toFixed(2)} por productos</p>}
+                        <div className={`${card} p-4 border-bos-accent`}>
+                            <span className="text-[13px] font-medium text-bos-muted">Total a recibir</span>
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-bos-accent-text">${kpis.totalCommission.toFixed(2)}</p>
+                            {kpis.productCommission > 0 && <p className="text-xs text-bos-muted">Incluye ${kpis.productCommission.toFixed(2)} por productos</p>}
                         </div>
                     </div>
 
-                    {/* Commission Progress Bar */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-gray-700 mb-1">Comisión del periodo — {kpis.cuts} cortes</h3>
-                        <p className="text-sm text-gray-500">
-                            Tasa vigente: <strong className="text-gray-900">{kpis.commissionRate}%</strong> sobre el precio de lista de cada servicio con regla de comisión.
+                    <div className={`${card} p-5`}>
+                        <h3 className="font-display font-semibold mb-1">Comisión del periodo — {kpis.cuts} cortes</h3>
+                        <p className="text-sm text-bos-muted">
+                            Tasa vigente: <strong className="text-bos-text">{kpis.commissionRate}%</strong> sobre el precio de lista de cada servicio con regla de comisión.
                         </p>
                     </div>
                 </div>
             )}
 
-            {/* Service Breakdown Table */}
+            {/* Resumen de servicios */}
             {serviceBreakdown.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100">
-                        <h3 className="text-sm font-bold text-gray-800 uppercase">Resumen de Servicios</h3>
+                <div className={`${card} overflow-hidden`}>
+                    <div className="px-5 py-4 border-b border-bos-border">
+                        <h3 className="font-display font-semibold">Resumen de servicios</h3>
                     </div>
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500">
-                            <tr>
-                                <th className="p-3 text-left text-xs uppercase font-semibold">Tipo de Servicio</th>
-                                <th className="p-3 text-center text-xs uppercase font-semibold">Cantidad</th>
-                                <th className="p-3 text-right text-xs uppercase font-semibold">Ingresos</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {serviceBreakdown.map(s => (
-                                <tr key={s.name} className="hover:bg-gray-50">
-                                    <td className="p-3 font-medium text-gray-900">{s.name}</td>
-                                    <td className="p-3 text-center font-bold">{s.count}</td>
-                                    <td className="p-3 text-right font-bold">${s.revenue.toFixed(2)}</td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="text-bos-muted">
+                                <tr>
+                                    <th className={`${th} text-left`}>Tipo de servicio</th>
+                                    <th className={`${th} text-center`}>Cantidad</th>
+                                    <th className={`${th} text-right`}>Ingresos</th>
                                 </tr>
-                            ))}
-                            <tr className="bg-gray-50 font-bold">
-                                <td className="p-3 text-gray-700">Total</td>
-                                <td className="p-3 text-center">{serviceBreakdown.reduce((s, b) => s + b.count, 0)}</td>
-                                <td className="p-3 text-right">${svcTotal.toFixed(2)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {serviceBreakdown.map(s => (
+                                    <tr key={s.name} className="border-t border-bos-border hover:bg-bos-raised">
+                                        <td className="px-4 py-3 font-medium">{s.name}</td>
+                                        <td className="px-4 py-3 text-center font-semibold tabular-nums">{s.count}</td>
+                                        <td className="px-4 py-3 text-right font-semibold tabular-nums">${s.revenue.toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                                <tr className="border-t border-bos-border bg-bos-raised font-semibold">
+                                    <td className="px-4 py-3">Total</td>
+                                    <td className="px-4 py-3 text-center tabular-nums">{serviceBreakdown.reduce((s, b) => s + b.count, 0)}</td>
+                                    <td className="px-4 py-3 text-right tabular-nums">${svcTotal.toFixed(2)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
-            {/* Movements Table */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-800 uppercase">Movimientos ({movements.length})</h3>
+            {/* Movimientos */}
+            <div className={`${card} overflow-hidden`}>
+                <div className="px-5 py-4 border-b border-bos-border">
+                    <h3 className="font-display font-semibold">Movimientos ({movements.length})</h3>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500">
+                        <thead className="text-bos-muted">
                             <tr>
-                                <th className="p-3 text-xs uppercase font-semibold">Fecha</th>
-                                <th className="p-3 text-xs uppercase font-semibold">Hora</th>
-                                <th className="p-3 text-xs uppercase font-semibold">Servicio</th>
-                                <th className="p-3 text-xs uppercase font-semibold">Producto</th>
-                                <th className="p-3 text-xs uppercase font-semibold">Pago</th>
-                                <th className="p-3 text-xs uppercase font-semibold text-right">Propina</th>
-                                <th className="p-3 text-xs uppercase font-semibold text-right">Total</th>
-                                <th className="p-3 text-xs uppercase font-semibold text-right">Comisión</th>
+                                <th className={`${th} text-left`}>Fecha</th>
+                                <th className={`${th} text-left`}>Hora</th>
+                                <th className={`${th} text-left`}>Servicio</th>
+                                <th className={`${th} text-left`}>Producto</th>
+                                <th className={`${th} text-left`}>Pago</th>
+                                <th className={`${th} text-right`}>Propina</th>
+                                <th className={`${th} text-right`}>Total</th>
+                                <th className={`${th} text-right`}>Comisión</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody>
                             {loading ? (
-                                <tr><td colSpan={8} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-sonblade-gold" /></td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={8} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
                             ) : movements.length === 0 ? (
-                                <tr><td colSpan={8} className="p-8 text-center text-gray-400">Sin movimientos en este período</td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={8} className="p-8 text-center text-bos-muted">Sin movimientos en este período</td></tr>
                             ) : movements.map(m => {
                                 const d = new Date(m.date);
                                 return (
-                                    <tr key={m.id} className="hover:bg-gray-50">
-                                        <td className="p-3 font-medium">{format(d, 'MMM dd')}</td>
-                                        <td className="p-3 text-gray-500">{format(d, 'hh:mm a')}</td>
-                                        <td className="p-3">{m.services}</td>
-                                        <td className="p-3 text-gray-500">{m.products}</td>
-                                        <td className="p-3"><PaymentDetail m={m} /></td>
-                                        <td className="p-3 text-right">${m.tip.toFixed(2)}</td>
-                                        <td className="p-3 text-right font-bold">${m.total.toFixed(2)}</td>
-                                        <td className="p-3 text-right font-bold text-sonblade-gold">${m.commission.toFixed(2)}</td>
+                                    <tr key={m.id} className="border-t border-bos-border hover:bg-bos-raised">
+                                        <td className="px-4 py-3 font-medium whitespace-nowrap">{format(d, 'MMM dd')}</td>
+                                        <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{format(d, 'hh:mm a')}</td>
+                                        <td className="px-4 py-3">{m.services}</td>
+                                        <td className="px-4 py-3 text-bos-muted">{m.products}</td>
+                                        <td className="px-4 py-3"><PaymentDetail m={m} /></td>
+                                        <td className="px-4 py-3 text-right tabular-nums">${m.tip.toFixed(2)}</td>
+                                        <td className="px-4 py-3 text-right font-semibold tabular-nums">${m.total.toFixed(2)}</td>
+                                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-bos-accent-text">${m.commission.toFixed(2)}</td>
                                     </tr>
                                 );
                             })}
@@ -199,7 +205,6 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                     </table>
                 </div>
             </div>
-
         </div>
     );
 }

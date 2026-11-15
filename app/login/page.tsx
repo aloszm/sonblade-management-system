@@ -43,27 +43,27 @@ export default function LoginPage() {
         }
     }
 
+    const input = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
     return (
-        <main className="min-h-screen flex items-center justify-center bg-zinc-950 px-4 py-8">
-            <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
+        <main className="min-h-screen flex items-center justify-center bg-bos-bg text-bos-text px-4 py-8">
+            <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-bos-border bg-bos-surface p-8">
                 <div className="mb-8 text-center">
                     <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white p-2">
                         <Image src={CLIENT_LOGO} alt={`Logo de ${CLIENT_NAME}`} width={160} height={160} priority className="h-full w-full object-contain" />
                     </div>
-                    <h1 className="text-2xl font-black uppercase tracking-wider text-white">{CLIENT_NAME}</h1>
-                    <p className="mt-1 text-sm font-semibold tracking-widest text-sonblade-gold">{SYSTEM_NAME}</p>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">{CLIENT_NAME}</h1>
+                    <p className="mt-1 text-sm font-medium text-bos-accent-text">{SYSTEM_NAME}</p>
                 </div>
-                {configurationMissing && <p role="alert" className="mb-4 text-sm text-amber-300">El entorno aún no está configurado para iniciar sesión.</p>}
-                <label htmlFor="email" className="mb-2 block text-sm font-medium text-zinc-300">Correo electrónico</label>
-                <input id="email" type="email" autoComplete="username" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} className="mb-5 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white outline-none focus:border-sonblade-gold" />
-                <label htmlFor="password" className="mb-2 block text-sm font-medium text-zinc-300">Contraseña</label>
-                <input id="password" type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={(event) => setPassword(event.target.value)} className="mb-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white outline-none focus:border-sonblade-gold" />
-                {error && <p role="alert" className="mb-4 text-center text-sm text-red-400">{error}</p>}
-                <button type="submit" disabled={submitting} className="flex w-full items-center justify-center rounded-xl bg-sonblade-gold px-4 py-3 font-bold text-black transition hover:bg-yellow-500 disabled:opacity-60">
+                {configurationMissing && <p role="alert" className="mb-4 text-sm text-bos-danger">El entorno aún no está configurado para iniciar sesión.</p>}
+                <label htmlFor="email" className="mb-2 block text-[13px] font-medium text-bos-muted">Correo electrónico</label>
+                <input id="email" type="email" autoComplete="username" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} className={`mb-5 ${input}`} />
+                <label htmlFor="password" className="mb-2 block text-[13px] font-medium text-bos-muted">Contraseña</label>
+                <input id="password" type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={(event) => setPassword(event.target.value)} className={`mb-4 ${input}`} />
+                {error && <p role="alert" className="mb-4 text-center text-sm text-bos-danger">{error}</p>}
+                <button type="submit" disabled={submitting} className="flex w-full min-h-[52px] items-center justify-center rounded-xl bg-bos-accent px-5 font-bold text-bos-on-accent transition hover:opacity-90 disabled:opacity-60">
                     {submitting ? <Loader2 aria-label="Iniciando sesión" className="h-5 w-5 animate-spin" /> : 'Iniciar sesión'}
                 </button>
             </form>
         </main>
     );
 }
-

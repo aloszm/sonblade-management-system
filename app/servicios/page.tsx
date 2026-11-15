@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Scissors, Plus, Search, Loader2, Edit2, Trash2, Check, X } from 'lucide-react';
+import { Plus, Search, Loader2, Edit2, Check, X } from 'lucide-react';
 
 interface Service {
     id: string;
@@ -17,6 +17,7 @@ export default function ServicesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [formError, setFormError] = useState('');
     const [formData, setFormData] = useState({ name: '', price: 0, duration_minutes: 30, is_active: true });
 
     useEffect(() => {
@@ -39,6 +40,7 @@ export default function ServicesPage() {
     };
 
     const handleSave = async (id?: string) => {
+        setFormError('');
         try {
             const url = id ? `/api/services/${id}` : '/api/services';
             const method = id ? 'PUT' : 'POST';
@@ -56,7 +58,7 @@ export default function ServicesPage() {
                 setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true });
             } else {
                 const body = await res.json().catch(() => null);
-                alert(body?.error || 'No se pudo guardar el servicio');
+                setFormError(body?.error || 'No se pudo guardar el servicio');
             }
         } catch (e) {
             console.error('Error saving service:', e);
@@ -64,6 +66,7 @@ export default function ServicesPage() {
     };
 
     const handleToggleStatus = async (service: Service) => {
+        setFormError('');
         try {
             const res = await fetch(`/api/services/${service.id}`, {
                 method: 'PUT',
@@ -71,7 +74,7 @@ export default function ServicesPage() {
                 body: JSON.stringify({ ...service, is_active: !service.is_active }),
             });
             if (res.ok) fetchServices();
-            else alert((await res.json().catch(() => null))?.error || 'No se pudo cambiar el estado');
+            else setFormError((await res.json().catch(() => null))?.error || 'No se pudo cambiar el estado');
         } catch (e) {
             console.error('Error toggling service status:', e);
         }
@@ -81,57 +84,62 @@ export default function ServicesPage() {
         s.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const th = 'px-4 py-3 text-[13px] font-medium';
+    const cell = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const iconBtn = 'h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised';
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
-                        <Scissors className="text-sonblade-gold h-6 w-6" />
-                        Catálogo de Servicios
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1">Administra los servicios ofrecidos en la barbería</p>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Catálogo de servicios</h1>
+                    <p className="text-bos-muted text-sm mt-1">Administra los servicios ofrecidos en la barbería</p>
                 </div>
                 <button
-                    onClick={() => { setIsAdding(true); setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true }); }}
-                    className="bg-black text-sonblade-gold px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg shadow-sonblade-gold/10"
+                    onClick={() => { setIsAdding(true); setFormError(''); setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true }); }}
+                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                 >
-                    <Plus className="h-4 w-4" /> Nuevo Servicio
+                    <Plus className="h-4 w-4" /> Nuevo servicio
                 </button>
-            </div>
+            </header>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+            {formError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-3 text-sm text-bos-danger">{formError}</p>}
+
+            <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
+                <div className="p-4 border-b border-bos-border">
                     <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-bos-muted" />
                         <input
                             type="text"
+                            aria-label="Buscar servicio"
                             placeholder="Buscar servicio..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-1 focus:ring-sonblade-gold outline-none"
+                            className={`${cell} w-full pl-10 pr-4`}
                         />
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead>
-                            <tr className="bg-gray-50 text-gray-500 border-b border-gray-100">
-                                <th className="p-4 font-bold uppercase text-[10px] tracking-wider">Nombre</th>
-                                <th className="p-4 font-bold uppercase text-[10px] tracking-wider text-center">Precio</th>
-                                <th className="p-4 font-bold uppercase text-[10px] tracking-wider text-center">Duración</th>
-                                <th className="p-4 font-bold uppercase text-[10px] tracking-wider text-center">Estado</th>
-                                <th className="p-4 font-bold uppercase text-[10px] tracking-wider text-right">Acciones</th>
+                        <thead className="text-bos-muted">
+                            <tr>
+                                <th className={th}>Nombre</th>
+                                <th className={`${th} text-center`}>Precio</th>
+                                <th className={`${th} text-center`}>Duración</th>
+                                <th className={`${th} text-center`}>Estado</th>
+                                <th className={`${th} text-right`}>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody>
                             {isAdding && (
-                                <tr className="bg-sonblade-gold/5">
+                                <tr className="border-t border-bos-border bg-bos-accent-soft">
                                     <td className="p-3">
                                         <input
                                             type="text"
+                                            aria-label="Nombre del servicio"
                                             placeholder="Nombre del servicio"
-                                            className="w-full p-2 border border-sonblade-gold/30 rounded-lg outline-none"
+                                            className={`${cell} w-full min-w-[10rem]`}
                                             value={formData.name}
                                             onChange={e => setFormData({ ...formData, name: e.target.value })}
                                         />
@@ -139,8 +147,10 @@ export default function ServicesPage() {
                                     <td className="p-3">
                                         <input
                                             type="number"
+                                            inputMode="decimal"
+                                            aria-label="Precio"
                                             placeholder="Precio"
-                                            className="w-24 p-2 border border-sonblade-gold/30 rounded-lg outline-none mx-auto block text-center"
+                                            className={`${cell} w-28 mx-auto block text-center`}
                                             value={formData.price}
                                             onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
                                         />
@@ -148,90 +158,98 @@ export default function ServicesPage() {
                                     <td className="p-3">
                                         <input
                                             type="number"
+                                            inputMode="numeric"
+                                            aria-label="Duración en minutos"
                                             placeholder="Min"
-                                            className="w-20 p-2 border border-sonblade-gold/30 rounded-lg outline-none mx-auto block text-center"
+                                            className={`${cell} w-24 mx-auto block text-center`}
                                             value={formData.duration_minutes}
                                             onChange={e => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}
                                         />
                                     </td>
                                     <td className="p-3 text-center">
-                                        <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-1 rounded">Activo</span>
+                                        <span className="text-xs text-bos-success font-medium bg-bos-success-soft px-2.5 py-1 rounded-full">Activo</span>
                                     </td>
                                     <td className="p-3 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button onClick={() => setIsAdding(false)} aria-label="Cancelar" className="p-2 text-gray-400 hover:text-red-500"><X className="h-4 w-4" /></button>
-                                            <button onClick={() => handleSave()} aria-label="Guardar servicio" className="p-2 bg-black text-sonblade-gold rounded-lg"><Check className="h-4 w-4" /></button>
+                                        <div className="flex justify-end gap-1">
+                                            <button onClick={() => setIsAdding(false)} aria-label="Cancelar" className={iconBtn}><X className="h-4 w-4" /></button>
+                                            <button onClick={() => handleSave()} aria-label="Guardar servicio" className="h-11 w-11 inline-flex items-center justify-center rounded-xl bg-bos-accent text-bos-on-accent"><Check className="h-4 w-4" /></button>
                                         </div>
                                     </td>
                                 </tr>
                             )}
 
                             {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="p-10 text-center text-gray-400">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-sonblade-gold" />
+                                <tr className="border-t border-bos-border">
+                                    <td colSpan={5} className="p-10 text-center text-bos-muted">
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                                         Cargando servicios...
                                     </td>
                                 </tr>
                             ) : filteredServices.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="p-10 text-center text-gray-400 italic">No se encontraron servicios</td>
+                                <tr className="border-t border-bos-border">
+                                    <td colSpan={5} className="p-10 text-center text-bos-muted">No se encontraron servicios</td>
                                 </tr>
                             ) : filteredServices.map(service => (
-                                <tr key={service.id} className="hover:bg-gray-50/80 transition-colors">
-                                    <td className="p-4">
+                                <tr key={service.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
+                                    <td className="px-4 py-3">
                                         {editingId === service.id ? (
                                             <input
                                                 type="text"
-                                                className="w-full p-1 border border-sonblade-gold/30 rounded outline-none"
+                                                aria-label="Nombre del servicio"
+                                                className={`${cell} w-full min-w-[10rem]`}
                                                 value={formData.name}
                                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                                             />
                                         ) : (
-                                            <span className="font-bold text-gray-900">{service.name}</span>
+                                            <span className="font-semibold">{service.name}</span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-center">
+                                    <td className="px-4 py-3 text-center">
                                         {editingId === service.id ? (
                                             <input
                                                 type="number"
-                                                className="w-20 p-1 border border-sonblade-gold/30 rounded outline-none text-center"
+                                                inputMode="decimal"
+                                                aria-label="Precio"
+                                                className={`${cell} w-28 mx-auto block text-center`}
                                                 value={formData.price}
                                                 onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
                                             />
                                         ) : (
-                                            <span className="font-black text-gray-900 font-mono">${Number(service.price).toFixed(2)}</span>
+                                            <span className="font-display font-semibold tabular-nums">${Number(service.price).toFixed(2)}</span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-center">
+                                    <td className="px-4 py-3 text-center">
                                         {editingId === service.id ? (
                                             <input
                                                 type="number"
-                                                className="w-16 p-1 border border-sonblade-gold/30 rounded outline-none text-center"
+                                                inputMode="numeric"
+                                                aria-label="Duración en minutos"
+                                                className={`${cell} w-24 mx-auto block text-center`}
                                                 value={formData.duration_minutes}
                                                 onChange={e => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}
                                             />
                                         ) : (
-                                            <span className="text-gray-500">{service.duration_minutes} min</span>
+                                            <span className="text-bos-muted tabular-nums">{service.duration_minutes} min</span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-center">
+                                    <td className="px-4 py-2 text-center">
                                         <button
                                             onClick={() => handleToggleStatus(service)}
-                                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${service.is_active
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-red-100 text-red-700'
+                                            aria-label={`${service.name}: ${service.is_active ? 'Activo' : 'Inactivo'}. Cambiar estado`}
+                                            className={`min-h-11 px-4 rounded-full text-xs font-semibold ${service.is_active
+                                                ? 'bg-bos-success-soft text-bos-success'
+                                                : 'bg-bos-raised text-bos-muted border border-bos-border'
                                                 }`}
                                         >
                                             {service.is_active ? 'Activo' : 'Inactivo'}
                                         </button>
                                     </td>
-                                    <td className="p-4 text-right">
-                                        <div className="flex justify-end gap-2">
+                                    <td className="px-4 py-2 text-right">
+                                        <div className="flex justify-end gap-1">
                                             {editingId === service.id ? (
                                                 <>
-                                                    <button onClick={() => setEditingId(null)} aria-label="Cancelar" className="p-2 text-gray-400"><X className="h-4 w-4" /></button>
-                                                    <button onClick={() => handleSave(service.id)} aria-label="Guardar cambios" className="p-2 text-green-600"><Check className="h-4 w-4" /></button>
+                                                    <button onClick={() => setEditingId(null)} aria-label="Cancelar" className={iconBtn}><X className="h-4 w-4" /></button>
+                                                    <button onClick={() => handleSave(service.id)} aria-label="Guardar cambios" className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-success hover:bg-bos-raised"><Check className="h-4 w-4" /></button>
                                                 </>
                                             ) : (
                                                 <button
@@ -240,7 +258,7 @@ export default function ServicesPage() {
                                                         setFormData({ name: service.name, price: Number(service.price), duration_minutes: service.duration_minutes, is_active: service.is_active });
                                                     }}
                                                     aria-label="Editar servicio"
-                                                    className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
+                                                    className={iconBtn}
                                                 >
                                                     <Edit2 className="h-4 w-4" />
                                                 </button>
