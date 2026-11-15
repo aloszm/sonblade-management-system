@@ -37,3 +37,6 @@ supabase/.temp/
 # Playwright
 test-results
 playwright-report
+
+# Copias de trabajo temporales de agentes
+.claude/worktrees/
