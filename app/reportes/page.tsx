@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Check, FileSpreadsheet, FileText, Loader2, ShieldCheck } from 'lucide-react';
 import ReportPreview from '@/components/ReportPreview';
@@ -51,20 +51,26 @@ export default function ReportsPage() {
 
     const rangeError = range ? validateRange(range.from, range.to) : null;
 
+    // Si se cambia de periodo o de audiencia antes de que llegue la respuesta, la anterior se descarta:
+    // sin esto, un reporte "Interno" que tarda más podía pisar al de "Contador" ya pedido.
+    const latestRequest = useRef(0);
     const load = useCallback(async () => {
         if (!range || validateRange(range.from, range.to)) return;
+        const requestId = ++latestRequest.current;
         setLoading(true);
         try {
             const qs = new URLSearchParams({ from: range.from, to: range.to, audience });
             const res = await fetch(`/api/reports/full?${qs}`, { cache: 'no-store' });
             const body = await res.json();
+            if (requestId !== latestRequest.current) return;
             if (!res.ok) throw new Error(body?.detail && /[áéíóúñ¿]/.test(body.detail) ? body.detail : body?.error ?? 'No se pudo armar el reporte.');
             setReport(body as FullReport);
             setError('');
         } catch (e) {
+            if (requestId !== latestRequest.current) return;
             setReport(null);
             setError(e instanceof Error ? e.message : 'No se pudo armar el reporte.');
-        } finally { setLoading(false); }
+        } finally { if (requestId === latestRequest.current) setLoading(false); }
     }, [range, audience]);
 
     useEffect(() => { load(); }, [load]);
