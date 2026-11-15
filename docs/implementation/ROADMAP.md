@@ -1,6 +1,6 @@
 # BarberOS — Plan de implementación
 
-> **Para retomar el trabajo:** el cierre de la Fase 1 y la lista de la Fase 2 están en [`FASE_2.md`](./FASE_2.md). Léelo primero.
+> **Para retomar el trabajo:** la lista vigente es [`FASE_3.md`](./FASE_3.md). El cierre de las fases anteriores está en [`FASE_2.md`](./FASE_2.md).
 
 ## Estado y pendientes al 15 de noviembre de 2026 (rama `feat/v2-integration`)
 

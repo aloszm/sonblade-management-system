@@ -1,4 +1,6 @@
-# BarberOS — Cierre de la Fase 1 y arranque de la Fase 2
+# BarberOS — Cierre de la Fase 1 y Fase 2 (cerrada)
+
+> **La Fase 2 quedó cerrada el 15 de noviembre de 2026.** Lo que no se terminó pasó a [`FASE_3.md`](./FASE_3.md), que es la lista de trabajo vigente.
 
 **Fecha:** 15 de noviembre de 2026.
 **Para quién:** cualquier persona o sesión nueva que retome el proyecto. Lee esto primero; después `AGENTS.md`, `docs/product/BUSINESS_RULES.md` y `docs/implementation/ROADMAP.md` (decisiones del negocio e historial).
