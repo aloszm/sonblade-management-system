@@ -8,7 +8,10 @@ Esta sección es la lista de trabajo vigente. Lo que no aparece en "Funciona" no
 
 ### Decisiones del negocio ya tomadas
 
-- BarberOS es el sistema; Sonblade es el cliente (hoy la sucursal se llama Gallo 420 y cambiará de nombre).
+- BarberOS es el sistema; el cliente es **Gallo 4:20** (Barber Shop, desde 1989), Efeso 2, Lomas Estrella 2da Secc, Iztapalapa, CDMX; tel. 55 3309 8072. Antes se llamaba Sonblade en el sistema.
+- Catálogo real (cartel de noviembre 2026) cargado con duraciones aprobadas por el dueño; grecas con precio libre al cobrar. "Cualquier producto $180": se aplica cuando el dueño pase la lista de productos.
+- Horario: domingo y lunes 10:00–19:00; martes a sábado 12:30–20:00 (editable en Configuración).
+- Color de marca: bronce del logo; todo texto con contraste AA medido.
 - Servicios: 50 % del precio de lista, aunque haya descuento. Productos: 20 % de lo cobrado. Ambas tasas editables por el dueño.
 - Recepción también gana el 20 % de los productos que vende.
 - Propinas: se capturan al cobrar y se pagan al barbero en su recibo semanal. Si se anula una venta cuya propina ya se pagó, la propina se queda con el barbero.
@@ -33,9 +36,11 @@ Acceso por puesto, cobro con propina y descuento, ticket del cliente, caja con c
 5. ~~Pago dividido en servicios~~ (hecho): poder cobrar un mismo servicio con dos métodos (por ejemplo, parte en efectivo y parte con tarjeta).
 6. ~~Diseño nuevo en el resto de pantallas~~ (hecho): todas usan modo claro/oscuro; ticket y recibo se imprimen en blanco y negro.
 6a. ~~Reporte completo~~ (hecho): diez secciones, PDF y Excel, versión para contador sin datos de clientes, folio consecutivo y código de verificación (`/reportes/verificar`).
-6b. ~~Agenda entrelazada~~ (hecho): horario visible de 8 a.m. a 10 p.m.; cobrar una cita la liga al ticket y la completa; un cobro sin cita queda en la agenda del barbero como "sin cita"; anular la venta lo anota en la agenda. Pantalla **Cuadre** (dueño y gerente): agenda vs. cobros vs. comisión vs. recibo por barbero y día, con cada diferencia y su causa.
+6b. ~~Agenda entrelazada~~ (hecho): cobrar una cita la liga al ticket y la completa; un cobro sin cita queda en la agenda del barbero como "sin cita"; anular la venta lo anota en la agenda. Pantalla **Cuadre** (dueño y gerente): agenda vs. cobros vs. comisión vs. recibo por barbero y día, con cada diferencia y su causa.
 6c. ~~Ausencias de barberos~~ (hecho): bloquean el horario en la base (no se puede agendar encima), guardan motivo, cuándo y cómo avisó, quién la registró; se cancelan con motivo, nunca se borran.
-7. **Horario de cada barbero**: días, horas y descansos fijos (las ausencias ya existen), y vista personal en celular.
+6d. ~~Caja obligatoria para cobrar~~ (hecho): Cobro avisa y no deja cobrar con la caja cerrada; errores en español dentro de la pantalla.
+6e. ~~Marca Gallo 4:20~~ (hecho): logo, íconos, acento bronce y prueba automática de contraste (`e2e/a11y.spec.ts`).
+7. ~~Horario del negocio y de cada barbero~~ (hecho): por día en Configuración y por barbero en Equipo; la base rechaza citas fuera de horario. Falta: vista personal del barbero en celular.
 8. **Página de reservas para clientes** (celular primero): por barbero o por hora; nombre y teléfono, sin cuenta; límite de intentos; enlace para cancelar; aviso de privacidad.
 9. **Barbero confirma el servicio** y recepción solo cobra (opcional; caja siempre puede cobrar directo).
 10. **Administración**: utilidad real (ingresos − comisiones − propinas − costo de producto − gastos) y **apartados tipo sobres**. Hoy cada cierre guarda cuánto se apartó, pero no hay pantalla que lo sume ni que registre cuándo se usa.
@@ -50,14 +55,14 @@ Acceso por puesto, cobro con propina y descuento, ticket del cliente, caja con c
 - El retiro del cierre de caja no registra a quién se entrega el dinero; solo quién cerró.
 - La anulación de una venta con reembolso en efectivo no está limitada por el efectivo en caja.
 - Quien cobra elige quién autoriza el descuento; esa persona no confirma nada (se resolverá con el PIN).
-- Los avisos de error del cobro (pantalla Cobro) aún salen como ventana del navegador; las demás pantallas ya usan mensajes dentro de la pantalla.
-- En pantallas bajas el resumen del cobro es más alto que la ventana.
 - El folio del ticket no es consecutivo.
 - El acceso dice "revisa tus credenciales" aunque el problema sea de conexión.
 - Quedan funciones anteriores renombradas y sin permisos (`confirm_sale_legacy`, `confirm_sale_legacy2`, `close_cash_session_legacy`) por borrar en la limpieza final.
 - Las ventas hechas antes del 15 de noviembre (base de desarrollo) aparecen en el Cuadre como "cobro sin agenda": son reales, porque entonces el cobro no pasaba por la agenda. En producción no existirán.
 - Si recepción cobra sin abrir la cita desde la agenda, la cita queda abierta y aparte se crea un registro "sin cita": el Cuadre lo marca para corregirlo.
-- Las pruebas de navegador no corren solas en GitHub en cada cambio.
+- Las pruebas de navegador no corren solas en GitHub (la revisión automática cubre tipos, lint, pruebas unitarias y compilación). Al correrlas a mano dejan la caja como estaba (`e2e/cash-guard.ts`).
+- La prueba de contraste mide lo visible al cargar cada pantalla; ventanas abiertas y menús no se miden todavía.
+- Los bordes de los campos de texto fuera de login y configuración usan el borde decorativo (≈1.3:1); el token `--bos-control` (≥3:1) existe pero falta aplicarlo en todas las pantallas.
 - Lint: 32 avisos de estilo en Reportes, Panel y configuración de pruebas.
 - La base de desarrollo tiene datos de prueba que no se pueden borrar; por eso producción arranca en una base nueva.
 - Aviso de privacidad: falta redactarlo y que lo revise alguien que conozca la ley.
