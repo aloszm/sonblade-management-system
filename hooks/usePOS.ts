@@ -36,6 +36,7 @@ export function usePOS() {
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastSaleTotal, setLastSaleTotal] = useState(0);
+    const [lastSaleId, setLastSaleId] = useState<string | null>(null);
     const [discountReason, setDiscountReason] = useState('');
     const [discountAuthorizer, setDiscountAuthorizer] = useState('');
     const [authorizers, setAuthorizers] = useState<DiscountAuthorizer[]>([]);
@@ -290,6 +291,8 @@ export function usePOS() {
                 throw new Error(errData?.detail ? `${errData.error} (${errData.detail})` : errData?.error || 'Error del servidor');
             }
 
+            const saved = await res.json().catch(() => null) as { sale_id?: string } | null;
+            setLastSaleId(saved?.sale_id ?? null);
             idempotencyKey.current = null;
             setCart([]);
             setTip(0);
@@ -313,7 +316,7 @@ export function usePOS() {
     return {
         state: {
             selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
-            clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal,
+            clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, lastSaleId,
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
             discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller

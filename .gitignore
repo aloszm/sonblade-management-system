@@ -33,3 +33,7 @@ dist-ssr
 tsconfig.tsbuildinfo
 supabase/.temp/
 .claude/settings.local.json
+
+# Playwright
+test-results
+playwright-report

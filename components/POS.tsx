@@ -5,6 +5,7 @@ import {
     Search, User, Scissors, Package, CreditCard, Banknote,
     Trash2, Plus, Minus, ArrowRight, Loader2, Users
 } from 'lucide-react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePOS, PaymentType, CartItem } from '@/hooks/usePOS';
 
@@ -13,7 +14,7 @@ export default function POS() {
     const {
         selectedBarber, selectedClient, servicePayment, productPayment, cart, tip, tipPayment,
         discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller,
-        clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal,
+        clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, lastSaleId,
         loadingBarbers, loadingServices, filteredBarbers,
         filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total
     } = state;
@@ -455,7 +456,7 @@ export default function POS() {
                             {tip > 0 && <div className="flex justify-between text-gray-400 text-sm font-medium"><span>Propina</span><span>+ ${tip}</span></div>}
                             <div className="flex justify-between items-end pt-3 border-t border-white/5">
                                 <span className="text-white font-bold text-sm">TOTAL A COBRAR</span>
-                                <span className="text-2xl font-black text-sonblade-gold">${total}</span>
+                                <span data-testid="pos-total" className="text-2xl font-black text-sonblade-gold">${total}</span>
                             </div>
                         </div>
 
@@ -470,6 +471,11 @@ export default function POS() {
                         >
                             {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Procesando...</> : 'Confirmar Venta'}
                         </button>
+                        {lastSaleId && cart.length === 0 && (
+                            <Link href={`/ticket/${lastSaleId}`} className="mt-3 block text-center text-sm font-bold text-sonblade-gold underline underline-offset-4 hover:text-yellow-400">
+                                Ver ticket de la última venta
+                            </Link>
+                        )}
                     </div>
 
                     <AnimatePresence>

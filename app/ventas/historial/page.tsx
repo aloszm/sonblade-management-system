@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileSpreadsheet, X, RefreshCw, Plus, Calendar, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
 import type { Barber, Service, Product, Sale } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
@@ -258,7 +259,10 @@ export default function SalesHistoryPage() {
                                         <td className="p-4 text-right">${Number(sale.tip || 0).toFixed(2)}</td>
                                         <td className="p-4"><PaymentBadge sale={sale} /></td>
                                         <td className={`p-4 text-right font-bold ${sale.status === 'refunded' ? 'line-through text-gray-500' : ''}`}>${Number(sale.total).toFixed(2)}{sale.status === 'refunded' && <span className="ml-2 text-[10px] no-underline text-red-500 font-bold align-middle">ANULADA</span>}</td>
-                                        <td className="p-4 text-center">
+                                        <td className="p-4 text-center whitespace-nowrap">
+                                            <Link href={`/ticket/${sale.id}`} aria-label="Ver ticket" title="Ver ticket" className="inline-flex p-1.5 mr-1 text-gray-300 hover:text-sonblade-gold rounded-lg align-middle">
+                                                <FileSpreadsheet className="h-4 w-4" />
+                                            </Link>
                                             <button onClick={() => setShowDeleteConfirm(sale.id)} disabled={deletingId === sale.id || sale.status === 'refunded'} aria-label="Anular venta" className="p-1.5 text-red-500 hover:bg-red-500/200/10 rounded-lg disabled:opacity-50">
                                                 {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                             </button>

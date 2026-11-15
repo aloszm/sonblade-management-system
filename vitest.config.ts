@@ -9,6 +9,8 @@ export default defineConfig({
         globals: true,
         setupFiles: ['./vitest.setup.tsx'],
         css: false,
+        // Las pruebas de navegador (e2e/) las corre Playwright, no Vitest.
+        exclude: ['node_modules/**', '.next/**', 'e2e/**'],
     },
     resolve: {
         alias: {
