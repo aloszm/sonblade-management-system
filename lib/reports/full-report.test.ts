@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
     auditDetail, buildReportModel, chartSeries, executiveParagraph, formatCell, formatDateTime, money, percentChange,
-    reportFileName, reportPresetRange, tableTexts, validateRange, type ReportTable,
+    reportFileName, reportPresetRange, tableTexts, validateRange, type ReportBlock, type ReportHero, type ReportKpis, type ReportModel,
+    type ReportStack, type ReportTable,
 } from './full-report';
-import { sampleReport } from './full-report.fixture';
+import { sampleFinancial, sampleReport } from './full-report.fixture';
+import type { FullReport } from './full-report-types';
 
 describe('periodos del reporte', () => {
     it('hoy es un solo día', () => {
@@ -75,8 +77,10 @@ describe('gráficas', () => {
 });
 
 describe('texto del reporte', () => {
-    it('el resumen en palabras trae las cifras, la comparación y la advertencia de utilidad', () => {
-        const text = executiveParagraph(sampleReport());
+    it('un reporte emitido antes del resultado financiero conserva su texto (con la advertencia de costo)', () => {
+        const old = sampleReport();
+        delete old.financial;
+        const text = executiveParagraph(old);
         expect(text).toContain('$3,000.00');
         expect(text).toContain('10 ventas');
         expect(text).toContain('subieron 50%');
@@ -84,6 +88,17 @@ describe('texto del reporte', () => {
         expect(text).toContain('todavía no descuenta el costo de los productos');
         expect(text).toContain('1 descuento por $50.00');
         expect(text).toContain('1 venta por $150.00');
+    });
+
+    it('con resultado financiero el resumen da la utilidad neta, el margen y aparta las propinas', () => {
+        const text = executiveParagraph(sampleReport());
+        expect(text).toContain('$3,000.00');
+        expect(text).toContain('$1,300.00 en comisiones, $180.00 en el costo de los productos vendidos y $200.00 en gastos');
+        expect(text).toContain('La utilidad neta fue de $1,320.00');
+        expect(text).toContain('de cada $100 que entraron le quedaron $44.00');
+        expect(text).toContain('son de los barberos');
+        expect(text).not.toContain('todavía no descuenta');
+        expect(text).not.toContain('Ojo');
     });
 
     it('un periodo sin ventas lo dice sin inventar cifras', () => {
@@ -117,12 +132,22 @@ describe('modelo del reporte', () => {
     const tables = (model: ReturnType<typeof buildReportModel>, id: string) =>
         model.sections.find((s) => s.id === id)!.blocks.filter((b): b is ReportTable => b.kind === 'table');
 
-    it('tiene las diez secciones, cada una con su explicación', () => {
+    it('tiene catorce secciones, el resultado financiero justo después del resumen, cada una con su explicación', () => {
         const model = buildReportModel(sampleReport());
-        expect(model.sections.map((s) => s.id)).toEqual(['portada', 'resumen', 'ventas', 'caja', 'gastos', 'comisiones', 'inventario', 'agenda', 'bitacora', 'anexo']);
-        expect(model.sections.map((s) => s.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        expect(model.sections.map((s) => s.id)).toEqual(['portada', 'resumen', 'resultado', 'propinas', 'personas', 'balance', 'ventas', 'caja', 'gastos', 'comisiones', 'inventario', 'agenda', 'bitacora', 'anexo']);
+        expect(model.sections.map((s) => s.number)).toEqual(Array.from({ length: 14 }, (_, i) => i + 1));
         for (const s of model.sections) expect(s.explain.length).toBeGreaterThan(20);
-        expect(new Set(model.sections.map((s) => s.sheet)).size).toBe(10);
+        expect(new Set(model.sections.map((s) => s.sheet)).size).toBe(14);
+        for (const s of model.sections) expect(s.sheet.length).toBeLessThanOrEqual(31);
+    });
+
+    it('un reporte emitido antes del resultado financiero se sigue armando con sus diez secciones', () => {
+        const old = sampleReport();
+        delete old.financial;
+        const model = buildReportModel(old);
+        expect(model.sections.map((s) => s.id)).toEqual(['portada', 'resumen', 'ventas', 'caja', 'gastos', 'comisiones', 'inventario', 'agenda', 'bitacora', 'anexo']);
+        const kpis = model.sections[1].blocks.find((b): b is ReportKpis => b.kind === 'kpis')!;
+        expect(kpis.items.find((k) => k.label === 'Utilidad')!.value).toBe(1500);
     });
 
     it('la portada lleva el folio y el código cuando ya se emitió', () => {
@@ -169,5 +194,146 @@ describe('modelo del reporte', () => {
                 }
             }
         }
+    });
+});
+
+describe('resultado financiero', () => {
+    const TZ = 'America/Mexico_City';
+    const section = (model: ReportModel, id: string) => model.sections.find((s) => s.id === id)!;
+    const blocks = <K extends ReportBlock['kind']>(model: ReportModel, id: string, kind: K) =>
+        section(model, id).blocks.filter((b): b is Extract<ReportBlock, { kind: K }> => b.kind === kind);
+    const table = (model: ReportModel, id: string, title: string) => blocks(model, id, 'table').find((t) => t.title === title)!;
+    const row = (t: ReportTable, label: string) => t.rows.find((r) => r[0] === label)!;
+
+    it('el estado de resultados va en cascada: ingresos − comisiones − costo − gastos = utilidad neta', () => {
+        const model = buildReportModel(sampleReport());
+        const t = table(model, 'resultado', 'Estado de resultados');
+        expect(t.columns.map((c) => c.header)).toEqual(['Concepto', 'Este periodo', 'Periodo anterior', 'Diferencia', 'Cambio', 'De cada $100']);
+        expect(row(t, 'Total de ingresos').slice(1)).toEqual([3000, 2000, 1000, 50, 100]);
+        expect(row(t, 'Menos comisiones por servicios')[1]).toBe(-1180);
+        expect(row(t, 'Menos costo de los productos vendidos')[1]).toBe(-180);
+        expect(row(t, 'Queda antes de gastos')[1]).toBe(1520);
+        expect(row(t, 'Menos gastos: Limpieza').slice(1, 3)).toEqual([-50, 0]);
+        // Un gasto que antes no existía no se divide entre cero.
+        expect(row(t, 'Menos gastos: Limpieza')[4]).toBe('Sin datos para comparar');
+        // Más gasto = cambio positivo, aunque el importe vaya en negativo.
+        expect(row(t, 'Menos gastos: General')[4]).toBe(50);
+        expect(row(t, 'Utilidad neta').slice(1)).toEqual([1320, 910, 410, 45.1, 44]);
+        expect(t.styles![t.rows.length - 1]).toBe('result');
+        // Los renglones de detalle suman exactamente la utilidad.
+        const detail = t.rows.filter((_, i) => t.styles![i] === 'minor').reduce((a, r) => a + Number(r[1]), 0);
+        expect(Math.round(detail * 100) / 100).toBe(1320);
+        // Las propinas no son parte del resultado.
+        expect(JSON.stringify(t.rows)).not.toMatch(/ropina/);
+        expect(tableTexts(t, TZ).body.at(-1)).toEqual(['Utilidad neta', '$1,320.00', '$910.00', '$410.00', '+45.1%', '$44.00']);
+    });
+
+    it('cifras grandes: utilidad, margen y comparación contra el periodo anterior', () => {
+        const [hero] = blocks(buildReportModel(sampleReport()), 'resultado', 'hero') as ReportHero[];
+        expect(hero.items.map((i) => [i.label, i.value, i.tone])).toEqual([['Utilidad neta', 1320, 'good'], ['Margen', 44, 'good'], ['Contra el periodo anterior', 410, 'good']]);
+        expect(hero.items[1].caption).toBe('De cada $100 que entraron, $44.00 fueron ganancia.');
+        expect(hero.items[2].caption).toContain('+45.1%');
+    });
+
+    it('de cada $100: comisiones, costo, gastos y utilidad suman 100', () => {
+        const [stack] = blocks(buildReportModel(sampleReport()), 'resultado', 'stack') as ReportStack[];
+        expect(stack.segments.map((s) => [s.label, s.value])).toEqual([['Comisiones', 43.33], ['Costo de producto', 6], ['Gastos', 6.67], ['Utilidad', 44]]);
+        expect(stack.segments.reduce((a, s) => a + s.value, 0)).toBeCloseTo(100, 1);
+        expect(stack.empty).toBeNull();
+    });
+
+    it('sin ingresos: no divide entre cero, el margen queda vacío y lo explica', () => {
+        const report = sampleReport();
+        const fin = sampleFinancial();
+        const zero = { total: 0, services: 0, products: 0 };
+        fin.current = {
+            ...fin.current, revenue: { ...zero, discounts: 0 }, commissions: zero, product_cost: { ...fin.current.product_cost, total: 0 },
+            tips: { total: 0, count: 0, by_method: { cash: 0, card: 0, transfer: 0, other: 0 } },
+            profit: -200, margin_pct: null, by_person: [], counts: { sales: 0, voided_excluded: 0, service_units: 0, product_units: 0 },
+        };
+        fin.previous = { ...fin.current, expenses: { total: 0, by_category: [], by_method: { cash: 0, card: 0, transfer: 0, other: 0 } }, profit: 0, by_person: null };
+        report.financial = fin;
+        report.sales.payments = { cash: 0, card: 0, transfer: 0, other: 0 };
+        const model = buildReportModel(report);
+        const json = JSON.stringify(model);
+        expect(json).not.toMatch(/NaN|Infinity/);
+        const [hero] = blocks(model, 'resultado', 'hero') as ReportHero[];
+        expect(hero.items[0]).toMatchObject({ label: 'Pérdida del periodo', value: -200, tone: 'bad' });
+        expect(hero.items[1]).toMatchObject({ label: 'Margen', value: null });
+        expect(hero.items[1].caption).toContain('Sin ingresos');
+        const [stack] = blocks(model, 'resultado', 'stack') as ReportStack[];
+        expect(stack.empty).toContain('Sin ingresos');
+        const t = table(model, 'resultado', 'Estado de resultados');
+        expect(row(t, 'Pérdida neta')).toEqual(['Pérdida neta', -200, 0, -200, 'Sin datos para comparar', null]);
+        expect(tableTexts(t, TZ).body.flat().join('|')).not.toMatch(/NaN|Infinity/);
+        expect(blocks(model, 'personas', 'table')[0].rows).toEqual([]);
+        expect(executiveParagraph(report)).toContain('La pérdida fue de $200.00');
+    });
+
+    it('un producto sin costo no se toma como cero en silencio: se avisa con nombre y unidades', () => {
+        const report = sampleReport();
+        report.financial!.current.product_cost = { total: 120, source: 'catalog', units_without_cost: 2, missing: [{ product_id: 'p9', name: 'Polvo de textura', units: 2 }] };
+        const model = buildReportModel(report);
+        const warning = blocks(model, 'resultado', 'text').find((b) => b.tone === 'warning');
+        expect(warning?.text).toContain('2 unidades vendidas no tienen costo registrado');
+        expect(warning?.text).toContain('Polvo de textura: 2');
+        expect(warning?.text).toContain('la utilidad real es menor');
+        expect(executiveParagraph(report)).toContain('Ojo: 2 productos vendidos no tienen costo registrado');
+        expect(blocks(buildReportModel(sampleReport()), 'resultado', 'text').some((b) => b.tone === 'warning')).toBe(false);
+    });
+
+    it('propinas: total, por persona y por forma de pago, con la frase de que son del barbero', () => {
+        const model = buildReportModel(sampleReport());
+        const [hero] = blocks(model, 'propinas', 'hero') as ReportHero[];
+        expect(hero.items[0].value).toBe(120);
+        expect(hero.items[0].caption).toContain('Son del barbero; no forman parte de la utilidad.');
+        expect(tableTexts(table(model, 'propinas', 'Por persona'), TZ).body).toEqual([['Deya', '$80.00', '2', '66.7%'], ['Sonia', '$40.00', '1', '33.3%']]);
+        expect(tableTexts(table(model, 'propinas', 'Por forma de pago'), TZ).body).toEqual([['Efectivo', '$80.00', '66.7%'], ['Tarjeta', '$40.00', '33.3%']]);
+        expect(section(model, 'propinas').explain).toContain('son del barbero');
+    });
+
+    it('por persona: lo que vende, gana y deja; la suma de lo que dejan menos gastos es la utilidad', () => {
+        const model = buildReportModel(sampleReport());
+        const t = table(model, 'personas', 'Por persona');
+        expect(t.rows[0]).toEqual(['Deya', 1600, 400, 2000, 900, 80, 120, 980]);
+        expect(t.total).toEqual(['Total', 2400, 600, 3000, 1300, 120, 180, 1520]);
+        const sentence = blocks(model, 'personas', 'text').find((b) => b.tone === 'body')!;
+        expect(sentence.text).toBe('Entre todos dejaron $1,520.00; menos $200.00 de gastos, queda la utilidad neta de $1,320.00.');
+    });
+
+    it('balance de efectivo: lo que entró, salió y quedó por forma de pago, y cómo cuadra con la utilidad', () => {
+        const model = buildReportModel(sampleReport());
+        const [hero] = blocks(model, 'balance', 'hero') as ReportHero[];
+        // Entró 3,000 de ventas + 120 de propinas; salió 200 de gastos + 275 de pagos al equipo.
+        expect(hero.items.map((i) => i.value)).toEqual([3120, 475, 2645]);
+        const flow = table(model, 'balance', 'Entradas y salidas por forma de pago');
+        expect(row(flow, 'Efectivo')).toEqual(['Efectivo', 2000, 80, -200, -200, 1680]);
+        expect(row(flow, 'Transferencia')).toEqual(['Transferencia', 200, 0, 0, -75, 125]);
+        expect(flow.total).toEqual(['Total', 3000, 120, -200, -275, 2645]);
+        const recon = table(model, 'balance', 'Cómo cuadra con la utilidad');
+        const lines = recon.rows.slice(0, -1).reduce((a, r) => a + Number(r[1]), 0);
+        expect(lines).toBe(2645);
+        expect(recon.rows.at(-1)).toEqual(['Igual a lo que quedó en el periodo', 2645]);
+        const moved = table(model, 'balance', 'Efectivo que cambió de lugar (no es gasto)');
+        expect(moved.rows.map((r) => r[1])).toEqual([100, 200, 400, 50, -20]);
+        expect(section(model, 'balance').explain).toContain('no incluye bienes, deudas');
+    });
+
+    it('el resumen usa las mismas cifras que el resultado', () => {
+        const kpis = buildReportModel(sampleReport()).sections[1].blocks.find((b): b is ReportKpis => b.kind === 'kpis')!;
+        const pick = (label: string) => kpis.items.find((k) => k.label === label)!;
+        expect([pick('Utilidad neta').value, pick('Utilidad neta').previous]).toEqual([1320, 910]);
+        expect(pick('Costo de producto').value).toBe(180);
+        expect(pick('Gastos').value).toBe(200);
+        expect(pick('Propinas').note).toContain('no son ingreso');
+    });
+
+    it('la versión para contador trae el resultado financiero completo, con el desglose por persona, y sin clientes', () => {
+        const external: FullReport = sampleReport('contador');
+        const model = buildReportModel(external);
+        expect(model.sections.map((s) => s.id)).toEqual(expect.arrayContaining(['resultado', 'propinas', 'personas', 'balance']));
+        expect(table(model, 'personas', 'Por persona').rows.map((r) => r[0])).toEqual(['Deya', 'Sonia']);
+        const json = JSON.stringify(model);
+        for (const secret of ['Juan Pérez', 'María López', '5551234567', '5557654321']) expect(json).not.toContain(secret);
     });
 });

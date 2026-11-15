@@ -1,8 +1,9 @@
 // PDF del reporte completo: papel blanco, texto negro, detalles dorados. Las gráficas se dibujan
 // con primitivas de jsPDF (barras y líneas), sin capturas de pantalla.
 import {
-    percentChange, tableTexts, money, plainNumber,
-    AUDIENCE_LABELS, AUDIENCE_NOTES, type ReportBars, type ReportKpis, type ReportModel, type ReportSection, type ReportTable,
+    isNumericColumn, percentChange, percentText, tableTexts, money, plainNumber,
+    AUDIENCE_LABELS, AUDIENCE_NOTES, type ReportBars, type ReportHero, type ReportKpis, type ReportModel, type ReportSection,
+    type ReportStack, type ReportTable, type StackColor, type Tone,
 } from './full-report';
 
 type Doc = import('jspdf').jsPDF;
@@ -15,6 +16,10 @@ const MUTED: RGB = [95, 95, 102];
 const RULE: RGB = [222, 220, 214];
 const GOOD: RGB = [21, 128, 61];
 const BAD: RGB = [185, 28, 28];
+const BAD_SOFT: RGB = [253, 236, 236];
+const PANEL: RGB = [249, 248, 245];
+const TONE: Record<Tone, RGB> = { good: GOOD, bad: BAD, neutral: INK };
+const STACK: Record<StackColor, RGB> = { commission: BRONZE, cost: [196, 164, 116], expense: [128, 128, 136], profit: GOOD };
 
 const PAGE_W = 297;
 const PAGE_H = 210;
@@ -86,6 +91,9 @@ function drawBars(doc: Doc, block: ReportBars, x: number, y: number, w: number, 
 }
 
 function renderTable(doc: Doc, autoTable: AutoTable, table: ReportTable, tz: string, y: number): number {
+    // Una tabla corta no se parte entre dos hojas: si no cabe completa, empieza en la siguiente.
+    const rowsHigh = table.rows.length + (table.total ? 1 : 0);
+    if (rowsHigh <= 12) y = ensureSpace(doc, y, (table.title ? 6 : 0) + 8 + rowsHigh * 6.6);
     if (table.title) {
         y = ensureSpace(doc, y, 20);
         doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...INK).text(pdfSafe(table.title), M, y);
@@ -96,7 +104,8 @@ function renderTable(doc: Doc, autoTable: AutoTable, table: ReportTable, tz: str
         return y + 11;
     }
     const { head, body, total } = tableTexts(table, tz);
-    const numeric = table.columns.map((c) => c.type === 'money' || c.type === 'number');
+    const numeric = table.columns.map(isNumericColumn);
+    const styles = table.styles;
     const columnStyles: Record<number, { halign: 'right' | 'left' }> = {};
     numeric.forEach((isNum, i) => { if (isNum) columnStyles[i] = { halign: 'right' }; });
     autoTable(doc, {
@@ -112,8 +121,13 @@ function renderTable(doc: Doc, autoTable: AutoTable, table: ReportTable, tz: str
         footStyles: { fillColor: [244, 244, 241], textColor: INK, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [251, 251, 249] },
         columnStyles,
-        didParseCell: (data: { section: string; column: { index: number }; cell: { styles: { halign: string } } }) => {
+        didParseCell: (data: { section: string; column: { index: number }; row: { index: number }; cell: { styles: { halign: string; fontStyle: string; fillColor: RGB | false; fontSize: number; cellPadding: number | Record<string, number> } } }) => {
             if (numeric[data.column.index] && data.section !== 'body') data.cell.styles.halign = 'right';
+            const style = data.section === 'body' ? styles?.[data.row.index] : undefined;
+            if (style === 'subtotal' || style === 'result') data.cell.styles.fontStyle = 'bold';
+            if (style === 'subtotal') data.cell.styles.fillColor = [244, 244, 241];
+            if (style === 'result') { data.cell.styles.fillColor = BRONZE_SOFT; data.cell.styles.fontSize = 9; }
+            if (style === 'minor' && data.column.index === 0) data.cell.styles.cellPadding = { top: 1.6, bottom: 1.6, right: 1.6, left: 5 };
         },
         rowPageBreak: 'avoid',
     });
@@ -149,6 +163,80 @@ function renderKpis(doc: Doc, autoTable: AutoTable, block: ReportKpis, y: number
     return finalY(doc) + 6;
 }
 
+function heroValue(item: ReportHero['items'][number]): string {
+    if (item.value === null) return '—';
+    if (item.format === 'money') return money(item.value);
+    if (item.format === 'percent') return percentText(item.value);
+    return plainNumber(item.value);
+}
+
+/** Cifras grandes en recuadros, una por idea, con su frase debajo. */
+function drawHero(doc: Doc, block: ReportHero, y: number): number {
+    const gap = 6;
+    const n = block.items.length;
+    const w = (CONTENT_W - gap * (n - 1)) / n;
+    doc.setFont('helvetica', 'normal').setFontSize(8.5);
+    const captions = block.items.map((item) => doc.splitTextToSize(pdfSafe(item.caption), w - 9) as string[]);
+    const h = 23 + Math.max(...captions.map((l) => l.length)) * 3.6;
+    y = ensureSpace(doc, y, h + 4);
+    block.items.forEach((item, i) => {
+        const x = M + i * (w + gap);
+        doc.setFillColor(...PANEL).roundedRect(x, y, w, h, 2, 2, 'F');
+        doc.setFillColor(...(item.tone === 'neutral' ? BRONZE : TONE[item.tone])).rect(x, y + 2, 1.4, h - 4, 'F');
+        doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...MUTED).text(pdfSafe(item.label), x + 5, y + 6.5);
+        doc.setFont('helvetica', 'bold').setFontSize(21).setTextColor(...TONE[item.tone]).text(pdfSafe(heroValue(item)), x + 5, y + 16.5);
+        doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...MUTED).text(captions[i], x + 5, y + 22);
+    });
+    return y + h + 7;
+}
+
+/** Barra apilada de "de cada $100", con su leyenda y una frase. */
+function drawStack(doc: Doc, block: ReportStack, y: number): number {
+    y = ensureSpace(doc, y, 34);
+    doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...INK).text(pdfSafe(block.title), M, y);
+    if (block.empty) {
+        doc.setFont('helvetica', 'italic').setFontSize(9).setTextColor(...MUTED).text(pdfSafe(block.empty), M, y + 6);
+        return y + 13;
+    }
+    const top = y + 4;
+    const barH = 10;
+    const total = block.segments.reduce((a, s) => a + s.value, 0);
+    const scale = CONTENT_W / Math.max(100, total);
+    let x = M;
+    for (const seg of block.segments) {
+        const w = seg.value * scale;
+        if (w <= 0) continue;
+        doc.setFillColor(...STACK[seg.color]).rect(x, top, w, barH, 'F');
+        const label = pdfSafe(`${seg.label} ${money(seg.value)}`);
+        doc.setFont('helvetica', 'bold').setFontSize(8);
+        if (doc.getTextWidth(label) + 4 < w) doc.setTextColor(255, 255, 255).text(label, x + w / 2, top + barH / 2 + 1.4, { align: 'center' });
+        x += w;
+    }
+    if (total > 100) {
+        const at = M + 100 * scale;
+        doc.setDrawColor(...BAD).setLineWidth(0.5).line(at, top - 1.5, at, top + barH + 1.5);
+        doc.setFont('helvetica', 'bold').setFontSize(7).setTextColor(...BAD).text('$100', at, top - 2.2, { align: 'center' });
+    }
+    // Leyenda: siempre trae la cifra, aunque el segmento sea muy angosto para escribirla dentro.
+    let lx = M;
+    const ly = top + barH + 6;
+    doc.setFont('helvetica', 'normal').setFontSize(8.5);
+    for (const seg of block.segments) {
+        const text = pdfSafe(`${seg.label}: ${money(seg.value)}`);
+        doc.setFillColor(...STACK[seg.color]).rect(lx, ly - 2.6, 3, 3, 'F');
+        doc.setTextColor(...INK).text(text, lx + 4.5, ly);
+        lx += 4.5 + doc.getTextWidth(text) + 9;
+    }
+    let end = ly + 3;
+    if (block.caption) {
+        doc.setFont('helvetica', 'italic').setFontSize(9).setTextColor(...MUTED);
+        const lines = doc.splitTextToSize(pdfSafe(block.caption), CONTENT_W) as string[];
+        doc.text(lines, M, ly + 6);
+        end = ly + 6 + lines.length * 4;
+    }
+    return end + 5;
+}
+
 function sectionHeader(doc: Doc, section: ReportSection, y: number): number {
     doc.setFillColor(...BRONZE).rect(M, y - 5.2, 1.6, 7.5, 'F');
     doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(...INK).text(pdfSafe(`${section.number}. ${section.title}`), M + 4, y);
@@ -166,7 +254,20 @@ function renderSection(doc: Doc, autoTable: AutoTable, section: ReportSection, t
     const blocks = section.blocks;
     for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
-        if (block.kind === 'text') {
+        if (block.kind === 'text' && block.tone === 'warning') {
+            doc.setFont('helvetica', 'bold').setFontSize(9.5);
+            const lines = doc.splitTextToSize(pdfSafe(block.text), CONTENT_W - 8) as string[];
+            const h = lines.length * 4.4 + 5;
+            y = ensureSpace(doc, y, h + 4);
+            doc.setFillColor(...BAD_SOFT).roundedRect(M, y, CONTENT_W, h, 1.5, 1.5, 'F');
+            doc.setFillColor(...BAD).rect(M, y, 1.4, h, 'F');
+            doc.setFont('helvetica', 'bold').setFontSize(9.5).setTextColor(...BAD).text(lines, M + 4, y + 5);
+            y += h + 5;
+        } else if (block.kind === 'hero') {
+            y = drawHero(doc, block, y);
+        } else if (block.kind === 'stack') {
+            y = drawStack(doc, block, y);
+        } else if (block.kind === 'text') {
             const note = block.tone === 'note';
             doc.setFont('helvetica', note ? 'italic' : 'normal').setFontSize(note ? 8.5 : 10.5).setTextColor(...(note ? MUTED : INK));
             const lines = doc.splitTextToSize(pdfSafe(block.text), CONTENT_W) as string[];
@@ -180,7 +281,7 @@ function renderSection(doc: Doc, autoTable: AutoTable, section: ReportSection, t
             // Dos gráficas seguidas van lado a lado.
             const next = blocks[i + 1];
             const pair = next && next.kind === 'bars' ? next : null;
-            const h = 56;
+            const h = block.compact || pair?.compact ? 46 : 56;
             y = ensureSpace(doc, y, h + 4);
             const w = (CONTENT_W - 8) / 2;
             drawBars(doc, block, M, y, w, h);
@@ -220,14 +321,16 @@ function renderCover(doc: Doc, autoTable: AutoTable, model: ReportModel) {
         y += lines.length * 3.9 + 3;
     }
 
-    const half = Math.ceil(model.sections.length / 2);
-    y = ensureSpace(doc, y + 2, 8 + half * 5);
+    // Con más de diez secciones el índice va en tres columnas para que quepa en la portada.
+    const cols = model.sections.length > 10 ? 3 : 2;
+    const perCol = Math.ceil(model.sections.length / cols);
+    y = ensureSpace(doc, y + 2, 8 + perCol * 5);
     doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...INK).text('Contenido', M, y);
     doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...INK);
     model.sections.forEach((s, i) => {
-        const col = i < half ? 0 : 1;
-        const row = i < half ? i : i - half;
-        doc.text(pdfSafe(`${s.number}. ${s.title}`), M + col * (CONTENT_W / 2), y + 6 + row * 5);
+        const col = Math.floor(i / perCol);
+        const row = i % perCol;
+        doc.text(pdfSafe(`${s.number}. ${s.title}`), M + col * (CONTENT_W / cols), y + 6 + row * 5);
     });
 }
 

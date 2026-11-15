@@ -116,6 +116,26 @@ export function percentChange(current: number, previous: number): number | null 
     return Math.round(((current - previous) / Math.abs(previous)) * 1000) / 10;
 }
 
+/** "+12.5%", "-3%", "Igual" o "Sin datos para comparar" (cuando antes fue cero: no se divide entre cero). */
+export function changeText(current: number, previous: number): string {
+    const d = percentChange(current, previous);
+    if (d === null) return current === 0 ? 'Igual' : 'Sin datos para comparar';
+    if (d === 0) return 'Igual';
+    return `${d > 0 ? '+' : '-'}${Math.abs(d).toLocaleString('es-MX')}%`;
+}
+
+/** "47.8%" con un decimal como máximo. */
+export function percentText(value: number | null | undefined): string {
+    if (value === null || value === undefined) return '—';
+    return `${Number(value).toLocaleString('es-MX', { maximumFractionDigits: 1 })}%`;
+}
+
+/** Pesos por cada $100 de ingresos, a dos decimales; null si no hubo ingresos. */
+export function per100(value: number, revenue: number): number | null {
+    if (!revenue) return null;
+    return Math.round((value / revenue) * 10000) / 100;
+}
+
 /** Fecha corta para el eje de una gráfica: "15 nov". */
 export function shortDay(day: string): string {
     return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`)).replace('.', '');
@@ -123,14 +143,26 @@ export function shortDay(day: string): string {
 
 // ───────────────────────── Modelo del reporte ─────────────────────────
 
-export type ColumnType = 'text' | 'money' | 'number' | 'datetime' | 'datetime_s' | 'date';
+/** 'percent' y 'change' llevan el porcentaje como número (12.5 = 12.5 %); 'change' se escribe con signo. */
+export type ColumnType = 'text' | 'money' | 'number' | 'percent' | 'change' | 'datetime' | 'datetime_s' | 'date';
+/** Columnas que se alinean a la derecha. */
+export const isNumericColumn = (c: Column) => c.type === 'money' || c.type === 'number' || c.type === 'percent' || c.type === 'change';
 export type Cell = string | number | null;
 export type Column = { header: string; type: ColumnType };
-export type ReportTable = { kind: 'table'; title?: string; columns: Column[]; rows: Cell[][]; total?: Cell[]; empty: string };
-export type ReportBars = { kind: 'bars'; title: string; format: 'money' | 'number'; items: { label: string; value: number }[]; color: 'accent' | 'text' };
+/** Énfasis de un renglón: 'subtotal' y 'result' van en negritas (result además resaltado); 'minor' va sangrado. */
+export type RowStyle = 'normal' | 'minor' | 'subtotal' | 'result';
+export type ReportTable = { kind: 'table'; title?: string; columns: Column[]; rows: Cell[][]; total?: Cell[]; empty: string; styles?: RowStyle[] };
+/** compact: gráfica más baja en el PDF, para que la sección quepa en una hoja. */
+export type ReportBars = { kind: 'bars'; title: string; format: 'money' | 'number'; items: { label: string; value: number }[]; color: 'accent' | 'text'; compact?: boolean };
 export type ReportKpis = { kind: 'kpis'; items: { label: string; value: number; previous: number; format: 'money' | 'number'; invert?: boolean; note?: string }[] };
-export type ReportText = { kind: 'text'; text: string; tone?: 'note' | 'body' };
-export type ReportBlock = ReportTable | ReportBars | ReportKpis | ReportText;
+export type ReportText = { kind: 'text'; text: string; tone?: 'note' | 'body' | 'warning' };
+export type Tone = 'good' | 'bad' | 'neutral';
+/** Cifras grandes: una por idea, con una frase que dice qué significa. value null = no aplica (se muestra "—"). */
+export type ReportHero = { kind: 'hero'; items: { label: string; value: number | null; format: 'money' | 'percent' | 'number'; caption: string; tone: Tone }[] };
+export type StackColor = 'commission' | 'cost' | 'expense' | 'profit';
+/** Barra apilada "de cada $100": cada segmento en pesos por cada $100 de ingresos. */
+export type ReportStack = { kind: 'stack'; title: string; segments: { label: string; value: number; color: StackColor }[]; caption: string; empty: string | null };
+export type ReportBlock = ReportTable | ReportBars | ReportKpis | ReportText | ReportHero | ReportStack;
 export type ReportSection = { id: string; number: number; title: string; sheet: string; explain: string; blocks: ReportBlock[] };
 export type ReportControl = { folio: string; sha256: string } | null;
 
@@ -156,6 +188,11 @@ export function formatCell(column: Column, value: Cell, timeZone: string): strin
     switch (column.type) {
         case 'money': return money(Number(value));
         case 'number': return plainNumber(Number(value));
+        case 'percent': return percentText(Number(value));
+        case 'change': {
+            const n = Number(value);
+            return n === 0 ? 'Igual' : `${n > 0 ? '+' : '-'}${percentText(Math.abs(n))}`;
+        }
         case 'datetime': return formatDateTime(String(value), timeZone);
         case 'datetime_s': return formatDateTime(String(value), timeZone, true);
         case 'date': return formatDay(String(value));
@@ -291,9 +328,18 @@ export function executiveParagraph(report: FullReport): string {
     if (change === null) parts.push('El periodo anterior de la misma duración no tuvo ventas con qué comparar.');
     else if (change === 0) parts.push('Los ingresos fueron iguales a los del periodo anterior de la misma duración.');
     else parts.push(`Los ingresos ${change > 0 ? 'subieron' : 'bajaron'} ${Math.abs(change).toLocaleString('es-MX')}% frente al periodo anterior de la misma duración (${money(p.revenue)}).`);
-    parts.push(`Se generaron ${money(k.commissions)} en comisiones y se registraron ${money(k.expenses)} en gastos; las propinas fueron ${money(k.tips)} y no cuentan como ingreso del negocio.`);
-    const profitWord = k.net >= 0 ? 'utilidad' : 'pérdida';
-    parts.push(`La ${profitWord} (ingresos menos comisiones y gastos) fue de ${money(Math.abs(k.net))}; todavía no descuenta el costo de los productos.`);
+    const f = report.financial?.current;
+    if (f) {
+        parts.push(`De eso se fueron ${money(f.commissions.total)} en comisiones, ${money(f.product_cost.total)} en el costo de los productos vendidos y ${money(f.expenses.total)} en gastos.`);
+        const word = f.profit >= 0 ? 'utilidad neta' : 'pérdida';
+        parts.push(`La ${word} fue de ${money(Math.abs(f.profit))}${f.profit > 0 && f.revenue.total > 0 ? `: de cada $100 que entraron le quedaron ${money(per100(f.profit, f.revenue.total))} al negocio` : ''}.`);
+        parts.push(`Las propinas fueron ${money(f.tips.total)}; son de los barberos, así que no cuentan como ingreso ni se restan de la utilidad.`);
+        if (f.product_cost.units_without_cost > 0) parts.push(`Ojo: ${plainNumber(f.product_cost.units_without_cost)} ${f.product_cost.units_without_cost === 1 ? 'producto vendido no tiene' : 'productos vendidos no tienen'} costo registrado, así que la utilidad real es menor.`);
+    } else {
+        parts.push(`Se generaron ${money(k.commissions)} en comisiones y se registraron ${money(k.expenses)} en gastos; las propinas fueron ${money(k.tips)} y no cuentan como ingreso del negocio.`);
+        const profitWord = k.net >= 0 ? 'utilidad' : 'pérdida';
+        parts.push(`La ${profitWord} (ingresos menos comisiones y gastos) fue de ${money(Math.abs(k.net))}; todavía no descuenta el costo de los productos.`);
+    }
     const extras: string[] = [];
     if (k.discounts_count > 0) extras.push(`se otorgaron ${k.discounts_count} ${k.discounts_count === 1 ? 'descuento' : 'descuentos'} por ${money(k.discounts_total)}`);
     if (k.reversals_count > 0) extras.push(`se anularon ${k.reversals_count} ${k.reversals_count === 1 ? 'venta' : 'ventas'} por ${money(k.reversals_total)}`);
@@ -308,9 +354,29 @@ const T = {
     dt: (header: string): Column => ({ header, type: 'datetime' }),
     dts: (header: string): Column => ({ header, type: 'datetime_s' }),
     day: (header: string): Column => ({ header, type: 'date' }),
+    pct: (header: string): Column => ({ header, type: 'percent' }),
+    chg: (header: string): Column => ({ header, type: 'change' }),
 };
 
-function kpiItems(k: FullKpis, p: FullKpis): ReportKpis['items'] {
+function kpiItems(k: FullKpis, p: FullKpis, financial?: FullReport['financial']): ReportKpis['items'] {
+    if (financial) {
+        // Con el resultado financiero, comisiones, gastos, propinas y utilidad salen de él para que el
+        // resumen diga exactamente lo mismo que la sección "Resultado del periodo".
+        const c = financial.current, q = financial.previous;
+        return [
+            { label: 'Ingresos', value: k.revenue, previous: p.revenue, format: 'money' },
+            { label: 'Utilidad neta', value: c.profit, previous: q.profit, format: 'money', note: 'Ingresos − comisiones − costo de producto − gastos.' },
+            { label: 'Cortes y servicios', value: k.cuts, previous: p.cuts, format: 'number' },
+            { label: 'Ventas', value: k.tickets, previous: p.tickets, format: 'number' },
+            { label: 'Ticket promedio', value: k.avg_ticket, previous: p.avg_ticket, format: 'money' },
+            { label: 'Comisiones', value: c.commissions.total, previous: q.commissions.total, format: 'money', invert: true },
+            { label: 'Costo de producto', value: c.product_cost.total, previous: q.product_cost.total, format: 'money', invert: true },
+            { label: 'Gastos', value: c.expenses.total, previous: q.expenses.total, format: 'money', invert: true },
+            { label: 'Propinas', value: c.tips.total, previous: q.tips.total, format: 'money', note: 'Son de los barberos: no son ingreso del negocio.' },
+            { label: 'Descuentos', value: k.discounts_total, previous: p.discounts_total, format: 'money', invert: true },
+            { label: 'Ventas anuladas', value: k.reversals_total, previous: p.reversals_total, format: 'money', invert: true },
+        ];
+    }
     return [
         { label: 'Ingresos', value: k.revenue, previous: p.revenue, format: 'money' },
         { label: 'Cortes y servicios', value: k.cuts, previous: p.cuts, format: 'number' },
@@ -323,6 +389,231 @@ function kpiItems(k: FullKpis, p: FullKpis): ReportKpis['items'] {
         { label: 'Descuentos', value: k.discounts_total, previous: p.discounts_total, format: 'money', invert: true },
         { label: 'Ventas anuladas', value: k.reversals_total, previous: p.reversals_total, format: 'money', invert: true },
     ];
+}
+
+type AddSection = (id: string, title: string, sheet: string, explain: string, blocks: ReportBlock[]) => void;
+type Financial = NonNullable<FullReport['financial']>;
+
+const METHODS = ['cash', 'card', 'transfer', 'other'] as const;
+/** Redondea a centavos y nunca deja "-0". */
+const round2 = (n: number) => Math.round(n * 100) / 100 || 0;
+const neg = (n: number) => round2(-n);
+
+/** Una línea del estado de resultados: este periodo, el anterior, la diferencia, el cambio y "de cada $100". */
+function statementRow(label: string, current: number, previous: number, revenue: number, sign: 1 | -1): Cell[] {
+    // Lo que se resta se muestra en negativo; el cambio en % es del monto (así "+20%" en gastos = gastaron más).
+    const cur = round2(sign * current), prev = round2(sign * previous);
+    const change = percentChange(Math.abs(current), Math.abs(previous));
+    return [label, cur, prev, round2(cur - prev), change ?? (current === 0 ? 0 : 'Sin datos para comparar'), per100(cur, revenue)];
+}
+
+/** Resultado del periodo, propinas, lo que deja cada persona y balance de efectivo. */
+function addFinancialSections(report: FullReport, fin: Financial, add: AddSection) {
+    const c = fin.current, p = fin.previous;
+    const revenue = c.revenue.total;
+    const prevLabel = `${formatDay(report.cover.period.previous_from)} al ${formatDay(report.cover.period.previous_to)}`;
+    const missing = c.product_cost.missing;
+    const people = (c.by_person ?? []);
+
+    // ── Resultado del periodo ──
+    const profitDiff = round2(c.profit - p.profit);
+    const previousEmpty = p.revenue.total === 0 && p.profit === 0;
+    const pct = percentChange(c.profit, p.profit);
+    const comparedCaption = pct === null
+        ? (previousEmpty ? `El periodo anterior (${prevLabel}) no tuvo movimientos con qué comparar.` : `Frente a ${money(p.profit)} del periodo anterior (${prevLabel}).`)
+        : `${pct > 0 ? 'Más' : pct < 0 ? 'Menos' : 'Igual'} que el periodo anterior (${prevLabel}, ${money(p.profit)})${pct ? `: ${changeText(c.profit, p.profit)}` : ''}.`;
+    const hero: ReportHero = {
+        kind: 'hero', items: [
+            {
+                label: c.profit >= 0 ? 'Utilidad neta' : 'Pérdida del periodo', value: c.profit, format: 'money', tone: c.profit > 0 ? 'good' : c.profit < 0 ? 'bad' : 'neutral',
+                caption: revenue === 0 && c.profit === 0 ? 'No hubo ingresos ni gastos en el periodo.' : 'Lo que le quedó al negocio después de pagar comisiones, mercancía y gastos.',
+            },
+            {
+                label: 'Margen', value: c.margin_pct, format: 'percent', tone: c.margin_pct === null ? 'neutral' : c.margin_pct > 0 ? 'good' : c.margin_pct < 0 ? 'bad' : 'neutral',
+                caption: c.margin_pct === null || !revenue ? 'Sin ingresos en el periodo: no hay margen que calcular.' : `De cada $100 que entraron, ${c.profit >= 0 ? `${money(per100(c.profit, revenue))} fueron ganancia` : `se perdieron ${money(Math.abs(per100(c.profit, revenue) ?? 0))}`}.`,
+            },
+            {
+                label: 'Contra el periodo anterior', value: profitDiff, format: 'money', tone: previousEmpty || profitDiff === 0 ? 'neutral' : profitDiff > 0 ? 'good' : 'bad',
+                caption: comparedCaption,
+            },
+        ],
+    };
+
+    const categories = [...new Set([...c.expenses.by_category.map((x) => x.category), ...p.expenses.by_category.map((x) => x.category)])];
+    const catTotal = (period: typeof c, category: string) => period.expenses.by_category.find((x) => x.category === category)?.total ?? 0;
+    const rows: Cell[][] = [];
+    const styles: RowStyle[] = [];
+    const push = (row: Cell[], style: RowStyle) => { rows.push(row); styles.push(style); };
+    push(statementRow('Ingresos por servicios', c.revenue.services, p.revenue.services, revenue, 1), 'minor');
+    push(statementRow('Ingresos por productos', c.revenue.products, p.revenue.products, revenue, 1), 'minor');
+    push(statementRow('Total de ingresos', c.revenue.total, p.revenue.total, revenue, 1), 'subtotal');
+    push(statementRow('Menos comisiones por servicios', c.commissions.services, p.commissions.services, revenue, -1), 'minor');
+    push(statementRow('Menos comisiones por productos', c.commissions.products, p.commissions.products, revenue, -1), 'minor');
+    push(statementRow('Menos costo de los productos vendidos', c.product_cost.total, p.product_cost.total, revenue, -1), 'minor');
+    const beforeExp = (x: typeof c) => x.revenue.total - x.commissions.total - x.product_cost.total;
+    push(statementRow('Queda antes de gastos', beforeExp(c), beforeExp(p), revenue, 1), 'subtotal');
+    if (categories.length === 0) push(statementRow('Menos gastos', 0, 0, revenue, -1), 'minor');
+    for (const category of categories) push(statementRow(`Menos gastos: ${category}`, catTotal(c, category), catTotal(p, category), revenue, -1), 'minor');
+    push(statementRow(c.profit >= 0 ? 'Utilidad neta' : 'Pérdida neta', c.profit, p.profit, revenue, 1), 'result');
+
+    const stackSegments: ReportStack['segments'] = [
+        { label: 'Comisiones', value: per100(c.commissions.total, revenue) ?? 0, color: 'commission' },
+        { label: 'Costo de producto', value: per100(c.product_cost.total, revenue) ?? 0, color: 'cost' },
+        { label: 'Gastos', value: per100(c.expenses.total, revenue) ?? 0, color: 'expense' },
+    ];
+    if (c.profit > 0) stackSegments.push({ label: 'Utilidad', value: per100(c.profit, revenue) ?? 0, color: 'profit' });
+    const outFor100 = round2(stackSegments.filter((s) => s.color !== 'profit').reduce((a, s) => a + s.value, 0));
+
+    const resultBlocks: ReportBlock[] = [hero];
+    if (missing.length > 0) {
+        resultBlocks.push({
+            kind: 'text', tone: 'warning',
+            text: `Atención: ${plainNumber(c.product_cost.units_without_cost)} ${c.product_cost.units_without_cost === 1 ? 'unidad vendida no tiene' : 'unidades vendidas no tienen'} costo registrado (${missing.map((m) => `${m.name}: ${plainNumber(m.units)}`).join(', ')}). Su costo no se restó, así que la utilidad real es menor que la que aparece aquí. Registra el costo en Productos.`,
+        });
+    }
+    resultBlocks.push(
+        {
+            kind: 'table', title: 'Estado de resultados', styles, rows, empty: '',
+            columns: [T.text('Concepto'), T.money('Este periodo'), T.money('Periodo anterior'), T.money('Diferencia'), T.chg('Cambio'), T.money('De cada $100')],
+        },
+        {
+            kind: 'stack', title: 'De cada $100 que entraron, a dónde se fueron', segments: stackSegments,
+            empty: revenue === 0 ? 'Sin ingresos en el periodo: no hay nada que repartir.' : null,
+            caption: revenue === 0 ? '' : c.profit > 0
+                ? `De cada $100 cobrados, ${money(outFor100)} se fueron en comisiones, mercancía y gastos, y ${money(per100(c.profit, revenue))} le quedaron al negocio.`
+                : `De cada $100 cobrados se fueron ${money(outFor100)} en comisiones, mercancía y gastos: el negocio perdió ${money(Math.abs(per100(c.profit, revenue) ?? 0))} por cada $100.`,
+        },
+        {
+            kind: 'text', tone: 'note',
+            text: `Ingresos: lo cobrado ya con descuentos, sin ventas anuladas${c.counts.voided_excluded ? ` (${c.counts.voided_excluded} ${c.counts.voided_excluded === 1 ? 'excluida' : 'excluidas'})` : ''}. Costo de producto: el costo que hoy tiene cada producto en el catálogo. Gastos: por la fecha del gasto. Las propinas van aparte porque son de los barberos. Lo que se resta va en negativo; en "Cambio", un + en esos renglones quiere decir que ese costo creció.`,
+        },
+    );
+    add('resultado', 'Resultado del periodo', 'Resultado',
+        'Cuánto entró, cuánto se fue en comisiones, mercancía y gastos, y cuánto le quedó al negocio.', resultBlocks);
+
+    // ── Propinas ──
+    const withTips = people.filter((b) => b.tips > 0);
+    const tipMethods = METHODS.filter((m) => c.tips.by_method[m] > 0);
+    add('propinas', 'Propinas', 'Propinas',
+        'Las propinas son del barbero: el negocio las cobra y se las entrega completas en su recibo semanal, así que no suman a los ingresos ni se restan de la utilidad. Si una venta se anula, su propina también.', [
+            {
+                kind: 'hero', items: [
+                    { label: 'Propinas del periodo', value: c.tips.total, format: 'money', tone: 'neutral', caption: `${c.tips.count} ${c.tips.count === 1 ? 'propina' : 'propinas'}. Son del barbero; no forman parte de la utilidad.` },
+                    { label: 'Contra el periodo anterior', value: round2(c.tips.total - p.tips.total), format: 'money', tone: 'neutral', caption: p.tips.total ? `Antes: ${money(p.tips.total)} (${changeText(c.tips.total, p.tips.total)}).` : 'El periodo anterior no tuvo propinas con qué comparar.' },
+                ],
+            },
+            { kind: 'bars', title: 'Propinas por persona', format: 'money', color: 'accent', compact: true, items: withTips.map((b) => ({ label: b.name, value: b.tips })) },
+            { kind: 'bars', title: 'Propinas por forma de pago', format: 'money', color: 'text', compact: true, items: METHODS.map((m) => ({ label: METHOD_LABELS[m], value: c.tips.by_method[m] })) },
+            {
+                kind: 'table', title: 'Por persona', empty: 'No hubo propinas en el periodo.',
+                columns: [T.text('Persona'), T.money('Propinas'), T.num('Cuántas'), T.pct('% del total')],
+                rows: withTips.map((b) => [b.name, b.tips, b.tip_count, per100(b.tips, c.tips.total)]),
+                total: withTips.length ? ['Total', c.tips.total, c.tips.count, 100] : undefined,
+            },
+            {
+                kind: 'table', title: 'Por forma de pago', empty: 'No hubo propinas en el periodo.',
+                columns: [T.text('Forma de pago'), T.money('Propinas'), T.pct('% del total')],
+                rows: tipMethods.map((m) => [METHOD_LABELS[m], c.tips.by_method[m], per100(c.tips.by_method[m], c.tips.total)]),
+                total: tipMethods.length ? ['Total', c.tips.total, 100] : undefined,
+            },
+        ]);
+
+    // ── Lo que deja cada persona ──
+    const sold = people.filter((b) => b.revenue > 0 || b.commission > 0 || b.tips > 0);
+    const sumOf = (pick: (b: typeof people[number]) => number) => round2(sold.reduce((a, b) => a + pick(b), 0));
+    const contributions = sumOf((b) => b.contribution);
+    const commissionDiffers = sold.some((b) => round2(b.commission) !== round2(b.sales_commissions));
+    const personBlocks: ReportBlock[] = [
+        { kind: 'bars', title: 'Lo que deja al negocio cada persona', format: 'money', color: 'text', compact: true, items: sold.filter((b) => b.revenue > 0).map((b) => ({ label: b.name, value: b.contribution })) },
+        { kind: 'bars', title: 'Lo que ganó cada persona (comisión + propinas)', format: 'money', color: 'accent', compact: true, items: sold.map((b) => ({ label: b.name, value: round2(b.commission + b.tips) })) },
+        {
+            kind: 'table', title: 'Por persona', empty: 'Nadie vendió en el periodo.',
+            columns: [T.text('Persona'), T.money('Servicios'), T.money('Productos'), T.money('Total vendido'), T.money('Comisión ganada'), T.money('Propinas'), T.money('Costo de producto'), T.money('Deja al negocio')],
+            rows: sold.map((b) => [b.name, b.services, b.products, b.revenue, b.commission, b.tips, b.product_cost, b.contribution]),
+            total: sold.length ? ['Total', sumOf((b) => b.services), sumOf((b) => b.products), sumOf((b) => b.revenue), sumOf((b) => b.commission), sumOf((b) => b.tips), sumOf((b) => b.product_cost), contributions] : undefined,
+        },
+        {
+            kind: 'text', tone: 'body',
+            text: sold.length
+                ? `Entre todos dejaron ${money(contributions)}; menos ${money(c.expenses.total)} de gastos, queda la ${c.profit >= 0 ? 'utilidad neta' : 'pérdida'} de ${money(Math.abs(c.profit))}.`
+                : 'Sin ventas en el periodo.',
+        },
+        {
+            kind: 'text', tone: 'note',
+            text: `"Deja al negocio" = lo que vendió esa persona − las comisiones de esas ventas − el costo de los productos que vendió; todavía no resta gastos. Recepción gana 20 % de los productos que vende. Las propinas son de cada persona y no cuentan en lo que deja.${commissionDiffers ? ' En algún renglón la comisión fue para alguien distinto de quien registró la venta, por eso "Comisión ganada" no siempre cuadra fila por fila.' : ''}`,
+        },
+    ];
+    add('personas', 'Lo que deja cada persona', 'Por persona',
+        'Cuánto vendió cada quien, cuánto ganó en comisiones y propinas, y cuánto le dejó al negocio.', personBlocks);
+
+    // ── Balance de efectivo ──
+    const pay = report.sales.payments;
+    const settlements = report.payouts.settlements;
+    const payouts: Record<(typeof METHODS)[number], number> = {
+        cash: round2(settlements.reduce((a, s) => a + s.cash, 0)), card: 0,
+        transfer: round2(settlements.reduce((a, s) => a + s.transfer, 0)), other: round2(settlements.reduce((a, s) => a + s.other, 0)),
+    };
+    const flow = METHODS.map((m) => {
+        const left = round2(pay[m] + c.tips.by_method[m] - c.expenses.by_method[m] - payouts[m]);
+        return { m, sales: pay[m], tips: c.tips.by_method[m], expenses: c.expenses.by_method[m], payouts: payouts[m], left };
+    });
+    const tot = (pick: (f: typeof flow[number]) => number) => round2(flow.reduce((a, f) => a + pick(f), 0));
+    const inTotal = round2(tot((f) => f.sales) + tot((f) => f.tips));
+    const outTotal = round2(tot((f) => f.expenses) + tot((f) => f.payouts));
+    const leftTotal = tot((f) => f.left);
+    const salesIn = tot((f) => f.sales);
+    const payoutTotal = tot((f) => f.payouts);
+    const recon: Cell[][] = [
+        [c.profit >= 0 ? 'Utilidad neta (sección "Resultado del periodo")' : 'Pérdida neta (sección "Resultado del periodo")', c.profit],
+        ['Más comisiones ganadas en el periodo (se restaron en la utilidad, pero se pagan en el recibo)', c.commissions.total],
+        ['Más propinas cobradas (son de los barberos; se pagan en el recibo)', c.tips.total],
+        ['Menos pagos al equipo hechos en el periodo', neg(payoutTotal)],
+        ['Más costo de los productos vendidos (la mercancía se pagó cuando se compró)', c.product_cost.total],
+    ];
+    const reconStyles: RowStyle[] = ['subtotal', 'minor', 'minor', 'minor', 'minor'];
+    const gap = round2(salesIn - revenue);
+    if (gap !== 0) { recon.push(['Diferencia entre lo cobrado y lo vendido en el periodo', gap]); reconStyles.push('minor'); }
+    recon.push(['Igual a lo que quedó en el periodo', leftTotal]);
+    reconStyles.push('result');
+
+    const sessions = report.cash.sessions;
+    const sumS = (pick: (s: CashSessionReport) => number | null) => round2(sessions.reduce((a, s) => a + Number(pick(s) ?? 0), 0));
+    const moved: Cell[][] = [
+        ['Retiros de efectivo durante el turno (al banco, a la caja fuerte o al dueño)', sumS((s) => s.withdrawals)],
+        ['Efectivo retirado al cerrar la caja', sumS((s) => s.withdrawn_amount)],
+        [`Efectivo apartado al cerrar${report.cash.reserve_label ? ` (${report.cash.reserve_label})` : ''}`, sumS((s) => s.reserve_amount)],
+        ['Entradas de efectivo que no son ventas', sumS((s) => s.deposits)],
+        ['Faltantes (-) o sobrantes (+) al contar la caja', sumS((s) => s.difference)],
+    ];
+
+    add('balance', 'Balance de efectivo', 'Balance',
+        'Qué dinero entró, qué salió y qué quedó en el periodo, por forma de pago. Es un balance de entradas y salidas: no incluye bienes, deudas ni el dinero que ya había antes del periodo.', [
+            {
+                kind: 'hero', items: [
+                    { label: 'Entró', value: inTotal, format: 'money', tone: 'neutral', caption: `Cobros de ventas (${money(salesIn)}) más propinas (${money(c.tips.total)}).` },
+                    { label: 'Salió', value: outTotal, format: 'money', tone: 'neutral', caption: `Gastos (${money(c.expenses.total)}) y pagos al equipo (${money(payoutTotal)}).` },
+                    { label: 'Quedó', value: leftTotal, format: 'money', tone: leftTotal > 0 ? 'good' : leftTotal < 0 ? 'bad' : 'neutral', caption: 'Lo que entró menos lo que salió. Incluye comisiones y propinas que todavía no se pagan.' },
+                ],
+            },
+            {
+                kind: 'table', title: 'Entradas y salidas por forma de pago', empty: '',
+                columns: [T.text('Forma de pago'), T.money('Cobros de ventas'), T.money('Propinas cobradas'), T.money('Gastos pagados'), T.money('Pagos al equipo'), T.money('Quedó')],
+                rows: flow.filter((f) => f.m !== 'other' || f.sales || f.tips || f.expenses || f.payouts).map((f) => [METHOD_LABELS[f.m], f.sales, f.tips, neg(f.expenses), neg(f.payouts), f.left]),
+                total: ['Total', salesIn, tot((f) => f.tips), neg(tot((f) => f.expenses)), neg(payoutTotal), leftTotal],
+            },
+            {
+                kind: 'table', title: 'Cómo cuadra con la utilidad', empty: '', styles: reconStyles,
+                columns: [T.text('Concepto'), T.money('Monto')], rows: recon,
+            },
+            {
+                kind: 'table', title: 'Efectivo que cambió de lugar (no es gasto)', empty: '',
+                columns: [T.text('Concepto'), T.money('Monto')], rows: moved,
+            },
+            {
+                kind: 'text', tone: 'note',
+                text: 'Tarjeta y transferencia llegan a la cuenta del banco; el efectivo, a la caja. "Pagos al equipo" son los recibos pagados en el periodo y pueden incluir semanas anteriores. Las compras de mercancía solo aparecen como salida si se registraron como gasto. Los retiros y apartados mueven el efectivo de lugar, no son gasto: el detalle turno por turno está en la sección "Caja".',
+            },
+        ]);
 }
 
 /** Arma el modelo completo del reporte. `control` trae el folio y el código una vez emitido. */
@@ -361,9 +652,16 @@ export function buildReportModel(report: FullReport, control: ReportControl = nu
     add('resumen', 'Resumen ejecutivo', 'Resumen',
         'Las cifras principales del periodo comparadas con el periodo anterior de la misma duración.', [
             { kind: 'text', tone: 'body', text: executiveParagraph(report) },
-            { kind: 'kpis', items: kpiItems(k, report.summary.previous) },
-            { kind: 'text', tone: 'note', text: `Comparado con ${formatDay(report.cover.period.previous_from)} al ${formatDay(report.cover.period.previous_to)}. La utilidad = ingresos − comisiones − gastos; todavía no incluye el costo de los productos ni gastos fijos que no se hayan registrado.` },
+            { kind: 'kpis', items: kpiItems(k, report.summary.previous, report.financial) },
+            {
+                kind: 'text', tone: 'note', text: report.financial
+                    ? `Comparado con ${formatDay(report.cover.period.previous_from)} al ${formatDay(report.cover.period.previous_to)}. El desglose de la utilidad está en la sección siguiente; no incluye gastos fijos que no se hayan registrado.`
+                    : `Comparado con ${formatDay(report.cover.period.previous_from)} al ${formatDay(report.cover.period.previous_to)}. La utilidad = ingresos − comisiones − gastos; todavía no incluye el costo de los productos ni gastos fijos que no se hayan registrado.`,
+            },
         ]);
+
+    // 3 a 6. Resultado financiero (solo en reportes que ya lo traen).
+    if (report.financial) addFinancialSections(report, report.financial, add);
 
     // 3. Ventas
     const pay = report.sales.payments;

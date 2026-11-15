@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-    money, percentChange, plainNumber, tableTexts,
-    type ReportBars, type ReportKpis, type ReportModel, type ReportSection, type ReportTable,
+    isNumericColumn, money, percentChange, percentText, plainNumber, tableTexts,
+    type ReportBars, type ReportHero, type ReportKpis, type ReportModel, type ReportSection, type ReportStack, type ReportTable,
+    type StackColor, type Tone,
 } from '@/lib/reports/full-report';
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface';
@@ -46,6 +47,70 @@ function KpiGrid({ block }: { block: ReportKpis }) {
     );
 }
 
+const TONE_TEXT: Record<Tone, string> = { good: 'text-bos-success', bad: 'text-bos-danger', neutral: 'text-bos-text' };
+const TONE_BAR: Record<Tone, string> = { good: 'bg-bos-success', bad: 'bg-bos-danger', neutral: 'bg-bos-accent' };
+
+function heroValue(item: ReportHero['items'][number]): string {
+    if (item.value === null) return '—';
+    if (item.format === 'money') return money(item.value);
+    if (item.format === 'percent') return percentText(item.value);
+    return plainNumber(item.value);
+}
+
+/** Una cifra grande por idea, con la frase que dice qué significa. */
+function Hero({ block }: { block: ReportHero }) {
+    return (
+        <div className={`grid gap-3 ${block.items.length >= 3 ? 'md:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            {block.items.map((item) => (
+                <div key={item.label} className="relative overflow-hidden rounded-xl bg-bos-raised pl-5 pr-4 py-4">
+                    <span aria-hidden="true" className={`absolute left-0 top-0 h-full w-1.5 ${TONE_BAR[item.tone]}`} />
+                    <p className="text-[13px] font-semibold text-bos-muted">{item.label}</p>
+                    <p className={`mt-1 font-display text-3xl font-semibold tabular-nums ${TONE_TEXT[item.tone]}`}>{heroValue(item)}</p>
+                    <p className="mt-1 text-sm text-bos-muted">{item.caption}</p>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+const STACK_BG: Record<StackColor, string> = {
+    commission: 'var(--bos-accent)', cost: 'color-mix(in srgb, var(--bos-accent) 55%, var(--bos-surface))',
+    expense: 'var(--bos-muted)', profit: 'var(--bos-success)',
+};
+
+/** "De cada $100": barra apilada con su leyenda (la leyenda siempre trae la cifra). */
+function Stack({ block }: { block: ReportStack }) {
+    const total = block.segments.reduce((a, s) => a + s.value, 0);
+    const scale = 100 / Math.max(100, total);
+    return (
+        <div>
+            <h4 className="font-display text-base font-semibold mb-2">{block.title}</h4>
+            {block.empty ? <p className="text-sm text-bos-muted">{block.empty}</p> : (
+                <>
+                    <div className="relative">
+                        <div className="flex h-9 w-full overflow-hidden rounded-lg bg-bos-raised" role="img"
+                            aria-label={block.segments.map((s) => `${s.label} ${money(s.value)}`).join(', ')}>
+                            {block.segments.filter((s) => s.value > 0).map((s) => (
+                                <div key={s.label} style={{ width: `${s.value * scale}%`, background: STACK_BG[s.color] }} title={`${s.label}: ${money(s.value)}`} />
+                            ))}
+                        </div>
+                        {total > 100 && <div aria-hidden="true" className="absolute -top-1 -bottom-1 w-0.5 bg-bos-danger" style={{ left: `${100 * scale}%` }} />}
+                    </div>
+                    <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                        {block.segments.map((s) => (
+                            <li key={s.label} className="inline-flex items-center gap-2">
+                                <span aria-hidden="true" className="h-3 w-3 rounded-sm" style={{ background: STACK_BG[s.color] }} />
+                                {s.label}: <span className="font-semibold tabular-nums">{money(s.value)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    {block.caption && <p className="mt-2 text-[15px]">{block.caption}</p>}
+                </>
+            )}
+        </div>
+    );
+}
+
 function Chart({ block }: { block: ReportBars }) {
     const fmt = (v: number) => (block.format === 'money' ? money(v) : plainNumber(v));
     return (
@@ -70,7 +135,13 @@ function Chart({ block }: { block: ReportBars }) {
 function DataTable({ table, timeZone }: { table: ReportTable; timeZone: string }) {
     const [all, setAll] = useState(false);
     const { head, body, total } = tableTexts(table, timeZone);
-    const numeric = table.columns.map((c) => c.type === 'money' || c.type === 'number');
+    const numeric = table.columns.map(isNumericColumn);
+    const rowClass = (r: number) => {
+        const style = table.styles?.[r];
+        if (style === 'result') return 'border-t-2 border-bos-accent bg-bos-accent-soft font-bold text-[15px]';
+        if (style === 'subtotal') return 'border-t border-bos-border bg-bos-raised font-semibold';
+        return 'border-t border-bos-border';
+    };
     const shown = all ? body : body.slice(0, PAGE);
     return (
         <div>
@@ -88,8 +159,8 @@ function DataTable({ table, timeZone }: { table: ReportTable; timeZone: string }
                             </thead>
                             <tbody>
                                 {shown.map((row, r) => (
-                                    <tr key={r} className="border-t border-bos-border">
-                                        {row.map((cell, i) => <td key={i} className={`px-3 py-2 align-top ${numeric[i] ? 'text-right tabular-nums whitespace-nowrap' : ''}`}>{cell}</td>)}
+                                    <tr key={r} className={rowClass(r)}>
+                                        {row.map((cell, i) => <td key={i} className={`px-3 py-2 align-top ${numeric[i] ? 'text-right tabular-nums whitespace-nowrap' : ''} ${i === 0 && table.styles?.[r] === 'minor' ? 'pl-6' : ''}`}>{cell}</td>)}
                                     </tr>
                                 ))}
                                 {total && (
@@ -116,7 +187,17 @@ function Section({ section, timeZone }: { section: ReportSection; timeZone: stri
     const nodes: React.ReactNode[] = [];
     for (let i = 0; i < section.blocks.length; i++) {
         const block = section.blocks[i];
-        if (block.kind === 'text') {
+        if (block.kind === 'text' && block.tone === 'warning') {
+            nodes.push(
+                <p key={i} role="alert" className="flex gap-2 rounded-xl bg-bos-danger-soft px-4 py-3 text-sm font-semibold text-bos-danger">
+                    <AlertTriangle aria-hidden="true" className="h-5 w-5 shrink-0" />{block.text}
+                </p>,
+            );
+        } else if (block.kind === 'hero') {
+            nodes.push(<Hero key={i} block={block} />);
+        } else if (block.kind === 'stack') {
+            nodes.push(<Stack key={i} block={block} />);
+        } else if (block.kind === 'text') {
             nodes.push(<p key={i} className={block.tone === 'note' ? 'text-sm text-bos-muted' : 'text-[15px] leading-relaxed'}>{block.text}</p>);
         } else if (block.kind === 'kpis') {
             nodes.push(<KpiGrid key={i} block={block} />);

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { buildReportModel } from './full-report';
-import { sampleReport } from './full-report.fixture';
+import { sampleFinancial, sampleReport } from './full-report.fixture';
 import { buildReportPdf, pdfSafe } from './full-report-pdf';
 import { buildReportXlsx, excelValue, spreadsheetSafe } from './full-report-xlsx';
 
@@ -35,11 +35,59 @@ describe('PDF del reporte', () => {
     });
 });
 
+describe('PDF: resultado financiero', () => {
+    it('trae el estado de resultados, la barra de cada $100, propinas y balance, también para el contador', async () => {
+        for (const audience of ['interno', 'contador'] as const) {
+            const text = asText(await buildReportPdf(issued(audience)));
+            for (const piece of ['3. Resultado del periodo', 'Estado de resultados', 'Utilidad neta', 'De cada $100 que entraron', '4. Propinas',
+                'Son del barbero; no forman parte de la utilidad.', '5. Lo que deja cada persona', '6. Balance de efectivo', 'Cómo cuadra con la utilidad']) {
+                expect(text).toContain(pdfSafe(piece));
+            }
+        }
+    });
+
+    it('se genera sin ingresos y con un producto sin costo, con el aviso', async () => {
+        const report = sampleReport();
+        const fin = sampleFinancial();
+        fin.current.product_cost = { total: 0, source: 'catalog', units_without_cost: 3, missing: [{ product_id: null, name: 'Pomada Roja', units: 3 }] };
+        fin.current.revenue = { services: 0, products: 0, total: 0, discounts: 0 };
+        fin.current.profit = -1500;
+        fin.current.margin_pct = null;
+        report.financial = fin;
+        const text = asText(await buildReportPdf(buildReportModel(report)));
+        expect(text).toContain('Pomada Roja: 3');
+        expect(text).toContain('Sin ingresos en el periodo');
+        expect(text).not.toMatch(/NaN|Infinity/);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(buildReportModel(report))) as unknown as ArrayBuffer);
+        expect(workbook.getWorksheet('Resultado')).toBeTruthy();
+    });
+});
+
 describe('Excel del reporte', () => {
+    it('el resultado guarda importes y porcentajes como números', async () => {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(issued('interno'))) as unknown as ArrayBuffer);
+        const sheet = workbook.getWorksheet('Resultado')!;
+        let profitRow: ExcelJS.Row | null = null;
+        sheet.eachRow((row) => { if (row.getCell(1).value === 'Utilidad neta' && typeof row.getCell(2).value === 'number') profitRow = row; });
+        const r = profitRow as unknown as ExcelJS.Row;
+        expect([r.getCell(2).value, r.getCell(3).value, r.getCell(4).value]).toEqual([1320, 910, 410]);
+        expect(r.getCell(5).value).toBeCloseTo(0.451, 3);
+        expect(r.getCell(5).numFmt).toContain('%');
+        expect(r.getCell(6).value).toBe(44);
+        expect(r.getCell(1).font?.bold).toBe(true);
+        const tips = workbook.getWorksheet('Propinas')!;
+        const all: unknown[] = [];
+        tips.eachRow((row) => row.eachCell((cell) => all.push(cell.value)));
+        expect(all).toContain('Propinas del periodo');
+        expect(all).toContain(120);
+    });
+
     it('trae una hoja por sección, con los nombres esperados', async () => {
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(Buffer.from(await buildReportXlsx(issued('interno'))) as unknown as ArrayBuffer);
-        expect(workbook.worksheets.map((s) => s.name)).toEqual(['Portada', 'Resumen', 'Ventas', 'Caja', 'Gastos', 'Comisiones', 'Inventario', 'Agenda', 'Bitácora', 'Anexo']);
+        expect(workbook.worksheets.map((s) => s.name)).toEqual(['Portada', 'Resumen', 'Resultado', 'Propinas', 'Por persona', 'Balance', 'Ventas', 'Caja', 'Gastos', 'Comisiones', 'Inventario', 'Agenda', 'Bitácora', 'Anexo']);
         expect(workbook.title).toContain('REP-000007');
     });
 
