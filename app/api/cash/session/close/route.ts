@@ -11,6 +11,10 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 const CloseSchema = z.object({
     session_id: z.string().uuid(),
     physical_count: z.number().min(0).max(10_000_000),
+    // Conteo por billetes y monedas: { "500": 2, "0.5": 3 }. La base verifica que sume lo contado.
+    breakdown: z.record(z.string().regex(/^\d+(\.\d+)?$/), z.number().int().min(0).max(100_000)).optional(),
+    float_left: z.number().min(0).max(10_000_000).optional(),
+    reserve_amount: z.number().min(0).max(10_000_000).optional(),
 });
 
 /** Cierra la caja con close_cash_session: el servidor calcula el esperado y la diferencia. */
@@ -25,6 +29,9 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase.rpc('close_cash_session', {
             p_cash_session_id: parsed.data.session_id,
             p_counted_cash: parsed.data.physical_count,
+            p_breakdown: parsed.data.breakdown ?? null,
+            p_float_left: parsed.data.float_left ?? null,
+            p_reserve_amount: parsed.data.reserve_amount ?? null,
         } as never);
         if (error) throw error;
         const session = await loadSessionById(supabase, context.businessId, context.branchId, parsed.data.session_id);

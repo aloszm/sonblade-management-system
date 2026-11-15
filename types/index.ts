@@ -120,6 +120,14 @@ export interface CashSession {
     total_sales: number;
     /** Propinas recibidas en el turno (netas de devoluciones). Son de los barberos, no ingreso del negocio. */
     total_tips?: number;
+    /** Efectivo que debería haber físicamente en el cajón. */
+    expected_cash?: number;
+    /** Lo que se dejó de fondo en el cierre anterior (para avisar si no coincide al abrir). */
+    opening_expected?: number | null;
+    float_left?: number | null;
+    reserve_amount?: number | null;
+    withdrawn_amount?: number | null;
+    counted_breakdown?: Record<string, number> | null;
     total_expenses: number;
     total_cash: number;
     total_card: number;

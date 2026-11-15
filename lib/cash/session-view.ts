@@ -11,6 +11,12 @@ export type CashSessionRow = {
     opened_by: string;
     opened_at: string;
     closed_at: string | null;
+    // Cierre guiado: lo que se dejó de fondo, lo apartado y lo retirado.
+    opening_expected?: number | string | null;
+    float_left?: number | string | null;
+    reserve_amount?: number | string | null;
+    withdrawn_amount?: number | string | null;
+    counted_breakdown?: Record<string, number> | null;
 };
 
 export type CashMovementRow = {
@@ -35,6 +41,7 @@ export function isTipMovement(m: Pick<CashMovementRow, 'movement_type' | 'sale_i
 
 const num = (value: number | string | null | undefined) => Number(value ?? 0);
 const round2 = (value: number) => Math.round(value * 100) / 100;
+const optional = (value: number | string | null | undefined) => (value === null || value === undefined ? null : Number(value));
 
 /**
  * Arma la vista que espera la pantalla de caja a partir de la sesion y sus movimientos.
@@ -86,6 +93,13 @@ export function buildSessionView(
         status: session.status,
         opened_at: session.opened_at,
         closed_at: session.closed_at,
+        // Efectivo que debería haber físicamente (RB-12).
+        expected_cash: round2(num(session.opening_cash) + cashIn - cashOut),
+        opening_expected: optional(session.opening_expected),
+        float_left: optional(session.float_left),
+        reserve_amount: optional(session.reserve_amount),
+        withdrawn_amount: optional(session.withdrawn_amount),
+        counted_breakdown: session.counted_breakdown ?? null,
     };
 }
 
@@ -114,7 +128,7 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
     };
 }
 
-const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at';
+const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, opening_expected, float_left, reserve_amount, withdrawn_amount, counted_breakdown';
 const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 
 async function toViews(supabase: SupabaseClient, sessions: CashSessionRow[]): Promise<CashSession[]> {

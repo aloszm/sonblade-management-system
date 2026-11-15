@@ -28,7 +28,7 @@ export async function ensureOpenCashSession(request: APIRequestContext): Promise
     const current = await request.get('/api/cash/session');
     expect(current.ok()).toBeTruthy();
     if (await current.json()) return;
-    const opened = await request.post('/api/cash/session', { data: { initial_amount: 500 } });
+    const opened = await request.post('/api/cash/session', { data: { opening_cash: 500 } });
     expect(opened.ok(), await opened.text()).toBeTruthy();
 }
 

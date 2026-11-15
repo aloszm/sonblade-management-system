@@ -29,6 +29,8 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Caja: fondo que se deja para el día siguiente y apartado diario.
+    const [cash, setCash] = useState<{ float_target: number; reserve_amount: number; reserve_label: string } | null>(null);
 
     const [profile, setProfile] = useState({
         name: '',
@@ -55,6 +57,11 @@ export default function SettingsPage() {
                         setProfile(prev => ({ ...prev, ...data }));
                     }
                 }
+                const cashRes = await fetch('/api/cash/settings', { cache: 'no-store' });
+                if (cashRes.ok) {
+                    const c = await cashRes.json();
+                    setCash({ float_target: c.float_target, reserve_amount: c.reserve_amount, reserve_label: c.reserve_label });
+                }
             } catch (e) {
                 console.error(e);
             } finally {
@@ -80,7 +87,11 @@ export default function SettingsPage() {
                 if (data.error?.includes('relation "public.settings" does not exist')) {
                     throw new Error('La tabla "settings" no existe en Supabase. Por favor ejecuta el SQL de configuración.');
                 }
-                throw new Error('Error al guardar configuración');
+                throw new Error(data.error || 'Error al guardar configuración');
+            }
+            if (cash) {
+                const cashRes = await fetch('/api/cash/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cash) });
+                if (!cashRes.ok) throw new Error((await cashRes.json().catch(() => null))?.error || 'No se pudieron guardar los ajustes de caja.');
             }
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
@@ -259,6 +270,34 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Caja: fondo y apartado del cierre */}
+                {cash && (
+                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                        <h2 className="text-lg font-black text-gray-900 mb-2">Caja</h2>
+                        <p className="text-xs text-gray-500 mb-6">Al cerrar la caja se propone dejar el fondo para el día siguiente y separar el apartado; quien cierra puede ajustar los montos si ese día no alcanza.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label htmlFor="cash-float" className="block text-xs font-bold text-gray-600 uppercase mb-2">Fondo para el día siguiente ($)</label>
+                                <input id="cash-float" type="number" min={0} step={50} required value={cash.float_target}
+                                    onChange={e => setCash({ ...cash, float_target: Number(e.target.value) })}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:ring-2 focus:ring-black" />
+                            </div>
+                            <div>
+                                <label htmlFor="cash-reserve" className="block text-xs font-bold text-gray-600 uppercase mb-2">Apartado diario ($)</label>
+                                <input id="cash-reserve" type="number" min={0} step={50} required value={cash.reserve_amount}
+                                    onChange={e => setCash({ ...cash, reserve_amount: Number(e.target.value) })}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:ring-2 focus:ring-black" />
+                            </div>
+                            <div>
+                                <label htmlFor="cash-reserve-label" className="block text-xs font-bold text-gray-600 uppercase mb-2">¿Para qué es el apartado?</label>
+                                <input id="cash-reserve-label" type="text" minLength={2} maxLength={60} required value={cash.reserve_label}
+                                    onChange={e => setCash({ ...cash, reserve_label: e.target.value })}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:ring-2 focus:ring-black" />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Tasas generales de comisión: vienen de la base y las cambia el dueño */}
                 <div className="bg-gray-900 rounded-3xl p-8 text-white shadow-xl">

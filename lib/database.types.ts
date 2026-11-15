@@ -1541,6 +1541,10 @@ export type Database = {
         Args: { p_branch_id: string }
         Returns: Json
       }
+      set_cash_settings: {
+        Args: { p_branch_id: string; p_float_target: number; p_reserve_amount: number; p_reserve_label: string }
+        Returns: Json
+      }
       set_commission_defaults: {
         Args: { p_business_id: string; p_product_pct: number; p_service_pct: number }
         Returns: Json
@@ -1565,7 +1569,7 @@ export type Database = {
         Returns: Json
       }
       close_cash_session: {
-        Args: { p_cash_session_id: string; p_counted_cash: number }
+        Args: { p_breakdown?: Json; p_cash_session_id: string; p_counted_cash: number; p_float_left?: number; p_reserve_amount?: number }
         Returns: Json
       }
       confirm_sale: {
