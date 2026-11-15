@@ -2108,39 +2108,9 @@ export type Database = {
         }
         Returns: Json
       }
-      close_cash_session_legacy: {
-        Args: { p_cash_session_id: string; p_counted_cash: number }
-        Returns: Json
-      }
       confirm_sale: {
         Args: {
           p_appointment_id?: string
-          p_branch_id: string
-          p_client_id?: string
-          p_discount_authorized_by?: string
-          p_discount_reason?: string
-          p_idempotency_key: string
-          p_items: Json
-          p_notes?: string
-          p_payments: Json
-          p_tips?: Json
-        }
-        Returns: Json
-      }
-      confirm_sale_legacy: {
-        Args: {
-          p_branch_id: string
-          p_client_id?: string
-          p_discount_reason?: string
-          p_idempotency_key: string
-          p_items: Json
-          p_notes?: string
-          p_payments: Json
-        }
-        Returns: Json
-      }
-      confirm_sale_legacy2: {
-        Args: {
           p_branch_id: string
           p_client_id?: string
           p_discount_authorized_by?: string
