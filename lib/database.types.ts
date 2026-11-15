@@ -1541,6 +1541,10 @@ export type Database = {
         Args: { p_branch_id: string }
         Returns: Json
       }
+      weekly_cuts_podium: {
+        Args: { p_branch_id: string }
+        Returns: Json
+      }
       set_cash_settings: {
         Args: { p_branch_id: string; p_float_target: number; p_reserve_amount: number; p_reserve_label: string }
         Returns: Json

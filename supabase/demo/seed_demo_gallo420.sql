@@ -75,7 +75,7 @@ BEGIN
     (u_dago, 'Dago'), (u_emi, 'Emi'), (u_deya, 'Deya'), (u_sonia, 'Sonia'), (u_dani, 'Dani');
   INSERT INTO public.business_memberships (business_id, user_id, role) VALUES
     (v_biz, u_dago, 'receptionist'), (v_biz, u_emi, 'receptionist'),
-    (v_biz, u_deya, 'barber'), (v_biz, u_sonia, 'barber'), (v_biz, u_dani, 'barber');
+    (v_biz, u_deya, 'barber'), (v_biz, u_sonia, 'admin'), (v_biz, u_dani, 'barber'); -- Sonia es gerente de la sucursal
   INSERT INTO public.user_branch_access (business_id, branch_id, user_id) VALUES
     (v_biz, v_branch, u_dago), (v_biz, v_branch, u_emi), (v_biz, v_branch, u_deya), (v_biz, v_branch, u_sonia), (v_biz, v_branch, u_dani);
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_deya, 'Deya') RETURNING id INTO e_deya;

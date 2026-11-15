@@ -4,6 +4,7 @@ export const USERS = {
     owner: process.env.E2E_OWNER_EMAIL ?? 'demo.dueno@gallo420.test',
     reception: process.env.E2E_RECEPTION_EMAIL ?? 'demo.dago@gallo420.test',
     barber: process.env.E2E_BARBER_EMAIL ?? 'demo.deya@gallo420.test',
+    manager: process.env.E2E_MANAGER_EMAIL ?? 'demo.sonia@gallo420.test',
 };
 
 function password(): string {

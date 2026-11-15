@@ -91,7 +91,7 @@ const menuSections: MenuSection[] = [
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = React.useState<{ name: string, role: string, id: string } | null>(null);
+  const [user, setUser] = React.useState<{ name: string, role: string, id: string, isOwner?: boolean, title?: string } | null>(null);
 
   React.useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store' })
@@ -129,6 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         {menuSections.map((section, idx) => {
           // Filter items based on user role
           const visibleItems = section.items.filter(item => {
+            if (item.href === '/configuracion' && !user?.isOwner) return false; // solo el dueño
             if (user?.role === 'recepcion') {
               return RECEPCION_ALLOWED.some(p => item.href.startsWith(p));
             }
@@ -149,13 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               </h3>
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
-                  let href = item.href;
-                  // Only barbers get redirected to their personal page
-                  // Admins go to /barbero which has the barber selector dropdown
-                  if (href === '/barbero' && user?.role !== 'admin' && user?.id) {
-                    href = `/barberos/${user.id}`;
-                  }
-
+                  const href = item.href;
                   const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
 
                   return (
@@ -197,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             <p className="text-sm font-bold text-white truncate">{user ? user.name : 'Cargando...'}</p>
             {user && user.name.toLowerCase() !== 'administrador' && user.name.toLowerCase() !== 'admin' && (
               <p className="text-[10px] text-sonblade-gold font-black uppercase tracking-widest">
-                {user.role === 'admin' ? 'ADMINISTRADOR' : user.role === 'recepcion' ? 'RECEPCIONISTA' : 'BARBERO'}
+                {(user.title ?? '').toUpperCase()}
               </p>
             )}
             {!user && (

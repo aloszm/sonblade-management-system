@@ -37,17 +37,18 @@ export async function GET() {
             reserve_amount: Number(row.daily_reserve_amount),
             reserve_label: row.daily_reserve_label,
             last_float_left: left === null || left === undefined ? null : Number(left),
-            can_edit: context.role === 'owner' || context.role === 'admin',
+            can_edit: context.role === 'owner',
+            can_see_history: context.role === 'owner' || context.role === 'admin',
         }, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);
     }
 }
 
-/** Cambia el fondo y el apartado. Solo dueño y administración; queda en la bitácora. */
+/** Cambia el fondo y el apartado. Solo el dueño; queda en la bitácora. */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(['owner']);
         const parsed = SettingsSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

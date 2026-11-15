@@ -51,6 +51,11 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/pos', request.url));
         }
 
+        // Configuración del negocio (datos, comisiones, fondo de caja): solo el dueño.
+        if ((pathname === '/configuracion' || pathname.startsWith('/configuracion/')) && membership.role !== 'owner') {
+            return NextResponse.redirect(new URL('/admin', request.url));
+        }
+
         // Pantallas que no corresponden al puesto: se manda al Punto de Venta. Las APIs validan su propio rol.
         const role = membership.role;
         const isAdmin = role === 'owner' || role === 'admin';

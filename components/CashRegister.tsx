@@ -6,7 +6,7 @@ import type { CashMovement, CashSession } from '@/types';
 import { toUiMovement, type CashMovementRow } from '@/lib/cash/session-view';
 import { DENOMINATIONS, breakdownTotal, compactBreakdown, proposeSplit, withdrawnFor } from '@/lib/cash/closing';
 
-interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean }
+interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean }
 type Movement = CashMovement & { direction: 'in' | 'out' };
 type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number };
 
@@ -162,7 +162,7 @@ export default function CashRegister() {
         api<CashSettings>('/api/cash/settings').then((s) => {
             setSettings(s);
             setOpenAmount(String(s.last_float_left ?? s.float_target));
-            if (s.can_edit) loadHistory();
+            if (s.can_see_history) loadHistory();
         }).catch(() => {});
         // Los cobros hechos en otra pantalla aparecen aquí solos.
         const timer = setInterval(() => load(true), 15_000);
@@ -228,7 +228,7 @@ export default function CashRegister() {
             setCloseStep(0);
             setOpenAmount(String(Number(floatLeft) || 0));
             setSettings((s) => (s ? { ...s, last_float_left: Number(floatLeft) || 0 } : s));
-            if (settings?.can_edit) loadHistory();
+            if (settings?.can_see_history) loadHistory();
             await load();
         } catch (err) { setFormError(err instanceof Error ? err.message : 'No se pudo cerrar la caja.'); }
         finally { setSaving(false); }

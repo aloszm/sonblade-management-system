@@ -35,6 +35,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const title = pageTitles[pathname] ?? '';
   const [userName, setUserName] = useState<string>('');
   const [userRole, setUserRole] = useState<string>('');
+  const [canBook, setCanBook] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -43,8 +44,9 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       .then(res => res.json())
       .then(data => {
         if (data.authenticated) {
+          setCanBook(data.user.role === 'admin' || data.user.role === 'recepcion');
           setUserName(data.user.name);
-          setUserRole(data.user.role);
+          setUserRole(data.user.title ?? data.user.role);
         }
       })
       .catch(console.error);
@@ -80,7 +82,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
-        {(userRole === 'admin' || userRole === 'recepcion') && pathname !== '/citas' && (
+        {canBook && pathname !== '/citas' && (
           <Link href="/citas?nueva=1" className="hidden md:inline-flex items-center gap-2 h-11 px-4 rounded-xl border border-bos-border text-bos-text hover:bg-bos-raised text-sm font-semibold transition-colors">
             <Plus className="h-4 w-4" />
             Nueva Cita

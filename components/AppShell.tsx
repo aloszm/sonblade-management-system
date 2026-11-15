@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import MobileNav from '@/components/MobileNav';
 
-const REDESIGNED = ['/pos', '/caja'];
+const REDESIGNED = ['/pos', '/caja', '/barbero'];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile

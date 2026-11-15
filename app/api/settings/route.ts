@@ -63,10 +63,10 @@ export async function GET(request: NextRequest) {
     }
 }
 
-/** Guarda el perfil con update_business_profile (queda en la auditoría). Solo dueño y administrador. */
+/** Guarda el perfil con update_business_profile (queda en la auditoría). Solo el dueño. */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(['owner']);
         const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

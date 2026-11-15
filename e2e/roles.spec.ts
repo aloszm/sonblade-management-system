@@ -16,7 +16,13 @@ test.describe('acceso por puesto', () => {
 
     test('un barbero ve lo suyo y nada de los demás', async ({ page }) => {
         await login(page, USERS.barber);
-        await expect(page).toHaveURL(/\/barberos\//);
+        await expect(page).toHaveURL(/\/barbero$/);
+        await expect(page.getByTestId('week-earned')).toBeVisible();
+
+        // Podio: todos ven los cortes de todos, pero nunca dinero.
+        await expect(page.getByTestId('podium')).toBeVisible();
+        const podium = await (await page.request.get('/api/podium')).json();
+        for (const row of podium.rows) expect(Object.keys(row).sort()).toEqual(['cuts', 'employee_id', 'is_me', 'name']);
         const me = await (await page.request.get('/api/auth/me')).json();
         expect(me.user.role).toBe('barber');
 
@@ -30,6 +36,27 @@ test.describe('acceso por puesto', () => {
         await expect(page).not.toHaveURL(/\/pos$/);
         expect((await page.request.get('/api/discount-authorizers')).status()).toBe(403);
         expect((await page.request.post('/api/appointments', { data: { customer_name: 'Prueba', scheduled_at: new Date().toISOString() } })).status()).toBe(403);
+    });
+
+    test('la gerente opera la sucursal, pero solo el dueño cambia configuración y comisiones', async ({ page }) => {
+        await login(page, USERS.manager);
+        const me = (await (await page.request.get('/api/auth/me')).json()).user;
+        expect(me.title).toBe('Gerente');
+        expect(me.isOwner).toBe(false);
+
+        expect((await page.request.get('/api/admin/summary?period=week')).status()).toBe(200);
+        expect((await page.request.get('/api/settlements')).status()).toBe(200);
+        expect((await page.request.get('/api/cash/history')).status()).toBe(200);
+
+        const cash = await (await page.request.get('/api/cash/settings')).json();
+        expect(cash.can_edit).toBe(false);
+        expect((await page.request.post('/api/cash/settings', { data: { float_target: 1, reserve_amount: 1, reserve_label: 'No' } })).status()).toBe(403);
+        const profile = await (await page.request.get('/api/settings?key=shop_profile')).json();
+        expect((await page.request.post('/api/settings', { data: { key: 'shop_profile', value: { ...profile, productCommissionPct: 90 } } })).status()).toBe(403);
+
+        await page.goto('/configuracion');
+        await expect(page).not.toHaveURL(/\/configuracion/);
+        await expect(page.getByRole('navigation').getByRole('link', { name: /Configuración/ })).toHaveCount(0);
     });
 
     test('sin sesión todo redirige al acceso y la marca es pública', async ({ page }) => {
