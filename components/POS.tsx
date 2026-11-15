@@ -40,7 +40,7 @@ function MethodPicker({ label, value, onChange }: { label: string; value: Paymen
 export default function POS() {
     const { state, actions } = usePOS();
     const {
-        selectedBarber, selectedClient, servicePayment, productPayment, cart, tip, tipPayment,
+        selectedBarber, selectedClient, servicePayment, serviceSplit, serviceTotal, productPayment, cart, tip, tipPayment,
         clientSearch, submitting, showSuccess, lastSale, loadingBarbers, loadingServices,
         visibleBarbers, filteredClients, services, products, serviceItems, productItems, subtotal, total,
         discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller,
@@ -48,7 +48,7 @@ export default function POS() {
     const {
         setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment, setTip, setTipPayment,
         setClientSearch, addService, addProduct, removeFromCart, handleSubmit,
-        setItemDiscount, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale,
+        setItemDiscount, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setServiceSplit,
     } = actions;
 
     const [catalogFilter, setCatalogFilter] = React.useState('');
@@ -270,8 +270,38 @@ export default function POS() {
 
                                 {serviceItems.length > 0 && (
                                     <div className="space-y-2">
-                                        <p className={sectionTitle}>{productItems.length > 0 ? 'Pago de servicios' : 'Forma de pago'}</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className={sectionTitle}>{productItems.length > 0 ? 'Pago de servicios' : 'Forma de pago'}</p>
+                                            <button type="button" aria-pressed={Boolean(serviceSplit)}
+                                                onClick={() => setServiceSplit(serviceSplit ? null : { second: servicePayment === 'cash' ? 'card' : 'cash', firstAmount: '' })}
+                                                className="min-h-9 px-2 rounded-lg text-sm font-semibold text-bos-muted hover:text-bos-text hover:bg-bos-raised">
+                                                {serviceSplit ? 'Un solo pago' : 'Dividir en dos'}
+                                            </button>
+                                        </div>
                                         <MethodPicker label="Forma de pago de los servicios" value={servicePayment} onChange={setServicePayment} />
+                                        {serviceSplit && (() => {
+                                            const first = Number(serviceSplit.firstAmount) || 0;
+                                            const rest = Math.round((serviceTotal - first) * 100) / 100;
+                                            const valid = first > 0 && rest > 0;
+                                            return (
+                                                <div data-testid="pos-split" className="rounded-xl border border-bos-border p-3 space-y-3">
+                                                    <label className="flex items-center justify-between gap-3 text-[15px]">
+                                                        <span>Con {METHODS.find((m) => m.id === servicePayment)?.label.toLowerCase()}</span>
+                                                        <input id="pos-split-first" type="number" min={0} max={serviceTotal} step="1" inputMode="decimal" placeholder="0"
+                                                            aria-label="Cantidad de la primera forma de pago" value={serviceSplit.firstAmount}
+                                                            onChange={(e) => setServiceSplit({ ...serviceSplit, firstAmount: e.target.value })}
+                                                            className="w-28 h-11 px-3 rounded-lg bg-bos-bg border border-bos-border text-right text-base text-bos-text outline-none focus:border-bos-accent" />
+                                                    </label>
+                                                    <MethodPicker label="Forma de pago del resto" value={serviceSplit.second}
+                                                        onChange={(m) => setServiceSplit({ ...serviceSplit, second: m })} />
+                                                    <p className="flex items-center justify-between text-[15px]">
+                                                        <span className="text-bos-muted">Resto con {METHODS.find((m) => m.id === serviceSplit.second)?.label.toLowerCase()}</span>
+                                                        <span data-testid="pos-split-rest" className={`font-semibold tabular-nums ${valid ? 'text-bos-text' : 'text-bos-danger'}`}>{valid ? money(rest) : '—'}</span>
+                                                    </p>
+                                                    {serviceSplit.second === servicePayment && <p role="alert" className="text-sm text-bos-danger">Elige dos formas de pago distintas.</p>}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 )}
 

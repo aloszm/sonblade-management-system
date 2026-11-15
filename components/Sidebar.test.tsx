@@ -6,7 +6,7 @@ describe('Sidebar — Traducción al Español', () => {
     it('muestra todos los labels del menú en español', async () => {
         render(<Sidebar isOpen={true} />);
 
-        expect(await screen.findByText('Panel Dashboard')).toBeInTheDocument();
+        expect(await screen.findByText('Panel')).toBeInTheDocument();
         expect(screen.getByText('Punto de Venta')).toBeInTheDocument();
         expect(screen.getByText('Historial de Ventas')).toBeInTheDocument();
         expect(screen.getByText('Inventario / Stock')).toBeInTheDocument();
@@ -32,7 +32,7 @@ describe('Sidebar — Traducción al Español', () => {
     it('NO contiene texto en inglés (Dashboard, Settings, Manager, etc.)', async () => {
         render(<Sidebar isOpen={true} />);
 
-        await screen.findByText('Panel Dashboard'); // wait for load
+        await screen.findByText('Panel'); // wait for load
         expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
         expect(screen.queryByText('My Dashboard (Barber)')).not.toBeInTheDocument();
         expect(screen.queryByText('Settings')).not.toBeInTheDocument();

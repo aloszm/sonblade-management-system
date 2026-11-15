@@ -48,6 +48,28 @@ test.describe('cobro', () => {
         expect(sale.barber.name).toBe('Deya');
     });
 
+    test('un corte se puede pagar con dos métodos', async ({ page }) => {
+        await login(page, USERS.reception);
+        await ensureOpenCashSession(page.request);
+        const corte = (await (await page.request.get('/api/services')).json()).find((s: { name: string }) => s.name === 'Corte de cabello');
+        const price = Number(corte.price);
+
+        await page.goto('/pos', { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: 'Dani', exact: true }).click();
+        await page.getByRole('button', { name: 'Corte de cabello' }).click();
+        await page.getByRole('button', { name: 'Dividir en dos' }).click();
+        await page.locator('#pos-split-first').fill('50');
+        await page.getByRole('group', { name: 'Forma de pago del resto' }).getByRole('button', { name: 'Tarjeta' }).click();
+        await expect(page.getByTestId('pos-split-rest')).toHaveText(`$${price - 50}`);
+        await page.getByRole('button', { name: `Cobrar $${price}` }).click();
+        await expect(page.getByTestId('pos-success')).toBeVisible({ timeout: 20_000 });
+
+        const sale = (await (await page.request.get('/api/sales')).json())[0];
+        expect(sale.cash_amount).toBe(50);
+        expect(sale.card_amount).toBe(price - 50);
+        expect(sale.payment_method).toBe('mixed');
+    });
+
     test('un descuento exige motivo y la base rechaza a quien no puede autorizarlo', async ({ page }) => {
         await login(page, USERS.reception);
         await ensureOpenCashSession(page.request);

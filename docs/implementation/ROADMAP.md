@@ -25,10 +25,10 @@ Acceso por puesto, cobro con propina y descuento, ticket del cliente, caja con c
 ### Pendiente, en orden de ejecución
 
 1. ~~Perfil de gerente~~ (hecho) y ~~panel del barbero con podio de cortes~~ (hecho).
-2. **Panel del dueño rehecho** (en curso): estilo tipo Apple, elegante y ejecutivo, buen contraste en toda la página.
-3. **Métricas con filtros**: cortes por barbero y de la barbería por día, semana y mes; hora exacta de cada registro; horas y días fuertes; todo filtrable. La base ya guarda la hora exacta de cada cobro, pago, cita y cambio; falta verlo.
-4. **Agenda: la cita se abre en una ventana flotante** que se cierra al hacer clic afuera, en lugar de aparecer abajo y obligar a desplazarse.
-5. **Pago dividido en servicios**: poder cobrar un mismo servicio con dos métodos (por ejemplo, parte en efectivo y parte con tarjeta).
+2. ~~Panel del dueño rehecho~~ (hecho): estilo tipo Apple, elegante y ejecutivo, buen contraste en toda la página.
+3. ~~Métricas con filtros~~ (hecho, en el panel): cortes por barbero y de la barbería por día, semana y mes; hora exacta de cada registro; horas y días fuertes; todo filtrable. La base ya guarda la hora exacta de cada cobro, pago, cita y cambio; falta verlo.
+4. ~~Agenda: la cita se abre en una ventana flotante~~ (hecho) que se cierra al hacer clic afuera, en lugar de aparecer abajo y obligar a desplazarse.
+5. ~~Pago dividido en servicios~~ (hecho): poder cobrar un mismo servicio con dos métodos (por ejemplo, parte en efectivo y parte con tarjeta).
 6. **Diseño nuevo en el resto de pantallas**: agenda, clientes, pago semanal, panel del dueño, reportes, inventario, equipo, configuración, bitácora. Hoy solo cobro y caja lo tienen; las demás conservan fondo claro aunque se elija modo oscuro.
 7. **Agenda propia**: horario de cada barbero (días, horas, descansos), vista general por barbero y vista personal en celular.
 8. **Página de reservas para clientes** (celular primero): por barbero o por hora; nombre y teléfono, sin cuenta; límite de intentos; enlace para cancelar; aviso de privacidad.

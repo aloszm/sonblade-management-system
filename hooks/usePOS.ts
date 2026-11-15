@@ -27,6 +27,8 @@ export function usePOS() {
     const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [servicePayment, setServicePayment] = useState<PaymentType>('cash');
+    // Pago dividido de los servicios: una parte con servicePayment y el resto con otro método.
+    const [serviceSplit, setServiceSplit] = useState<{ second: PaymentType; firstAmount: string } | null>(null);
     const [tipPayment, setTipPayment] = useState<PaymentType>('cash');
     const [productPayment, setProductPayment] = useState<PaymentType>('cash');
     const [tip, setTip] = useState(0);
@@ -215,7 +217,11 @@ export function usePOS() {
         };
 
         // La propina no entra aquí: se registra aparte, a nombre del barbero.
-        if (serviceTotal > 0) addToMethod(servicePayment, serviceTotal);
+        if (serviceTotal > 0 && serviceSplit) {
+            const first = Math.min(Math.max(Number(serviceSplit.firstAmount) || 0, 0), serviceTotal);
+            addToMethod(servicePayment, first);
+            addToMethod(serviceSplit.second, (cents(serviceTotal) - cents(first)) / 100);
+        } else if (serviceTotal > 0) addToMethod(servicePayment, serviceTotal);
         if (productTotal > 0) addToMethod(productPayment, productTotal);
 
         const methods = new Set<PaymentType>();
@@ -262,6 +268,17 @@ export function usePOS() {
             alert('El descuento no puede cubrir toda la venta.');
             return;
         }
+        if (serviceSplit && serviceTotal > 0) {
+            const first = Number(serviceSplit.firstAmount);
+            if (!(first > 0) || cents(first) >= cents(serviceTotal)) {
+                alert(`En el pago dividido, la primera parte debe ser mayor a $0 y menor a $${serviceTotal}.`);
+                return;
+            }
+            if (serviceSplit.second === servicePayment) {
+                alert('Elige dos formas de pago distintas para dividir.');
+                return;
+            }
+        }
 
         setSubmitting(true);
         try {
@@ -302,6 +319,7 @@ export function usePOS() {
             setTip(0);
             setSelectedClient(null);
             setServicePayment('cash');
+            setServiceSplit(null);
             setTipPayment('cash');
             setProductPayment('cash');
             setDiscountReason('');
@@ -329,7 +347,7 @@ export function usePOS() {
 
     return {
         state: {
-            selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
+            selectedBarber, selectedClient, servicePayment, serviceSplit, serviceTotal, tipPayment, productPayment, tip, cart,
             clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal, lastSaleId, lastSale,
             services: services ?? [], products: products ?? [],
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
@@ -339,7 +357,7 @@ export function usePOS() {
         actions: {
             setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setItemQuantity
+            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setItemQuantity, setServiceSplit
         }
     };
 }
