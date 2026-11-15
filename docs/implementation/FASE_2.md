@@ -106,6 +106,29 @@ Esto es lo prioritario de la Fase 2, antes que el resto de la lista.
 5. Lo demás de la lista sigue sin comentarios, en el orden escrito.
 6. El dueño tiene más pendientes nuevos por dictar.
 
+## Avance de la Fase 2 al 15 de noviembre de 2026 (noche)
+
+Subido a `feat/v2-integration`. Verificado con tipos, lint, pruebas unitarias y compilación, y con pruebas SQL revertidas en la base de desarrollo. **Nada de esto se ha probado en navegador con sesión iniciada.**
+
+- **Folio del ticket de venta** `V2611-0042`: columna `sales.folio`, consecutivo por mes, asignado dentro del cobro; un reintento devuelve el mismo folio. Las 70 ventas existentes quedaron numeradas. (Cierra el punto 8.)
+- **Folio del comprobante de pago** `P2646-03`: año y semana ISO del sábado final del periodo. Los recibos `LIQ-…` ya emitidos conservan su número.
+- **Productos reales** cargados con costo y precio; los de demostración quedaron como "(prueba)". Existencias en 0.
+- **Costo guardado en cada venta** (`sale_items.unit_cost_snapshot`); Finanzas y el reporte lo usan. Las ventas anteriores al 15 de noviembre tienen el costo de ese día. (Cierra el punto 9.)
+- **Cierre de caja**: campo opcional "¿A quién se entrega el retiro?" (`cash_sessions.withdrawal_delivered_to`). (Cierra el punto 6.)
+- **Anulación**: no puede devolver más efectivo del que hay en caja. (Cierra el punto 7.)
+- **Funciones `*_legacy`** borradas (seis). (Cierra el punto 11.)
+- **Finanzas** (`/administracion`, antes "Utilidad"): utilidad neta, cascada, a dónde va cada $100, tendencia por día, propinas por barbero y método, resultado por barbero, cobros por método y vista de impresión. (Cierra los puntos 2 y 3 de la sección A, salvo la prueba en navegador.)
+- **Reporte completo** (PDF, Excel y pantalla): cuatro secciones nuevas — resultado del periodo, propinas, lo que deja cada persona y balance de efectivo. Pasa de 10 a 14 secciones.
+- **Acceso**: distingue contraseña incorrecta, demasiados intentos y falla de conexión. (Cierra el punto 22.)
+
+Decisiones tomadas por los agentes, por confirmar con el dueño:
+
+- "Lo que deja cada persona" = lo que vendió − sus comisiones − el costo de los productos que vendió, antes de gastos generales.
+- En el balance de efectivo, los pagos al equipo cuentan en el periodo en que se pagaron. Retiros y apartados van aparte porque no son gasto.
+- El resultado usa la fecha del gasto; la sección "Gastos" del reporte usa la fecha de registro.
+
+Siguiente, en este orden: probar todo lo anterior en navegador (dueño, gerente, recepción, barbero); captura de categoría en gastos (punto 10); confirmación del descuento con PIN (puntos 12 y 18); y la sección C.
+
 ## Decisiones abiertas del dueño
 
 - Datos para el aviso de privacidad (punto 27).

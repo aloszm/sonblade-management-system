@@ -15,9 +15,10 @@
 //   al barbero en su recibo semanal, así que NO son ingreso del negocio y tampoco se restan: entran y salen
 //   por el mismo importe. Se muestran aparte solo como dato. Restarlas aquí las descontaría dos veces,
 //   porque nunca se sumaron a los ingresos.
-// - Costo de producto: cantidad × products.cost_price. La venta no guarda una foto del costo
-//   (el movimiento de inventario 'sale' se inserta sin unit_cost_snapshot), así que se usa el costo actual
-//   del producto. Si falta (null), no se asume cero: se cuenta en productsWithoutCost.
+// - Costo de producto: cantidad × sale_items.unit_cost_snapshot, el costo guardado al momento de vender
+//   (20261115200027_sale_item_unit_cost_snapshot.sql), para que cambiar un costo no altere periodos pasados.
+//   Si el renglón no lo trae, se usa el costo actual del producto como respaldo. Si tampoco hay (null),
+//   no se asume cero: se cuenta en productsWithoutCost.
 // - Gastos: expenses con status 'posted' por fecha incurred_at, agrupados por categoría.
 // - Dinero en centavos enteros; se convierte a pesos solo al entregar el resultado.
 //
@@ -41,6 +42,7 @@ export type SaleItemRow = {
     quantity: number | string;
     discount_amount: number | string;
     line_total: number | string;
+    unit_cost_snapshot?: number | string | null;
     employee_id?: string | null;
     commission_employee_id?: string | null;
 };
@@ -214,7 +216,7 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
         if (i.item_type !== 'product') continue;
         const qty = Number(i.quantity);
         const product = i.product_id ? products.get(i.product_id) : undefined;
-        const cost = product?.cost_price;
+        const cost = i.unit_cost_snapshot ?? product?.cost_price;
         if (cost === null || cost === undefined || cost === '') {
             unitsWithoutCost += qty;
             const key = i.product_id ?? `sin-producto:${i.item_name_snapshot}`;

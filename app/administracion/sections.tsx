@@ -455,7 +455,7 @@ export function Notices({ data }: { data: ProfitReport }) {
                 </div>
             )}
             <p className="text-[13px] text-bos-muted">
-                El costo de los productos usa el costo registrado hoy en Inventario, no el de la fecha de la venta; si cambió el costo, las cifras de periodos pasados pueden variar.
+                El costo de los productos es el que tenía cada producto al momento de venderse. Las ventas anteriores al 15 de noviembre de 2026 usan el costo de ese día.
                 {data.counts.voidedExcluded > 0 && ` Hay ${data.counts.voidedExcluded} venta${data.counts.voidedExcluded === 1 ? '' : 's'} anulada${data.counts.voidedExcluded === 1 ? '' : 's'} que no se cuenta${data.counts.voidedExcluded === 1 ? '' : 'n'}.`}
             </p>
         </section>

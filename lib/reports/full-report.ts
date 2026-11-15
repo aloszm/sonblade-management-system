@@ -485,7 +485,7 @@ function addFinancialSections(report: FullReport, fin: Financial, add: AddSectio
         },
         {
             kind: 'text', tone: 'note',
-            text: `Ingresos: lo cobrado ya con descuentos, sin ventas anuladas${c.counts.voided_excluded ? ` (${c.counts.voided_excluded} ${c.counts.voided_excluded === 1 ? 'excluida' : 'excluidas'})` : ''}. Costo de producto: el costo que hoy tiene cada producto en el catálogo. Gastos: por la fecha del gasto. Las propinas van aparte porque son de los barberos. Lo que se resta va en negativo; en "Cambio", un + en esos renglones quiere decir que ese costo creció.`,
+            text: `Ingresos: lo cobrado ya con descuentos, sin ventas anuladas${c.counts.voided_excluded ? ` (${c.counts.voided_excluded} ${c.counts.voided_excluded === 1 ? 'excluida' : 'excluidas'})` : ''}. Costo de producto: ${c.product_cost.source === 'sale' ? 'el costo que tenía cada producto al momento de venderse' : 'el costo que hoy tiene cada producto en el catálogo'}. Gastos: por la fecha del gasto. Las propinas van aparte porque son de los barberos. Lo que se resta va en negativo; en "Cambio", un + en esos renglones quiere decir que ese costo creció.`,
         },
     );
     add('resultado', 'Resultado del periodo', 'Resultado',

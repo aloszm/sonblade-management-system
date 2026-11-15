@@ -57,7 +57,7 @@ async function loadStatement(
 
     const [items, commissions, tips, payments, expenses] = await Promise.all([
         fetchBySaleIds<SaleItemRow>(paidIds, (chunk) => supabase.from('sale_items')
-            .select('id, sale_id, item_type, product_id, item_name_snapshot, quantity, discount_amount, line_total, employee_id, commission_employee_id')
+            .select('id, sale_id, item_type, product_id, item_name_snapshot, quantity, discount_amount, line_total, unit_cost_snapshot, employee_id, commission_employee_id')
             .eq('business_id', businessId).eq('branch_id', branchId).in('sale_id', chunk).order('id')),
         fetchBySaleIds<CommissionRow>(paidIds, (chunk) => supabase.from('commission_entries')
             .select('sale_id, sale_item_id, commission_amount, status, employee_id')

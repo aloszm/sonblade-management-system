@@ -307,3 +307,27 @@ describe('comparación con el periodo anterior', () => {
         expect(c.expenses).toMatchObject({ delta: 30, pct: 150 });
     });
 });
+
+describe('costo guardado en la venta', () => {
+    it('usa unit_cost_snapshot aunque el costo actual del producto haya cambiado', () => {
+        const r = computeProfit({
+            sales: [{ id: 's1', status: 'paid', paid_at: '2026-11-10T18:00:00Z' }],
+            items: [{ id: 'i1', sale_id: 's1', item_type: 'product', product_id: 'p1', item_name_snapshot: 'Polvo de textura', quantity: 2, discount_amount: 0, line_total: 450, unit_cost_snapshot: 115 }],
+            commissions: [], tips: [], expenses: [],
+            products: [{ id: 'p1', name: 'Polvo de textura', cost_price: 999 }],
+        });
+        expect(r.productCost.total).toBe(230);
+        expect(r.profit).toBe(220);
+    });
+
+    it('recurre al costo actual si el renglón no trae costo guardado', () => {
+        const r = computeProfit({
+            sales: [{ id: 's1', status: 'paid', paid_at: '2026-11-10T18:00:00Z' }],
+            items: [{ id: 'i1', sale_id: 's1', item_type: 'product', product_id: 'p1', item_name_snapshot: 'Peine de textura', quantity: 1, discount_amount: 0, line_total: 80, unit_cost_snapshot: null }],
+            commissions: [], tips: [], expenses: [],
+            products: [{ id: 'p1', name: 'Peine de textura', cost_price: 27 }],
+        });
+        expect(r.productCost.total).toBe(27);
+        expect(r.productsWithoutCost).toBe(0);
+    });
+});
