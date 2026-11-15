@@ -939,6 +939,7 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          is_barber: boolean
           phone: string | null
           updated_at: string
           user_id: string | null
@@ -950,6 +951,7 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          is_barber?: boolean
           phone?: string | null
           updated_at?: string
           user_id?: string | null
@@ -961,6 +963,7 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          is_barber?: boolean
           phone?: string | null
           updated_at?: string
           user_id?: string | null

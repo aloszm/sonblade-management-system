@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 /** Datos del recibo de pago. Dueño/administrador y el propio barbero; lo valida la base. */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        await requireAuthContext(['owner', 'admin', 'barber']);
+        await requireAuthContext();
         const id = z.string().uuid().safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Recibo no encontrado.', 404);
         const supabase = await createSupabaseServerClient();

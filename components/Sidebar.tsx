@@ -43,7 +43,7 @@ interface MenuSection {
 
 // Items allowed per role (by href prefix)
 const BARBER_ALLOWED = ['/barbero', '/clientes', '/liquidaciones'];
-const RECEPCION_ALLOWED = ['/pos', '/clientes', '/caja', '/citas'];
+const RECEPCION_ALLOWED = ['/pos', '/clientes', '/caja', '/citas', '/liquidaciones'];
 
 const menuSections: MenuSection[] = [
   {
@@ -67,7 +67,7 @@ const menuSections: MenuSection[] = [
     title: 'MI ESPACIO',
     items: [
       { href: '/barbero', label: 'Mi Panel Personal', icon: UserCircle },
-      { href: '/liquidaciones', label: 'Pago de Barberos', icon: Wallet },
+      { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet },
     ]
   },
   {

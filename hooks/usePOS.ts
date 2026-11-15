@@ -39,6 +39,9 @@ export function usePOS() {
     const [discountReason, setDiscountReason] = useState('');
     const [discountAuthorizer, setDiscountAuthorizer] = useState('');
     const [authorizers, setAuthorizers] = useState<DiscountAuthorizer[]>([]);
+    // Quién vendió los productos: gana su comisión. Puede ser un barbero o alguien de recepción.
+    const [sellers, setSellers] = useState<{ id: string; name: string }[]>([]);
+    const [productSellerChoice, setProductSellerChoice] = useState('');
 
     // Fetch data from API routes
     const [barbers, setBarbers] = useState<Barber[] | null>(null);
@@ -63,6 +66,10 @@ export function usePOS() {
 
         fetch('/api/clients').then(r => r.json()).then(data => {
             if (Array.isArray(data)) setClients(data);
+        }).catch(console.error);
+
+        fetch('/api/barbers?scope=team').then(r => r.json()).then(data => {
+            if (Array.isArray(data)) setSellers(data.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
         }).catch(console.error);
 
         // Quién puede autorizar descuentos; por omisión, quien está cobrando.
@@ -102,6 +109,12 @@ export function usePOS() {
             setSelectedBarber(visibleBarbers[0]);
         }
     }, [visibleBarbers, userRole, selectedBarber]);
+
+    // Vendedor del producto: lo que elija quien cobra; si no elige, el barbero de la venta y,
+    // si no hay barbero, la propia persona de recepción que está cobrando.
+    const productSeller = productSellerChoice
+        || selectedBarber?.id
+        || (userId && sellers.some(s => s.id === userId) ? userId : '');
 
     const filteredBarbers = useMemo(() => {
         if (!barberSearch) return visibleBarbers;
@@ -217,8 +230,18 @@ export function usePOS() {
     const idempotencyKey = useRef<string | null>(null);
 
     const handleSubmit = async () => {
-        if (!selectedBarber || cart.length === 0) {
-            alert('Selecciona un barbero y al menos un servicio o producto');
+        if (cart.length === 0) {
+            alert('Agrega al menos un servicio o producto.');
+            return;
+        }
+        const hasServices = cart.some(i => i.type === 'service');
+        const hasProducts = cart.some(i => i.type === 'product');
+        if ((hasServices || tip > 0) && !selectedBarber) {
+            alert('Selecciona al barbero que hizo el servicio.');
+            return;
+        }
+        if (hasProducts && !productSeller) {
+            alert('Indica quién vendió el producto.');
             return;
         }
         if (submitting) return;
@@ -254,11 +277,11 @@ export function usePOS() {
                     idempotency_key: idempotencyKey.current,
                     client_id: selectedClient?.id || null,
                     items: cart.map(item => item.type === 'service'
-                        ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber.id, discount_amount: lineDiscount(item) }
-                        : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [selectedBarber.id], discount_amount: lineDiscount(item) }),
+                        ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber?.id, discount_amount: lineDiscount(item) }
+                        : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [productSeller], discount_amount: lineDiscount(item) }),
                     payments,
                     ...(discountTotal > 0 ? { discount_reason: discountReason.trim(), discount_authorized_by: discountAuthorizer } : {}),
-                    tips: tip > 0 ? [{ employee_id: selectedBarber.id, amount: tip, method: tipPayment }] : [],
+                    tips: tip > 0 && selectedBarber ? [{ employee_id: selectedBarber.id, amount: tip, method: tipPayment }] : [],
                 }),
             });
 
@@ -275,6 +298,7 @@ export function usePOS() {
             setTipPayment('cash');
             setProductPayment('cash');
             setDiscountReason('');
+            setProductSellerChoice('');
             setLastSaleTotal(total);
             setShowSuccess(true);
             setTimeout(() => setShowSuccess(false), 3000);
@@ -292,12 +316,12 @@ export function usePOS() {
             clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal,
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
-            discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers
+            discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller
         },
         actions: {
             setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer
+            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice
         }
     };
 }

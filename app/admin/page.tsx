@@ -78,7 +78,7 @@ export default function AdminPage() {
                     </button>
                 ))}
                 <Link href="/liquidaciones" className="px-4 py-2 text-sm font-semibold rounded-md text-gray-500 hover:text-gray-900 transition-all">
-                    Pago de Barberos →
+                    Pago semanal →
                 </Link>
             </div>
 
@@ -225,7 +225,7 @@ export default function AdminPage() {
                 </div>
             )}
 
-            {/* TAB: Pago de Barberos */}
+            {/* TAB: Pago semanal */}
             {/* TAB: Ganancias */}
             {tab === 'ganancias' && !loading && (
                 <div className="space-y-6">

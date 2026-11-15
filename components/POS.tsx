@@ -12,7 +12,7 @@ export default function POS() {
     const { state, actions } = usePOS();
     const {
         selectedBarber, selectedClient, servicePayment, productPayment, cart, tip, tipPayment,
-        discountTotal, discountReason, discountAuthorizer, authorizers,
+        discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller,
         clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal,
         loadingBarbers, loadingServices, filteredBarbers,
         filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total
@@ -20,7 +20,7 @@ export default function POS() {
     const {
         setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment,
         setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-        setCart, setTip, setTipPayment, setItemDiscount, setDiscountReason, setDiscountAuthorizer
+        setCart, setTip, setTipPayment, setItemDiscount, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice
     } = actions;
 
     // Descuento en pesos sobre un renglón. El servidor valida quién puede autorizarlo.
@@ -388,6 +388,14 @@ export default function POS() {
                                                 {discountField(item)}
                                             </div>
                                         ))}
+                                        <label htmlFor="pos-product-seller" className="mt-2 block text-[10px] text-gray-500 font-bold uppercase">Vendió el producto (gana la comisión)</label>
+                                        <select
+                                            id="pos-product-seller" value={productSeller} onChange={(e) => setProductSellerChoice(e.target.value)}
+                                            className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white outline-none focus:border-sonblade-gold"
+                                        >
+                                            <option value="">¿Quién lo vendió?</option>
+                                            {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
                                         <div className="mt-2 text-[10px] text-gray-500 font-bold uppercase">Forma de Pago (Prod)</div>
                                         <div className="flex gap-2">
                                             <button onClick={() => setProductPayment('cash')} className={getPaymentButtonStyle(productPayment, 'cash')}><Banknote className="h-3 w-3" /> Efec</button>
@@ -419,7 +427,7 @@ export default function POS() {
                                 )}
 
                                 {/* Propina: es del barbero y se le paga en su recibo semanal */}
-                                <div className="space-y-2 pt-4 border-t border-white/5">
+                                {selectedBarber && <div className="space-y-2 pt-4 border-t border-white/5">
                                     <label htmlFor="pos-tip" className="text-xs font-bold text-gray-500 uppercase tracking-widest block">
                                         Propina{selectedBarber ? ` para ${selectedBarber.name}` : ''}
                                     </label>
@@ -435,7 +443,7 @@ export default function POS() {
                                             <button onClick={() => setTipPayment('transfer')} className={getPaymentButtonStyle(tipPayment, 'transfer')}><ArrowRight className="h-3 w-3" /> Transf</button>
                                         </div>
                                     )}
-                                </div>
+                                </div>}
                             </>
                         )}
                     </div>
@@ -453,9 +461,9 @@ export default function POS() {
 
                         <button
                             onClick={handleSubmit}
-                            disabled={!selectedBarber || cart.length === 0 || submitting}
+                            disabled={cart.length === 0 || submitting}
                             className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition-all uppercase
-                                ${!selectedBarber || cart.length === 0
+                                ${cart.length === 0
                                     ? 'bg-[#1a1a1a] text-gray-600 border border-white/5 cursor-not-allowed'
                                     : 'bg-sonblade-gold hover:bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.2)]'
                                 }`}

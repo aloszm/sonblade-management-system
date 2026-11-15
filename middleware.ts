@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
         const matches = (paths: string[]) => paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
         const notForRole = (!isAdmin && pathname === '/')
             || (role === 'barber' && matches(['/caja', '/pos']))
-            || ((role === 'receptionist' || role === 'cashier') && matches(['/liquidaciones', '/barbero', '/barberos']));
+            || ((role === 'receptionist' || role === 'cashier') && matches(['/barbero', '/barberos']));
         if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : '/pos', request.url));
     }
 

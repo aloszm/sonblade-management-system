@@ -11,7 +11,7 @@ type SettlementRow = {
 /** Recibos de pago: dueño y administrador ven todos; cada barbero solo los suyos (lo aplica la base con RLS). */
 export async function GET() {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'barber']);
+        const context = await requireAuthContext();
         const supabase = await createSupabaseServerClient();
         const { data, error } = await supabase.from('commission_settlements')
             .select('id, employee_id, receipt_number, period_start, period_end, total_amount, paid_at, status')

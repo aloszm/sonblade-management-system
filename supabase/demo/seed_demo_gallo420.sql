@@ -81,6 +81,8 @@ BEGIN
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_deya, 'Deya') RETURNING id INTO e_deya;
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_sonia, 'Sonia') RETURNING id INTO e_sonia;
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_dani, 'Dani') RETURNING id INTO e_dani;
+  -- Recepción: vende productos y gana su comisión, pero no realiza servicios.
+  INSERT INTO public.employees (business_id, user_id, display_name, is_barber) VALUES (v_biz, u_dago, 'Dago', false), (v_biz, u_emi, 'Emi', false);
 
   -- 3) Catalogo e inventario, creados como dueño (queda registrado quien lo hizo)
   PERFORM set_config('request.jwt.claims', json_build_object('role','authenticated','sub',u_owner)::text, true);

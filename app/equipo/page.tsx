@@ -16,12 +16,12 @@ export default function TeamPage() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
-    const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false });
+    const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true });
 
     const fetchBarbers = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/barbers?include_inactive=1');
+            const res = await fetch('/api/barbers?include_inactive=1&scope=team');
             if (res.ok) setBarbers(await res.json());
         } catch (error) { console.error('Failed to fetch barbers', error); }
         finally { setLoading(false); }
@@ -49,7 +49,7 @@ export default function TeamPage() {
         try {
             const method = editingBarber ? 'PATCH' : 'POST';
             const url = editingBarber ? `/api/barbers/${editingBarber.id}` : '/api/barbers';
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status, can_authorize_discounts: formData.canAuthorizeDiscounts } : {}) }) });
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status, can_authorize_discounts: formData.canAuthorizeDiscounts } : { is_barber: formData.isBarber }) }) });
             if (res.ok) { setIsModalOpen(false); fetchBarbers(); fetchLiveStats(); }
             else {
                 const body = await res.json().catch(() => null);
@@ -69,10 +69,10 @@ export default function TeamPage() {
     const openModal = (barber?: Barber) => {
         if (barber) {
             setEditingBarber(barber);
-            setFormData({ name: barber.name, phone: (barber as { phone?: string | null }).phone ?? '', status: barber.status === 'active' ? 'active' : 'inactive', canAuthorizeDiscounts: Boolean((barber as { canAuthorizeDiscounts?: boolean }).canAuthorizeDiscounts) });
+            setFormData({ name: barber.name, phone: (barber as { phone?: string | null }).phone ?? '', status: barber.status === 'active' ? 'active' : 'inactive', canAuthorizeDiscounts: Boolean((barber as { canAuthorizeDiscounts?: boolean }).canAuthorizeDiscounts), isBarber: (barber as { isBarber?: boolean }).isBarber !== false });
         } else {
             setEditingBarber(null);
-            setFormData({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false });
+            setFormData({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true });
         }
         setIsModalOpen(true);
     };
@@ -90,7 +90,7 @@ export default function TeamPage() {
                 <div className="flex gap-2">
                     <button onClick={() => { fetchBarbers(); fetchLiveStats(); }} className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"><RefreshCw className="h-4 w-4 text-gray-500" /></button>
                     <button onClick={() => openModal()} className="bg-black text-sonblade-gold px-4 py-2 rounded-lg flex items-center shadow-md font-semibold text-sm">
-                        <Plus className="w-4 h-4 mr-2" />Nuevo Barbero
+                        <Plus className="w-4 h-4 mr-2" />Agregar persona
                     </button>
                 </div>
             </div>
@@ -111,6 +111,9 @@ export default function TeamPage() {
                                         <h3 className="font-bold text-gray-900 text-lg leading-tight">{barber.name}</h3>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium uppercase ${barber.status === 'active' ? 'bg-green-100 text-green-700' : barber.status === 'busy' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
                                             {barber.status === 'active' ? 'Activo' : 'Inactivo'}
+                                        </span>
+                                        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                            {(barber as { isBarber?: boolean }).isBarber === false ? 'Recepción' : 'Barbero'}
                                         </span>
                                     </div>
                                 </Link>
@@ -148,7 +151,7 @@ export default function TeamPage() {
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                            <h2 className="text-xl font-bold text-gray-900">{editingBarber ? 'Editar Barbero' : 'Nuevo Barbero'}</h2>
+                            <h2 className="text-xl font-bold text-gray-900">{editingBarber ? 'Editar persona' : 'Agregar persona'}</h2>
                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
@@ -162,6 +165,16 @@ export default function TeamPage() {
                                 <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} maxLength={32}
                                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none" />
                             </div>
+                            {!editingBarber && (
+                                <div>
+                                    <label htmlFor="team-kind" className="block text-sm font-medium text-gray-700 mb-1">Puesto</label>
+                                    <select id="team-kind" value={formData.isBarber ? 'barber' : 'desk'} onChange={e => setFormData({ ...formData, isBarber: e.target.value === 'barber' })}
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-sonblade-gold focus:border-sonblade-gold outline-none">
+                                        <option value="barber">Barbero (hace servicios y vende productos)</option>
+                                        <option value="desk">Recepción (solo vende productos)</option>
+                                    </select>
+                                </div>
+                            )}
                             {editingBarber && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
@@ -186,7 +199,7 @@ export default function TeamPage() {
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
                                 <button type="submit" className="px-5 py-2.5 bg-black text-sonblade-gold rounded-lg hover:bg-gray-800 shadow-md font-semibold">
-                                    {editingBarber ? 'Guardar Cambios' : 'Crear Barbero'}
+                                    {editingBarber ? 'Guardar Cambios' : 'Agregar'}
                                 </button>
                             </div>
                         </form>

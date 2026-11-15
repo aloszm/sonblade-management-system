@@ -110,17 +110,13 @@ export default function LiquidacionesPage() {
         );
     };
 
-    if (role === 'recepcion') {
-        return <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl border border-gray-100 text-gray-600">Esta sección es solo para dueño, administrador y barberos.</div>;
-    }
-
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <Wallet className="text-sonblade-gold h-6 w-6" /> {role === 'barber' ? 'Mis recibos de pago' : 'Pago de barberos'}
+                    <Wallet className="text-sonblade-gold h-6 w-6" /> {role === 'admin' ? 'Pago semanal' : 'Mis recibos de pago'}
                 </h1>
-                {role !== 'barber' && <p className="text-gray-500 text-sm mt-1">Cada semana va de domingo a sábado y cierra el sábado a las 8:00 pm.</p>}
+                {role === 'admin' && <p className="text-gray-500 text-sm mt-1">Cada semana va de domingo a sábado y cierra el sábado a las 8:00 pm.</p>}
             </div>
 
             {role === 'admin' && (
@@ -146,7 +142,7 @@ export default function LiquidacionesPage() {
                             <table className="w-full text-left text-sm">
                                 <thead className="text-gray-500 border-b">
                                     <tr>
-                                        <th className="p-4 text-xs uppercase">Barbero</th>
+                                        <th className="p-4 text-xs uppercase">Persona</th>
                                         <th className="p-4 text-xs uppercase text-center">Servicios</th>
                                         <th className="p-4 text-xs uppercase text-right">Comisión</th>
                                         <th className="p-4 text-xs uppercase text-right">Ajustes</th>
@@ -176,12 +172,12 @@ export default function LiquidacionesPage() {
             )}
 
             <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-5 bg-gray-50 border-b border-gray-100"><h2 className="font-bold text-gray-900">{role === 'barber' ? 'Recibos' : 'Recibos emitidos'}</h2></div>
+                <div className="p-5 bg-gray-50 border-b border-gray-100"><h2 className="font-bold text-gray-900">{role === 'admin' ? 'Recibos emitidos' : 'Recibos'}</h2></div>
                 <table className="w-full text-left text-sm">
                     <thead className="text-gray-500 border-b">
                         <tr>
                             <th className="p-4 text-xs uppercase">Folio</th>
-                            {role !== 'barber' && <th className="p-4 text-xs uppercase">Barbero</th>}
+                            {role === 'admin' && <th className="p-4 text-xs uppercase">Persona</th>}
                             <th className="p-4 text-xs uppercase">Semana</th>
                             <th className="p-4 text-xs uppercase text-right">Total</th>
                             <th className="p-4 text-xs uppercase text-right">Pagado</th>
@@ -193,7 +189,7 @@ export default function LiquidacionesPage() {
                         {history.map((h) => (
                             <tr key={h.id} className="hover:bg-gray-50">
                                 <td className="p-4 font-mono font-bold">{h.receipt_number}</td>
-                                {role !== 'barber' && <td className="p-4">{h.employee_name}</td>}
+                                {role === 'admin' && <td className="p-4">{h.employee_name}</td>}
                                 <td className="p-4 text-gray-500">{weekLabel(h.period_start)}</td>
                                 <td className="p-4 text-right font-bold">{money(h.total_amount)}</td>
                                 <td className="p-4 text-right text-gray-500">{h.paid_at ? new Date(h.paid_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
