@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import type { ComponentProps, ReactNode } from 'react';
 import { vi } from 'vitest';
 
 // Mock next/navigation
@@ -13,7 +14,7 @@ vi.mock('next/navigation', () => ({
 
 // Mock next/link
 vi.mock('next/link', () => ({
-    default: ({ children, href, ...props }: any) => {
+    default: ({ children, href, ...props }: ComponentProps<'a'>) => {
         return <a href={href} {...props}>{children}</a>;
     },
 }));
@@ -38,26 +39,26 @@ vi.mock('@/hooks/useSupabase', () => ({
 
 // Mock recharts to avoid canvas errors in tests
 vi.mock('recharts', () => ({
-    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    BarChart: ({ children }: { children?: ReactNode }) => <div data-testid="bar-chart">{children}</div>,
     Bar: () => <div />,
-    LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
-    ComposedChart: ({ children }: any) => <div data-testid="composed-chart">{children}</div>,
+    LineChart: ({ children }: { children?: ReactNode }) => <div data-testid="line-chart">{children}</div>,
+    ComposedChart: ({ children }: { children?: ReactNode }) => <div data-testid="composed-chart">{children}</div>,
     Line: () => <div />,
-    AreaChart: ({ children }: { children?: React.ReactNode }) => <div data-testid="area-chart">{children}</div>,
+    AreaChart: ({ children }: { children?: ReactNode }) => <div data-testid="area-chart">{children}</div>,
     Area: () => <div />,
-    PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-    Pie: ({ children }: any) => <div>{children}</div>,
+    PieChart: ({ children }: { children?: ReactNode }) => <div data-testid="pie-chart">{children}</div>,
+    Pie: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     Cell: () => <div />,
     XAxis: () => <div />,
     YAxis: () => <div />,
     Tooltip: () => <div />,
     Legend: () => <div />,
-    ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
+    ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     CartesianGrid: () => <div />,
 }));
 
 // Mock global fetch for relative API calls
-global.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+global.fetch = vi.fn((input: RequestInfo | URL) => {
     const url = input.toString();
     if (url.includes('/api/auth/me')) {
         return Promise.resolve({
