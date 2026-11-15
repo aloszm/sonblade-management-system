@@ -4,6 +4,9 @@ import { defineConfig } from '@playwright/test';
 // no permite borrar: se ejecutan SOLO contra una base de desarrollo con las cuentas de demostración.
 export default defineConfig({
     testDir: './e2e',
+    // Deja la caja como estaba antes de la suite (ver e2e/cash-guard.ts).
+    globalSetup: './e2e/global-setup.ts',
+    globalTeardown: './e2e/global-teardown.ts',
     timeout: 90_000,
     workers: 1, // todas comparten la misma caja abierta
     fullyParallel: false,

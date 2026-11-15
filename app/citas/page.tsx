@@ -9,6 +9,7 @@ import {
     ACTION_LABELS, STATUS_LABELS, canCharge, isActive, layoutLanes, localDateKey, localDateTimeToIso, monthRange, nextStatuses,
 } from '@/lib/appointments/appointments-view';
 import { REQUESTED_VIA, VIA_LABELS, overlapMinutes, type RequestedVia, type TimeOffView } from '@/lib/appointments/time-off';
+import { formatHour, minutesToHHMM, workingWindow, type ScheduleData } from '@/lib/appointments/hours';
 
 const STATUS_STYLE: Record<AppointmentStatus, string> = {
     scheduled: 'bg-bos-raised text-bos-text',
@@ -25,9 +26,10 @@ const actionsFor = (status: AppointmentStatus) => nextStatuses(status).filter((s
 // Un color discreto por barbero para distinguirlos en el calendario.
 const BARBER_COLORS = ['#D4AF37', '#6E9CF0', '#4FB7A0', '#D9869B', '#9C8CE8', '#E08A4F'];
 const HOUR_PX = 64; // alto de una hora en la vista por día
-// Horario que muestra la vista por día. Una cita fuera de él no se pierde: se avisa arriba de la cuadrícula.
-const START_HOUR = 8;
-const END_HOUR = 22;
+// Si el negocio no tiene horario configurado, la vista por día muestra de 8 a.m. a 10 p.m.
+// Con horario, se muestra de una hora antes de abrir a una hora después de cerrar.
+const DEFAULT_START_HOUR = 8;
+const DEFAULT_END_HOUR = 22;
 // Rayado para los horarios bloqueados por una ausencia.
 const HATCH = 'repeating-linear-gradient(135deg, transparent 0 7px, var(--bos-border) 7px 9px)';
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -76,6 +78,7 @@ export default function AppointmentsPage() {
     const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
     const [cancelReason, setCancelReason] = useState('');
     const [timeOff, setTimeOff] = useState<TimeOffView[]>([]);
+    const [schedule, setSchedule] = useState<ScheduleData | null>(null);
     const [showOff, setShowOff] = useState(false);
     const [offForm, setOffForm] = useState(EMPTY_OFF);
     const [offError, setOffError] = useState('');
@@ -111,6 +114,7 @@ export default function AppointmentsPage() {
 
     useEffect(() => {
         fetch('/api/barbers').then(r => r.json()).then(d => { if (Array.isArray(d)) setBarbers(d); }).catch(() => {});
+        fetch('/api/schedule', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(d => { if (d) setSchedule(d); }).catch(() => {});
         fetch('/api/clients').then(r => r.json()).then(d => { if (Array.isArray(d)) setClients(d); }).catch(() => {});
         fetch('/api/auth/me', { cache: 'no-store' }).then(r => r.json())
             .then(me => {
@@ -283,8 +287,22 @@ export default function AppointmentsPage() {
         ...(!barberFilter && dayAppointments.some((a) => !a.barber) ? [{ id: null, name: 'Sin asignar' }] : []),
     ];
     const minutesOf = (iso: string) => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); };
-    const startHour = START_HOUR;
-    const endHour = END_HOUR;
+    // Horario del día: el del negocio (o el más amplio de los barberos si no hay del negocio).
+    const businessWindow = schedule ? workingWindow(schedule, dayKey) : undefined;
+    const startHour = businessWindow ? Math.max(0, Math.floor(businessWindow.open / 60) - 1) : DEFAULT_START_HOUR;
+    const endHour = businessWindow ? Math.min(24, Math.ceil(businessWindow.close / 60) + 1) : DEFAULT_END_HOUR;
+    const closedDay = businessWindow === null;
+    // Tramos cerrados de una columna (antes de abrir, después de cerrar, o el día completo si descansa).
+    const closedSpans = (barberId: string | null): { from: number; to: number; label: string }[] => {
+        if (!schedule) return [];
+        const w = workingWindow(schedule, dayKey, barberId);
+        if (w === undefined) return [];
+        if (w === null) return [{ from: startHour * 60, to: endHour * 60, label: closedDay ? 'El negocio cierra' : 'Descansa' }];
+        return [
+            ...(w.open > startHour * 60 ? [{ from: startHour * 60, to: w.open, label: '' }] : []),
+            ...(w.close < endHour * 60 ? [{ from: w.close, to: endHour * 60, label: '' }] : []),
+        ];
+    };
     const hoursRange = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
     const endOf = (a: Appointment) => (a.end_at ? minutesOf(a.end_at) : minutesOf(a.scheduled_at) + 30);
     // Fuera del horario visible: no se dibujan en la cuadrícula, pero se avisan para no perderlas.
@@ -308,6 +326,11 @@ export default function AppointmentsPage() {
                     <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="calendar-label">
                         {view === 'day' ? dayTitle(dayKey) : `${MONTHS[month]} ${year}`}
                     </p>
+                    {view === 'day' && schedule && businessWindow !== undefined && (
+                        <p className="text-sm text-bos-muted" data-testid="day-hours">
+                            {businessWindow === null ? 'El negocio cierra este día' : `Abierto de ${formatHour(minutesToHHMM(businessWindow.open))} a ${formatHour(minutesToHHMM(businessWindow.close))}`}
+                        </p>
+                    )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <div role="group" aria-label="Vista" className="flex p-1 rounded-lg bg-bos-raised">
@@ -350,7 +373,7 @@ export default function AppointmentsPage() {
             {view === 'day' && !loading && outOfHours.length > 0 && (
                 <button type="button" data-testid="out-of-hours" onClick={() => { setActionError(''); setOnlyApt(null); setOpenDay(dayKey); }}
                     className="w-full rounded-xl border border-bos-border bg-bos-surface p-3 text-left text-sm hover:bg-bos-raised">
-                    <span className="font-semibold">{outOfHours.length} cita{outOfHours.length === 1 ? '' : 's'} fuera del horario de 8 a.m. a 10 p.m.</span>{' '}
+                    <span className="font-semibold">{outOfHours.length} cita{outOfHours.length === 1 ? '' : 's'} fuera del horario visible</span>{' '}
                     <span className="text-bos-muted">({outOfHours.map((a) => `${timeOf(a.scheduled_at)} ${a.client_name}`).join(', ')}) · Ver</span>
                 </button>
             )}
@@ -389,9 +412,20 @@ export default function AppointmentsPage() {
                                         {hoursRange.map((h) => (
                                             <button key={h} type="button" disabled={!canManage}
                                                 aria-label={canManage ? `Agendar con ${c.name} a las ${h}:00` : undefined}
-                                                onClick={() => openForm(dayKey, `${String(h).padStart(2, '0')}:00`, c.id ?? '')}
+                                                onClick={() => {
+                                                    // Si abre a media hora (12:30), la cita empieza a la hora de apertura.
+                                                    const w = schedule ? workingWindow(schedule, dayKey, c.id) : undefined;
+                                                    openForm(dayKey, minutesToHHMM(w ? Math.max(h * 60, w.open) : h * 60), c.id ?? '');
+                                                }}
                                                 style={{ top: (h - startHour) * HOUR_PX, height: HOUR_PX }}
                                                 className="absolute inset-x-0 border-t border-bos-border/60 enabled:hover:bg-bos-raised/60 disabled:cursor-default" />
+                                        ))}
+                                        {closedSpans(c.id).map((span) => (
+                                            <div key={`closed-${span.from}`} data-testid="closed-block" title={span.label || 'Fuera de horario'}
+                                                style={{ top: ((span.from - startHour * 60) / 60) * HOUR_PX, height: ((span.to - span.from) / 60) * HOUR_PX, backgroundImage: HATCH }}
+                                                className="absolute inset-x-0 z-[14] bg-bos-bg/60 px-2 py-1">
+                                                {span.label && <span className="inline-block rounded bg-bos-surface px-1.5 py-0.5 text-xs font-semibold text-bos-muted">{span.label}</span>}
+                                            </div>
                                         ))}
                                         {c.id && liveOff.filter((t) => t.barber_id === c.id).map((t) => {
                                             const span = overlapMinutes(new Date(t.starts_at), new Date(t.ends_at), dayStart, dayEnd);

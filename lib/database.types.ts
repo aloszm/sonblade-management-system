@@ -931,6 +931,12 @@ export type Database = {
           },
         ]
       }
+      employee_weekly_schedule: {
+        Row: { business_id: string; employee_id: string; ends: string | null; is_off: boolean; starts: string | null; updated_at: string; updated_by: string; weekday: number }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       employee_time_off: {
         Row: {
           branch_id: string
@@ -1667,6 +1673,10 @@ export type Database = {
       }
       agenda_reconciliation: {
         Args: { p_branch_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      set_employee_schedule: {
+        Args: { p_days: Json; p_employee_id: string }
         Returns: Json
       }
       create_time_off: {
