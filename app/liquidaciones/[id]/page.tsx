@@ -15,6 +15,8 @@ type Receipt = {
     period_start: string; period_end: string; window_start: string; window_end: string;
     paid_at: string | null; paid_by_name: string | null;
     total_amount: number; gross_commission: number; deductions: number;
+    tips_total?: number;
+    tip_lines?: { sale_id: string; received_at: string; method: 'cash' | 'card' | 'transfer' | 'other'; amount: number }[];
     payments: { method: 'cash' | 'card' | 'transfer' | 'other'; amount: number; reference: string | null }[];
     commission_lines: { sale_id: string; sold_at: string; item: string; item_type: 'service' | 'product'; basis_amount: number; percentage: number | null; fixed_amount: number | null; commission_amount: number }[];
     adjustment_lines: { reason: string; amount: number }[];
@@ -96,8 +98,15 @@ export default function ReciboPage() {
                         ))}
                         {receipt.adjustment_lines.map((a, i) => (
                             <tr key={`a${i}`} className="text-red-700">
-                                <td className="py-2" colSpan={4}>Descuento por ajuste: {a.reason}</td>
+                                <td className="py-2" colSpan={4}>Ajuste: {a.reason}</td>
                                 <td className="py-2 text-right font-medium">− {money(Number(a.amount))}</td>
+                            </tr>
+                        ))}
+                        {(receipt.tip_lines ?? []).map((t, i) => (
+                            <tr key={`t${i}`} className="text-green-800" data-testid="receipt-tip-line">
+                                <td className="py-2 text-gray-500 whitespace-nowrap">{day(t.received_at)}</td>
+                                <td className="py-2" colSpan={3}>Propina recibida ({(METHOD_LABELS[t.method] ?? t.method).toLowerCase()})</td>
+                                <td className="py-2 text-right font-medium">{money(Number(t.amount))}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -105,13 +114,14 @@ export default function ReciboPage() {
 
                 <section className="mt-4 ml-auto w-full max-w-xs text-sm space-y-1">
                     <div className="flex justify-between"><span>Comisiones</span><span>{money(Number(receipt.gross_commission))}</span></div>
-                    {Number(receipt.deductions) > 0 && <div className="flex justify-between text-red-700"><span>Descuentos</span><span>− {money(Number(receipt.deductions))}</span></div>}
+                    {Number(receipt.deductions) > 0 && <div className="flex justify-between text-red-700"><span>Ajustes</span><span>− {money(Number(receipt.deductions))}</span></div>}
+                    {Number(receipt.tips_total ?? 0) > 0 && <div className="flex justify-between text-green-800"><span>Propinas</span><span data-testid="receipt-tips">+ {money(Number(receipt.tips_total))}</span></div>}
                     <div className="flex justify-between text-lg font-black border-t-2 border-gray-900 pt-2"><span>TOTAL PAGADO</span><span data-testid="receipt-total">{money(Number(receipt.total_amount))}</span></div>
                 </section>
 
                 <section className="mt-6 text-sm">
                     <p className="text-xs uppercase text-gray-500 font-bold mb-1">Forma de pago</p>
-                    {receipt.payments.length === 0 ? <p className="text-gray-500">Sin pago (la comisión se compensó con descuentos).</p> : (
+                    {receipt.payments.length === 0 ? <p className="text-gray-500">Sin pago (la comisión se compensó con ajustes).</p> : (
                         <ul className="space-y-1">
                             {receipt.payments.map((p, i) => (
                                 <li key={i} className="flex justify-between border-b border-gray-100 py-1">

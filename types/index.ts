@@ -118,6 +118,8 @@ export interface CashSession {
     opened_by: string;
     initial_amount: number;
     total_sales: number;
+    /** Propinas recibidas en el turno (netas de devoluciones). Son de los barberos, no ingreso del negocio. */
+    total_tips?: number;
     total_expenses: number;
     total_cash: number;
     total_card: number;

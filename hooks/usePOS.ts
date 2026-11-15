@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { Barber, Service, Product, Sale, Client } from '@/types';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import type { Barber, Service, Product, Client } from '@/types';
 
 export interface CartItem {
     id: string;
@@ -9,7 +9,15 @@ export interface CartItem {
     quantity: number;
     product_id?: string;
     service_id?: string;
+    /** Descuento en pesos sobre el renglón completo. */
+    discount?: number;
 }
+
+export interface DiscountAuthorizer { user_id: string; name: string }
+
+const cents = (value: number) => Math.round(value * 100);
+const lineList = (item: CartItem) => item.price * item.quantity;
+const lineDiscount = (item: CartItem) => Math.min(Math.max(item.discount ?? 0, 0), lineList(item));
 
 export type PaymentType = 'cash' | 'card' | 'transfer';
 
@@ -28,6 +36,9 @@ export function usePOS() {
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastSaleTotal, setLastSaleTotal] = useState(0);
+    const [discountReason, setDiscountReason] = useState('');
+    const [discountAuthorizer, setDiscountAuthorizer] = useState('');
+    const [authorizers, setAuthorizers] = useState<DiscountAuthorizer[]>([]);
 
     // Fetch data from API routes
     const [barbers, setBarbers] = useState<Barber[] | null>(null);
@@ -52,6 +63,13 @@ export function usePOS() {
 
         fetch('/api/clients').then(r => r.json()).then(data => {
             if (Array.isArray(data)) setClients(data);
+        }).catch(console.error);
+
+        // Quién puede autorizar descuentos; por omisión, quien está cobrando.
+        fetch('/api/discount-authorizers', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(data => {
+            if (!data || !Array.isArray(data.authorizers)) return;
+            setAuthorizers(data.authorizers);
+            if (data.authorizers.some((a: DiscountAuthorizer) => a.user_id === data.current_user_id)) setDiscountAuthorizer(data.current_user_id);
         }).catch(console.error);
     }, []);
 
@@ -90,26 +108,6 @@ export function usePOS() {
         return visibleBarbers.filter(b => b.name.toLowerCase().includes(barberSearch.toLowerCase()));
     }, [visibleBarbers, barberSearch]);
 
-    // Fetch today's sales
-    const [todaySales, setTodaySales] = useState<Sale[]>([]);
-
-    const fetchTodaySales = useCallback(async () => {
-        try {
-            const res = await fetch('/api/sales');
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data)) setTodaySales(data);
-            }
-        } catch (e) {
-            console.error('Error fetching sales:', e);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchTodaySales();
-    }, [fetchTodaySales]);
-
-
     const filteredClients = useMemo(() => {
         if (!clients || !clientSearch) return [];
         const term = clientSearch.toLowerCase();
@@ -136,11 +134,19 @@ export function usePOS() {
 
     const serviceItems = cart.filter(i => i.type === 'service');
     const productItems = cart.filter(i => i.type === 'product');
-    const serviceTotal = serviceItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-    const productTotal = productItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-    const subtotal = serviceTotal + productTotal;
-    const total = subtotal + tip;
-    const todayTotal = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
+    const net = (items: CartItem[]) => items.reduce((sum, i) => sum + cents(lineList(i)) - cents(lineDiscount(i)), 0) / 100;
+    // Lo que se cobra por servicios y por productos, ya con descuento.
+    const serviceTotal = net(serviceItems);
+    const productTotal = net(productItems);
+    const subtotal = cart.reduce((sum, i) => sum + cents(lineList(i)), 0) / 100;
+    const discountTotal = cart.reduce((sum, i) => sum + cents(lineDiscount(i)), 0) / 100;
+    const saleTotal = (cents(subtotal) - cents(discountTotal)) / 100;
+    // El cliente paga la venta más la propina; la propina es del barbero y no es ingreso del negocio.
+    const total = (cents(saleTotal) + cents(Math.max(tip, 0))) / 100;
+
+    const setItemDiscount = (id: string, amount: number) => {
+        setCart(prev => prev.map(i => i.id === id ? { ...i, discount: Number.isFinite(amount) && amount > 0 ? amount : 0 } : i));
+    };
 
     const addService = (service: Service) => {
         const existing = cart.find(i => i.service_id === service.id);
@@ -190,8 +196,8 @@ export function usePOS() {
             else transferAmount += amount;
         };
 
+        // La propina no entra aquí: se registra aparte, a nombre del barbero.
         if (serviceTotal > 0) addToMethod(servicePayment, serviceTotal);
-        if (tip > 0) addToMethod(tipPayment, tip);
         if (productTotal > 0) addToMethod(productPayment, productTotal);
 
         const methods = new Set<PaymentType>();
@@ -216,6 +222,18 @@ export function usePOS() {
             return;
         }
         if (submitting) return;
+        if (discountTotal > 0 && discountReason.trim().length < 3) {
+            alert('Escribe el motivo del descuento.');
+            return;
+        }
+        if (discountTotal > 0 && !discountAuthorizer) {
+            alert('Indica quién autoriza el descuento.');
+            return;
+        }
+        if (saleTotal <= 0) {
+            alert('El descuento no puede cubrir toda la venta.');
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -236,9 +254,11 @@ export function usePOS() {
                     idempotency_key: idempotencyKey.current,
                     client_id: selectedClient?.id || null,
                     items: cart.map(item => item.type === 'service'
-                        ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber.id }
-                        : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [selectedBarber.id] }),
+                        ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber.id, discount_amount: lineDiscount(item) }
+                        : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [selectedBarber.id], discount_amount: lineDiscount(item) }),
                     payments,
+                    ...(discountTotal > 0 ? { discount_reason: discountReason.trim(), discount_authorized_by: discountAuthorizer } : {}),
+                    tips: tip > 0 ? [{ employee_id: selectedBarber.id, amount: tip, method: tipPayment }] : [],
                 }),
             });
 
@@ -254,9 +274,9 @@ export function usePOS() {
             setServicePayment('cash');
             setTipPayment('cash');
             setProductPayment('cash');
+            setDiscountReason('');
             setLastSaleTotal(total);
             setShowSuccess(true);
-            fetchTodaySales();
             setTimeout(() => setShowSuccess(false), 3000);
         } catch (err) {
             console.error('Error creating sale:', err);
@@ -271,12 +291,13 @@ export function usePOS() {
             selectedBarber, selectedClient, servicePayment, tipPayment, productPayment, tip, cart,
             clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal,
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
-            filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total, todayTotal
+            filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
+            discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers
         },
         actions: {
             setSelectedBarber, setSelectedClient, setServicePayment, setTipPayment, setProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-            setCart
+            setCart, setItemDiscount, setDiscountReason, setDiscountAuthorizer
         }
     };
 }

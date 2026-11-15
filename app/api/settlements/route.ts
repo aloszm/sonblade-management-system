@@ -21,7 +21,7 @@ const SettleSchema = z.object({
 });
 
 type Preview = {
-    window_start: string; window_end: string; gross_commission: number; deductions: number; total_amount: number;
+    window_start: string; window_end: string; gross_commission: number; deductions: number; tips: number; total_amount: number;
     entry_count: number; can_settle: boolean; reason: string | null; settlement_id: string | null; receipt_number: string | null;
 };
 

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { fetchBusinessReport, toBarberProfile, toBarberStats, type ReportPeriod } from '@/lib/reports/business-report';
+import { fetchBusinessReport, sumEmployeeTips, toBarberProfile, toBarberStats, type ReportPeriod } from '@/lib/reports/business-report';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
 
@@ -50,7 +50,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 range = businessDayRange(from.data, to.data, await loadBusinessTimezone(supabase, context.businessId));
             }
             const report = await fetchBusinessReport(supabase, context.branchId, period, employeeId, range);
-            return Response.json(toBarberProfile(report, name, employeeId, rate), { headers: { 'Cache-Control': 'no-store' } });
+            const tips = await sumEmployeeTips(supabase, context.branchId, employeeId, report.window);
+            return Response.json(toBarberProfile(report, name, employeeId, rate, tips), { headers: { 'Cache-Control': 'no-store' } });
         }
 
         // Panel personal (/barbero): semana (corte sábado 8 pm) y hoy.
@@ -58,7 +59,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             fetchBusinessReport(supabase, context.branchId, 'week', employeeId),
             fetchBusinessReport(supabase, context.branchId, 'today', employeeId),
         ]);
-        return Response.json(toBarberStats(week, today, name, rate), {
+        const [weekTips, todayTips] = await Promise.all([
+            sumEmployeeTips(supabase, context.branchId, employeeId, week.window),
+            sumEmployeeTips(supabase, context.branchId, employeeId, today.window),
+        ]);
+        return Response.json(toBarberStats(week, today, name, rate, { week: weekTips, today: todayTips }), {
             headers: { 'Cache-Control': 'no-store' },
         });
     } catch (error) {

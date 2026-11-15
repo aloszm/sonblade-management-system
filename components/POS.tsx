@@ -6,12 +6,13 @@ import {
     Trash2, Plus, Minus, ArrowRight, Loader2, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePOS, PaymentType } from '@/hooks/usePOS';
+import { usePOS, PaymentType, CartItem } from '@/hooks/usePOS';
 
 export default function POS() {
     const { state, actions } = usePOS();
     const {
-        selectedBarber, selectedClient, servicePayment, productPayment, cart,
+        selectedBarber, selectedClient, servicePayment, productPayment, cart, tip, tipPayment,
+        discountTotal, discountReason, discountAuthorizer, authorizers,
         clientSearch, serviceSearch, productSearch, barberSearch, submitting, showSuccess, lastSaleTotal,
         loadingBarbers, loadingServices, filteredBarbers,
         filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total
@@ -19,8 +20,22 @@ export default function POS() {
     const {
         setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment,
         setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
-        setCart
+        setCart, setTip, setTipPayment, setItemDiscount, setDiscountReason, setDiscountAuthorizer
     } = actions;
+
+    // Descuento en pesos sobre un renglón. El servidor valida quién puede autorizarlo.
+    const discountField = (item: CartItem) => (
+        <label className="flex items-center justify-between gap-2 text-[11px] text-gray-500 font-bold">
+            Descuento $
+            <input
+                type="number" min={0} max={item.price * item.quantity} step="1" inputMode="decimal"
+                aria-label={`Descuento para ${item.name}`}
+                value={item.discount ? item.discount : ''} placeholder="0"
+                onChange={(e) => setItemDiscount(item.id, Number(e.target.value))}
+                className="w-20 px-2 py-1 bg-black/50 border border-white/10 rounded-lg text-right text-xs text-white outline-none focus:border-sonblade-gold"
+            />
+        </label>
+    );
 
     const getPaymentButtonStyle = (current: PaymentType, type: PaymentType) =>
         `flex-1 py-1 px-1 sm:px-2 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center gap-1 sm:gap-2
@@ -326,6 +341,7 @@ export default function POS() {
                                                         <Minus className="h-3 w-3" />
                                                     </button>
                                                 </div>
+                                                {discountField(item)}
                                             </div>
                                         ))}
 
@@ -369,6 +385,7 @@ export default function POS() {
                                                     </div>
                                                     <button onClick={() => removeFromCart(item.id)} className="text-gray-500 hover:text-red-400 transition-colors p-1.5 ml-1 bg-white/5 hover:bg-red-400/10 rounded-lg"><Trash2 className="h-3.5 w-3.5" /></button>
                                                 </div>
+                                                {discountField(item)}
                                             </div>
                                         ))}
                                         <div className="mt-2 text-[10px] text-gray-500 font-bold uppercase">Forma de Pago (Prod)</div>
@@ -379,6 +396,46 @@ export default function POS() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Descuento: motivo y quién lo autoriza (queda registrado en la venta) */}
+                                {discountTotal > 0 && (
+                                    <div className="space-y-2 pt-4 border-t border-white/5">
+                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Descuento</div>
+                                        <input
+                                            id="pos-discount-reason" type="text" maxLength={300}
+                                            aria-label="Motivo del descuento" placeholder="Motivo del descuento"
+                                            value={discountReason} onChange={(e) => setDiscountReason(e.target.value)}
+                                            className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-600 outline-none focus:border-sonblade-gold"
+                                        />
+                                        <select
+                                            id="pos-discount-authorizer" aria-label="Quién autoriza el descuento"
+                                            value={discountAuthorizer} onChange={(e) => setDiscountAuthorizer(e.target.value)}
+                                            className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white outline-none focus:border-sonblade-gold"
+                                        >
+                                            <option value="">¿Quién autoriza?</option>
+                                            {authorizers.map((a) => <option key={a.user_id} value={a.user_id}>{a.name}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Propina: es del barbero y se le paga en su recibo semanal */}
+                                <div className="space-y-2 pt-4 border-t border-white/5">
+                                    <label htmlFor="pos-tip" className="text-xs font-bold text-gray-500 uppercase tracking-widest block">
+                                        Propina{selectedBarber ? ` para ${selectedBarber.name}` : ''}
+                                    </label>
+                                    <input
+                                        id="pos-tip" type="number" min={0} step="1" inputMode="decimal" placeholder="0"
+                                        value={tip ? tip : ''} onChange={(e) => setTip(Math.max(Number(e.target.value) || 0, 0))}
+                                        className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-600 outline-none focus:border-sonblade-gold"
+                                    />
+                                    {tip > 0 && (
+                                        <div className="flex gap-2" role="group" aria-label="Forma de pago de la propina">
+                                            <button onClick={() => setTipPayment('cash')} className={getPaymentButtonStyle(tipPayment, 'cash')}><Banknote className="h-3 w-3" /> Efec</button>
+                                            <button onClick={() => setTipPayment('card')} className={getPaymentButtonStyle(tipPayment, 'card')}><CreditCard className="h-3 w-3" /> Tarj</button>
+                                            <button onClick={() => setTipPayment('transfer')} className={getPaymentButtonStyle(tipPayment, 'transfer')}><ArrowRight className="h-3 w-3" /> Transf</button>
+                                        </div>
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>
@@ -386,6 +443,8 @@ export default function POS() {
                     <div className="p-5 bg-[#0a0a0a] border-t border-white/5 rounded-b-2xl flex-shrink-0">
                         <div className="space-y-2 mb-4">
                             <div className="flex justify-between text-gray-400 text-sm font-medium"><span>Subtotal</span><span>${subtotal}</span></div>
+                            {discountTotal > 0 && <div className="flex justify-between text-red-400 text-sm font-medium"><span>Descuento</span><span>− ${discountTotal}</span></div>}
+                            {tip > 0 && <div className="flex justify-between text-gray-400 text-sm font-medium"><span>Propina</span><span>+ ${tip}</span></div>}
                             <div className="flex justify-between items-end pt-3 border-t border-white/5">
                                 <span className="text-white font-bold text-sm">TOTAL A COBRAR</span>
                                 <span className="text-2xl font-black text-sonblade-gold">${total}</span>

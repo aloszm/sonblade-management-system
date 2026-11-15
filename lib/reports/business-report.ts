@@ -123,7 +123,7 @@ export function toDashboard(selected: BusinessReport, week: BusinessReport, mont
  * Forma que espera la vista del barbero. La comisión de cortes es la regla aprobada (RB-04):
  * porcentaje fijo; no hay escalones hasta que se defina la función de metas.
  */
-export function toBarberStats(week: BusinessReport, today: BusinessReport, barberName: string, rate: number) {
+export function toBarberStats(week: BusinessReport, today: BusinessReport, barberName: string, rate: number, tips = { week: 0, today: 0 }) {
     const w = week.barbers[0];
     const t = today.barbers[0];
     const sales = (today.sales ?? []).map((s) => ({
@@ -140,18 +140,18 @@ export function toBarberStats(week: BusinessReport, today: BusinessReport, barbe
             cuts: w?.cuts ?? 0,
             totalGenerated: round2((w?.service_revenue ?? 0) + (w?.product_revenue ?? 0)),
             serviceRevenue: w?.service_revenue ?? 0,
-            tips: 0,
+            tips: tips.week,
             commission: round2((w?.service_commission ?? 0) + (w?.product_commission ?? 0)),
             serviceCommission: w?.service_commission ?? 0,
             productCommission: w?.product_commission ?? 0,
             serviceBreakdown: w?.service_breakdown ?? [],
         },
-        todayStats: { cuts: t?.cuts ?? 0, tips: 0, sales },
+        todayStats: { cuts: t?.cuts ?? 0, tips: tips.today, sales },
     };
 }
 
 /** Forma que espera el perfil del barbero (/barberos/[id]): cifras del periodo y detalle por venta. */
-export function toBarberProfile(report: BusinessReport, barberName: string, barberId: string, rate: number) {
+export function toBarberProfile(report: BusinessReport, barberName: string, barberId: string, rate: number, tips = 0) {
     const b = report.barbers[0];
     const serviceCommission = b?.service_commission ?? 0;
     const productCommission = b?.product_commission ?? 0;
@@ -162,7 +162,7 @@ export function toBarberProfile(report: BusinessReport, barberName: string, barb
             serviceRevenue: b?.service_revenue ?? 0,
             productRevenue: b?.product_revenue ?? 0,
             totalRevenue: round2((b?.service_revenue ?? 0) + (b?.product_revenue ?? 0)),
-            tips: 0,
+            tips,
             commissionRate: rate,
             totalCommission: round2(serviceCommission + productCommission),
             serviceCommission,
@@ -186,4 +186,19 @@ export function toBarberProfile(report: BusinessReport, barberName: string, barb
         }),
         serviceBreakdown: b?.service_breakdown ?? [],
     };
+}
+
+/**
+ * Propinas vigentes de un barbero dentro de una ventana (inicio exclusivo, fin inclusivo, igual que
+ * el pago semanal). La base solo deja ver las propias al barbero y todas a administración y recepción.
+ */
+export async function sumEmployeeTips(
+    supabase: SupabaseClient, branchId: string, employeeId: string, window: { start: string; end: string },
+): Promise<number> {
+    const { data, error } = await supabase.from('sale_tips').select('amount')
+        .eq('branch_id', branchId).eq('employee_id', employeeId).eq('status', 'generated')
+        .gt('created_at', window.start).lte('created_at', window.end);
+    if (error) throw error;
+    const cents = ((data ?? []) as { amount: number | string }[]).reduce((sum, row) => sum + Math.round(Number(row.amount) * 100), 0);
+    return cents / 100;
 }

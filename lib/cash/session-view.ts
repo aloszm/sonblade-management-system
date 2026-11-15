@@ -22,7 +22,16 @@ export type CashMovementRow = {
     direction: 'in' | 'out';
     description?: string | null;
     created_at?: string;
+    sale_id?: string | null;
 };
+
+/**
+ * Una propina (o su devolución) es una entrada/salida ligada a una venta que no es cobro ni reembolso:
+ * la base la registra como deposit/withdrawal con sale_id.
+ */
+export function isTipMovement(m: Pick<CashMovementRow, 'movement_type' | 'sale_id'>): boolean {
+    return Boolean(m.sale_id) && (m.movement_type === 'deposit' || m.movement_type === 'withdrawal');
+}
 
 const num = (value: number | string | null | undefined) => Number(value ?? 0);
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -39,6 +48,7 @@ export function buildSessionView(
     openedByName: string,
 ): CashSession {
     let totalSales = 0;
+    let totalTips = 0;
     let totalCard = 0;
     let totalTransfer = 0;
     let cashIn = 0;
@@ -47,8 +57,11 @@ export function buildSessionView(
     for (const m of movements) {
         const amount = num(m.amount);
         const signed = m.direction === 'in' ? amount : -amount;
-        if (m.movement_type === 'sale_payment' || m.movement_type === 'refund') {
-            totalSales += signed;
+        const tip = isTipMovement(m);
+        if (m.movement_type === 'sale_payment' || m.movement_type === 'refund') totalSales += signed;
+        // Las propinas no son venta del negocio, pero sí dinero que entró por ese método (cuadra con la terminal).
+        if (tip) totalTips += signed;
+        if (tip || m.movement_type === 'sale_payment' || m.movement_type === 'refund') {
             if (m.method === 'card') totalCard += signed;
             if (m.method === 'transfer') totalTransfer += signed;
         }
@@ -63,6 +76,7 @@ export function buildSessionView(
         opened_by: openedByName,
         initial_amount: num(session.opening_cash),
         total_sales: round2(totalSales),
+        total_tips: round2(totalTips),
         total_expenses: round2(cashOut),
         total_cash: round2(cashIn),
         total_card: round2(totalCard),
@@ -101,7 +115,7 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
 }
 
 const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at';
-const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at';
+const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 
 async function toViews(supabase: SupabaseClient, sessions: CashSessionRow[]): Promise<CashSession[]> {
     if (sessions.length === 0) return [];

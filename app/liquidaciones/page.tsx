@@ -7,7 +7,7 @@ import { CheckCircle, ChevronLeft, ChevronRight, Loader2, Receipt, Wallet, X } f
 import { addDays, weekLabel } from '@/lib/settlements/week';
 
 type Row = {
-    employee_id: string; name: string; gross_commission: number; deductions: number; total_amount: number;
+    employee_id: string; name: string; gross_commission: number; deductions: number; tips: number; total_amount: number;
     entry_count: number; can_settle: boolean; reason: string | null; settlement_id: string | null; receipt_number: string | null;
 };
 type Week = {
@@ -149,19 +149,21 @@ export default function LiquidacionesPage() {
                                         <th className="p-4 text-xs uppercase">Barbero</th>
                                         <th className="p-4 text-xs uppercase text-center">Servicios</th>
                                         <th className="p-4 text-xs uppercase text-right">Comisión</th>
-                                        <th className="p-4 text-xs uppercase text-right">Descuentos</th>
+                                        <th className="p-4 text-xs uppercase text-right">Ajustes</th>
+                                        <th className="p-4 text-xs uppercase text-right">Propinas</th>
                                         <th className="p-4 text-xs uppercase text-right">A pagar</th>
                                         <th className="p-4 text-xs uppercase">Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {week?.rows.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-gray-400">No hay barberos activos.</td></tr>}
+                                    {week?.rows.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-gray-400">No hay barberos activos.</td></tr>}
                                     {week?.rows.map((r) => (
                                         <tr key={r.employee_id} className="hover:bg-gray-50">
                                             <td className="p-4 font-bold text-gray-900">{r.name}</td>
                                             <td className="p-4 text-center text-gray-500">{r.entry_count}</td>
                                             <td className="p-4 text-right">{money(r.gross_commission)}</td>
                                             <td className="p-4 text-right text-red-600">{r.deductions > 0 ? `− ${money(r.deductions)}` : '—'}</td>
+                                            <td className="p-4 text-right text-green-700">{Number(r.tips) > 0 ? `+ ${money(Number(r.tips))}` : '—'}</td>
                                             <td className="p-4 text-right font-black text-gray-900">{money(r.total_amount)}</td>
                                             <td className="p-4">{statusCell(r)}</td>
                                         </tr>

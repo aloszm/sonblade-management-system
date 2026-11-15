@@ -16,7 +16,7 @@ export default function TeamPage() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
-    const [formData, setFormData] = useState({ name: '', phone: '', status: 'active' });
+    const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false });
 
     const fetchBarbers = async () => {
         try {
@@ -49,7 +49,7 @@ export default function TeamPage() {
         try {
             const method = editingBarber ? 'PATCH' : 'POST';
             const url = editingBarber ? `/api/barbers/${editingBarber.id}` : '/api/barbers';
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status } : {}) }) });
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status, can_authorize_discounts: formData.canAuthorizeDiscounts } : {}) }) });
             if (res.ok) { setIsModalOpen(false); fetchBarbers(); fetchLiveStats(); }
             else {
                 const body = await res.json().catch(() => null);
@@ -69,10 +69,10 @@ export default function TeamPage() {
     const openModal = (barber?: Barber) => {
         if (barber) {
             setEditingBarber(barber);
-            setFormData({ name: barber.name, phone: (barber as { phone?: string | null }).phone ?? '', status: barber.status === 'active' ? 'active' : 'inactive' });
+            setFormData({ name: barber.name, phone: (barber as { phone?: string | null }).phone ?? '', status: barber.status === 'active' ? 'active' : 'inactive', canAuthorizeDiscounts: Boolean((barber as { canAuthorizeDiscounts?: boolean }).canAuthorizeDiscounts) });
         } else {
             setEditingBarber(null);
-            setFormData({ name: '', phone: '', status: 'active' });
+            setFormData({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false });
         }
         setIsModalOpen(true);
     };
@@ -171,6 +171,14 @@ export default function TeamPage() {
                                         <option value="inactive">Inactivo (no aparece para vender)</option>
                                     </select>
                                 </div>
+                            )}
+                            {editingBarber && (
+                                <label className="flex items-start gap-3 text-sm text-gray-700 bg-gray-50 rounded-lg p-3 cursor-pointer">
+                                    <input type="checkbox" checked={formData.canAuthorizeDiscounts}
+                                        onChange={e => setFormData({ ...formData, canAuthorizeDiscounts: e.target.checked })}
+                                        className="mt-0.5 h-4 w-4 accent-black" />
+                                    <span><strong>Puede autorizar descuentos.</strong> Aparecerá en la caja como persona que autoriza (requiere que tenga cuenta de acceso).</span>
+                                </label>
                             )}
                             <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
                                 La comisión de cortes es el 50 % del precio antes de descuentos (regla del negocio). Cada persona entra al sistema con su correo y contraseña; el acceso lo crea la administración.

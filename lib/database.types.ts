@@ -934,6 +934,7 @@ export type Database = {
       employees: {
         Row: {
           business_id: string
+          can_authorize_discounts: boolean
           created_at: string
           display_name: string
           id: string
@@ -944,6 +945,7 @@ export type Database = {
         }
         Insert: {
           business_id: string
+          can_authorize_discounts?: boolean
           created_at?: string
           display_name: string
           id?: string
@@ -954,6 +956,7 @@ export type Database = {
         }
         Update: {
           business_id?: string
+          can_authorize_discounts?: boolean
           created_at?: string
           display_name?: string
           id?: string
@@ -1531,6 +1534,10 @@ export type Database = {
         Args: { p_branch_id: string; p_minimum_quantity: number; p_product_id: string }
         Returns: Json
       }
+      list_discount_authorizers: {
+        Args: { p_branch_id: string }
+        Returns: Json
+      }
       set_commission_defaults: {
         Args: { p_business_id: string; p_product_pct: number; p_service_pct: number }
         Returns: Json
@@ -1562,11 +1569,13 @@ export type Database = {
         Args: {
           p_branch_id: string
           p_client_id?: string
+          p_discount_authorized_by?: string
           p_discount_reason?: string
           p_idempotency_key: string
           p_items: Json
           p_notes?: string
           p_payments: Json
+          p_tips?: Json
         }
         Returns: Json
       }

@@ -326,6 +326,15 @@ export default function CashDrawer() {
                                                 </span>
                                                 <span className="font-medium text-white">$ {session.total_sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                                             </div>
+                                            {(session.total_tips ?? 0) !== 0 && (
+                                                <div className="flex justify-between items-center" data-testid="cash-tips">
+                                                    <span className="text-gray-400 flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-sonblade-gold/10 flex items-center justify-center text-sonblade-gold"><DollarSign className="h-4 w-4" /></div>
+                                                        Propinas (de los barberos)
+                                                    </span>
+                                                    <span className="font-medium text-sonblade-gold">$ {(session.total_tips ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
                                             <div className="flex justify-between items-center">
                                                 <span className="text-gray-400 flex items-center gap-2">
                                                     <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500"><TrendingDown className="h-4 w-4" /></div>
@@ -335,8 +344,8 @@ export default function CashDrawer() {
                                             </div>
                                         </div>
                                         <div className="mt-6 pt-6 border-t border-white/5">
-                                            <p className="text-gray-400 text-sm mb-1">Total Esperado en Caja</p>
-                                            <p className="text-3xl font-bold text-sonblade-primary">$ {expectedTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                            <p className="text-gray-400 text-sm mb-1">Efectivo esperado en caja</p>
+                                            <p className="text-3xl font-bold text-sonblade-primary" data-testid="expected-cash">$ {expectedCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                                         </div>
                                     </div>
                                     <button onClick={() => setIsModalOpen(true)} className="w-full py-4 px-6 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:-translate-y-0.5 transition-all duration-200 font-bold text-lg flex items-center justify-center gap-3 group">

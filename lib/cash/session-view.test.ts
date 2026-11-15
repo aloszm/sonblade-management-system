@@ -63,6 +63,34 @@ describe('buildSessionView', () => {
     });
 });
 
+describe('propinas en caja', () => {
+    it('no cuentan como venta, sí como dinero recibido por su método, y el efectivo queda en el cajón', () => {
+        const view = buildSessionView(session, [
+            movement({ amount: '200.00', sale_id: 's1' }),                                              // venta en efectivo
+            movement({ amount: '50.00', movement_type: 'deposit', sale_id: 's1' }),                     // propina en efectivo
+            movement({ amount: '40.00', movement_type: 'deposit', method: 'card', sale_id: 's1' }),     // propina con tarjeta
+            movement({ amount: '100.00', movement_type: 'deposit' }),                                   // depósito normal (sin venta)
+        ], 'Dago');
+        expect(view.total_sales).toBe(200);
+        expect(view.total_tips).toBe(90);
+        expect(view.total_card).toBe(40);
+        expect(view.total_cash).toBe(350);
+        expect(view.initial_amount + view.total_cash - view.total_expenses).toBe(850);
+    });
+
+    it('devolver una propina la descuenta de propinas, no de ventas', () => {
+        const view = buildSessionView(session, [
+            movement({ amount: '200.00', method: 'card', sale_id: 's1' }),
+            movement({ amount: '30.00', movement_type: 'deposit', method: 'card', sale_id: 's1' }),
+            movement({ amount: '200.00', movement_type: 'refund', direction: 'out', method: 'card', sale_id: 's1' }),
+            movement({ amount: '30.00', movement_type: 'withdrawal', direction: 'out', method: 'card', sale_id: 's1' }),
+        ], 'Dago');
+        expect(view.total_sales).toBe(0);
+        expect(view.total_tips).toBe(0);
+        expect(view.total_card).toBe(0);
+    });
+});
+
 describe('toUiMovement', () => {
     it('traduce los tipos de la base a los de la pantalla', () => {
         expect(toUiMovement(movement({ id: 'a', amount: '10' })).type).toBe('sale');

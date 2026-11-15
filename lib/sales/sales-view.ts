@@ -20,6 +20,7 @@ export type SaleRow = {
         commission_employee_id: string | null;
     }[];
     payments: { method: string; amount: number | string; status: string }[];
+    sale_tips?: { amount: number | string; status: string }[] | null;
 };
 
 const num = (value: number | string | null | undefined) => Number(value ?? 0);
@@ -47,7 +48,8 @@ export function toSaleView(row: SaleRow, employees: Map<string, string>, clients
         barber_id: barberId,
         client_id: row.client_id,
         total: num(row.total_amount),
-        tip: 0, // las propinas todavía no existen en el modelo nuevo
+        // Propinas vigentes de la venta. No forman parte del total: son del barbero.
+        tip: (row.sale_tips ?? []).filter((t) => t.status === 'generated').reduce((sum, t) => sum + num(t.amount), 0),
         cash_amount: cash,
         card_amount: card,
         transfer_amount: transfer,

@@ -12,7 +12,15 @@ const SaleSchema = z.object({
     idempotency_key: z.string().uuid(),
     client_id: z.string().uuid().nullable().optional(),
     notes: z.string().max(1000).optional(),
-    discount_reason: z.string().max(300).optional(),
+    discount_reason: z.string().trim().max(300).optional(),
+    // Quién autorizó el descuento (id de usuario). Si no llega, es quien cobra.
+    discount_authorized_by: z.string().uuid().nullable().optional(),
+    // Propinas: son del barbero, no forman parte del total de la venta.
+    tips: z.array(z.object({
+        employee_id: z.string().uuid(),
+        amount: z.number().positive().max(100_000),
+        method: z.enum(['cash', 'card', 'transfer']),
+    })).max(10).optional(),
     items: z.array(z.object({
         item_type: z.enum(['service', 'product']),
         catalog_id: z.string().uuid(),
@@ -33,7 +41,7 @@ export async function GET(request: NextRequest) {
         const context = await requireAuthContext(['owner', 'admin', 'cashier', 'barber', 'receptionist']);
         const supabase = await createSupabaseServerClient();
         let query = supabase.from('sales')
-            .select('id, created_at, status, total_amount, notes, client_id, sale_items(id, item_type, item_name_snapshot, unit_price, quantity, service_id, product_id, employee_id, commission_employee_id), payments(method, amount, status)')
+            .select('id, created_at, status, total_amount, notes, client_id, sale_items(id, item_type, item_name_snapshot, unit_price, quantity, service_id, product_id, employee_id, commission_employee_id), payments(method, amount, status), sale_tips(amount, status)')
             .eq('business_id', context.businessId)
             .eq('branch_id', context.branchId)
             .order('created_at', { ascending: false }).limit(500);
@@ -94,7 +102,9 @@ export async function POST(request: NextRequest) {
             p_payments: parsed.data.payments,
             p_client_id: parsed.data.client_id ?? null,
             p_notes: parsed.data.notes ?? null,
-            p_discount_reason: parsed.data.discount_reason ?? null,
+            p_discount_reason: parsed.data.discount_reason || null,
+            p_tips: parsed.data.tips ?? [],
+            p_discount_authorized_by: parsed.data.discount_authorized_by ?? null,
         } as never);
         if (error) throw error;
         return Response.json(data, { status: 201, headers: { 'Cache-Control': 'no-store' } });
