@@ -55,8 +55,8 @@ function addTable(sheet: Sheet, table: ReportTable, tz: string, startRow: number
         const cell = sheet.getCell(row, i + 1);
         cell.value = c.header;
         cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9F3DC' } };
-        cell.border = { bottom: { style: 'medium', color: { argb: 'FFD4AF37' } } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3EBDD' } };
+        cell.border = { bottom: { style: 'medium', color: { argb: 'FF7A5B32' } } };
         cell.alignment = { vertical: 'middle', horizontal: c.type === 'money' || c.type === 'number' ? 'right' : 'left', wrapText: true };
         widths[i] = Math.max(widths[i] ?? 0, c.header.length + 2);
     });
@@ -92,8 +92,8 @@ function addKpis(sheet: Sheet, block: ReportKpis, startRow: number, widths: numb
         const cell = sheet.getCell(row, i + 1);
         cell.value = h;
         cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9F3DC' } };
-        cell.border = { bottom: { style: 'medium', color: { argb: 'FFD4AF37' } } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3EBDD' } };
+        cell.border = { bottom: { style: 'medium', color: { argb: 'FF7A5B32' } } };
         cell.alignment = { horizontal: i === 0 ? 'left' : 'right' };
         widths[i] = Math.max(widths[i] ?? 0, h.length + 2);
     });

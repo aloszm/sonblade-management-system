@@ -86,7 +86,7 @@ export default function TeamPage() {
 
     if (loading) return <div className="flex justify-center items-center h-full min-h-[400px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bos-muted"></div></div>;
 
-    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
     const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
     const pill = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium';
 
@@ -99,7 +99,7 @@ export default function TeamPage() {
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => { fetchBarbers(); fetchLiveStats(); }} aria-label="Actualizar" title="Actualizar" className="h-[52px] w-[52px] inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><RefreshCw className="h-4 w-4" /></button>
-                    <button onClick={() => openModal()} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:opacity-90">
+                    <button onClick={() => openModal()} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong">
                         <Plus className="w-4 h-4" />Agregar persona
                     </button>
                 </div>
@@ -112,7 +112,7 @@ export default function TeamPage() {
                     return (
                         <div key={barber.id} className="rounded-xl border border-bos-border bg-bos-surface p-5 flex flex-col">
                             <div className="flex items-start justify-between mb-4">
-                                <Link href={`/barberos/${barber.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                <Link href={`/barberos/${barber.id}`} className="flex items-center gap-3 rounded-xl hover:bg-bos-raised -m-1 p-1 transition-colors">
                                     <div aria-hidden="true" className="w-12 h-12 shrink-0 bg-bos-raised border border-bos-border rounded-full flex items-center justify-center font-display text-xl font-semibold text-bos-text">
                                         {barber.name.charAt(0)}
                                     </div>
@@ -207,7 +207,7 @@ export default function TeamPage() {
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                         <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                             <button type="button" onClick={() => setIsModalOpen(false)} className="min-h-[52px] px-5 border border-bos-border rounded-xl text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
-                            <button type="submit" className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90">
+                            <button type="submit" className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong">
                                 {editingBarber ? 'Guardar cambios' : 'Agregar'}
                             </button>
                         </div>

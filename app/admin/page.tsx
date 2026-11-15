@@ -102,7 +102,7 @@ export default function AdminPage() {
                                 <p className="text-sm text-bos-muted mt-0.5">Los siguientes productos tienen stock bajo:</p>
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {lowStockProducts.map(p => (
-                                        <span key={p.id} className="bg-bos-bg border border-bos-border px-2.5 py-1 rounded-full text-xs font-medium">
+                                        <span key={p.id} className="bg-bos-bg border border-bos-control px-2.5 py-1 rounded-full text-xs font-medium">
                                             {p.name}: {p.stock} (mín. {p.min_stock})
                                         </span>
                                     ))}
@@ -230,7 +230,7 @@ export default function AdminPage() {
                         <h2 className="font-display text-lg font-semibold mb-4">Desglose semanal del mes</h2>
                         <div className="space-y-2">
                             {weeklyBreakdown.map((w, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 bg-bos-bg border border-bos-border rounded-xl">
+                                <div key={i} className="flex items-center justify-between p-3 bg-bos-bg border border-bos-control rounded-xl">
                                     <span className="font-medium text-bos-muted">{w.week}</span>
                                     <span className="font-semibold tabular-nums">${w.revenue.toFixed(2)}</span>
                                 </div>

@@ -24,7 +24,7 @@ export default function ThemeToggle() {
     const label = theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
     return (
         <button type="button" onClick={toggle} aria-label={label} title={label}
-            className="h-11 w-11 inline-flex items-center justify-center rounded-xl border border-bos-border text-bos-muted hover:text-bos-text hover:bg-bos-raised transition-colors">
+            className="h-11 w-11 inline-flex items-center justify-center rounded-xl border border-bos-control text-bos-muted hover:text-bos-text hover:bg-bos-raised transition-colors">
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
     );

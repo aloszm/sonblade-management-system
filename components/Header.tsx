@@ -24,6 +24,7 @@ const pageTitles: Record<string, string> = {
   '/liquidaciones': 'Pago semanal',
   '/reportes': 'Reportes',
   '/cuadre': 'Cuadre',
+  '/administracion': 'Utilidad',
   '/reportes/verificar': 'Verificar reporte',
   '/admin': 'Administración',
   '/admin/auditoria': 'Bitácora',
@@ -96,9 +97,10 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         <div className="relative ml-1" ref={menuRef}>
           <button 
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center gap-2 focus:outline-none group"
+            aria-haspopup="menu" aria-expanded={menuOpen}
+            className="flex items-center gap-2 rounded-xl group min-h-11"
           >
-            <div className="w-8 h-8 rounded-full bg-bos-raised flex items-center justify-center text-bos-text font-bold text-xs ring-2 ring-transparent group-hover:ring-sonblade-primary/50 transition-all">
+            <div className="w-8 h-8 rounded-full bg-bos-raised flex items-center justify-center text-bos-text font-semibold text-xs ring-2 ring-transparent group-hover:ring-bos-accent transition-all">
               {initials}
             </div>
             <span className="hidden md:block text-sm font-medium text-bos-text transition-colors">
@@ -108,7 +110,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-52 bg-bos-surface border border-bos-border rounded-xl shadow-lg shadow-black/20 py-1 z-50">
+            <div className="absolute right-0 mt-2 w-52 bg-bos-surface border border-bos-control rounded-xl shadow-lg shadow-black/20 py-1 z-50">
               <div className="px-4 py-3 border-b border-bos-border">
                  <p className="text-sm font-semibold text-bos-text">{userName || 'Usuario'}</p>
                  <p className="text-xs text-bos-muted">{ROLE_LABELS[userRole] ?? userRole}</p>

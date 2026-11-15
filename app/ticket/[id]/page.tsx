@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import type { Ticket } from '@/lib/sales/ticket';
 import { SYSTEM_NAME } from '@/lib/brand';
+import BrandLogo from '@/components/BrandLogo';
 
 type TicketData = Ticket & {
     business: { name: string; currency: string; timezone: string };
@@ -45,10 +46,9 @@ export default function TicketPage() {
                 </button>
             </div>
 
-            <article data-testid="ticket" className="bg-bos-surface text-bos-text rounded-xl border border-bos-border p-6 print:bg-white print:text-black print:border-0 print:rounded-none print:p-0">
+            <article data-testid="ticket" className="tabular-nums bg-bos-surface text-bos-text rounded-xl border border-bos-border p-6 print:bg-white print:text-black print:border-0 print:rounded-none print:p-0">
                 <header className="text-center border-b border-dashed border-bos-border pb-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/logo.png" alt="" className="h-16 w-16 object-contain mx-auto mb-2 rounded-xl bg-white p-1 print:p-0" />
+                    <BrandLogo alt="" className="h-16 w-auto mx-auto mb-2 print:h-14" />
                     <h1 className="font-display text-xl font-semibold tracking-tight">{ticket.business.name}</h1>
                     {ticket.branch.address && <p className="text-xs text-bos-muted">{ticket.branch.address}</p>}
                     {ticket.branch.phone && <p className="text-xs text-bos-muted">Tel. {ticket.branch.phone}</p>}
@@ -59,11 +59,11 @@ export default function TicketPage() {
                 )}
 
                 <section className="text-sm py-4 border-b border-dashed border-bos-border space-y-1">
-                    <div className="flex justify-between"><span className="text-bos-muted">Folio</span><span className="font-bold" data-testid="ticket-folio">{ticket.folio}</span></div>
-                    <div className="flex justify-between"><span className="text-bos-muted">Fecha</span><span>{when}</span></div>
-                    {ticket.client_name && <div className="flex justify-between"><span className="text-bos-muted">Cliente</span><span>{ticket.client_name}</span></div>}
-                    {ticket.attended_by.length > 0 && <div className="flex justify-between"><span className="text-bos-muted">Te atendió</span><span>{ticket.attended_by.join(', ')}</span></div>}
-                    {ticket.cashier_name && <div className="flex justify-between"><span className="text-bos-muted">Cobró</span><span>{ticket.cashier_name}</span></div>}
+                    <div className="flex justify-between gap-4"><span className="text-bos-muted">Folio</span><span className="font-semibold tabular-nums" data-testid="ticket-folio">{ticket.folio}</span></div>
+                    <div className="flex justify-between gap-4"><span className="text-bos-muted">Fecha</span><span className="text-right">{when}</span></div>
+                    {ticket.client_name && <div className="flex justify-between gap-4"><span className="text-bos-muted">Cliente</span><span className="text-right">{ticket.client_name}</span></div>}
+                    {ticket.attended_by.length > 0 && <div className="flex justify-between gap-4"><span className="text-bos-muted">Te atendió</span><span className="text-right">{ticket.attended_by.join(', ')}</span></div>}
+                    {ticket.cashier_name && <div className="flex justify-between gap-4"><span className="text-bos-muted">Cobró</span><span className="text-right">{ticket.cashier_name}</span></div>}
                 </section>
 
                 <table className="w-full text-sm my-4">

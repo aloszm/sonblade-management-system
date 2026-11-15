@@ -120,7 +120,7 @@ const Inventory: React.FC = () => {
     };
 
     const card = 'rounded-xl border border-bos-border bg-bos-surface';
-    const field = 'mt-1.5 block w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const field = 'mt-1.5 block w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     const label = 'block text-[13px] font-medium text-bos-muted';
     const th = 'px-5 py-3 text-[13px] font-medium';
     const sectionTitle = 'text-[13px] font-medium text-bos-muted mb-3';
@@ -146,7 +146,7 @@ const Inventory: React.FC = () => {
                         setSaveError('');
                         setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
                         setModalOpen(true);
-                    }} className="min-h-[52px] flex items-center gap-2 px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:opacity-90 transition-opacity">
+                    }} className="min-h-[52px] flex items-center gap-2 px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:bg-bos-accent-strong transition-opacity">
                         <Plus className="h-5 w-5" /> Agregar producto
                     </button>
                 </div>
@@ -188,7 +188,7 @@ const Inventory: React.FC = () => {
                 <div className="relative w-full sm:w-72">
                     <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-bos-muted h-5 w-5" />
                     <input
-                        className="w-full h-11 pl-11 pr-4 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent"
+                        className="w-full h-11 pl-11 pr-4 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text"
                         placeholder="Buscar producto..."
                         aria-label="Buscar producto"
                         value={search}
@@ -388,7 +388,7 @@ const Inventory: React.FC = () => {
                                 type="button"
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="min-h-[52px] px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="min-h-[52px] px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:bg-bos-accent-strong flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                                 {saving ? 'Guardando...' : 'Guardar producto'}

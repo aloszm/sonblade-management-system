@@ -38,11 +38,11 @@ function Delta({ current, previous, invert = false }: { current: number; previou
     );
 }
 
-function BigStat({ title, value, current, previous, testId, invert }: { title: string; value: string; current: number; previous: number; testId: string; invert?: boolean }) {
+function BigStat({ title, value, current, previous, testId, invert, accent }: { title: string; value: string; current: number; previous: number; testId: string; invert?: boolean; accent?: boolean }) {
     return (
-        <div className={`${card} p-5 flex flex-col gap-2`}>
+        <div className={`${card} p-5 flex flex-col gap-2 transition-colors hover:border-bos-control`}>
             <p className={label}>{title}</p>
-            <p data-testid={testId} className="font-display text-4xl font-semibold tabular-nums leading-none">{value}</p>
+            <p data-testid={testId} className={`font-display text-4xl font-semibold tabular-nums leading-none ${accent ? 'text-bos-accent-text' : ''}`}>{value}</p>
             <Delta current={current} previous={previous} invert={invert} />
         </div>
     );
@@ -174,12 +174,12 @@ export default function Dashboard() {
                         <label className="sr-only" htmlFor="metrics-from">Desde</label>
                         <input id="metrics-from" type="date" value={range.from} max={range.to}
                             onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })}
-                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text" />
+                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text" />
                         <span className="text-bos-muted">a</span>
                         <label className="sr-only" htmlFor="metrics-to">Hasta</label>
                         <input id="metrics-to" type="date" value={range.to} min={range.from}
                             onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })}
-                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text" />
+                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text" />
                     </div>
                 )}
                 <div role="group" aria-label="Filtrar por persona" className="flex flex-wrap gap-2">
@@ -199,7 +199,7 @@ export default function Dashboard() {
             {data && k && p && (
                 <>
                     <section aria-label="Indicadores principales" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <BigStat title="Ingresos" value={money(k.revenue)} current={k.revenue} previous={p.revenue} testId="kpi-revenue" />
+                        <BigStat title="Ingresos" value={money(k.revenue)} current={k.revenue} previous={p.revenue} testId="kpi-revenue" accent />
                         <BigStat title="Cortes" value={String(k.cuts)} current={k.cuts} previous={p.cuts} testId="kpi-cuts" />
                         <BigStat title="Ticket promedio" value={money(k.avg_ticket)} current={k.avg_ticket} previous={p.avg_ticket} testId="kpi-ticket" />
                         {barber ? (
@@ -383,10 +383,10 @@ export default function Dashboard() {
                                 <div className="relative">
                                     <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-bos-muted" />
                                     <input type="search" aria-label="Buscar en el registro" placeholder="Buscar" value={search} onChange={(e) => setSearch(e.target.value)}
-                                        className="h-10 w-44 pl-9 pr-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent" />
+                                        className="h-10 w-44 pl-9 pr-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text" />
                                 </div>
                                 <select aria-label="Tipo" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}
-                                    className="h-10 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text">
+                                    className="h-10 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text">
                                     <option value="all">Todo</option><option value="service">Servicios</option><option value="product">Productos</option>
                                 </select>
                                 <button type="button" onClick={exportActivity} className="h-10 px-4 rounded-xl border border-bos-border text-sm font-semibold inline-flex items-center gap-2 hover:bg-bos-raised">

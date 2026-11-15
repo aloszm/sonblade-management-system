@@ -73,7 +73,7 @@ export default function AuditoriaPage() {
         setDateTo('');
     };
 
-    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent';
+    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text focus-visible:border-bos-accent-text';
     const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
     const th = 'px-4 py-3 text-[13px] font-medium';
 
@@ -160,7 +160,7 @@ export default function AuditoriaPage() {
                                         {log.details && Object.keys(log.details).length > 0 ? (
                                             <details className="cursor-pointer">
                                                 <summary className="inline-block py-1 text-xs text-bos-accent-text font-medium hover:underline">Ver detalle</summary>
-                                                <pre className="mt-2 text-xs bg-bos-bg border border-bos-border p-2 rounded-xl overflow-x-auto max-w-xs">{JSON.stringify(log.details, null, 2)}</pre>
+                                                <pre className="mt-2 text-xs bg-bos-bg border border-bos-control p-2 rounded-xl overflow-x-auto max-w-xs">{JSON.stringify(log.details, null, 2)}</pre>
                                             </details>
                                         ) : (
                                             <span className="text-bos-muted text-xs">—</span>

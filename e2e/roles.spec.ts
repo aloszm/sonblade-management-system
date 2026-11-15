@@ -62,7 +62,7 @@ test.describe('acceso por puesto', () => {
     test('sin sesión todo redirige al acceso y la marca es pública', async ({ page }) => {
         await page.goto('/caja');
         await expect(page).toHaveURL(/\/login$/);
-        await expect(page.getByRole('heading', { level: 1 })).toHaveText(/sonblade/i);
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText(/gallo 4:20/i);
         expect((await page.request.get('/api/sales')).status()).toBe(401);
         for (const asset of ['/manifest.json', '/icons/icon-192.png', '/logo.png']) {
             expect((await page.request.get(asset)).status(), asset).toBe(200);

@@ -124,7 +124,7 @@ export default function SettingsPage() {
     const card = 'rounded-xl border border-bos-border bg-bos-surface p-5 sm:p-6';
     const h2 = 'font-display text-lg font-semibold mb-5';
     const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
-    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -288,7 +288,7 @@ export default function SettingsPage() {
                     <button
                         type="submit"
                         disabled={saving}
-                        className="w-full sm:w-auto min-h-[52px] px-8 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="w-full sm:w-auto min-h-[52px] px-8 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                         {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                         {saving ? 'Guardando...' : 'Guardar configuración'}

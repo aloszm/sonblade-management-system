@@ -11,7 +11,7 @@ const FULL_DAY = { starts: '00:00', ends: '23:59' };
 type Mode = 'business' | 'off' | 'custom';
 interface DayForm { mode: Mode; starts: string; ends: string }
 
-const field = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent tabular-nums';
+const field = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text outline-none focus:border-bos-accent tabular-nums';
 
 export default function BarberScheduleModal({ barber, onClose }: { barber: { id: string; name: string }; onClose: () => void }) {
     const [days, setDays] = useState<DayForm[] | null>(null);

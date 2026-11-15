@@ -24,7 +24,8 @@ const STATUS_STYLE: Record<AppointmentStatus, string> = {
 const UI_ACTIONS: AppointmentStatus[] = ['confirmed', 'checked_in', 'cancelled'];
 const actionsFor = (status: AppointmentStatus) => nextStatuses(status).filter((s) => UI_ACTIONS.includes(s));
 // Un color discreto por barbero para distinguirlos en el calendario.
-const BARBER_COLORS = ['#D4AF37', '#6E9CF0', '#4FB7A0', '#D9869B', '#9C8CE8', '#E08A4F'];
+// Al menos 3:1 sobre la superficie en modo claro y oscuro (WCAG 1.4.11).
+const BARBER_COLORS = ['#A97A2F', '#4F86E0', '#2A9680', '#CC5F7C', '#7F6FD6', '#CC6A30'];
 const HOUR_PX = 64; // alto de una hora en la vista por día
 // Si el negocio no tiene horario configurado, la vista por día muestra de 8 a.m. a 10 p.m.
 // Con horario, se muestra de una hora antes de abrir a una hora después de cerrar.
@@ -38,7 +39,7 @@ const DURATIONS = [30, 45, 60, 90, 120];
 const EMPTY_OFF = { barber_id: '', from_date: '', from_time: '08:00', to_date: '', to_time: '22:00', reason: '', requested_date: '', requested_time: '', requested_via: 'whatsapp' as RequestedVia };
 const EMPTY_FORM = { client_id: '', customer_name: '', customer_phone: '', barber_id: '', date: '', time: '', duration: 30, service_note: '' };
 
-const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
 const fieldLabel = 'block text-[13px] font-medium text-bos-muted mb-1.5';
 const primary = 'min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 inline-flex items-center justify-center gap-2';
 const secondary = 'min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised inline-flex items-center justify-center gap-2';
@@ -460,8 +461,9 @@ export default function AppointmentsPage() {
                                                     onClick={() => { setActionError(''); setOnlyApt(a.id); setOpenDay(dayKey); }}
                                                     style={{ top: top + 1, height, borderLeftColor: c.id ? colorOf(c.id) : 'var(--bos-muted)',
                                                         left: `calc(${(lane / laneCount) * 100}% + 4px)`, width: `calc(${100 / laneCount}% - 8px)` }}
-                                                    className={`absolute z-20 overflow-hidden rounded-md border border-bos-border border-l-[3px] px-2 py-1 text-left transition-colors ${a.walk_in ? 'border-dashed' : ''} ${live ? 'bg-bos-raised hover:bg-bos-bg' : 'bg-bos-surface opacity-60'}`}>
-                                                    <span className={`block truncate text-[13px] font-semibold ${live ? '' : 'line-through'}`}>{a.client_name}</span>
+                                                    className={`absolute z-20 overflow-hidden rounded-md border border-bos-border border-l-[3px] px-2 py-1 text-left transition-colors ${a.walk_in ? 'border-dashed' : ''} ${live ? 'bg-bos-raised hover:bg-bos-bg' : 'bg-bos-surface'}`}>
+                                                    {/* Cancelada: se atenúa con color (no con opacidad) para que se siga leyendo. */}
+                                                    <span className={`block truncate text-[13px] font-semibold ${live ? '' : 'line-through text-bos-muted'}`}>{a.client_name}</span>
                                                     <span className="block truncate text-xs text-bos-muted">
                                                         {timeOf(a.scheduled_at)} · {a.walk_in ? 'Sin cita' : STATUS_LABELS[a.status]}{a.sale ? ` · ${money(a.sale.total)}` : ''}
                                                     </span>
@@ -670,7 +672,7 @@ export default function AppointmentsPage() {
                             <label htmlFor="cancel-reason" className={fieldLabel}>Motivo</label>
                             <textarea id="cancel-reason" rows={3} maxLength={300} autoFocus placeholder="Ej. El cliente avisó que no puede venir"
                                 value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
-                                className="w-full px-3 py-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent" />
+                                className="w-full px-3 py-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button type="button" onClick={() => { setCancelTarget(null); setActionError(''); }} className={secondary}>Volver</button>

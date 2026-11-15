@@ -87,7 +87,7 @@ export default function ServicesPage() {
     );
 
     const th = 'px-4 py-3 text-[13px] font-medium';
-    const cell = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const cell = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
     const iconBtn = 'h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised';
 
     return (
@@ -99,7 +99,7 @@ export default function ServicesPage() {
                 </div>
                 <button
                     onClick={() => { setIsAdding(true); setFormError(''); setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false }); }}
-                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong transition-colors"
                 >
                     <Plus className="h-4 w-4" /> Nuevo servicio
                 </button>

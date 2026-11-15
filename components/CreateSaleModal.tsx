@@ -113,7 +113,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
 
     if (!isOpen) return null;
 
-    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
 
     return (
@@ -162,7 +162,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                                         className={`${field} pl-9`}
                                     />
                                     {clientSearch && filteredClients.length > 0 && (
-                                        <div className="absolute top-12 left-0 right-0 bg-bos-surface border border-bos-border rounded-xl overflow-hidden z-20 shadow-lg">
+                                        <div className="absolute top-12 left-0 right-0 bg-bos-surface border border-bos-control rounded-xl overflow-hidden z-20 shadow-lg">
                                             {filteredClients.map((c: Client) => (
                                                 <button
                                                     type="button"
@@ -238,7 +238,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                 {/* Notas */}
                 <div>
                     <label htmlFor="sale-notes" className={label}>Notas</label>
-                    <textarea id="sale-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2.5 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent resize-none" placeholder="Opcional..." />
+                    <textarea id="sale-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2.5 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text resize-none" placeholder="Opcional..." />
                 </div>
 
                 {/* Total */}
@@ -249,7 +249,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
 
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                     <button type="button" onClick={onClose} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
-                    <button type="button" onClick={handleSubmit} disabled={submitting} className="min-h-[52px] px-6 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+                    <button type="button" onClick={handleSubmit} disabled={submitting} className="min-h-[52px] px-6 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong disabled:opacity-50 flex items-center justify-center gap-2">
                         {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                         {submitting ? 'Creando...' : 'Crear venta'}
                     </button>

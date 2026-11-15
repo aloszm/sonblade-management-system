@@ -295,7 +295,7 @@ export default function POS() {
                             {lastSale.id ? (
                                 <Link href={`/ticket/${lastSale.id}`} className="h-13 min-h-[52px] inline-flex items-center justify-center rounded-xl border border-bos-border text-[15px] font-semibold text-bos-text hover:bg-bos-raised">Ver ticket</Link>
                             ) : <span />}
-                            <button type="button" autoFocus onClick={startNewSale} className="min-h-[52px] rounded-xl bg-bos-text text-bos-bg text-[15px] font-bold hover:opacity-90">Nueva venta</button>
+                            <button type="button" autoFocus onClick={startNewSale} className="min-h-[52px] rounded-xl bg-bos-text text-bos-bg text-[15px] font-bold hover:bg-bos-muted">Nueva venta</button>
                         </div>
                     </div>
                 ) : (

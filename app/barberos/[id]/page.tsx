@@ -57,7 +57,7 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
     const svcTotal = serviceBreakdown.reduce((s, b) => s + b.revenue, 0);
     const card = 'rounded-xl border border-bos-border bg-bos-surface';
     const th = 'px-4 py-3 text-[13px] font-medium';
-    const dateField = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent';
+    const dateField = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text focus-visible:border-bos-accent-text';
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">

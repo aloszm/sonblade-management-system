@@ -59,7 +59,7 @@ const MobileNav = () => {
                         key={item.href}
                         href={item.href}
                         aria-current={isActive ? 'page' : undefined}
-                        className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-colors ${isActive ? 'text-bos-text' : 'text-bos-muted'}`}
+                        className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-colors ${isActive ? 'text-bos-accent-text' : 'text-bos-muted hover:text-bos-text'}`}
                     >
                         <item.icon className="h-5 w-5" />
                         <span className={`text-[11px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
@@ -67,6 +67,7 @@ const MobileNav = () => {
                 );
             })}
             <button
+                type="button"
                 onClick={handleLogout}
                 className="flex flex-col items-center justify-center gap-1 w-full h-full transition-colors text-bos-muted hover:text-bos-text"
             >

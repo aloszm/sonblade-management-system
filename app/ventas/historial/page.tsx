@@ -176,7 +176,7 @@ export default function SalesHistoryPage() {
 
     const periodLabel = periodFilter === 'today' ? 'Hoy' : periodFilter === 'week' ? 'Esta semana' : periodFilter === 'month' ? 'Este mes' : 'Personalizado';
 
-    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent';
+    const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text focus-visible:border-bos-accent-text';
     const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
     const th = 'px-4 py-3 text-[13px] font-medium';
     const iconBtn = 'h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised align-middle';
@@ -193,7 +193,7 @@ export default function SalesHistoryPage() {
                     <button onClick={exportCSV} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised flex items-center gap-2">
                         <Download className="h-4 w-4" />CSV
                     </button>
-                    <button onClick={() => setShowCreateModal(true)} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 flex items-center gap-2">
+                    <button onClick={() => setShowCreateModal(true)} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong flex items-center gap-2">
                         <Plus className="h-4 w-4" />Nueva venta
                     </button>
                 </div>
@@ -296,7 +296,7 @@ export default function SalesHistoryPage() {
                     onClose={() => { setShowDeleteConfirm(null); setReverseReason(''); }}>
                     <label htmlFor="reverse-reason" className={label}>Motivo de la anulación</label>
                     <textarea id="reverse-reason" value={reverseReason} onChange={(e) => setReverseReason(e.target.value)} maxLength={500} rows={2}
-                        className="w-full px-3 py-2.5 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text outline-none focus:border-bos-accent resize-none" />
+                        className="w-full px-3 py-2.5 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text focus-visible:border-bos-accent-text resize-none" />
                     {deleteError && <p role="alert" className="mt-3 text-sm text-bos-danger">{deleteError}</p>}
                     <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                         <button onClick={() => { setShowDeleteConfirm(null); setReverseReason(''); }} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>

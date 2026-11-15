@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
     const isPublic = PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
         || pathname.startsWith('/_next/') || pathname === '/favicon.ico' || pathname === '/manifest.json'
-        || pathname === '/sw.js' || pathname === '/logo.png' || pathname.startsWith('/icons/');
+        || pathname === '/sw.js' || pathname === '/logo.png' || pathname === '/logo-light.png' || pathname === '/logo-dark.png' || pathname.startsWith('/icons/');
 
     if (!user && !isPublic) {
         if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No autenticado.' }, { status: 401, headers: NO_CACHE });
@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'La cuenta no tiene un negocio asignado.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/onboarding', request.url));
         }
-        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/cuadre', '/configuracion', '/ventas'];
+        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
         if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin'].includes(membership.role)) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/pos', request.url));

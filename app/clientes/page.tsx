@@ -115,7 +115,7 @@ export default function ClientsPage() {
         (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    const input = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const input = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
     const th = 'px-4 py-3 text-[13px] font-medium';
 
@@ -128,7 +128,7 @@ export default function ClientsPage() {
                 </div>
                 <button
                     onClick={openCreate}
-                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 flex items-center justify-center gap-2"
+                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong flex items-center justify-center gap-2"
                 >
                     <Plus className="h-4 w-4" /> Registrar cliente
                 </button>
@@ -314,7 +314,7 @@ export default function ClientsPage() {
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="flex-1 min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:opacity-90 disabled:opacity-70 flex items-center justify-center gap-2"
+                                className="flex-1 min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong disabled:opacity-70 flex items-center justify-center gap-2"
                             >
                                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingClient ? 'Guardar cambios' : 'Guardar cliente'}
                             </button>

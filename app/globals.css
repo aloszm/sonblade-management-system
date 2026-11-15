@@ -1,14 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  --color-sonblade-dark: #000000;
-  --color-sonblade-primary: #000000;
-  --color-sonblade-gold: #D4AF37;
-  --color-sonblade-light: #F8F9FA;
-  --color-sonblade-success: #70AD47;
-  --color-sonblade-warning: #F39C12;
-  --color-sonblade-danger: #E74C3C;
-
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-inter), system-ui, sans-serif;
 }
@@ -16,41 +8,48 @@
 /*
  * Colores centrales de BarberOS. Cada pantalla nueva usa estos nombres (bg-bos-surface,
  * text-bos-muted…) y así funciona en modo oscuro y claro sin tocar la pantalla.
- * El dorado se reserva para lo importante: el total, el botón principal y el primer lugar.
+ * El bronce (el del logo de Gallo 4:20) se reserva para lo importante: el total, el botón principal y el primer lugar.
+ * Contrastes medidos con la fórmula WCAG 2.2 (ver la tabla en el reporte de marca): texto normal ≥ 4.5:1, gráficos y bordes de control ≥ 3:1.
  */
 :root,
 [data-theme='dark'] {
   color-scheme: dark;
   --bos-bg: #0A0A0B;
   --bos-surface: #131315;
-  --bos-raised: #1A1A1D;
-  --bos-border: #26262A;
+  --bos-raised: #1C1C1F;
+  --bos-border: #2A2A2E;
+  --bos-control: #6B6B73;
   --bos-text: #F4F4F5;
   --bos-muted: #A1A1AA;
-  --bos-accent: #D4AF37;
-  --bos-accent-text: #D4AF37;
-  --bos-accent-soft: #1B1810;
+  --bos-accent: #C9A46A;
+  --bos-accent-strong: #D8B77E;
+  --bos-accent-text: #D4B07A;
+  --bos-accent-soft: #241D12;
   --bos-on-accent: #0A0A0B;
   --bos-success: #4ADE80;
   --bos-success-soft: #0F2417;
   --bos-danger: #F87171;
+  --bos-danger-soft: #2A1213;
 }
 
 [data-theme='light'] {
   color-scheme: light;
   --bos-bg: #F6F5F2;
   --bos-surface: #FFFFFF;
-  --bos-raised: #F0EEE9;
-  --bos-border: #E4E2DC;
+  --bos-raised: #EFEDE8;
+  --bos-border: #DEDBD3;
+  --bos-control: #8A8478;
   --bos-text: #18181B;
   --bos-muted: #5B5B63;
-  --bos-accent: #D4AF37;
-  --bos-accent-text: #8A6D12;
-  --bos-accent-soft: #FBF4DC;
-  --bos-on-accent: #0A0A0B;
-  --bos-success: #15803D;
-  --bos-success-soft: #E7F6EC;
+  --bos-accent: #7A5B32;
+  --bos-accent-strong: #6B4E29;
+  --bos-accent-text: #6B4E29;
+  --bos-accent-soft: #F3EBDD;
+  --bos-on-accent: #FFFFFF;
+  --bos-success: #166534;
+  --bos-success-soft: #E3F4E9;
   --bos-danger: #B91C1C;
+  --bos-danger-soft: #FBE9E9;
 }
 
 @theme inline {
@@ -58,15 +57,18 @@
   --color-bos-surface: var(--bos-surface);
   --color-bos-raised: var(--bos-raised);
   --color-bos-border: var(--bos-border);
+  --color-bos-control: var(--bos-control);
   --color-bos-text: var(--bos-text);
   --color-bos-muted: var(--bos-muted);
   --color-bos-accent: var(--bos-accent);
+  --color-bos-accent-strong: var(--bos-accent-strong);
   --color-bos-accent-text: var(--bos-accent-text);
   --color-bos-accent-soft: var(--bos-accent-soft);
   --color-bos-on-accent: var(--bos-on-accent);
   --color-bos-success: var(--bos-success);
   --color-bos-success-soft: var(--bos-success-soft);
   --color-bos-danger: var(--bos-danger);
+  --color-bos-danger-soft: var(--bos-danger-soft);
 }
 
 /* Movimiento: corto y solo en los momentos que importan (cobro realizado). */
@@ -94,66 +96,36 @@
   .bos-float { animation: none; opacity: 0 }
 }
 
-/* Custom Sonblade scrollbar — gold on black */
-.scrollbar-sonblade {
-  scrollbar-width: thin;
-  scrollbar-color: #D4AF37 #1a1a1a;
+/* Foco visible en todo control, con el bronce de la marca. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--bos-accent-text);
+  outline-offset: 2px;
 }
 
-.scrollbar-sonblade::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Logo según el tema, sin depender de JavaScript. */
+.logo-light { display: none }
+[data-theme='light'] .logo-light { display: block }
+[data-theme='light'] .logo-dark { display: none }
+
+/* Barras de desplazamiento discretas. */
+* { scrollbar-width: thin; scrollbar-color: var(--bos-control) transparent }
+
+/* Quien prefiere menos movimiento no ve transiciones ni giros. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important }
 }
 
-.scrollbar-sonblade::-webkit-scrollbar-track {
-  background: #1a1a1a;
-  border-radius: 4px;
-}
-
-.scrollbar-sonblade::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #D4AF37, #b8962e);
-  border-radius: 4px;
-  border: 1px solid #2a2a2a;
-}
-
-.scrollbar-sonblade::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #e6c34a, #D4AF37);
-}
-
-/* Light variant for main content area */
-.scrollbar-sonblade-light {
-  scrollbar-width: thin;
-  scrollbar-color: #c4a032 #e5e7eb;
-}
-
-.scrollbar-sonblade-light::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.scrollbar-sonblade-light::-webkit-scrollbar-track {
-  background: #f3f4f6;
-  border-radius: 4px;
-}
-
-.scrollbar-sonblade-light::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #D4AF37, #b8962e);
-  border-radius: 4px;
-  border: 1px solid #e5e7eb;
-}
-
-.scrollbar-sonblade-light::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #e6c34a, #D4AF37);
-}
 /* Impresión de recibos: márgenes de página y fondo blanco */
 @media print {
   @page { margin: 14mm; }
   body { background: #fff !important; }
+  .logo-dark { display: none !important }
+  .logo-light { display: block !important }
   /* En papel siempre texto negro sobre blanco, sin importar el modo elegido en pantalla. */
   :root, [data-theme='dark'], [data-theme='light'] {
     color-scheme: light;
     --bos-bg: #FFFFFF; --bos-surface: #FFFFFF; --bos-raised: #F4F4F4; --bos-border: #BDBDBD;
-    --bos-text: #000000; --bos-muted: #3F3F46; --bos-accent-text: #000000; --bos-accent-soft: #FFFFFF;
+    --bos-text: #000000; --bos-muted: #3F3F46; --bos-accent-text: #000000; --bos-accent-soft: #FFFFFF; --bos-control: #6B6B73;
     --bos-success: #166534; --bos-success-soft: #FFFFFF; --bos-danger: #991B1B;
   }
 }

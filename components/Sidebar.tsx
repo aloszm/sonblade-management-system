@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, LogOut, Package, Scissors,
-    Settings, ShoppingCart, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon, Scale } from 'lucide-react';
-import { CLIENT_LOGO, CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
+    Settings, ShoppingCart, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon, Scale, PiggyBank } from 'lucide-react';
+import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
+import BrandLogo from '@/components/BrandLogo';
 
 interface SidebarProps { isOpen: boolean }
 interface MenuItem { href: string; label: string; icon: LucideIcon; roles: Role[]; ownerOnly?: boolean }
@@ -32,6 +33,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
         items: [
             { href: '/ventas/historial', label: 'Ventas', icon: FileText, roles: ['admin'] },
             { href: '/cuadre', label: 'Cuadre', icon: Scale, roles: ['admin'] },
+            { href: '/administracion', label: 'Utilidad', icon: PiggyBank, roles: ['admin'] },
             { href: '/gastos', label: 'Gastos', icon: TrendingDown, roles: ['admin'] },
             { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin'] },
             { href: '/servicios', label: 'Servicios', icon: Scissors, roles: ['admin'] },
@@ -67,15 +69,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
     return (
         <aside className="h-full w-60 flex flex-col shrink-0 bg-bos-surface text-bos-text border-r border-bos-border">
-            <Link href={user?.role === 'barber' ? '/barbero' : user?.role === 'recepcion' ? '/pos' : '/'} className="flex items-center gap-3 h-16 px-5 border-b border-bos-border">
-                <span className="h-8 w-8 rounded-lg bg-white p-1 inline-flex items-center justify-center shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={CLIENT_LOGO} alt="" className="h-full w-full object-contain" />
-                </span>
-                <span className="min-w-0 leading-tight">
-                    <span className="block text-[15px] font-semibold tracking-tight">{CLIENT_NAME}</span>
-                    <span className="block text-xs text-bos-muted">{SYSTEM_NAME}</span>
-                </span>
+            <Link href={user?.role === 'barber' ? '/barbero' : user?.role === 'recepcion' ? '/pos' : '/'} aria-label={`${CLIENT_NAME}, ${CLIENT_TAGLINE}. ${SYSTEM_NAME}: ir al inicio`}
+                className="flex flex-col items-start gap-1.5 px-5 pt-4 pb-3 border-b border-bos-border">
+                <BrandLogo alt={`${CLIENT_NAME} ${CLIENT_TAGLINE}`} className="h-20 w-auto max-w-full" />
+                <span className="text-xs font-medium text-bos-muted">{SYSTEM_NAME}</span>
             </Link>
 
             <nav aria-label="Principal" className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
@@ -92,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                                     return (
                                         <li key={item.href}>
                                             <Link href={item.href} aria-current={active ? 'page' : undefined}
-                                                className={`flex items-center gap-3 h-9 px-3 rounded-lg text-sm transition-colors ${active ? 'bg-bos-raised text-bos-text font-semibold' : 'text-bos-muted font-medium hover:text-bos-text hover:bg-bos-raised/60'}`}>
+                                                className={`relative flex items-center gap-3 h-9 px-3 rounded-lg text-sm transition-colors ${active ? 'bg-bos-accent-soft text-bos-text font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-bos-accent' : 'text-bos-muted font-medium hover:text-bos-text hover:bg-bos-raised'}`}>
                                                 <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active ? 'text-bos-accent-text' : ''}`} />
                                                 {item.label}
                                             </Link>
@@ -115,7 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                         <span className="block text-xs text-bos-muted">{user?.title ?? ''}</span>
                     </span>
                     <button type="button" onClick={handleLogout} aria-label="Cerrar sesión" title="Cerrar sesión"
-                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-bos-muted hover:text-bos-text hover:bg-bos-raised">
+                        className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-bos-muted hover:text-bos-text hover:bg-bos-raised transition-colors">
                         <LogOut className="h-4 w-4" />
                     </button>
                 </div>

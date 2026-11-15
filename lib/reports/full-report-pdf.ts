@@ -8,8 +8,8 @@ import {
 type Doc = import('jspdf').jsPDF;
 type RGB = [number, number, number];
 
-const GOLD: RGB = [212, 175, 55];
-const GOLD_SOFT: RGB = [249, 243, 220];
+const BRONZE: RGB = [122, 91, 50];
+const BRONZE_SOFT: RGB = [243, 235, 221];
 const INK: RGB = [20, 20, 22];
 const MUTED: RGB = [95, 95, 102];
 const RULE: RGB = [222, 220, 214];
@@ -71,7 +71,7 @@ function drawBars(doc: Doc, block: ReportBars, x: number, y: number, w: number, 
     const n = block.items.length;
     const slot = plotW / n;
     const barW = Math.min(slot * 0.62, 16);
-    const fill = block.color === 'accent' ? GOLD : INK;
+    const fill = block.color === 'accent' ? BRONZE : INK;
     const every = Math.max(1, Math.ceil(n / Math.max(4, Math.floor(plotW / 16))));
     block.items.forEach((item, i) => {
         const bh = (item.value / max) * plotH;
@@ -108,7 +108,7 @@ function renderTable(doc: Doc, autoTable: AutoTable, table: ReportTable, tz: str
         showFoot: 'lastPage',
         theme: 'plain',
         styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 1.6, textColor: INK, lineColor: RULE, lineWidth: 0, overflow: 'linebreak' },
-        headStyles: { fillColor: GOLD_SOFT, textColor: INK, fontStyle: 'bold', lineColor: GOLD, lineWidth: { bottom: 0.4 } },
+        headStyles: { fillColor: BRONZE_SOFT, textColor: INK, fontStyle: 'bold', lineColor: BRONZE, lineWidth: { bottom: 0.4 } },
         footStyles: { fillColor: [244, 244, 241], textColor: INK, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [251, 251, 249] },
         columnStyles,
@@ -134,7 +134,7 @@ function renderKpis(doc: Doc, autoTable: AutoTable, block: ReportKpis, y: number
         body: rows.map((r) => r.map(pdfSafe)),
         theme: 'plain',
         styles: { font: 'helvetica', fontSize: 9, cellPadding: 2, textColor: INK },
-        headStyles: { fillColor: GOLD_SOFT, fontStyle: 'bold', lineColor: GOLD, lineWidth: { bottom: 0.4 } },
+        headStyles: { fillColor: BRONZE_SOFT, fontStyle: 'bold', lineColor: BRONZE, lineWidth: { bottom: 0.4 } },
         alternateRowStyles: { fillColor: [251, 251, 249] },
         columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
         didParseCell: (data: { section: string; column: { index: number }; row: { index: number }; cell: { styles: { halign: string; textColor: RGB } } }) => {
@@ -150,7 +150,7 @@ function renderKpis(doc: Doc, autoTable: AutoTable, block: ReportKpis, y: number
 }
 
 function sectionHeader(doc: Doc, section: ReportSection, y: number): number {
-    doc.setFillColor(...GOLD).rect(M, y - 5.2, 1.6, 7.5, 'F');
+    doc.setFillColor(...BRONZE).rect(M, y - 5.2, 1.6, 7.5, 'F');
     doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(...INK).text(pdfSafe(`${section.number}. ${section.title}`), M + 4, y);
     doc.setFont('helvetica', 'italic').setFontSize(9).setTextColor(...MUTED);
     const lines = doc.splitTextToSize(pdfSafe(section.explain), CONTENT_W - 4) as string[];
@@ -194,7 +194,7 @@ function renderSection(doc: Doc, autoTable: AutoTable, section: ReportSection, t
 
 function renderCover(doc: Doc, autoTable: AutoTable, model: ReportModel) {
     const section = model.sections[0];
-    doc.setFillColor(...GOLD).rect(0, 0, PAGE_W, 7, 'F');
+    doc.setFillColor(...BRONZE).rect(0, 0, PAGE_W, 7, 'F');
     doc.setFont('helvetica', 'bold').setFontSize(26).setTextColor(...INK).text(pdfSafe(model.businessName), M, 28);
     doc.setFont('helvetica', 'normal').setFontSize(13).setTextColor(...MUTED).text('Reporte del negocio', M, 36);
     doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(...INK).text(pdfSafe(`${model.period.label}`), M, 47);
@@ -202,7 +202,7 @@ function renderCover(doc: Doc, autoTable: AutoTable, model: ReportModel) {
         .text(pdfSafe(`${model.branchName} · Audiencia: ${AUDIENCE_LABELS[model.audience]}. ${AUDIENCE_NOTES[model.audience]}`), M, 54);
 
     // Folio y código en grande: es lo que se anota al archivar el reporte.
-    doc.setDrawColor(...GOLD).setLineWidth(0.6).roundedRect(M, 61, CONTENT_W, 22, 2, 2);
+    doc.setDrawColor(...BRONZE).setLineWidth(0.6).roundedRect(M, 61, CONTENT_W, 22, 2, 2);
     doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...MUTED).text('Folio', M + 5, 68);
     doc.text('Código de verificación', M + 70, 68);
     doc.setFont('helvetica', 'bold').setFontSize(17).setTextColor(...INK).text(pdfSafe(model.folio ?? 'Sin folio'), M + 5, 77);

@@ -105,7 +105,7 @@ export default function LiquidacionesPage() {
         if (row.reason === 'week_not_closed') return <span className="text-bos-accent-text font-medium">Cierra el sábado a las 8:00 pm</span>;
         if (row.reason === 'nothing_to_pay') return <span className="text-bos-muted">Sin comisiones</span>;
         return (
-            <button onClick={() => openPay(row)} className="min-h-11 px-4 rounded-xl bg-bos-accent text-bos-on-accent text-sm font-bold hover:opacity-90 inline-flex items-center gap-1.5">
+            <button onClick={() => openPay(row)} className="min-h-11 px-4 rounded-xl bg-bos-accent text-bos-on-accent text-sm font-bold hover:bg-bos-accent-strong inline-flex items-center gap-1.5">
                 <Wallet className="h-4 w-4" /> Pagar
             </button>
         );
@@ -113,7 +113,7 @@ export default function LiquidacionesPage() {
 
     const card = 'rounded-xl border border-bos-border bg-bos-surface overflow-hidden';
     const th = 'px-4 py-3 text-[13px] font-medium';
-    const input = 'mt-1.5 w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const input = 'mt-1.5 w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     const chip = 'min-h-11 px-4 rounded-full border border-bos-border text-sm font-semibold text-bos-muted hover:text-bos-text hover:bg-bos-raised';
 
     return (

@@ -13,8 +13,8 @@ import type { Audience, ExportedReport, FullReport } from '@/lib/reports/full-re
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface';
 const label = 'text-[13px] font-medium text-bos-muted';
-const field = 'h-11 px-3 rounded-xl bg-bos-surface border border-bos-border text-base text-bos-text';
-const primary = 'min-h-[48px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
+const field = 'h-11 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text';
+const primary = 'min-h-[48px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:bg-bos-accent-strong disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 const secondary = 'min-h-[48px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 
 type Kind = 'pdf' | 'xlsx';

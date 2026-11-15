@@ -2,9 +2,9 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
-import { CLIENT_LOGO, CLIENT_NAME, SYSTEM_NAME } from '@/lib/brand';
+import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -43,16 +43,14 @@ export default function LoginPage() {
         }
     }
 
-    const input = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const input = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     return (
         <main className="min-h-screen flex items-center justify-center bg-bos-bg text-bos-text px-4 py-8">
             <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-bos-border bg-bos-surface p-8">
-                <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white p-2">
-                        <Image src={CLIENT_LOGO} alt={`Logo de ${CLIENT_NAME}`} width={160} height={160} priority className="h-full w-full object-contain" />
-                    </div>
-                    <h1 className="font-display text-3xl font-semibold tracking-tight">{CLIENT_NAME}</h1>
-                    <p className="mt-1 text-sm font-medium text-bos-accent-text">{SYSTEM_NAME}</p>
+                <div className="mb-8 flex flex-col items-center text-center">
+                    <h1 className="sr-only">{CLIENT_NAME} · {CLIENT_TAGLINE}</h1>
+                    <BrandLogo alt={`${CLIENT_NAME}, ${CLIENT_TAGLINE}`} className="h-28 w-auto max-w-full" />
+                    <p className="mt-3 text-sm font-medium text-bos-muted">{SYSTEM_NAME}</p>
                 </div>
                 {configurationMissing && <p role="alert" className="mb-4 text-sm text-bos-danger">El entorno aún no está configurado para iniciar sesión.</p>}
                 <label htmlFor="email" className="mb-2 block text-[13px] font-medium text-bos-muted">Correo electrónico</label>
@@ -60,7 +58,7 @@ export default function LoginPage() {
                 <label htmlFor="password" className="mb-2 block text-[13px] font-medium text-bos-muted">Contraseña</label>
                 <input id="password" type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={(event) => setPassword(event.target.value)} className={`mb-4 ${input}`} />
                 {error && <p role="alert" className="mb-4 text-center text-sm text-bos-danger">{error}</p>}
-                <button type="submit" disabled={submitting} className="flex w-full min-h-[52px] items-center justify-center rounded-xl bg-bos-accent px-5 font-bold text-bos-on-accent transition hover:opacity-90 disabled:opacity-60">
+                <button type="submit" disabled={submitting} className="flex w-full min-h-[52px] items-center justify-center rounded-xl bg-bos-accent px-5 font-semibold text-bos-on-accent transition-colors hover:bg-bos-accent-strong disabled:opacity-60">
                     {submitting ? <Loader2 aria-label="Iniciando sesión" className="h-5 w-5 animate-spin" /> : 'Iniciar sesión'}
                 </button>
             </form>

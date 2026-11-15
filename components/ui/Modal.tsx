@@ -46,7 +46,7 @@ export default function Modal({ title, subtitle, onClose, children, size = 'md',
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4" data-testid={testId}>
             {/* Fondo: tocarlo cierra la ventana. */}
             <button type="button" aria-label="Cerrar" tabIndex={-1} onClick={onClose}
-                data-testid="modal-backdrop" className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default bos-fade" />
+                data-testid="modal-backdrop" className="absolute inset-0 bg-black/60 cursor-default bos-fade" />
             <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
                 className={`relative w-full ${size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-lg'} max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-bos-border bg-bos-surface text-bos-text p-6 outline-none bos-sheet`}>
                 <div className="flex items-start justify-between gap-3 mb-5">

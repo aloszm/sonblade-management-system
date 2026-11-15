@@ -8,8 +8,8 @@ import type { VerifyResult } from '@/lib/reports/full-report-types';
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface';
 const label = 'text-[13px] font-medium text-bos-muted';
-const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
-const primary = 'min-h-[48px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
+const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
+const primary = 'min-h-[48px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:bg-bos-accent-strong disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 
 const WHY: Record<string, string> = {
     format: 'El folio debe verse así: REP-000001, y el código tiene al menos 16 letras y números (de la a a la f y del 0 al 9).',

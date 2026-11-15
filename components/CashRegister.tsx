@@ -30,8 +30,8 @@ const TAG_STYLES: Record<NonNullable<CashMovement['tag']>, string> = {
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface';
 const label = 'text-[13px] font-medium text-bos-muted';
-const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-border text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
-const primary = 'min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
+const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
+const primary = 'min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:bg-bos-accent-strong disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 const secondary = 'min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised inline-flex items-center justify-center gap-2';
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -452,7 +452,7 @@ export default function CashRegister() {
                                         <input type="number" min={0} step="1" inputMode="numeric" placeholder="0" aria-label={`Cantidad de ${d.kind === 'bill' ? 'billetes' : 'monedas'} de ${d.value}`}
                                             value={counts[String(d.value)] ? counts[String(d.value)] : ''}
                                             onChange={(e) => setCounts({ ...counts, [String(d.value)]: Math.max(Math.trunc(Number(e.target.value) || 0), 0) })}
-                                            className="w-20 h-11 px-2 rounded-lg bg-bos-bg border border-bos-border text-center text-base outline-none focus:border-bos-accent" />
+                                            className="w-20 h-11 px-2 rounded-lg bg-bos-bg border border-bos-control text-center text-base focus-visible:border-bos-accent-text" />
                                     </label>
                                 ))}
                             </div>
