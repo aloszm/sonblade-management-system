@@ -56,6 +56,12 @@ describe('buildSessionView', () => {
         expect(view.difference).toBe(-20);
     });
 
+    it('muestra a quién se entregó el retiro del cierre, y nada si no se indicó', () => {
+        const closed = { ...session, status: 'closed' as const, counted_cash: '1500.00', difference_amount: '0.00', closed_at: '2026-11-07T19:30:00Z', withdrawn_amount: '400.00' };
+        expect(buildSessionView({ ...closed, withdrawal_delivered_to: 'Dueño' }, [], 'Dago').withdrawal_delivered_to).toBe('Dueño');
+        expect(buildSessionView(closed, [], 'Dago').withdrawal_delivered_to).toBeNull();
+    });
+
     it('no mezcla tarjeta o transferencia con el efectivo físico', () => {
         const view = buildSessionView(session, [movement({ amount: 300, method: 'card' })], 'Dago');
         expect(view.total_cash).toBe(0);

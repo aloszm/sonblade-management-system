@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         const context = await requireAuthContext(['owner', 'admin', 'cashier', 'barber', 'receptionist']);
         const supabase = await createSupabaseServerClient();
         let query = supabase.from('sales')
-            .select('id, created_at, status, total_amount, notes, client_id, sale_items(id, item_type, item_name_snapshot, unit_price, quantity, service_id, product_id, employee_id, commission_employee_id), payments(method, amount, status), sale_tips(amount, status)')
+            .select('id, folio, created_at, status, total_amount, notes, client_id, sale_items(id, item_type, item_name_snapshot, unit_price, quantity, service_id, product_id, employee_id, commission_employee_id), payments(method, amount, status), sale_tips(amount, status)')
             .eq('business_id', context.businessId)
             .eq('branch_id', context.branchId)
             .order('created_at', { ascending: false }).limit(500);

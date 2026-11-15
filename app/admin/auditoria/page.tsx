@@ -154,7 +154,7 @@ export default function AuditoriaPage() {
                                         <span className="font-semibold">{actionLabel(log.action)}</span>
                                     </td>
                                     <td className="px-4 py-3 text-bos-muted text-xs">
-                                        {log.entity}{log.entity_id ? ` #${log.entity_id.substring(0, 8)}...` : ''}
+                                        {log.entity}{typeof log.details?.folio === 'string' ? ` ${log.details.folio}` : log.entity_id ? ` #${log.entity_id.substring(0, 8)}...` : ''}
                                     </td>
                                     <td className="px-4 py-3">
                                         {log.details && Object.keys(log.details).length > 0 ? (

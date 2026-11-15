@@ -3,6 +3,8 @@
 
 export type TicketSaleRow = {
     id: string;
+    /** Folio corto que la base asigna al cobrar (V2611-0042: año, mes y consecutivo del mes). */
+    folio: string;
     created_at: string;
     status: string;
     subtotal_amount: number | string;
@@ -43,17 +45,9 @@ export type Ticket = {
 const num = (value: number | string | null | undefined) => Number(value ?? 0);
 const cents = (value: number) => Math.round(value * 100);
 
-/** Folio legible: fecha de la venta y los primeros caracteres de su identificador. */
-export function ticketFolio(id: string, createdAt: string, timeZone: string): string {
-    const day = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
-        .format(new Date(createdAt)).replaceAll('-', '');
-    return `V-${day}-${id.slice(0, 6).toUpperCase()}`;
-}
-
 export function toTicket(
     row: TicketSaleRow,
     names: { employees: Map<string, string>; client: string | null; cashier: string | null },
-    timeZone: string,
 ): Ticket {
     // Lo que pagó el cliente por método: cobros de la venta más propinas.
     const byMethod = new Map<string, number>();
@@ -72,7 +66,7 @@ export function toTicket(
 
     return {
         id: row.id,
-        folio: ticketFolio(row.id, row.created_at, timeZone),
+        folio: row.folio,
         created_at: row.created_at,
         cancelled: row.status === 'refunded' || row.status === 'cancelled',
         client_name: names.client,

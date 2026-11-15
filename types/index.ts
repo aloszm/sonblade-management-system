@@ -86,6 +86,8 @@ export interface BarberPayment {
 
 export interface Sale {
     id: string;
+    /** Folio corto del ticket (V2611-0042). */
+    folio?: string;
     status?: string;
     barber_id: string | null;
     client_id: string | null;
@@ -130,6 +132,8 @@ export interface CashSession {
     float_left?: number | null;
     reserve_amount?: number | null;
     withdrawn_amount?: number | null;
+    /** A quién se entregó el retiro del cierre (nombre escrito al cerrar). */
+    withdrawal_delivered_to?: string | null;
     counted_breakdown?: Record<string, number> | null;
     total_expenses: number;
     total_cash: number;

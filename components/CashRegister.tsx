@@ -8,7 +8,7 @@ import { DENOMINATIONS, breakdownTotal, compactBreakdown, proposeSplit, withdraw
 
 interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean }
 type Movement = CashMovement & { direction: 'in' | 'out' };
-type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number };
+type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number; deliveredTo: string };
 
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
@@ -86,7 +86,10 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
                                 </td>
                                 <td className="px-4 py-3 text-right">{value(s.float_left)}</td>
                                 <td className="px-4 py-3 text-right">{value(s.reserve_amount)}</td>
-                                <td className="px-4 py-3 text-right">{value(s.withdrawn_amount)}</td>
+                                <td className="px-4 py-3 text-right">
+                                    {value(s.withdrawn_amount)}
+                                    {s.withdrawal_delivered_to && <span className="block text-xs text-bos-muted">a {s.withdrawal_delivered_to}</span>}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -130,6 +133,7 @@ export default function CashRegister() {
     const [countedTotal, setCountedTotal] = useState('');
     const [floatLeft, setFloatLeft] = useState('');
     const [reserve, setReserve] = useState('');
+    const [deliveredTo, setDeliveredTo] = useState('');
     const [closeResult, setCloseResult] = useState<CloseResult | null>(null);
 
     const load = useCallback(async (silent = false) => {
@@ -231,9 +235,11 @@ export default function CashRegister() {
                     session_id: session.id, physical_count: counted,
                     ...(byDenomination ? { breakdown: compactBreakdown(counts) } : {}),
                     float_left: Number(floatLeft) || 0, reserve_amount: Number(reserve) || 0,
+                    ...(withdrawn > 0 && deliveredTo.trim() ? { withdrawal_delivered_to: deliveredTo.trim() } : {}),
                 }),
             });
-            setCloseResult({ counted, difference, float: Number(floatLeft) || 0, reserve: Number(reserve) || 0, withdrawn });
+            setCloseResult({ counted, difference, float: Number(floatLeft) || 0, reserve: Number(reserve) || 0, withdrawn, deliveredTo: withdrawn > 0 ? deliveredTo.trim() : '' });
+            setDeliveredTo('');
             setCloseStep(0);
             setOpenAmount(String(Number(floatLeft) || 0));
             setSettings((s) => (s ? { ...s, last_float_left: Number(floatLeft) || 0 } : s));
@@ -263,7 +269,7 @@ export default function CashRegister() {
                             <div className="flex justify-between"><dt className="text-bos-muted">Efectivo contado</dt><dd className="font-semibold tabular-nums">{money(closeResult.counted)}</dd></div>
                             <div className="flex justify-between"><dt className="text-bos-muted">Se queda de fondo para mañana</dt><dd className="font-semibold tabular-nums">{money(closeResult.float)}</dd></div>
                             <div className="flex justify-between"><dt className="text-bos-muted">Apartado · {settings?.reserve_label ?? 'Apartado'}</dt><dd className="font-semibold tabular-nums">{money(closeResult.reserve)}</dd></div>
-                            <div className="flex justify-between"><dt className="text-bos-muted">Retiro</dt><dd className="font-semibold tabular-nums">{money(closeResult.withdrawn)}</dd></div>
+                            <div className="flex justify-between"><dt className="text-bos-muted">Retiro{closeResult.deliveredTo ? ` · entregado a ${closeResult.deliveredTo}` : ''}</dt><dd className="font-semibold tabular-nums">{money(closeResult.withdrawn)}</dd></div>
                             <div className="flex justify-between pt-2 border-t border-bos-border">
                                 <dt className="text-bos-muted">Diferencia contra lo esperado</dt>
                                 <dd className={`font-semibold tabular-nums ${closeResult.difference === 0 ? 'text-bos-success' : 'text-bos-danger'}`}>
@@ -496,6 +502,12 @@ export default function CashRegister() {
                             <span className="text-[15px] text-bos-muted">Retiro (lo que sobra)</span>
                             <span data-testid="close-withdrawn" className={`font-display text-3xl font-semibold tabular-nums ${withdrawn === null ? 'text-bos-danger' : 'text-bos-accent-text'}`}>{withdrawn === null ? 'No alcanza' : money(withdrawn)}</span>
                         </div>
+                        {withdrawn !== null && withdrawn > 0 && (
+                            <div className="space-y-2">
+                                <label htmlFor="close-delivered-to" className={label}>¿A quién se entrega el retiro? (opcional)</label>
+                                <input id="close-delivered-to" type="text" maxLength={120} autoComplete="off" value={deliveredTo} onChange={(e) => setDeliveredTo(e.target.value)} placeholder="Ej: Dueño, depósito al banco" className={field} />
+                            </div>
+                        )}
                         {withdrawn === null && <p role="alert" className="text-sm text-bos-danger">El fondo más el apartado no pueden ser más que lo contado.</p>}
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                         <div className="grid grid-cols-2 gap-3">

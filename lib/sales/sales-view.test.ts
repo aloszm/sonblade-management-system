@@ -3,6 +3,7 @@ import { toSaleView, type SaleRow } from './sales-view';
 
 const row: SaleRow = {
     id: 's1',
+    folio: 'V2611-0042',
     created_at: '2026-11-04T22:09:00Z',
     status: 'paid',
     total_amount: '350.00',
@@ -25,6 +26,7 @@ describe('toSaleView', () => {
         expect(sale.client?.name).toBe('Cliente Prueba');
         expect(sale.items?.map((i) => `${i.item_type}:${i.item_name}`)).toEqual(['service:Corte de cabello', 'product:Pomada mate']);
         expect(sale.tip).toBe(0);
+        expect(sale.folio).toBe('V2611-0042');
     });
 
     it('reparte el pago por método y marca el pago mixto', () => {

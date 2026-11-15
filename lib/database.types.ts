@@ -267,7 +267,10 @@ export type Database = {
         Row: {
           address: string | null
           business_id: string
+          cash_float_target: number
           created_at: string
+          daily_reserve_amount: number
+          daily_reserve_label: string
           id: string
           is_active: boolean
           name: string
@@ -278,7 +281,10 @@ export type Database = {
         Insert: {
           address?: string | null
           business_id: string
+          cash_float_target?: number
           created_at?: string
+          daily_reserve_amount?: number
+          daily_reserve_label?: string
           id?: string
           is_active?: boolean
           name: string
@@ -289,7 +295,10 @@ export type Database = {
         Update: {
           address?: string | null
           business_id?: string
+          cash_float_target?: number
           created_at?: string
+          daily_reserve_amount?: number
+          daily_reserve_label?: string
           id?: string
           is_active?: boolean
           name?: string
@@ -347,6 +356,9 @@ export type Database = {
           is_active: boolean
           name: string
           owner_user_id: string
+          product_commission_pct: number
+          service_commission_pct: number
+          settings: Json
           slug: string
           timezone: string
           updated_at: string
@@ -358,6 +370,9 @@ export type Database = {
           is_active?: boolean
           name: string
           owner_user_id: string
+          product_commission_pct?: number
+          service_commission_pct?: number
+          settings?: Json
           slug: string
           timezone?: string
           updated_at?: string
@@ -369,6 +384,9 @@ export type Database = {
           is_active?: boolean
           name?: string
           owner_user_id?: string
+          product_commission_pct?: number
+          service_commission_pct?: number
+          settings?: Json
           slug?: string
           timezone?: string
           updated_at?: string
@@ -381,6 +399,7 @@ export type Database = {
           branch_id: string
           business_id: string
           cash_session_id: string
+          commission_settlement_id: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -397,6 +416,7 @@ export type Database = {
           branch_id: string
           business_id: string
           cash_session_id: string
+          commission_settlement_id?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -413,6 +433,7 @@ export type Database = {
           branch_id?: string
           business_id?: string
           cash_session_id?: string
+          commission_settlement_id?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -447,6 +468,13 @@ export type Database = {
             referencedColumns: ["business_id", "branch_id", "id"]
           },
           {
+            foreignKeyName: "cash_movements_commission_settlement_fk"
+            columns: ["commission_settlement_id"]
+            isOneToOne: true
+            referencedRelation: "commission_settlements"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cash_movements_expense_fk"
             columns: ["business_id", "branch_id", "expense_id"]
             isOneToOne: false
@@ -461,45 +489,63 @@ export type Database = {
           business_id: string
           closed_at: string | null
           closed_by: string | null
+          counted_breakdown: Json | null
           counted_cash: number | null
           difference_amount: number | null
           expected_cash: number | null
+          float_left: number | null
           id: string
           notes: string | null
           opened_at: string
           opened_by: string
           opening_cash: number
+          opening_expected: number | null
+          reserve_amount: number | null
           status: Database["public"]["Enums"]["cash_session_status"]
+          withdrawal_delivered_to: string | null
+          withdrawn_amount: number | null
         }
         Insert: {
           branch_id: string
           business_id: string
           closed_at?: string | null
           closed_by?: string | null
+          counted_breakdown?: Json | null
           counted_cash?: number | null
           difference_amount?: number | null
           expected_cash?: number | null
+          float_left?: number | null
           id?: string
           notes?: string | null
           opened_at?: string
           opened_by: string
           opening_cash?: number
+          opening_expected?: number | null
+          reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
+          withdrawal_delivered_to?: string | null
+          withdrawn_amount?: number | null
         }
         Update: {
           branch_id?: string
           business_id?: string
           closed_at?: string | null
           closed_by?: string | null
+          counted_breakdown?: Json | null
           counted_cash?: number | null
           difference_amount?: number | null
           expected_cash?: number | null
+          float_left?: number | null
           id?: string
           notes?: string | null
           opened_at?: string
           opened_by?: string
           opening_cash?: number
+          opening_expected?: number | null
+          reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
+          withdrawal_delivered_to?: string | null
+          withdrawn_amount?: number | null
         }
         Relationships: [
           {
@@ -559,6 +605,91 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "businesses"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      commission_adjustments: {
+        Row: {
+          amount: number
+          branch_id: string
+          business_id: string
+          commission_entry_id: string
+          created_at: string
+          created_by: string
+          employee_id: string
+          id: string
+          reason: string
+          remaining_amount: number
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          business_id: string
+          commission_entry_id: string
+          created_at?: string
+          created_by: string
+          employee_id: string
+          id?: string
+          reason: string
+          remaining_amount: number
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          business_id?: string
+          commission_entry_id?: string
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          id?: string
+          reason?: string
+          remaining_amount?: number
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_adjustments_branch_fk"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "commission_adjustments_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_adjustments_employee_fk"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "commission_adjustments_entry_fk"
+            columns: [
+              "business_id",
+              "branch_id",
+              "employee_id",
+              "commission_entry_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "commission_entries"
+            referencedColumns: ["business_id", "branch_id", "employee_id", "id"]
           },
         ]
       }
@@ -812,33 +943,46 @@ export type Database = {
           amount: number
           branch_id: string
           business_id: string
-          commission_entry_id: string
+          commission_adjustment_id: string | null
+          commission_entry_id: string | null
           created_at: string
           employee_id: string
           id: string
+          line_type: string
           settlement_id: string
         }
         Insert: {
           amount: number
           branch_id: string
           business_id: string
-          commission_entry_id: string
+          commission_adjustment_id?: string | null
+          commission_entry_id?: string | null
           created_at?: string
           employee_id: string
           id?: string
+          line_type?: string
           settlement_id: string
         }
         Update: {
           amount?: number
           branch_id?: string
           business_id?: string
-          commission_entry_id?: string
+          commission_adjustment_id?: string | null
+          commission_entry_id?: string | null
           created_at?: string
           employee_id?: string
           id?: string
+          line_type?: string
           settlement_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "commission_settlement_lines_adjustment_fk"
+            columns: ["commission_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "commission_adjustments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "commission_settlement_lines_business_id_branch_id_employe_fkey1"
             columns: [
@@ -865,6 +1009,55 @@ export type Database = {
           },
         ]
       }
+      commission_settlement_payments: {
+        Row: {
+          amount: number
+          branch_id: string
+          business_id: string
+          created_at: string
+          employee_id: string
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          reference: string | null
+          settlement_id: string
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          business_id: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          reference?: string | null
+          settlement_id: string
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          reference?: string | null
+          settlement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_settlement_payment_business_id_branch_id_employ_fkey"
+            columns: [
+              "business_id",
+              "branch_id",
+              "employee_id",
+              "settlement_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "commission_settlements"
+            referencedColumns: ["business_id", "branch_id", "employee_id", "id"]
+          },
+        ]
+      }
       commission_settlements: {
         Row: {
           branch_id: string
@@ -878,9 +1071,12 @@ export type Database = {
           paid_via: Database["public"]["Enums"]["payment_method"] | null
           period_end: string
           period_start: string
+          receipt_number: string
           reference: string | null
           status: Database["public"]["Enums"]["settlement_status"]
           total_amount: number
+          window_end: string
+          window_start: string
         }
         Insert: {
           branch_id: string
@@ -894,9 +1090,12 @@ export type Database = {
           paid_via?: Database["public"]["Enums"]["payment_method"] | null
           period_end: string
           period_start: string
+          receipt_number: string
           reference?: string | null
           status?: Database["public"]["Enums"]["settlement_status"]
           total_amount?: number
+          window_end: string
+          window_start: string
         }
         Update: {
           branch_id?: string
@@ -910,9 +1109,12 @@ export type Database = {
           paid_via?: Database["public"]["Enums"]["payment_method"] | null
           period_end?: string
           period_start?: string
+          receipt_number?: string
           reference?: string | null
           status?: Database["public"]["Enums"]["settlement_status"]
           total_amount?: number
+          window_end?: string
+          window_start?: string
         }
         Relationships: [
           {
@@ -931,12 +1133,6 @@ export type Database = {
           },
         ]
       }
-      employee_weekly_schedule: {
-        Row: { business_id: string; employee_id: string; ends: string | null; is_off: boolean; starts: string | null; updated_at: string; updated_by: string; weekday: number }
-        Insert: never
-        Update: never
-        Relationships: []
-      }
       employee_time_off: {
         Row: {
           branch_id: string
@@ -954,10 +1150,95 @@ export type Database = {
           requested_via: string
           starts_at: string
         }
-        // Solo se escribe con create_time_off / cancel_time_off.
-        Insert: never
-        Update: never
-        Relationships: []
+        Insert: {
+          branch_id: string
+          business_id: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by: string
+          employee_id: string
+          ends_at: string
+          id?: string
+          reason: string
+          requested_at: string
+          requested_via: string
+          starts_at: string
+        }
+        Update: {
+          branch_id?: string
+          business_id?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          ends_at?: string
+          id?: string
+          reason?: string
+          requested_at?: string
+          requested_via?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_time_off_branch_fk"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_time_off_employee_fk"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      employee_weekly_schedule: {
+        Row: {
+          business_id: string
+          employee_id: string
+          ends: string | null
+          is_off: boolean
+          starts: string | null
+          updated_at: string
+          updated_by: string
+          weekday: number
+        }
+        Insert: {
+          business_id: string
+          employee_id: string
+          ends?: string | null
+          is_off?: boolean
+          starts?: string | null
+          updated_at?: string
+          updated_by: string
+          weekday: number
+        }
+        Update: {
+          business_id?: string
+          employee_id?: string
+          ends?: string | null
+          is_off?: boolean
+          starts?: string | null
+          updated_at?: string
+          updated_by?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_weekly_schedule_employee_fk"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+        ]
       }
       employees: {
         Row: {
@@ -1264,6 +1545,86 @@ export type Database = {
         }
         Relationships: []
       }
+      report_exports: {
+        Row: {
+          audience: string
+          branch_id: string
+          business_id: string
+          folio: string
+          generated_at: string
+          generated_by: string
+          id: string
+          period_from: string
+          period_to: string
+          sha256: string
+          snapshot: Json
+        }
+        Insert: {
+          audience: string
+          branch_id: string
+          business_id: string
+          folio: string
+          generated_at?: string
+          generated_by: string
+          id?: string
+          period_from: string
+          period_to: string
+          sha256: string
+          snapshot: Json
+        }
+        Update: {
+          audience?: string
+          branch_id?: string
+          business_id?: string
+          folio?: string
+          generated_at?: string
+          generated_by?: string
+          id?: string
+          period_from?: string
+          period_to?: string
+          sha256?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_exports_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_exports_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_folio_counters: {
+        Row: {
+          business_id: string
+          last_number: number
+        }
+        Insert: {
+          business_id: string
+          last_number?: number
+        }
+        Update: {
+          business_id?: string
+          last_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_folio_counters_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_items: {
         Row: {
           branch_id: string
@@ -1280,6 +1641,7 @@ export type Database = {
           quantity: number
           sale_id: string
           service_id: string | null
+          unit_cost_snapshot: number | null
           unit_price: number
         }
         Insert: {
@@ -1297,6 +1659,7 @@ export type Database = {
           quantity?: number
           sale_id: string
           service_id?: string | null
+          unit_cost_snapshot?: number | null
           unit_price: number
         }
         Update: {
@@ -1314,6 +1677,7 @@ export type Database = {
           quantity?: number
           sale_id?: string
           service_id?: string | null
+          unit_cost_snapshot?: number | null
           unit_price?: number
         }
         Relationships: [
@@ -1354,35 +1718,110 @@ export type Database = {
           },
         ]
       }
-      report_exports: {
+      sale_reversals: {
         Row: {
-          audience: string
           branch_id: string
           business_id: string
-          folio: string
-          generated_at: string
-          generated_by: string
+          created_at: string
+          created_by: string
           id: string
-          period_from: string
-          period_to: string
-          sha256: string
-          snapshot: Json
+          reason: string
+          sale_id: string
         }
-        Insert: never
-        Update: never
+        Insert: {
+          branch_id: string
+          business_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          reason: string
+          sale_id: string
+        }
+        Update: {
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          reason?: string
+          sale_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "report_exports_branch_id_fkey"
-            columns: ["branch_id"]
+            foreignKeyName: "sale_reversals_sale_fk"
+            columns: ["business_id", "branch_id", "sale_id"]
             isOneToOne: false
-            referencedRelation: "branches"
-            referencedColumns: ["id"]
+            referencedRelation: "sales"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+        ]
+      }
+      sale_tips: {
+        Row: {
+          amount: number
+          branch_id: string
+          business_id: string
+          created_at: string
+          created_by: string
+          employee_id: string
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          reversal_reason: string | null
+          reversed_at: string | null
+          sale_id: string
+          settlement_id: string | null
+          status: Database["public"]["Enums"]["commission_entry_status"]
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          business_id: string
+          created_at?: string
+          created_by: string
+          employee_id: string
+          id?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          sale_id: string
+          settlement_id?: string | null
+          status?: Database["public"]["Enums"]["commission_entry_status"]
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          sale_id?: string
+          settlement_id?: string | null
+          status?: Database["public"]["Enums"]["commission_entry_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_tips_employee_fk"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
           },
           {
-            foreignKeyName: "report_exports_business_id_fkey"
-            columns: ["business_id"]
+            foreignKeyName: "sale_tips_sale_fk"
+            columns: ["business_id", "branch_id", "sale_id"]
             isOneToOne: false
-            referencedRelation: "businesses"
+            referencedRelation: "sales"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "sale_tips_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "commission_settlements"
             referencedColumns: ["id"]
           },
         ]
@@ -1396,6 +1835,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           discount_amount: number
+          discount_authorized_by: string | null
+          discount_reason: string | null
+          folio: string
           id: string
           idempotency_key: string | null
           notes: string | null
@@ -1414,6 +1856,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           discount_amount?: number
+          discount_authorized_by?: string | null
+          discount_reason?: string | null
+          folio: string
           id?: string
           idempotency_key?: string | null
           notes?: string | null
@@ -1432,6 +1877,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           discount_amount?: number
+          discount_authorized_by?: string | null
+          discount_reason?: string | null
+          folio?: string
           id?: string
           idempotency_key?: string | null
           notes?: string | null
@@ -1562,83 +2010,16 @@ export type Database = {
     }
     Functions: {
       adjust_inventory_stock: {
-        Args: { p_branch_id: string; p_notes: string; p_product_id: string; p_quantity_delta: number }
+        Args: {
+          p_branch_id: string
+          p_notes: string
+          p_product_id: string
+          p_quantity_delta: number
+        }
         Returns: Json
       }
-      change_appointment_status: {
-        Args: { p_appointment_id: string; p_reason?: string; p_status: Database["public"]["Enums"]["appointment_status"] }
-        Returns: Database["public"]["Tables"]["appointments"]["Row"]
-      }
-      business_report: {
-        Args: { p_branch_id: string; p_employee_id?: string; p_from?: string; p_period: string; p_to?: string }
-        Returns: Json
-      }
-      get_settlement_receipt: {
-        Args: { p_settlement_id: string }
-        Returns: Json
-      }
-      list_audit_log: {
-        Args: { p_action?: string; p_branch_id: string; p_from?: string; p_limit?: number; p_role?: string; p_to?: string }
-        Returns: Json
-      }
-      preview_commission_settlement: {
-        Args: { p_branch_id: string; p_employee_id: string; p_period_end: string; p_period_start: string }
-        Returns: Json
-      }
-      record_sale_payment: {
-        Args: { p_amount: number; p_idempotency_key: string; p_method: Database['public']['Enums']['payment_method']; p_reference?: string; p_sale_id: string }
-        Returns: Json
-      }
-      reverse_sale: {
-        Args: { p_reason: string; p_sale_id: string }
-        Returns: Json
-      }
-      review_commission_adjustment: {
-        Args: { p_adjustment_id: string; p_approve: boolean; p_note: string }
-        Returns: Json
-      }
-      set_inventory_minimum: {
-        Args: { p_branch_id: string; p_minimum_quantity: number; p_product_id: string }
-        Returns: Json
-      }
-      list_discount_authorizers: {
-        Args: { p_branch_id: string }
-        Returns: Json
-      }
-      weekly_cuts_podium: {
-        Args: { p_branch_id: string }
-        Returns: Json
-      }
-      business_metrics: {
-        Args: { p_branch_id: string; p_employee_id?: string; p_from: string; p_to: string }
-        Returns: Json
-      }
-      business_full_report: {
-        Args: { p_audience: string; p_branch_id: string; p_from: string; p_to: string }
-        Returns: Json
-      }
-      register_report_export: {
-        Args: { p_audience: string; p_branch_id: string; p_from: string; p_to: string }
-        Returns: Json
-      }
-      verify_report_export: {
-        Args: { p_code: string; p_folio: string }
-        Returns: Json
-      }
-      set_cash_settings: {
-        Args: { p_branch_id: string; p_float_target: number; p_reserve_amount: number; p_reserve_label: string }
-        Returns: Json
-      }
-      set_commission_defaults: {
-        Args: { p_business_id: string; p_product_pct: number; p_service_pct: number }
-        Returns: Json
-      }
-      settle_commissions: {
-        Args: { p_branch_id: string; p_employee_id: string; p_payments: Json; p_period_end: string; p_period_start: string }
-        Returns: Json
-      }
-      update_business_profile: {
-        Args: { p_address: string; p_branch_id: string; p_business_id: string; p_currency: string; p_name: string; p_phone: string; p_settings: Json; p_timezone: string }
+      agenda_reconciliation: {
+        Args: { p_branch_id: string; p_from: string; p_to: string }
         Returns: Json
       }
       bootstrap_first_owner: {
@@ -1652,12 +2033,84 @@ export type Database = {
         }
         Returns: Json
       }
+      business_full_report: {
+        Args: {
+          p_audience: string
+          p_branch_id: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      business_metrics: {
+        Args: {
+          p_branch_id: string
+          p_employee_id?: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      business_report: {
+        Args: {
+          p_branch_id: string
+          p_employee_id?: string
+          p_from?: string
+          p_period: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      cancel_time_off: {
+        Args: { p_reason: string; p_time_off_id: string }
+        Returns: Json
+      }
+      change_appointment_status: {
+        Args: {
+          p_appointment_id: string
+          p_reason?: string
+          p_status: Database["public"]["Enums"]["appointment_status"]
+        }
+        Returns: {
+          arrived_at: string | null
+          assigned_employee_id: string | null
+          branch_id: string
+          business_id: string
+          client_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          customer_phone: string | null
+          id: string
+          notes: string | null
+          scheduled_end_at: string | null
+          scheduled_start_at: string | null
+          source: Database["public"]["Enums"]["appointment_source"]
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       close_cash_session: {
-        Args: { p_breakdown?: Json; p_cash_session_id: string; p_counted_cash: number; p_float_left?: number; p_reserve_amount?: number }
+        Args: {
+          p_breakdown?: Json
+          p_cash_session_id: string
+          p_counted_cash: number
+          p_float_left?: number
+          p_reserve_amount?: number
+          p_withdrawal_delivered_to?: string
+        }
         Returns: Json
       }
       confirm_sale: {
         Args: {
+          p_appointment_id?: string
           p_branch_id: string
           p_client_id?: string
           p_discount_authorized_by?: string
@@ -1667,24 +2120,7 @@ export type Database = {
           p_notes?: string
           p_payments: Json
           p_tips?: Json
-          p_appointment_id?: string
         }
-        Returns: Json
-      }
-      agenda_reconciliation: {
-        Args: { p_branch_id: string; p_from: string; p_to: string }
-        Returns: Json
-      }
-      set_employee_schedule: {
-        Args: { p_days: Json; p_employee_id: string }
-        Returns: Json
-      }
-      create_time_off: {
-        Args: { p_branch_id: string; p_employee_id: string; p_ends_at: string; p_reason: string; p_requested_at: string; p_requested_via: string; p_starts_at: string }
-        Returns: Json
-      }
-      cancel_time_off: {
-        Args: { p_reason: string; p_time_off_id: string }
         Returns: Json
       }
       create_catalog_product: {
@@ -1710,8 +2146,48 @@ export type Database = {
         }
         Returns: Json
       }
+      create_time_off: {
+        Args: {
+          p_branch_id: string
+          p_employee_id: string
+          p_ends_at: string
+          p_reason: string
+          p_requested_at: string
+          p_requested_via: string
+          p_starts_at: string
+        }
+        Returns: Json
+      }
+      get_settlement_receipt: {
+        Args: { p_settlement_id: string }
+        Returns: Json
+      }
+      list_audit_log: {
+        Args: {
+          p_action?: string
+          p_branch_id: string
+          p_from?: string
+          p_limit?: number
+          p_role?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      list_discount_authorizers: {
+        Args: { p_branch_id: string }
+        Returns: Json
+      }
       open_cash_session: {
         Args: { p_branch_id: string; p_opening_cash: number }
+        Returns: Json
+      }
+      preview_commission_settlement: {
+        Args: {
+          p_branch_id: string
+          p_employee_id: string
+          p_period_end: string
+          p_period_start: string
+        }
         Returns: Json
       }
       record_cash_movement: {
@@ -1724,6 +2200,90 @@ export type Database = {
         }
         Returns: Json
       }
+      record_sale_payment: {
+        Args: {
+          p_amount: number
+          p_idempotency_key: string
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_reference?: string
+          p_sale_id: string
+        }
+        Returns: Json
+      }
+      register_report_export: {
+        Args: {
+          p_audience: string
+          p_branch_id: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      reverse_sale: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
+      }
+      review_commission_adjustment: {
+        Args: { p_adjustment_id: string; p_approve: boolean; p_note: string }
+        Returns: Json
+      }
+      set_cash_settings: {
+        Args: {
+          p_branch_id: string
+          p_float_target: number
+          p_reserve_amount: number
+          p_reserve_label: string
+        }
+        Returns: Json
+      }
+      set_commission_defaults: {
+        Args: {
+          p_business_id: string
+          p_product_pct: number
+          p_service_pct: number
+        }
+        Returns: Json
+      }
+      set_employee_schedule: {
+        Args: { p_days: Json; p_employee_id: string }
+        Returns: Json
+      }
+      set_inventory_minimum: {
+        Args: {
+          p_branch_id: string
+          p_minimum_quantity: number
+          p_product_id: string
+        }
+        Returns: Json
+      }
+      settle_commissions: {
+        Args: {
+          p_branch_id: string
+          p_employee_id: string
+          p_payments: Json
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: Json
+      }
+      update_business_profile: {
+        Args: {
+          p_address: string
+          p_branch_id: string
+          p_business_id: string
+          p_currency: string
+          p_name: string
+          p_phone: string
+          p_settings: Json
+          p_timezone: string
+        }
+        Returns: Json
+      }
+      verify_report_export: {
+        Args: { p_code: string; p_folio: string }
+        Returns: Json
+      }
+      weekly_cuts_podium: { Args: { p_branch_id: string }; Returns: Json }
     }
     Enums: {
       appointment_source: "appointment" | "walk_in"
