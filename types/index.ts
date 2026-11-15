@@ -132,6 +132,8 @@ export interface CashSession {
     float_left?: number | null;
     reserve_amount?: number | null;
     withdrawn_amount?: number | null;
+    /** A quién se entregó el retiro del cierre (nombre escrito al cerrar). */
+    withdrawal_delivered_to?: string | null;
     counted_breakdown?: Record<string, number> | null;
     total_expenses: number;
     total_cash: number;

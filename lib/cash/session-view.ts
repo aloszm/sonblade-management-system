@@ -16,6 +16,8 @@ export type CashSessionRow = {
     float_left?: number | string | null;
     reserve_amount?: number | string | null;
     withdrawn_amount?: number | string | null;
+    /** A quién se entregó el retiro del cierre. */
+    withdrawal_delivered_to?: string | null;
     counted_breakdown?: Record<string, number> | null;
 };
 
@@ -99,6 +101,7 @@ export function buildSessionView(
         float_left: optional(session.float_left),
         reserve_amount: optional(session.reserve_amount),
         withdrawn_amount: optional(session.withdrawn_amount),
+        withdrawal_delivered_to: session.withdrawal_delivered_to ?? null,
         counted_breakdown: session.counted_breakdown ?? null,
     };
 }
@@ -142,7 +145,7 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
     };
 }
 
-const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, opening_expected, float_left, reserve_amount, withdrawn_amount, counted_breakdown';
+const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
 const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 
 async function toViews(supabase: SupabaseClient, sessions: CashSessionRow[]): Promise<CashSession[]> {

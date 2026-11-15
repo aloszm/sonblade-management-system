@@ -15,6 +15,8 @@ const CloseSchema = z.object({
     breakdown: z.record(z.string().regex(/^\d+(\.\d+)?$/), z.number().int().min(0).max(100_000)).optional(),
     float_left: z.number().min(0).max(10_000_000).optional(),
     reserve_amount: z.number().min(0).max(10_000_000).optional(),
+    // A quién se entrega el retiro. Opcional: la base lo guarda en el cierre y en la bitácora.
+    withdrawal_delivered_to: z.string().trim().max(120, 'El nombre de quien recibe el retiro es muy largo.').optional(),
 });
 
 /** Cierra la caja con close_cash_session: el servidor calcula el esperado y la diferencia. */
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest) {
             p_breakdown: parsed.data.breakdown ?? null,
             p_float_left: parsed.data.float_left ?? null,
             p_reserve_amount: parsed.data.reserve_amount ?? null,
+            p_withdrawal_delivered_to: parsed.data.withdrawal_delivered_to || null,
         } as never);
         if (error) throw error;
         const session = await loadSessionById(supabase, context.businessId, context.branchId, parsed.data.session_id);

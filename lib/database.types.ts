@@ -502,6 +502,7 @@ export type Database = {
           opening_expected: number | null
           reserve_amount: number | null
           status: Database["public"]["Enums"]["cash_session_status"]
+          withdrawal_delivered_to: string | null
           withdrawn_amount: number | null
         }
         Insert: {
@@ -522,6 +523,7 @@ export type Database = {
           opening_expected?: number | null
           reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
+          withdrawal_delivered_to?: string | null
           withdrawn_amount?: number | null
         }
         Update: {
@@ -542,6 +544,7 @@ export type Database = {
           opening_expected?: number | null
           reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
+          withdrawal_delivered_to?: string | null
           withdrawn_amount?: number | null
         }
         Relationships: [
@@ -2101,6 +2104,7 @@ export type Database = {
           p_counted_cash: number
           p_float_left?: number
           p_reserve_amount?: number
+          p_withdrawal_delivered_to?: string
         }
         Returns: Json
       }
