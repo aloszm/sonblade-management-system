@@ -1,4 +1,56 @@
-# Sonblade — Plan de implementación con Codex
+# BarberOS — Plan de implementación
+
+## Estado y pendientes al 15 de noviembre de 2026 (rama `feat/v2-integration`)
+
+Esta sección es la lista de trabajo vigente. Lo que no aparece en "Funciona" no debe presentarse como funcional.
+
+### Decisiones del negocio ya tomadas
+
+- BarberOS es el sistema; Sonblade es el cliente (hoy la sucursal se llama Gallo 420 y cambiará de nombre).
+- Servicios: 50 % del precio de lista, aunque haya descuento. Productos: 20 % de lo cobrado. Ambas tasas editables por el dueño.
+- Recepción también gana el 20 % de los productos que vende.
+- Propinas: se capturan al cobrar y se pagan al barbero en su recibo semanal. Si se anula una venta cuya propina ya se pagó, la propina se queda con el barbero.
+- Descuentos: los autorizan dueño, gerente, recepción y quien tenga el permiso; motivo obligatorio, sin tope.
+- Semana de pago: domingo a sábado, corte sábado 8:00 pm.
+- Caja: fondo de $500 para el día siguiente y apartado diario de $600 para "Renta y gastos", editables. No puede salir más efectivo del que hay.
+- Sonia es gerente de la sucursal: cuenta propia, sin contraseña compartida. Solo el dueño cambia comisiones y configuración.
+- Podio de barberos: muestra solo cortes, no ingresos.
+- Diseño: negro y dorado, limpio, modo oscuro por omisión y modo claro. Cobro solo en computadora por ahora.
+- Clientes: nombre obligatorio, teléfono opcional, número de cliente automático. Puntos para quien recibe el servicio; menores como familiares a cargo.
+
+### Funciona (probado con navegador contra la base de desarrollo)
+
+Acceso por puesto, cobro con propina y descuento, ticket del cliente, caja con cierre guiado, comisiones, pago semanal con recibo, inventario, servicios, equipo, clientes, agenda sin empalmes, reportes, bitácora y exportaciones.
+
+### Pendiente, en orden de ejecución
+
+1. **Perfil de gerente** (en curso).
+2. **Panel del barbero en celular** con podio de cortes (en curso).
+3. **Diseño nuevo en el resto de pantallas**: agenda, clientes, pago semanal, panel del dueño, reportes, inventario, equipo, configuración, bitácora. Hoy solo cobro y caja lo tienen; las demás conservan fondo claro aunque se elija modo oscuro.
+4. **Agenda propia**: horario de cada barbero (días, horas, descansos), vista general por barbero y vista personal en celular.
+5. **Página de reservas para clientes** (celular primero): por barbero o por hora; nombre y teléfono, sin cuenta; límite de intentos; enlace para cancelar; aviso de privacidad.
+6. **Barbero confirma el servicio** y recepción solo cobra (opcional; caja siempre puede cobrar directo).
+7. **Administración**: utilidad real (ingresos − comisiones − propinas − costo de producto − gastos) y **apartados tipo sobres**. Hoy cada cierre guarda cuánto se apartó, pero no hay pantalla que lo sume ni que registre cuándo se usa.
+8. **Historial por cliente**, cliente por cada servicio de la venta, familiares a cargo y reglas de puntos.
+9. **Metas de comisión**: como bono al cerrar la semana, no cambiando el porcentaje de cada corte.
+10. **Cuentas con nombre y PIN** (6 dígitos) y alta de personal desde la app. Requiere `SUPABASE_SERVICE_ROLE_KEY` como variable sensible en Vercel.
+11. **Producción**: base nueva y limpia en plan Pro, datos reales (servicios, precios, productos, existencias, gastos fijos, sueldos), variables de Vercel, y unificar nombres en GitHub, Vercel y Supabase. Requiere aprobación expresa del dueño paso por paso.
+12. Más adelante: espejo en Google Calendar, recordatorios por WhatsApp, factura fiscal si se necesita.
+
+### Detalles conocidos por resolver
+
+- El retiro del cierre de caja no registra a quién se entrega el dinero; solo quién cerró.
+- La anulación de una venta con reembolso en efectivo no está limitada por el efectivo en caja.
+- Quien cobra elige quién autoriza el descuento; esa persona no confirma nada (se resolverá con el PIN).
+- Los avisos de error del cobro salen como ventana del navegador; deben pasar a mensajes dentro de la pantalla.
+- En pantallas bajas el resumen del cobro es más alto que la ventana.
+- El folio del ticket no es consecutivo.
+- El acceso dice "revisa tus credenciales" aunque el problema sea de conexión.
+- Quedan funciones anteriores renombradas y sin permisos (`confirm_sale_legacy`, `close_cash_session_legacy`) por borrar en la limpieza final.
+- Las pruebas de navegador no corren solas en GitHub en cada cambio.
+- Lint: 32 avisos de estilo en Reportes, Panel y configuración de pruebas.
+- La base de desarrollo tiene datos de prueba que no se pueden borrar; por eso producción arranca en una base nueva.
+- Aviso de privacidad: falta redactarlo y que lo revise alguien que conozca la ley.
 
 ## Actualización del 14 de noviembre de 2026 (rama `feat/v2-integration`)
 
