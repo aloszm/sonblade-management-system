@@ -1,5 +1,42 @@
 // Reporte de ejemplo para las pruebas (forma de public.business_full_report). No son datos reales.
-import type { Audience, FullReport } from './full-report-types';
+import type { Audience, FinancialPeriod, FullReport } from './full-report-types';
+
+/**
+ * Resultado financiero coherente con el resto del ejemplo: ingresos 3,000 − comisiones 1,300 −
+ * costo de producto 180 − gastos 200 = utilidad 1,320 (44 %). Propinas 120, aparte.
+ */
+export function sampleFinancial(): NonNullable<FullReport['financial']> {
+    const current: FinancialPeriod = {
+        revenue: { services: 2400, products: 600, total: 3000, discounts: 50 },
+        commissions: { services: 1180, products: 120, total: 1300 },
+        product_cost: { total: 180, source: 'catalog', units_without_cost: 0, missing: [] },
+        expenses: {
+            total: 200,
+            by_category: [{ category: 'General', total: 150, count: 2 }, { category: 'Limpieza', total: 50, count: 1 }],
+            by_method: { cash: 200, card: 0, transfer: 0, other: 0 },
+        },
+        tips: { total: 120, count: 3, by_method: { cash: 80, card: 40, transfer: 0, other: 0 } },
+        profit: 1320,
+        margin_pct: 44,
+        counts: { sales: 10, voided_excluded: 1, service_units: 12, product_units: 2 },
+        by_person: [
+            { id: 'e1', name: 'Deya', is_barber: true, services: 1600, products: 400, revenue: 2000, service_count: 8, product_count: 1, commission: 900, tips: 80, tip_count: 2, product_cost: 120, sales_commissions: 900, contribution: 980 },
+            { id: 'e2', name: 'Sonia', is_barber: true, services: 800, products: 200, revenue: 1000, service_count: 4, product_count: 1, commission: 400, tips: 40, tip_count: 1, product_cost: 60, sales_commissions: 400, contribution: 540 },
+        ],
+    };
+    const previous: FinancialPeriod = {
+        revenue: { services: 1700, products: 300, total: 2000, discounts: 0 },
+        commissions: { services: 850, products: 50, total: 900 },
+        product_cost: { total: 90, source: 'catalog', units_without_cost: 0, missing: [] },
+        expenses: { total: 100, by_category: [{ category: 'General', total: 100, count: 1 }], by_method: { cash: 100, card: 0, transfer: 0, other: 0 } },
+        tips: { total: 60, count: 2, by_method: { cash: 60, card: 0, transfer: 0, other: 0 } },
+        profit: 910,
+        margin_pct: 45.5,
+        counts: { sales: 7, voided_excluded: 0, service_units: 9, product_units: 1 },
+        by_person: null,
+    };
+    return { current, previous };
+}
 
 export function sampleReport(audience: Audience = 'interno'): FullReport {
     const internal = audience === 'interno';
@@ -60,5 +97,6 @@ export function sampleReport(audience: Audience = 'interno'): FullReport {
             { at: '2026-11-10T20:06:09+00:00', sale: '5DD4C7BF', type: 'service', item: 'Corte de cabello', quantity: 1, unit_price: 200, discount: 0, amount: 200, employee: 'Deya', methods: 'cash', ...(internal ? { client: 'Juan Pérez' } : {}) },
             { at: '2026-11-10T21:00:00+00:00', sale: '5DD4C7C0', type: 'product', item: 'Pomada', quantity: 1, unit_price: 100, discount: 0, amount: 100, employee: 'Sonia', methods: 'card,cash', ...(internal ? { client: null } : {}) },
         ],
+        financial: sampleFinancial(),
     };
 }

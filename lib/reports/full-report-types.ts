@@ -25,6 +25,38 @@ export type AuditEntry = {
     details: { changes?: Record<string, { from: unknown; to: unknown }>; before?: Record<string, unknown>; after?: Record<string, unknown> };
 };
 
+export type MethodTotals = { cash: number; card: number; transfer: number; other: number };
+
+/** Persona del equipo en el resultado financiero (barbero o recepción). */
+export type FinancialPerson = {
+    id: string | null; name: string; is_barber: boolean;
+    services: number; products: number; revenue: number; service_count: number; product_count: number;
+    /** Comisión que ganó esta persona. */
+    commission: number;
+    tips: number; tip_count: number;
+    /** Costo de los productos que vendió. */
+    product_cost: number;
+    /** Comisiones pagadas por las ventas de esta persona (a ella o a quien vendió el producto). */
+    sales_commissions: number;
+    /** Lo que deja al negocio antes de gastos: lo vendido − sales_commissions − product_cost. */
+    contribution: number;
+};
+
+/** Estado de resultados de un periodo; mismas reglas que lib/admin/profit.ts. */
+export type FinancialPeriod = {
+    revenue: { services: number; products: number; total: number; discounts: number };
+    commissions: { services: number; products: number; total: number };
+    product_cost: { total: number; source: string; units_without_cost: number; missing: { product_id: string | null; name: string; units: number }[] };
+    expenses: { total: number; by_category: { category: string; total: number; count: number }[]; by_method: MethodTotals };
+    tips: { total: number; count: number; by_method: MethodTotals };
+    profit: number;
+    /** null si no hubo ingresos. */
+    margin_pct: number | null;
+    counts: { sales: number; voided_excluded: number; service_units: number; product_units: number };
+    /** Solo en el periodo actual. */
+    by_person: FinancialPerson[] | null;
+};
+
 export type FullReport = {
     version: number;
     audience: Audience;
@@ -63,6 +95,8 @@ export type FullReport = {
     };
     audit: AuditEntry[];
     annex: { at: string; sale: string; type: 'service' | 'product'; item: string; quantity: number; unit_price: number; discount: number; amount: number; employee: string | null; methods: string | null; client?: string | null }[];
+    /** Resultado financiero. Falta en los reportes emitidos antes de la migración 20261115195335. */
+    financial?: { current: FinancialPeriod; previous: FinancialPeriod };
 };
 
 /** Lo que entrega public.register_report_export: el reporte con su folio y su código de verificación. */

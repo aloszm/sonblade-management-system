@@ -1,8 +1,8 @@
 // Excel del reporte completo: una hoja por sección, con importes y fechas como valores reales
 // (para sumar, filtrar y ordenar). Las fechas y horas están en la zona horaria del negocio.
 import {
-    formatCell, percentChange, zonedParts,
-    type Cell, type Column, type ReportKpis, type ReportModel, type ReportTable,
+    formatCell, isNumericColumn, percentChange, zonedParts,
+    type Cell, type Column, type ReportHero, type ReportKpis, type ReportModel, type ReportStack, type ReportTable,
 } from './full-report';
 
 /**
@@ -16,6 +16,8 @@ export function spreadsheetSafe(value: string): string {
 const MONEY_FORMAT = '"$"#,##0.00;[Red]-"$"#,##0.00';
 const NUMBER_FORMATS: Record<string, string | undefined> = {
     money: MONEY_FORMAT,
+    percent: '0.0%',
+    change: '+0.0%;-0.0%;"Igual"',
     datetime: 'dd/mm/yyyy hh:mm',
     datetime_s: 'dd/mm/yyyy hh:mm:ss',
     date: 'dd/mm/yyyy',
@@ -24,6 +26,10 @@ const NUMBER_FORMATS: Record<string, string | undefined> = {
 /** Valor de la celda de Excel: la hora de pared del negocio escrita como fecha, sin desplazar zonas. */
 export function excelValue(column: Column, cell: Cell, timeZone: string): string | number | Date | null {
     if (cell === null || cell === undefined || cell === '') return null;
+    // Los porcentajes viajan como 12.5 y Excel los guarda como 0.125 con formato de porcentaje.
+    const isPercent = column.type === 'percent' || column.type === 'change';
+    if (isPercent && typeof cell === 'number') return cell / 100;
+    if (isPercent && !Number.isNaN(Number(cell))) return Number(cell) / 100;
     if (typeof cell === 'string') {
         const isDateLike = column.type === 'date' || column.type === 'datetime' || column.type === 'datetime_s';
         const numericLike = column.type === 'money' || column.type === 'number';
@@ -57,7 +63,7 @@ function addTable(sheet: Sheet, table: ReportTable, tz: string, startRow: number
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3EBDD' } };
         cell.border = { bottom: { style: 'medium', color: { argb: 'FF7A5B32' } } };
-        cell.alignment = { vertical: 'middle', horizontal: c.type === 'money' || c.type === 'number' ? 'right' : 'left', wrapText: true };
+        cell.alignment = { vertical: 'middle', horizontal: isNumericColumn(c) ? 'right' : 'left', wrapText: true };
         widths[i] = Math.max(widths[i] ?? 0, c.header.length + 2);
     });
     row++;
@@ -66,21 +72,26 @@ function addTable(sheet: Sheet, table: ReportTable, tz: string, startRow: number
         sheet.getCell(row, 1).font = { italic: true, color: { argb: 'FF5F5F66' } };
         return { next: row + 2, headerRow, lastRow: headerRow };
     }
-    const writeRow = (cells: Cell[], bold: boolean) => {
+    const writeRow = (cells: Cell[], bold: boolean, style?: string) => {
         cells.forEach((value, i) => {
             const column = table.columns[i];
             const cell = sheet.getCell(row, i + 1);
             cell.value = excelValue(column, value, tz);
             const fmt = NUMBER_FORMATS[column.type];
             if (fmt && typeof cell.value !== 'string') cell.numFmt = fmt;
-            if (bold) cell.font = { bold: true };
-            if (bold) cell.border = { top: { style: 'thin', color: { argb: 'FF9A9A9A' } } };
+            if (bold || style === 'subtotal' || style === 'result') cell.font = { bold: true };
+            if (bold || style === 'subtotal') cell.border = { top: { style: 'thin', color: { argb: 'FF9A9A9A' } } };
+            if (style === 'result') {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3EBDD' } };
+                cell.border = { top: { style: 'medium', color: { argb: 'FF7A5B32' } } };
+            }
+            if (style === 'minor' && i === 0) cell.alignment = { indent: 1 };
             const text = formatCell(column, value, tz);
             widths[i] = Math.max(widths[i] ?? 0, Math.min(60, text.length + 2));
         });
         row++;
     };
-    table.rows.forEach((r) => writeRow(r, false));
+    table.rows.forEach((r, i) => writeRow(r, false, table.styles?.[i]));
     const lastDataRow = row - 1;
     if (table.total) writeRow(table.total, true);
     return { next: row + 2, headerRow, lastRow: lastDataRow };
@@ -110,6 +121,52 @@ function addKpis(sheet: Sheet, block: ReportKpis, startRow: number, widths: numb
         widths[1] = Math.max(widths[1] ?? 0, 16);
         widths[2] = Math.max(widths[2] ?? 0, 18);
         widths[3] = Math.max(widths[3] ?? 0, 14);
+        row++;
+    }
+    return row + 1;
+}
+
+/** Cifras grandes: concepto, cifra y lo que significa, una por renglón. */
+function addHero(sheet: Sheet, block: ReportHero, startRow: number, widths: number[]): number {
+    let row = startRow;
+    for (const item of block.items) {
+        sheet.getCell(row, 1).value = item.label;
+        sheet.getCell(row, 1).font = { bold: true };
+        const value = sheet.getCell(row, 2);
+        value.value = item.value === null ? '—' : item.format === 'percent' ? item.value / 100 : item.value;
+        value.numFmt = item.format === 'money' ? MONEY_FORMAT : item.format === 'percent' ? '0.0%' : '#,##0';
+        value.font = { bold: true, size: 14, color: { argb: item.tone === 'good' ? 'FF15803D' : item.tone === 'bad' ? 'FFB91C1C' : 'FF141416' } };
+        value.alignment = { horizontal: 'right' };
+        sheet.getCell(row, 3).value = spreadsheetSafe(item.caption);
+        sheet.getCell(row, 3).font = { italic: true, color: { argb: 'FF5F5F66' } };
+        widths[0] = Math.max(widths[0] ?? 0, item.label.length + 2);
+        widths[1] = Math.max(widths[1] ?? 0, 18);
+        row++;
+    }
+    return row + 1;
+}
+
+/** La barra "de cada $100" del PDF, como tabla. */
+function addStack(sheet: Sheet, block: ReportStack, startRow: number, widths: number[]): number {
+    let row = startRow;
+    sheet.getCell(row, 1).value = block.title;
+    sheet.getCell(row, 1).font = { bold: true, size: 11 };
+    row++;
+    if (block.empty) {
+        sheet.getCell(row, 1).value = block.empty;
+        sheet.getCell(row, 1).font = { italic: true, color: { argb: 'FF5F5F66' } };
+        return row + 2;
+    }
+    for (const seg of block.segments) {
+        sheet.getCell(row, 1).value = seg.label;
+        sheet.getCell(row, 2).value = seg.value;
+        sheet.getCell(row, 2).numFmt = MONEY_FORMAT;
+        widths[0] = Math.max(widths[0] ?? 0, seg.label.length + 2);
+        row++;
+    }
+    if (block.caption) {
+        sheet.getCell(row, 1).value = spreadsheetSafe(block.caption);
+        sheet.getCell(row, 1).font = { italic: true, color: { argb: 'FF5F5F66' } };
         row++;
     }
     return row + 1;
@@ -145,12 +202,16 @@ export async function buildReportXlsx(model: ReportModel): Promise<Uint8Array> {
                 const cell = sheet.getCell(row, 1);
                 cell.value = spreadsheetSafe(block.text);
                 cell.alignment = { wrapText: true, vertical: 'top' };
-                cell.font = block.tone === 'note' ? { italic: true, color: { argb: 'FF5F5F66' } } : {};
+                cell.font = block.tone === 'note' ? { italic: true, color: { argb: 'FF5F5F66' } } : block.tone === 'warning' ? { bold: true, color: { argb: 'FFB91C1C' } } : {};
                 sheet.mergeCells(row, 1, row, 8);
                 sheet.getRow(row).height = Math.max(18, Math.ceil(block.text.length / 120) * 16);
                 row += 2;
             } else if (block.kind === 'kpis') {
                 row = addKpis(sheet, block, row, widths);
+            } else if (block.kind === 'hero') {
+                row = addHero(sheet, block, row, widths);
+            } else if (block.kind === 'stack') {
+                row = addStack(sheet, block, row, widths);
             } else if (block.kind === 'table') {
                 const result = addTable(sheet, block, model.timezone, row, widths);
                 if (tableBlocks.length === 1 && block.rows.length > 0) frozen = { headerRow: result.headerRow, lastRow: result.lastRow, columns: block.columns.length };
