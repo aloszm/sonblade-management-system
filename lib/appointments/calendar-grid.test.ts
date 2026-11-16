@@ -69,10 +69,10 @@ describe('posición de las tarjetas', () => {
     it('una cita a la hora de apertura (12:30) cae exactamente en su línea', () => {
         const window = workingWindow(schedule, TUESDAY)!;
         const range = gridRange(window);
-        expect(range).toEqual({ start: 12 * 60, end: 20 * 60 + 30 }); // media hora antes y después
+        expect(range).toEqual({ start: 8 * 60, end: 22 * 60 }); // siempre de 8 a.m. a 10 p.m.
         const span = appointmentSpan('2026-11-17T18:30:00.000Z', '2026-11-17T19:00:00.000Z', MX);
         expect(span).toEqual({ start: 750, end: 780 });
-        expect(spanBox(visualSpan(span), range.start, 48)).toEqual({ top: 48, height: 48 });
+        expect(spanBox(visualSpan(span), range.start, 48)).toEqual({ top: (750 - 480) / 30 * 48, height: 48 });
     });
 
     it('una cita que termina al cierre (20:00) no se sale de la cuadrícula', () => {
@@ -80,12 +80,12 @@ describe('posición de las tarjetas', () => {
         const range = gridRange(window);
         const span = appointmentSpan('2026-11-18T01:00:00.000Z', '2026-11-18T02:00:00.000Z', MX); // 19:00-20:00
         const box = spanBox(visualSpan(span), range.start, 48);
-        expect(box).toEqual({ top: 7 * 2 * 48, height: 96 });
+        expect(box).toEqual({ top: (19 * 60 - 480) / 30 * 48, height: 96 });
         expect(box.top + box.height).toBeLessThanOrEqual(slotStarts(range).length * 48);
     });
 
     it('el domingo usa su propio horario (10:00 a 19:00)', () => {
-        expect(gridRange(workingWindow(schedule, SUNDAY)!)).toEqual({ start: 9 * 60 + 30, end: 19 * 60 + 30 });
+        expect(gridRange(workingWindow(schedule, SUNDAY)!)).toEqual({ start: 8 * 60, end: 22 * 60 }); // el horario no recorta lo visible
     });
 
     it('el cobro sin cita de las 13:17 se dibuja de 13:00 a 14:00 y conserva su hora real', () => {
@@ -119,9 +119,12 @@ describe('posición de las tarjetas', () => {
         const early = appointmentSpan('2026-11-17T13:00:00.000Z', '2026-11-17T13:30:00.000Z', MX); // 7:00
         const late = appointmentSpan('2026-11-18T03:17:00.000Z', null, MX); // 21:17 sin fin
         expect(gridRange(window, [early, late])).toEqual({ start: 7 * 60, end: 22 * 60 });
+        expect(gridRange(window, [early])).toEqual({ start: 7 * 60, end: 22 * 60 });
+        const after = appointmentSpan('2026-11-18T05:00:00.000Z', '2026-11-18T05:30:00.000Z', MX); // 23:00
+        expect(gridRange(window, [after])).toEqual({ start: 8 * 60, end: 23 * 60 + 30 });
     });
 
-    it('sin horario (o negocio cerrado) muestra de 8 a.m. a 10 p.m.', () => {
+    it('la constante VISIBLE_DAY_RANGE es 8 a.m.–10 p.m. y sin horario (o negocio cerrado) también muestra de 8 a.m. a 10 p.m.', () => {
         expect(gridRange(undefined)).toEqual({ start: 480, end: 1320 });
         expect(gridRange(null)).toEqual({ start: 480, end: 1320 });
         expect(slotStarts({ start: 720, end: 840 })).toEqual([720, 750, 780, 810]);

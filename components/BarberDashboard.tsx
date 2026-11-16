@@ -1,198 +1,172 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Loader2 } from 'lucide-react';
-import { podiumIsEmpty, rankPodium, type PodiumRow, type RankedRow } from '@/lib/reports/podium';
+import React, { useEffect, useRef, useState } from 'react';
+import { PERIODS, PERIOD_LABELS, type MyWeek, type Period } from '@/lib/barber/my-week';
+import { rankPodium, type PodiumRow, type RankedRow } from '@/lib/reports/podium';
+import { SectionError, SectionSkeleton, Skeleton, card } from '@/app/barbero/_components/ui';
+import { ClientsSection, EarningsSection, ReceiptsSection, ServicesSection, TipsSection, TodaySection } from '@/app/barbero/_components/sections';
+import PodiumCard from '@/app/barbero/_components/PodiumCard';
 
-type SaleItem = { item_name: string; item_type: 'service' | 'product' };
-type TodaySale = { id: string; created_at: string; items: SaleItem[]; payment_method: string; total: number };
-type BarberStats = {
-    barber: { id: string; name: string };
-    tier: { current: number };
-    weeklyStats: { cuts: number; totalGenerated: number; tips: number; commission: number; serviceCommission: number; productCommission: number };
-    todayStats: { cuts: number; tips: number; sales: TodaySale[] };
-};
 type Me = { id: string; role: 'admin' | 'recepcion' | 'barber'; employeeId: string | null };
+type Barber = { id: string; name: string };
+type Stats = MyWeek & { barber: Barber };
 
-const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
-const card = 'rounded-xl border border-bos-border bg-bos-surface';
-const label = 'text-[13px] font-medium text-bos-muted';
-const PODIUM_HEIGHTS = ['h-28', 'h-20', 'h-14']; // primero, segundo, tercero
-
-function Podium({ rows }: { rows: RankedRow[] }) {
-    // En pantalla: segundo, primero, tercero; el primero al centro y más alto.
-    const [first, second, third] = rows;
-    const slots: { row: RankedRow | undefined; height: string; delay: string }[] = [
-        { row: second, height: PODIUM_HEIGHTS[1], delay: '.1s' },
-        { row: first, height: PODIUM_HEIGHTS[0], delay: '.25s' },
-        { row: third, height: PODIUM_HEIGHTS[2], delay: '.4s' },
-    ];
-    return (
-        <div className="grid grid-cols-3 gap-3 items-end pt-2">
-            {slots.map(({ row, height, delay }, index) => {
-                if (!row) return <div key={index} />;
-                const winner = row.place === 1;
-                return (
-                    <div key={row.employee_id} data-testid="podium-slot" className="flex flex-col items-center gap-2">
-                        <div className="bos-rise flex flex-col items-center gap-1.5" style={{ animationDelay: delay }}>
-                            <span aria-hidden="true" className={`rounded-full inline-flex items-center justify-center font-display font-semibold ${winner ? 'h-16 w-16 text-2xl bg-bos-accent text-bos-on-accent' : 'h-12 w-12 text-lg bg-bos-raised text-bos-text'}`}>{row.name.charAt(0).toUpperCase()}</span>
-                            <span className="text-sm font-semibold text-center leading-tight">{row.name}{row.is_me && <span className="block text-xs font-medium text-bos-accent-text">Tú</span>}</span>
-                            <span className={`font-display font-semibold tabular-nums ${winner ? 'text-2xl text-bos-accent-text' : 'text-xl text-bos-text'}`}>{row.cuts}</span>
-                        </div>
-                        <div className={`bos-grow w-full ${height} rounded-t-xl border border-b-0 flex items-start justify-center pt-2 ${winner ? 'border-bos-accent bg-bos-accent-soft' : 'border-bos-border bg-bos-raised'}`} style={{ animationDelay: delay }}>
-                            <span className={`font-display text-2xl font-semibold ${winner ? 'text-bos-accent-text' : 'text-bos-muted'}`}>{row.place}</span>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
+async function getJson<T>(url: string, fallback: string): Promise<T> {
+    const res = await fetch(url, { cache: 'no-store' });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.error ?? fallback);
+    return body as T;
 }
+
+const fail = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
 
 export default function BarberDashboard() {
     const [me, setMe] = useState<Me | null>(null);
-    const [barbers, setBarbers] = useState<{ id: string; name: string }[]>([]);
+    const [barbers, setBarbers] = useState<Barber[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [stats, setStats] = useState<BarberStats | null>(null);
-    const [podium, setPodium] = useState<RankedRow[] | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [today, setToday] = useState('');
+    const [startError, setStartError] = useState('');
+    const [startKey, setStartKey] = useState(0);
 
+    const [period, setPeriod] = useState<Period>('week');
+    const [stats, setStats] = useState<Stats | null>(null);
+        const [statsError, setStatsError] = useState('');
+    const [statsKey, setStatsKey] = useState(0);
+
+    const [podium, setPodium] = useState<RankedRow[] | null>(null);
+    const [podiumError, setPodiumError] = useState('');
+    const [podiumKey, setPodiumKey] = useState(0);
+
+    const [today, setToday] = useState('');
+    const requestRef = useRef(0);
+
+    // Quién es la persona y a quién se puede ver. La fecha se toma del dispositivo, no del servidor (que está en UTC).
     useEffect(() => {
-        // La fecha se calcula en el dispositivo, no en el servidor (que está en UTC).
         setToday(new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }));
+        let cancelled = false;
         (async () => {
             try {
-                const [meRes, barbersRes, podiumRes] = await Promise.all([
-                    fetch('/api/auth/me', { cache: 'no-store' }), fetch('/api/barbers', { cache: 'no-store' }), fetch('/api/podium', { cache: 'no-store' }),
+                setStartError('');
+                const [meBody, list] = await Promise.all([
+                    getJson<{ authenticated?: boolean; user: Me }>('/api/auth/me', 'No se pudo cargar tu panel.'),
+                    getJson<Barber[]>('/api/barbers', 'No se pudo cargar la lista de barberos.').catch(() => [] as Barber[]),
                 ]);
-                const meBody = await meRes.json();
-                const list = barbersRes.ok ? await barbersRes.json() : [];
-                const podiumBody = podiumRes.ok ? await podiumRes.json() : null;
+                if (cancelled) return;
                 if (!meBody?.authenticated) throw new Error('Vuelve a iniciar sesión.');
-                const user: Me = meBody.user;
+                const user = meBody.user;
+                const barberList = Array.isArray(list) ? list : [];
                 setMe(user);
-                setBarbers(Array.isArray(list) ? list : []);
-                if (podiumBody?.rows) setPodium(rankPodium(podiumBody.rows as PodiumRow[]));
+                setBarbers(barberList);
                 // Un barbero ve lo suyo. Dueño y gerente eligen a quién ver; si la gerente también corta, empieza en ella.
-                const own = Array.isArray(list) && list.some((b: { id: string }) => b.id === user.employeeId) ? user.employeeId : null;
-                setSelectedId(user.role === 'barber' ? user.id : own ?? list[0]?.id ?? null);
+                const own = barberList.some((b) => b.id === user.employeeId) ? user.employeeId : null;
+                setSelectedId(user.role === 'barber' ? user.employeeId ?? user.id : own ?? barberList[0]?.id ?? null);
             } catch (e) {
-                setError(e instanceof Error ? e.message : 'No se pudo cargar tu panel.');
-                setLoading(false);
+                if (!cancelled) setStartError(fail(e, 'No se pudo cargar tu panel.'));
             }
         })();
-    }, []);
+        return () => { cancelled = true; };
+    }, [startKey]);
+
+    // El podio es de toda la semana en curso y no depende del periodo elegido.
+    useEffect(() => {
+        let cancelled = false;
+        setPodiumError('');
+        getJson<{ rows: PodiumRow[] }>('/api/podium', 'No se pudo cargar el podio.')
+            .then((body) => { if (!cancelled) setPodium(rankPodium(body.rows ?? [])); })
+            .catch((e) => { if (!cancelled) setPodiumError(fail(e, 'No se pudo cargar el podio.')); });
+        return () => { cancelled = true; };
+    }, [podiumKey]);
 
     useEffect(() => {
-        if (!selectedId) { if (me) setLoading(false); return; }
-        setLoading(true);
-        fetch(`/api/barbers/${selectedId}/stats?view=dashboard`, { cache: 'no-store' })
-            .then(async (res) => { const body = await res.json(); if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar las cifras.'); return body; })
-            .then((body) => { setStats(body); setError(''); })
-            .catch((e) => setError(e instanceof Error ? e.message : 'No se pudieron cargar las cifras.'))
-            .finally(() => setLoading(false));
-    }, [selectedId, me]);
+        if (!selectedId) return;
+        const request = ++requestRef.current;
+        setStatsError('');
+        getJson<Stats>(`/api/barbers/${selectedId}/stats?view=my-week&period=${period}`, 'No se pudieron cargar tus cifras.')
+            .then((body) => { if (request === requestRef.current) setStats(body); })
+            .catch((e) => { if (request === requestRef.current) setStatsError(fail(e, 'No se pudieron cargar tus cifras.')); });
+    }, [selectedId, period, statsKey, me]);
 
-    if (error && !stats) return <p role="alert" className={`${card} max-w-xl mx-auto p-6 text-bos-danger`}>{error}</p>;
-    if (!me || (loading && !stats)) return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>;
-    if (!stats) return <p className={`${card} max-w-xl mx-auto p-6 text-bos-muted`}>No hay barberos activos todavía.</p>;
+    if (startError) {
+        return <div className="mx-auto max-w-xl"><SectionError message={startError} onRetry={() => setStartKey((k) => k + 1)} /></div>;
+    }
+    if (!me) {
+        return (
+            <div aria-busy="true" aria-label="Cargando tu panel" className="mx-auto max-w-5xl space-y-6">
+                <div className="space-y-2"><Skeleton className="h-4 w-40" /><Skeleton className="h-9 w-56" /></div>
+                <Skeleton className="h-12 w-full max-w-md" />
+                <div className="grid gap-6 lg:grid-cols-2"><SectionSkeleton title="Hoy" /><SectionSkeleton title="Ganado" /></div>
+            </div>
+        );
+    }
+    if (!selectedId) return <p className={`${card} mx-auto max-w-xl p-6 text-bos-muted`}>No hay barberos activos todavía.</p>;
 
     const canPick = me.role === 'admin';
-    const mine = selectedId === me.employeeId || me.role === 'barber';
-    const week = stats.weeklyStats;
-    const earned = Math.round((week.commission + week.tips) * 100) / 100;
+    const mine = me.role === 'barber' || selectedId === me.employeeId;
+    // Con otro barbero en pantalla (dueño o gerente) no se muestra su nombre hasta que sus cifras llegan.
+    const shownName = stats && stats.barber.id === selectedId ? stats.barber.name : barbers.find((b) => b.id === selectedId)?.name ?? '';
+    // Solo se muestran cifras que corresponden a la persona y al periodo elegidos; mientras llegan, esqueleto.
+    const data = stats && stats.barber.id === selectedId && stats.period === period ? stats : null;
 
     return (
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="mx-auto max-w-5xl space-y-6">
             <header className="space-y-1">
                 <p className="text-sm text-bos-muted first-letter:uppercase">{today}</p>
-                <h1 className="font-display text-3xl font-semibold">{mine ? `Hola, ${stats.barber.name}` : stats.barber.name}</h1>
+                <h1 className="font-display text-3xl font-semibold">{mine ? `Hola, ${shownName || 'barbero'}` : shownName}</h1>
             </header>
 
             {canPick && barbers.length > 1 && (
                 <div role="group" aria-label="Barbero" className="flex flex-wrap gap-2">
                     {barbers.map((b) => (
                         <button key={b.id} type="button" aria-pressed={selectedId === b.id} onClick={() => setSelectedId(b.id)}
-                            className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${selectedId === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>
+                            className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${selectedId === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>
                             {b.name}
                         </button>
                     ))}
                 </div>
             )}
 
-            <section aria-labelledby="week-earned" className={`${card} p-6 space-y-5`}>
-                <div>
-                    <p id="week-earned" className={label}>{mine ? 'Esta semana llevas' : 'Esta semana lleva'}</p>
-                    <p data-testid="week-earned" className="mt-1 font-display text-5xl font-semibold text-bos-accent-text tabular-nums">{money(earned)}</p>
-                    <p className="mt-1 text-sm text-bos-muted">Se paga el sábado, al cierre de las 8:00 pm.</p>
-                </div>
-                <dl className="space-y-2 text-[15px] border-t border-bos-border pt-4">
-                    <div className="flex justify-between"><dt className="text-bos-muted">Comisión de servicios ({stats.tier.current}%)</dt><dd className="font-semibold tabular-nums">{money(week.serviceCommission)}</dd></div>
-                    <div className="flex justify-between"><dt className="text-bos-muted">Comisión de productos</dt><dd className="font-semibold tabular-nums">{money(week.productCommission)}</dd></div>
-                    <div className="flex justify-between"><dt className="text-bos-muted">Propinas</dt><dd className="font-semibold tabular-nums">{money(week.tips)}</dd></div>
-                </dl>
-            </section>
+            <div role="group" aria-label="Periodo" data-testid="period" className="grid grid-cols-3 gap-1 rounded-xl bg-bos-raised p-1 sm:inline-grid sm:grid-cols-[repeat(3,auto)]">
+                {PERIODS.map((p) => (
+                    <button key={p} type="button" aria-pressed={period === p} onClick={() => setPeriod(p)}
+                        className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition-colors sm:px-5 sm:text-[15px] ${period === p ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
+                        {PERIOD_LABELS[p]}
+                    </button>
+                ))}
+            </div>
 
-            <section aria-label="Resumen" className="grid grid-cols-3 gap-3">
-                <div className={`${card} p-4`}><p className={label}>Cortes semana</p><p data-testid="week-cuts" className="mt-1 font-display text-3xl font-semibold tabular-nums">{week.cuts}</p></div>
-                <div className={`${card} p-4`}><p className={label}>Cortes hoy</p><p className="mt-1 font-display text-3xl font-semibold tabular-nums">{stats.todayStats.cuts}</p></div>
-                <div className={`${card} p-4`}><p className={label}>Propinas hoy</p><p className="mt-1 font-display text-3xl font-semibold tabular-nums">{money(stats.todayStats.tips)}</p></div>
-            </section>
-
-            {podium && (
-                <section aria-labelledby="podium-title" data-testid="podium" className={`${card} p-6 space-y-4`}>
-                    <div>
-                        <h2 id="podium-title" className="font-display text-xl font-semibold">Podio de la semana</h2>
-                        <p className="text-sm text-bos-muted">Por número de cortes.</p>
-                    </div>
-                    {podiumIsEmpty(podium) ? (
-                        <p className="py-6 text-center text-bos-muted">Aún no hay cortes esta semana. El primero abre el podio.</p>
+            {statsError && !data ? (
+                <SectionError message={statsError} onRetry={() => setStatsKey((k) => k + 1)} />
+            ) : (
+                <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">
+                    {!data ? (
+                        <>
+                            <SectionSkeleton title="Hoy" rows={4} />
+                            <SectionSkeleton title="Ganado" rows={4} />
+                        </>
                     ) : (
                         <>
-                            <Podium rows={podium} />
-                            <ol className="space-y-2 border-t border-bos-border pt-4">
-                                {podium.map((row) => (
-                                    <li key={row.employee_id} className="grid grid-cols-[24px_minmax(0,1fr)_minmax(0,2fr)_48px] items-center gap-3 text-[15px]">
-                                        <span className={`font-display font-semibold ${row.place === 1 ? 'text-bos-accent-text' : 'text-bos-muted'}`}>{row.place}</span>
-                                        <span className={`truncate ${row.is_me ? 'font-semibold' : ''}`}>{row.name}</span>
-                                        <span aria-hidden="true" className="h-2 rounded-full bg-bos-raised overflow-hidden">
-                                            <span className={`block h-full rounded-full transition-[width] duration-500 ${row.place === 1 ? 'bg-bos-accent' : 'bg-bos-muted'}`} style={{ width: `${Math.round(row.share * 100)}%` }} />
-                                        </span>
-                                        <span className="text-right font-semibold tabular-nums">{row.cuts}</span>
-                                    </li>
-                                ))}
-                            </ol>
+                            <TodaySection data={data} mine={mine} />
+                            <EarningsSection data={data} mine={mine} />
                         </>
                     )}
-                </section>
-            )}
 
-            <section aria-labelledby="today-title" className="space-y-3">
-                <h2 id="today-title" className={label}>Hoy</h2>
-                {stats.todayStats.sales.length === 0 ? (
-                    <p className={`${card} p-6 text-center text-bos-muted`}>Todavía no hay servicios cobrados hoy.</p>
-                ) : (
-                    <ul className="space-y-2">
-                        {stats.todayStats.sales.map((sale) => (
-                            <li key={sale.id} className={`${card} px-4 py-3 flex items-center justify-between gap-4`}>
-                                <div className="min-w-0">
-                                    <p className="text-[15px] font-medium truncate">{sale.items.map((i) => i.item_name).join(' + ') || 'Venta'}</p>
-                                    <p className="text-sm text-bos-muted">{new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
-                                </div>
-                                <span className="font-display text-lg font-semibold tabular-nums">{money(Number(sale.total))}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
+                    {podiumError ? (
+                        <SectionError message={podiumError} onRetry={() => setPodiumKey((k) => k + 1)} />
+                    ) : !podium ? (
+                        <SectionSkeleton title="Podio" rows={2} />
+                    ) : (
+                        <PodiumCard rows={podium} selectedId={selectedId} mine={mine}
+                            extras={data ? { weekCuts: data.services.weekCount, lastWeekCuts: data.services.lastWeekCount, bestDay: data.window.period === 'week' ? data.earnings.bestDay : null } : null} />
+                    )}
 
-            {mine && (
-                <Link href="/liquidaciones" className={`${card} px-5 min-h-14 flex items-center justify-between text-[15px] font-semibold hover:bg-bos-raised`}>
-                    Mis recibos de pago <ChevronRight aria-hidden="true" className="h-5 w-5 text-bos-muted" />
-                </Link>
+                    {data && (
+                        <>
+                            <ServicesSection data={data} mine={mine} />
+                            <ClientsSection data={data} mine={mine} />
+                            <TipsSection data={data} mine={mine} />
+                            <ReceiptsSection data={data} mine={mine} />
+                        </>
+                    )}
+                </div>
             )}
         </div>
     );

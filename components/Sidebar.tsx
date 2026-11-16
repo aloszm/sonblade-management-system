@@ -23,7 +23,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
             { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin'] },
             { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'] },
             { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
-            { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion'] },
+            { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },
             { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'recepcion', 'barber'] },
             { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet, roles: ['admin', 'recepcion', 'barber'] },
         ],

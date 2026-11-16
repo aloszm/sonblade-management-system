@@ -26,6 +26,8 @@ interface DayGridProps {
     canManage: boolean;
     onSlot: (time: string, barberId: string) => void;
     onOpenAppointment: (appointment: Appointment) => void;
+    /** Columna con la que abre el selector de celular (la del barbero que entra); por omisión, la primera. */
+    defaultColumnId?: string | null;
 }
 
 const NARROW_QUERY = '(max-width: 767px)';
@@ -43,7 +45,7 @@ function useNarrow(): boolean {
 const slotLabel = (minutes: number) => formatClock(minutes, minutes % 60 === 0);
 
 /** Cuadrícula del día: una columna por barbero, líneas cada 30 minutos y cada cita alineada a su inicio y fin. */
-export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, columns, colorOf, schedule, timeOff, canManage, onSlot, onOpenAppointment }: DayGridProps) {
+export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, columns, colorOf, schedule, timeOff, canManage, onSlot, onOpenAppointment, defaultColumnId }: DayGridProps) {
     const narrow = useNarrow();
     const scroller = useRef<HTMLDivElement>(null);
     const [picked, setPicked] = useState<string | null | undefined>(undefined);
@@ -55,8 +57,9 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
     const slots = useMemo(() => slotStarts(range), [range]);
     const gridHeight = slots.length * SLOT_PX;
 
+    const fallbackId = defaultColumnId && columns.some((x) => x.id === defaultColumnId) ? defaultColumnId : columns[0]?.id;
     const shown = narrow && columns.length > 1
-        ? columns.filter((c) => c.id === (picked !== undefined && columns.some((x) => x.id === picked) ? picked : columns[0].id))
+        ? columns.filter((c) => c.id === (picked !== undefined && columns.some((x) => x.id === picked) ? picked : fallbackId))
         : columns;
 
     const dayStart = new Date(`${dayKey}T00:00:00`);

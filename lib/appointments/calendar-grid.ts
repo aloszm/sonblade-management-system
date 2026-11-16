@@ -81,18 +81,17 @@ export function visualSpan(span: Span): Span {
     return { start, end };
 }
 
+/** Lo que la vista de día muestra siempre, para todos los puestos: de 8:00 a.m. a 10:00 p.m. (hora de la barbería). */
+export const VISIBLE_DAY_RANGE = { start: 8 * 60, end: 22 * 60 } as const;
+
 /**
- * Rango visible del día en minutos (alineado a bloques de 30). Con horario: media hora antes de abrir y después de cerrar.
- * Sin horario o con el negocio cerrado: de 8 a.m. a 10 p.m. Siempre se amplía para que quepa toda cita del día
- * (una cita fuera de horario no se pierde: se ve sobre el rayado).
+ * Rango visible del día en minutos (alineado a bloques de 30): siempre VISIBLE_DAY_RANGE; las horas fuera del
+ * horario se rayan aparte. Solo se amplía si hay una cita antes de las 8 o después de las 22 (no se pierde).
+ * Qué horas se pueden agendar no depende de esto: lo decide el horario del negocio y del barbero.
  */
-export function gridRange(window: { open: number; close: number } | null | undefined, appointmentSpans: Span[] = []): Span {
-    let start: number = DEFAULT_GRID.start;
-    let end: number = DEFAULT_GRID.end;
-    if (window) {
-        start = Math.max(0, floorToSlot(window.open) - GRID_MARGIN);
-        end = Math.min(DAY_MINUTES, ceilToSlot(window.close) + GRID_MARGIN);
-    }
+export function gridRange(_window?: { open: number; close: number } | null, appointmentSpans: Span[] = []): Span {
+    let start: number = VISIBLE_DAY_RANGE.start;
+    let end: number = VISIBLE_DAY_RANGE.end;
     for (const s of appointmentSpans) {
         const v = visualSpan(s);
         start = Math.min(start, v.start);
