@@ -61,7 +61,7 @@ export async function middleware(request: NextRequest) {
         const isAdmin = role === 'owner' || role === 'admin';
         const matches = (paths: string[]) => paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
         const notForRole = (!isAdmin && pathname === '/')
-            || (role === 'barber' && matches(['/caja', '/pos']))
+            || (role === 'barber' && matches(['/caja', '/pos', '/equipo-hoy']))
             || ((role === 'receptionist' || role === 'cashier') && matches(['/barbero', '/barberos']));
         if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : '/pos', request.url));
     }

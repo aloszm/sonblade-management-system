@@ -38,6 +38,31 @@ Pendientes que salieron de esta tanda:
 - `e2e/agenda.spec.ts` y `e2e/agenda-link.spec.ts` se ajustaron a la regla de 30 minutos sin poder ejecutarlos.
 - Limpieza de la base: el único objeto sin uso encontrado es `private.receipt_counters` (contador de los recibos `LIQ-…`); borrarlo espera la aprobación del dueño. El proyecto `sonblade_mvp` (versión 1) no se toca sin confirmación expresa.
 
+## Avance del 16 de noviembre de 2026 (tarde)
+
+Subido a `feat/v2-integration`; tipos, lint, pruebas unitarias y compilación sin errores. Pantallas vistas solo con datos de ejemplo, sin sesión iniciada.
+
+- **Semana simulada:** hecha en `sonblade-dev`, del domingo 25 al sábado 31 de octubre de 2026 (las semanas de noviembre ya tenían recibos pagados). 116 ventas cobradas y 2 anuladas, ingresos $23,495, comisiones $11,006, utilidad $10,810; recibos `P2644-01` a `P2644-05`; Cuadre sin diferencias en esa semana. Simulador en `scripts/simulate-week.mjs` (ver `scripts/README-simulacion.md`). Para verla: elegir del 25 al 31 de octubre en Finanzas, Reportes, Cuadre, Agenda y Caja.
+- **Barbero:** "Mi semana" completa (citas de hoy, lo ganado, servicios, clientes, propinas, recibos), agenda de solo lectura (propia y de toda la barbería) y clientes sin editar ni eliminar (sí puede registrar).
+- **Agenda:** la vista de día muestra siempre de 8:00 a 22:00.
+- **Selectores propios** de fecha, periodo y hora (`components/ui/DatePicker`, `DateRangePicker`, `TimePicker`) en toda la app.
+- **Recepción:** pantalla "Barberos hoy" (`/equipo-hoy`): servicios por tipo, productos y lo que lleva cada barbero al día, semana y mes.
+- **Ranking** rediseñado (`components/Ranking.tsx`) con podio y tres pestañas: cortes, ingreso y productos vendidos. Dueño, gerencia y recepción ven importes; el barbero ve cortes y productos, y en ingreso solo su lugar y su importe (la regla se aplica en el servidor).
+
+### Bloqueado: migraciones pendientes de aprobación del dueño
+
+Las aprobaciones del conector de Supabase no están llegando al dueño (cinco intentos cancelados por falta de respuesta). Hasta que se apruebe desde la computadora o se pegue el SQL en el panel de Supabase, quedan sin aplicar:
+
+1. **Permisos de clientes** (hueco de seguridad): hoy cualquier miembro del negocio puede actualizar un cliente directamente en la base. Reemplazar la política `clients_update_member` por una limitada a dueño, gerencia, caja y recepción. La app ya lo impide; la base todavía no.
+2. **`supabase/pending/team_ranking.sql`**: función `team_ranking`. Sin ella el barbero solo ve el ranking de cortes de la semana actual; ingreso, productos y otros periodos muestran "disponible pronto". Al aplicarla se encienden solos. Al aplicarla, mover el archivo a `supabase/migrations/<versión>_team_ranking.sql`.
+
+### Decisiones abiertas
+
+- ¿El barbero debe ver el teléfono de los clientes en la pantalla Clientes? (Hoy sí; en la agenda ya no.)
+- `/api/barbers` entrega el teléfono de los empleados a cualquier puesto; se recomienda limitarlo a dueño y gerencia.
+- El botón "Eliminar cliente" no funciona para nadie (la API responde 405): quitarlo o implementarlo.
+- Hay dos paneles (`/` y `/admin`); decidir cuál se queda.
+
 ## Lo que pidió el dueño (15 de noviembre, noche)
 
 ### 1. Cobro: los servicios aparecen todos desplegados, sin agrupar y desordenados
