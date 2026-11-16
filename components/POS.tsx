@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, Loader2, Lock, Minus, Plus, Search, X } from 'lucide-react';
 import { usePOS, MAX_FREE_PRICE, MIN_FREE_PRICE, parseFreePrice, type CartItem, type PaymentType, type PosError, type PosErrorField } from '@/hooks/usePOS';
 import { useCountUp } from '@/hooks/useCountUp';
+import { groupServices, isTestName, formatDuration, type ServiceCategory } from '@/lib/services/categories';
 
 const money = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;
 const METHODS: { id: PaymentType; label: string }[] = [
@@ -66,12 +67,23 @@ export default function POS() {
     } = actions;
 
     const [catalogFilter, setCatalogFilter] = React.useState('');
+    const [category, setCategory] = React.useState<'all' | ServiceCategory>('all');
     const [showDiscounts, setShowDiscounts] = React.useState(false);
     const paidAmount = useCountUp(Math.round(lastSale?.total ?? 0), showSuccess);
 
     const term = catalogFilter.trim().toLowerCase();
-    const shownServices = services.filter((s) => !term || s.name.toLowerCase().includes(term));
-    const shownProducts = products.filter((p) => !term || p.name.toLowerCase().includes(term));
+    // La búsqueda mira todas las categorías; los chips solo acotan cuando no se escribe nada.
+    const serviceGroups = groupServices(services);
+    const activeCategory: 'all' | ServiceCategory = term || !serviceGroups.some((g) => g.category === category) ? 'all' : category;
+    const shownGroups = serviceGroups
+        .filter((g) => activeCategory === 'all' || g.category === activeCategory)
+        .map((g) => ({ ...g, items: g.items.filter((s) => !term || s.name.toLowerCase().includes(term)) }))
+        .filter((g) => g.items.length > 0);
+    // Productos en su orden, con los de demostración al final.
+    const shownProducts = products.filter((p) => !term || p.name.toLowerCase().includes(term))
+        .map((p, index) => ({ p, index }))
+        .sort((a, b) => Number(isTestName(a.p.name)) - Number(isTestName(b.p.name)) || a.index - b.index)
+        .map(({ p }) => p);
     const customTip = !QUICK_TIPS.includes(tip);
     const empty = cart.length === 0;
 
@@ -223,28 +235,56 @@ export default function POS() {
                     </div>
                 )}
 
-                <section aria-labelledby="pos-services" className="space-y-3">
+                <section aria-labelledby="pos-services" className="space-y-4">
                     <h2 id="pos-services" className={sectionTitle}>2 · Servicios</h2>
                     {loadingServices ? <Loader2 className="h-5 w-5 animate-spin text-bos-muted" /> : (
-                        <div className="grid gap-3 grid-cols-2 xl:grid-cols-3">
-                            {shownServices.map((s) => {
-                                const selected = cart.some((i) => i.service_id === s.id);
-                                const count = s.variable_price ? cart.filter((i) => i.service_id === s.id).length : 0;
-                                return (
-                                    <button key={s.id} type="button" aria-pressed={selected} onClick={() => toggleService(s)}
-                                        className={`${choiceClass(selected)} min-h-24 p-4 flex flex-col justify-between gap-3`}>
-                                        <span className="text-[15px] font-semibold text-bos-text">{s.name}</span>
-                                        <span className="flex items-baseline justify-between gap-2">
-                                            {s.variable_price
-                                                ? <span className={`font-display text-lg font-semibold ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>Precio al cobrar</span>
-                                                : <span className={`font-display text-2xl font-semibold tabular-nums ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(s.price))}</span>}
-                                            <span className="text-xs text-bos-muted">{count > 1 ? `${count} en la venta · ` : ''}{s.duration_minutes} min</span>
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                            {shownServices.length === 0 && <p className="text-sm text-bos-muted col-span-full">No hay servicios que mostrar.</p>}
-                        </div>
+                        <>
+                            {serviceGroups.length > 1 && (
+                                <div role="group" aria-label="Categorías de servicios" className="flex flex-wrap gap-2">
+                                    {[{ id: 'all' as const, label: 'Todos' }, ...serviceGroups.map((g) => ({ id: g.category, label: g.label }))].map((chip) => {
+                                        const pressed = activeCategory === chip.id;
+                                        return (
+                                            <button key={chip.id} type="button" aria-pressed={pressed}
+                                                onClick={() => { setCategory(chip.id); setCatalogFilter(''); }}
+                                                className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bos-accent ${pressed
+                                                    ? 'border-bos-text bg-bos-text text-bos-bg'
+                                                    : 'border-bos-border bg-bos-surface text-bos-text hover:bg-bos-raised'}`}>
+                                                {chip.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {shownGroups.map((group) => (
+                                <div key={group.category} data-testid={`pos-category-${group.category}`} className="space-y-3 pt-2">
+                                    <h3 className="text-[15px] font-semibold text-bos-text">{group.label}</h3>
+                                    <div className="grid gap-3 grid-cols-2 xl:grid-cols-3">
+                                        {group.items.map((s) => {
+                                            const selected = cart.some((i) => i.service_id === s.id);
+                                            const count = s.variable_price ? cart.filter((i) => i.service_id === s.id).length : 0;
+                                            const demo = isTestName(s.name);
+                                            return (
+                                                <button key={s.id} type="button" aria-pressed={selected} onClick={() => toggleService(s)}
+                                                    className={`${choiceClass(selected)} relative min-h-[104px] p-4 flex flex-col justify-between gap-2 ${demo && !selected ? 'border-dashed' : ''}`}>
+                                                    <span className="block pr-5">
+                                                        <span className={`block text-[15px] font-semibold leading-snug line-clamp-2 ${demo ? 'text-bos-muted' : 'text-bos-text'}`}>{s.name}</span>
+                                                        {group.category === 'paquetes' && s.description && <span className="mt-0.5 block text-xs text-bos-muted line-clamp-1">{s.description}</span>}
+                                                    </span>
+                                                    {selected && <Check aria-hidden="true" className="absolute right-3 top-3 h-4 w-4 text-bos-accent-text" />}
+                                                    <span className="flex items-baseline justify-between gap-2">
+                                                        {s.variable_price
+                                                            ? <span className={`font-display text-base font-semibold ${selected ? 'text-bos-accent-text' : 'text-bos-text'}`}>Precio al cobrar</span>
+                                                            : <span className={`font-display ${demo ? 'text-lg' : 'text-2xl'} font-semibold tabular-nums ${selected ? 'text-bos-accent-text' : demo ? 'text-bos-muted' : 'text-bos-text'}`}>{money(Number(s.price))}</span>}
+                                                        <span className="text-xs text-bos-muted whitespace-nowrap">{count > 1 ? `${count} en la venta · ` : ''}{formatDuration(s.duration_minutes)}</span>
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                            {shownGroups.length === 0 && <p className="text-sm text-bos-muted">No hay servicios que mostrar.</p>}
+                        </>
                     )}
                 </section>
 
@@ -254,14 +294,16 @@ export default function POS() {
                         {shownProducts.map((p) => {
                             const inCart = cart.find((i) => i.product_id === p.id);
                             const left = p.stock - (inCart?.quantity ?? 0);
+                            const demo = isTestName(p.name);
                             return (
                                 <button key={p.id} type="button" aria-pressed={Boolean(inCart)} disabled={left <= 0 && !inCart} onClick={() => addProduct(p)}
-                                    className={`${choiceClass(Boolean(inCart))} min-h-[72px] px-4 py-3 flex items-center justify-between gap-3 disabled:opacity-50 disabled:cursor-not-allowed`}>
-                                    <span className="min-w-0">
-                                        <span className="block text-[15px] font-semibold text-bos-text truncate">{p.name}</span>
-                                        <span className="block text-xs text-bos-muted">{left > 0 ? `Quedan ${left}` : 'Agotado'}</span>
+                                    className={`${choiceClass(Boolean(inCart))} relative min-h-[104px] p-4 flex flex-col justify-between gap-2 disabled:cursor-not-allowed ${demo && !inCart ? 'border-dashed' : ''}`}>
+                                    <span className={`block pr-5 text-[15px] font-semibold leading-snug line-clamp-2 ${demo ? 'text-bos-muted' : 'text-bos-text'}`}>{p.name}</span>
+                                    {inCart && <Check aria-hidden="true" className="absolute right-3 top-3 h-4 w-4 text-bos-accent-text" />}
+                                    <span className="flex items-baseline justify-between gap-2">
+                                        <span className={`font-display ${demo ? 'text-lg' : 'text-2xl'} font-semibold tabular-nums ${inCart ? 'text-bos-accent-text' : left <= 0 || demo ? 'text-bos-muted' : 'text-bos-text'}`}>{money(Number(p.price))}</span>
+                                        <span className="text-xs text-bos-muted whitespace-nowrap">{left > 0 ? `Quedan ${left}` : 'Agotado'}</span>
                                     </span>
-                                    <span className={`font-display text-lg font-semibold tabular-nums ${inCart ? 'text-bos-accent-text' : 'text-bos-text'}`}>{money(Number(p.price))}</span>
                                 </button>
                             );
                         })}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Loader2, Edit2, Check, X } from 'lucide-react';
+import { CATEGORY_LABELS, DEFAULT_CATEGORY, DURATION_OPTIONS, SERVICE_CATEGORIES, categoryOf, formatDuration, groupServices, isServiceCategory, type ServiceCategory } from '@/lib/services/categories';
 
 interface Service {
     id: string;
@@ -11,7 +12,12 @@ interface Service {
     is_active: boolean;
     /** Precio libre: se escribe al cobrar (p. ej. grecas). */
     variable_price?: boolean;
+    category?: string;
+    sort_order?: number;
 }
+
+interface FormData { name: string; price: number; duration_minutes: number; is_active: boolean; variable_price: boolean; category: ServiceCategory; sort_order: number }
+const EMPTY_FORM: FormData = { name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false, category: DEFAULT_CATEGORY, sort_order: 0 };
 
 export default function ServicesPage() {
     const [services, setServices] = useState<Service[]>([]);
@@ -20,7 +26,7 @@ export default function ServicesPage() {
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formError, setFormError] = useState('');
-    const [formData, setFormData] = useState({ name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false });
+    const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
 
     useEffect(() => {
         fetchServices();
@@ -32,7 +38,7 @@ export default function ServicesPage() {
             const res = await fetch('/api/services');
             if (res.ok) {
                 const data = await res.json();
-                setServices(data);
+                setServices(Array.isArray(data) ? data : []);
             }
         } catch (e) {
             console.error('Error fetching services:', e);
@@ -57,7 +63,7 @@ export default function ServicesPage() {
                 fetchServices();
                 setIsAdding(false);
                 setEditingId(null);
-                setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false });
+                setFormData(EMPTY_FORM);
             } else {
                 const body = await res.json().catch(() => null);
                 setFormError(body?.error || 'No se pudo guardar el servicio');
@@ -82,13 +88,33 @@ export default function ServicesPage() {
         }
     };
 
-    const filteredServices = services.filter(s =>
-        s.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const groups = groupServices(services.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())));
 
     const th = 'px-4 py-3 text-[13px] font-medium';
     const cell = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
     const iconBtn = 'h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised';
+
+    const nameInput = (
+        <input type="text" aria-label="Nombre del servicio" placeholder="Nombre del servicio" className={`${cell} w-full min-w-[10rem]`}
+            value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+    );
+    const categoryInput = (
+        <select aria-label="Categoría" className={`${cell} w-full min-w-[9rem]`} value={formData.category}
+            onChange={e => setFormData({ ...formData, category: isServiceCategory(e.target.value) ? e.target.value : DEFAULT_CATEGORY })}>
+            {SERVICE_CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
+        </select>
+    );
+    const durationInput = (
+        <select aria-label="Duración" className={`${cell} w-28 mx-auto block`} value={formData.duration_minutes}
+            onChange={e => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}>
+            {(DURATION_OPTIONS.includes(formData.duration_minutes) ? DURATION_OPTIONS : [...DURATION_OPTIONS, formData.duration_minutes].sort((a, b) => a - b))
+                .map(m => <option key={m} value={m}>{formatDuration(m)}</option>)}
+        </select>
+    );
+    const orderInput = (
+        <input type="number" inputMode="numeric" min={0} step={1} aria-label="Orden en la categoría" className={`${cell} w-20 mx-auto block text-center`}
+            value={formData.sort_order} onChange={e => setFormData({ ...formData, sort_order: Math.max(0, Math.trunc(Number(e.target.value)) || 0) })} />
+    );
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
@@ -98,7 +124,7 @@ export default function ServicesPage() {
                     <p className="text-bos-muted text-sm mt-1">Administra los servicios ofrecidos en la barbería</p>
                 </div>
                 <button
-                    onClick={() => { setIsAdding(true); setFormError(''); setFormData({ name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false }); }}
+                    onClick={() => { setIsAdding(true); setFormError(''); setFormData(EMPTY_FORM); }}
                     className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong transition-colors"
                 >
                     <Plus className="h-4 w-4" /> Nuevo servicio
@@ -127,8 +153,10 @@ export default function ServicesPage() {
                         <thead className="text-bos-muted">
                             <tr>
                                 <th className={th}>Nombre</th>
+                                <th className={th}>Categoría</th>
                                 <th className={`${th} text-center`}>Precio</th>
                                 <th className={`${th} text-center`}>Duración</th>
+                                <th className={`${th} text-center`}>Orden</th>
                                 <th className={`${th} text-center`}>Estado</th>
                                 <th className={`${th} text-right`}>Acciones</th>
                             </tr>
@@ -136,16 +164,8 @@ export default function ServicesPage() {
                         <tbody>
                             {isAdding && (
                                 <tr className="border-t border-bos-border bg-bos-accent-soft">
-                                    <td className="p-3">
-                                        <input
-                                            type="text"
-                                            aria-label="Nombre del servicio"
-                                            placeholder="Nombre del servicio"
-                                            className={`${cell} w-full min-w-[10rem]`}
-                                            value={formData.name}
-                                            onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        />
-                                    </td>
+                                    <td className="p-3">{nameInput}</td>
+                                    <td className="p-3">{categoryInput}</td>
                                     <td className="p-3">
                                         <input
                                             type="number"
@@ -161,17 +181,8 @@ export default function ServicesPage() {
                                             Precio libre al cobrar
                                         </label>
                                     </td>
-                                    <td className="p-3">
-                                        <input
-                                            type="number"
-                                            inputMode="numeric"
-                                            aria-label="Duración en minutos"
-                                            placeholder="Min"
-                                            className={`${cell} w-24 mx-auto block text-center`}
-                                            value={formData.duration_minutes}
-                                            onChange={e => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}
-                                        />
-                                    </td>
+                                    <td className="p-3">{durationInput}</td>
+                                    <td className="p-3">{orderInput}</td>
                                     <td className="p-3 text-center">
                                         <span className="text-xs text-bos-success font-medium bg-bos-success-soft px-2.5 py-1 rounded-full">Activo</span>
                                     </td>
@@ -186,28 +197,32 @@ export default function ServicesPage() {
 
                             {loading ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={5} className="p-10 text-center text-bos-muted">
+                                    <td colSpan={7} className="p-10 text-center text-bos-muted">
                                         <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                                         Cargando servicios...
                                     </td>
                                 </tr>
-                            ) : filteredServices.length === 0 ? (
+                            ) : groups.length === 0 ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={5} className="p-10 text-center text-bos-muted">No se encontraron servicios</td>
+                                    <td colSpan={7} className="p-10 text-center text-bos-muted">No se encontraron servicios</td>
                                 </tr>
-                            ) : filteredServices.map(service => (
+                            ) : groups.map(group => (
+                                <React.Fragment key={group.category}>
+                                    <tr className="border-t border-bos-border bg-bos-raised">
+                                        <th scope="colgroup" colSpan={7} className="px-4 py-2 text-left">
+                                            <h3 className="text-sm font-semibold text-bos-text">{group.label} <span className="font-normal text-bos-muted">· {group.items.length}</span></h3>
+                                        </th>
+                                    </tr>
+                                    {group.items.map(service => (
                                 <tr key={service.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
                                     <td className="px-4 py-3">
-                                        {editingId === service.id ? (
-                                            <input
-                                                type="text"
-                                                aria-label="Nombre del servicio"
-                                                className={`${cell} w-full min-w-[10rem]`}
-                                                value={formData.name}
-                                                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                            />
-                                        ) : (
+                                        {editingId === service.id ? nameInput : (
                                             <span className="font-semibold">{service.name}</span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {editingId === service.id ? categoryInput : (
+                                            <span className="text-bos-muted">{CATEGORY_LABELS[categoryOf(service.category)]}</span>
                                         )}
                                     </td>
                                     <td className="px-4 py-3 text-center">
@@ -233,17 +248,13 @@ export default function ServicesPage() {
                                         )}
                                     </td>
                                     <td className="px-4 py-3 text-center">
-                                        {editingId === service.id ? (
-                                            <input
-                                                type="number"
-                                                inputMode="numeric"
-                                                aria-label="Duración en minutos"
-                                                className={`${cell} w-24 mx-auto block text-center`}
-                                                value={formData.duration_minutes}
-                                                onChange={e => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}
-                                            />
-                                        ) : (
-                                            <span className="text-bos-muted tabular-nums">{service.duration_minutes} min</span>
+                                        {editingId === service.id ? durationInput : (
+                                            <span className="text-bos-muted tabular-nums">{formatDuration(service.duration_minutes)}</span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        {editingId === service.id ? orderInput : (
+                                            <span className="text-bos-muted tabular-nums">{service.sort_order ?? 0}</span>
                                         )}
                                     </td>
                                     <td className="px-4 py-2 text-center">
@@ -269,7 +280,7 @@ export default function ServicesPage() {
                                                 <button
                                                     onClick={() => {
                                                         setEditingId(service.id);
-                                                        setFormData({ name: service.name, price: Number(service.price), duration_minutes: service.duration_minutes, is_active: service.is_active, variable_price: !!service.variable_price });
+                                                        setFormData({ name: service.name, price: Number(service.price), duration_minutes: service.duration_minutes, is_active: service.is_active, variable_price: !!service.variable_price, category: categoryOf(service.category), sort_order: service.sort_order ?? 0 });
                                                     }}
                                                     aria-label="Editar servicio"
                                                     className={iconBtn}
@@ -280,6 +291,8 @@ export default function ServicesPage() {
                                         </div>
                                     </td>
                                 </tr>
+                                    ))}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>

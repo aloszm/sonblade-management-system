@@ -51,6 +51,10 @@ export interface Service {
     description?: string | null;
     /** Precio libre: quien cobra escribe el precio en cada venta (p. ej. grecas). */
     variable_price?: boolean;
+    /** Categoría del cartel: cortes, barba, ceja_facial, paquetes u otros. */
+    category?: string;
+    /** Orden dentro de la categoría (menor primero). */
+    sort_order?: number;
 }
 
 export interface Product {

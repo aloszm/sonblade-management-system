@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import POS from './POS';
 import { parseFreePrice } from '@/hooks/usePOS';
 
@@ -9,7 +9,7 @@ const SERVICES = [
     { id: 'sv2', name: 'Greca', price: 0, duration_minutes: 45, is_active: true, variable_price: true },
 ];
 
-interface Mock { cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesBodies: unknown[] }
+interface Mock { services?: unknown; products?: unknown; cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesBodies: unknown[] }
 
 function mockApi(opts: Partial<Mock> = {}) {
     const state: Mock = { cash: { id: 'x' }, salesBodies: [], ...opts };
@@ -20,13 +20,14 @@ function mockApi(opts: Partial<Mock> = {}) {
         if (url.includes('/api/auth/me')) return json({ authenticated: true, user: { id: 'u1', role: 'recepcion' } });
         if (url.includes('/api/barbers?scope=team')) return json(BARBERS);
         if (url.includes('/api/barbers')) return json(BARBERS);
-        if (url.includes('/api/services')) return json(SERVICES);
+        if (url.includes('/api/services')) return json(state.services ?? SERVICES);
         if (url.includes('/api/discount-authorizers')) return json({ authorizers: [], current_user_id: 'u1' });
         if (url.includes('/api/sales')) {
             state.salesBodies.push(JSON.parse(String(init?.body)));
             const r = state.sales ?? { status: 200, body: { sale_id: 's1' } };
             return json(r.body, r.status);
         }
+        if (url.includes('/api/products')) return json(state.products ?? []);
         return json([]);
     }));
     return state;
@@ -163,5 +164,77 @@ describe('cobro: precio libre', () => {
         fireEvent.click(screen.getByRole('button', { name: /^Cobrar/ }));
         expect(await screen.findByRole('alert')).toHaveTextContent('de $1 a $5,000');
         expect(api.salesBodies).toHaveLength(0);
+    });
+});
+
+describe('cobro: servicios agrupados por categoría', () => {
+    const svc = (id: string, name: string, category: string, sort_order: number, extra: Record<string, unknown> = {}) =>
+        ({ id, name, price: 100, duration_minutes: 30, is_active: true, variable_price: false, category, sort_order, ...extra });
+    const CATALOG = [
+        svc('d1', 'Demo (prueba)', 'otros', 0),
+        svc('p1', 'Corte y barba', 'paquetes', 1, { description: 'Corte más barba', duration_minutes: 90 }),
+        svc('b1', 'Barba', 'barba', 2),
+        svc('b2', 'Bigote', 'barba', 1),
+        svc('c2', 'Corte niño', 'cortes', 2),
+        svc('c1', 'Corte adulto', 'cortes', 1),
+    ];
+    const PRODUCTS = [
+        { id: 'pr1', name: 'Pomada (prueba)', price: 50, stock: 3, sku: 'a', category: 'x', min_stock: 1 },
+        { id: 'pr2', name: 'Peine', price: 80, stock: 5, sku: 'b', category: 'x', min_stock: 1 },
+    ];
+
+    it('en Todos muestra una sección por categoría en el orden del cartel, con los (prueba) al final', async () => {
+        mockApi({ services: CATALOG, products: PRODUCTS });
+        render(<POS />);
+        await screen.findByRole('button', { name: /^Corte adulto/ });
+        const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+        expect(titles).toEqual(['Cortes', 'Barba y afeitado', 'Paquetes', 'Otros']);
+        const barba = within(screen.getByTestId('pos-category-barba')).getAllByRole('button').map((b) => b.textContent);
+        expect(barba[0]).toMatch(/^Bigote/);
+        expect(barba[1]).toMatch(/^Barba/);
+        expect(within(screen.getByTestId('pos-category-paquetes')).getByText('Corte más barba')).toBeInTheDocument();
+        expect(within(screen.getByTestId('pos-category-paquetes')).getByText('1 h 30 min')).toBeInTheDocument();
+        const products = screen.getAllByRole('button', { name: /^(Pomada|Peine)/ }).map((b) => b.textContent);
+        expect(products[0]).toMatch(/^Peine/);
+        expect(products[1]).toMatch(/^Pomada \(prueba\)/);
+    });
+
+    it('los chips filtran por categoría, marcan aria-pressed y Todos regresa todo', async () => {
+        mockApi({ services: CATALOG });
+        render(<POS />);
+        await screen.findByRole('button', { name: /^Corte adulto/ });
+        const group = screen.getByRole('group', { name: 'Categorías de servicios' });
+        expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Todos', 'Cortes', 'Barba y afeitado', 'Paquetes', 'Otros']);
+        expect(within(group).getByRole('button', { name: 'Todos' })).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(within(group).getByRole('button', { name: 'Barba y afeitado' }));
+        expect(within(group).getByRole('button', { name: 'Barba y afeitado' })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Barba y afeitado']);
+        expect(screen.queryByRole('button', { name: /^Corte adulto/ })).not.toBeInTheDocument();
+        fireEvent.click(within(group).getByRole('button', { name: 'Todos' }));
+        expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(4);
+    });
+
+    it('no muestra el chip de Otros si no hay servicios ahí', async () => {
+        mockApi({ services: CATALOG.filter((s) => s.category !== 'otros') });
+        render(<POS />);
+        await screen.findByRole('button', { name: /^Corte adulto/ });
+        expect(screen.queryByRole('button', { name: 'Otros' })).not.toBeInTheDocument();
+    });
+
+    it('la búsqueda mira todas las categorías aunque haya un chip elegido', async () => {
+        mockApi({ services: [...CATALOG, svc('x1', 'Extra 1', 'cortes', 9), svc('x2', 'Extra 2', 'cortes', 10), svc('x3', 'Extra 3', 'cortes', 11), svc('x4', 'Extra 4', 'cortes', 12)] });
+        render(<POS />);
+        await screen.findByRole('button', { name: /^Corte adulto/ });
+        fireEvent.click(screen.getByRole('button', { name: 'Paquetes' }));
+        fireEvent.change(screen.getByRole('searchbox', { name: 'Filtrar servicios y productos' }), { target: { value: 'barba' } });
+        expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Barba y afeitado', 'Paquetes']);
+        expect(screen.getByRole('button', { name: 'Todos' })).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('elegir un servicio sigue agregándolo a la venta', async () => {
+        mockApi({ services: CATALOG });
+        render(<POS />);
+        await addService('Bigote');
+        expect(screen.getByRole('button', { name: /^Bigote/ })).toHaveAttribute('aria-pressed', 'true');
     });
 });
