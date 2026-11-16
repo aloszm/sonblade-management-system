@@ -49,7 +49,7 @@ export default function AppointmentsPage() {
     useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
     const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
     const [view, setView] = useState<View>('day');
-    const [barberFilter, setBarberFilter] = useState('');
+    const [pickedBarber, setPickedBarber] = useState('');
     const [dayKey, setDayKey] = useState(() => localDateKey(today));
     const [onlyApt, setOnlyApt] = useState<string | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -59,6 +59,11 @@ export default function AppointmentsPage() {
     const [warning, setWarning] = useState('');
     const [barbersState, setBarbersState] = useState<'loading' | 'ok' | 'error'>('loading');
     const [canManage, setCanManage] = useState(false);
+    // Barbero: la agenda es de solo lectura. Arranca en sus citas y puede ver las de toda la barbería.
+    const [meLoaded, setMeLoaded] = useState(false);
+    const [ownBarberId, setOwnBarberId] = useState<string | null>(null);
+    const [scope, setScope] = useState<'mine' | 'all'>('mine');
+    const readOnly = ownBarberId !== null;
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
 
@@ -110,18 +115,20 @@ export default function AppointmentsPage() {
     useEffect(() => {
         fetch('/api/barbers').then(r => r.json()).then(d => { if (Array.isArray(d)) { setBarbers(d); setBarbersState('ok'); } else setBarbersState('error'); }).catch(() => setBarbersState('error'));
         fetch('/api/schedule', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(d => { if (d) setSchedule(d); }).catch(() => {});
-        fetch('/api/clients').then(r => r.json()).then(d => { if (Array.isArray(d)) setClients(d); }).catch(() => {});
         fetch('/api/auth/me', { cache: 'no-store' }).then(r => r.json())
             .then(me => {
                 const manage = me?.user?.role === 'admin' || me?.user?.role === 'recepcion';
                 setCanManage(manage);
+                // La lista de clientes solo sirve para agendar: el barbero no agenda.
+                if (manage) fetch('/api/clients').then(r => r.json()).then(d => { if (Array.isArray(d)) setClients(d); }).catch(() => {});
+                if (me?.user?.role === 'barber' && me.user.employeeId) setOwnBarberId(me.user.employeeId);
                 // El botón "Nueva Cita" del encabezado llega con ?nueva=1 para abrir el formulario.
                 if (manage && new URLSearchParams(window.location.search).get('nueva') === '1') {
                     setForm({ ...EMPTY_FORM, date: localDateKey(new Date()) });
                     setShowForm(true);
                     window.history.replaceState(null, '', '/citas');
                 }
-            }).catch(() => {});
+            }).catch(() => {}).finally(() => setMeLoaded(true));
     }, []);
 
     const activeBarbers = useMemo(() => barbers.filter((b) => b.status === 'active'), [barbers]);
@@ -129,7 +136,14 @@ export default function AppointmentsPage() {
         const i = activeBarbers.findIndex((b) => b.id === id);
         return i < 0 ? NO_BARBER_COLOR : BARBER_COLORS[i % BARBER_COLORS.length];
     }, [activeBarbers]);
-    const visible = useMemo(() => (barberFilter ? appointments.filter((a) => a.barber?.id === barberFilter) : appointments), [appointments, barberFilter]);
+    // Un barbero ve por omisión solo lo suyo; "Toda la barbería" quita el filtro.
+    const barberFilter = readOnly ? (scope === 'mine' ? ownBarberId ?? '' : '') : pickedBarber;
+    const setBarberFilter = setPickedBarber;
+    // El barbero no ve cobros: aunque la base no se los entregue, aquí tampoco se muestran.
+    const visible = useMemo(() => {
+        const rows = barberFilter ? appointments.filter((a) => a.barber?.id === barberFilter) : appointments;
+        return readOnly ? rows.map((a) => ({ ...a, sale: null })) : rows;
+    }, [appointments, barberFilter, readOnly]);
 
     const byDay = useMemo(() => {
         const map = new Map<string, Appointment[]>();
@@ -322,7 +336,7 @@ export default function AppointmentsPage() {
     const rangeAppointments = view === 'week' ? weekKeys.reduce((n, k) => n + (byDay.get(k)?.length ?? 0), 0)
         : view === 'day' ? dayAppointments.length : cells.reduce<number>((n, d) => n + (d ? (byDay.get(localDateKey(new Date(year, month, d)))?.length ?? 0) : 0), 0);
     const emptyNote = view === 'day' ? 'No hay citas este día.' : view === 'week' ? 'No hay citas esta semana.' : 'No hay citas este mes.';
-    const waiting = loading || (view === 'day' && barbersState === 'loading');
+    const waiting = loading || !meLoaded || (view === 'day' && barbersState === 'loading');
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
@@ -364,8 +378,21 @@ export default function AppointmentsPage() {
                 </div>
             </header>
 
+            {/* Barbero: agenda de solo lectura, con su calendario por omisión y el de toda la barbería. */}
+            {readOnly && (
+                <div className="space-y-2">
+                    <div role="group" aria-label="Qué agenda ver" data-testid="agenda-scope" className="grid grid-cols-2 gap-1 rounded-xl bg-bos-raised p-1 sm:inline-grid sm:grid-cols-[auto_auto]">
+                        {([['mine', 'Mis citas'], ['all', 'Toda la barbería']] as const).map(([id, text]) => (
+                            <button key={id} type="button" aria-pressed={scope === id} onClick={() => setScope(id)}
+                                className={`min-h-11 rounded-lg px-4 text-[15px] font-semibold transition-colors ${scope === id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
+                        ))}
+                    </div>
+                    <p className="text-sm text-bos-muted">Solo lectura. Para agendar o cambiar una cita, habla con recepción.</p>
+                </div>
+            )}
+
             {/* En celular la vista por día ya trae su propio selector de barbero dentro de la cuadrícula. */}
-            <div role="group" aria-label="Barbero" className={`${view === 'day' ? 'hidden md:flex' : 'flex'} flex-wrap gap-2`}>
+            <div role="group" aria-label="Barbero" className={`${readOnly ? 'hidden' : view === 'day' ? 'hidden md:flex' : 'flex'} flex-wrap gap-2`}>
                 {[{ id: '', name: 'Todos' }, ...activeBarbers].map((b) => (
                     <button key={b.id || 'all'} type="button" aria-pressed={barberFilter === b.id} onClick={() => setBarberFilter(b.id)}
                         className={`inline-flex h-9 max-w-full items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
@@ -404,7 +431,7 @@ export default function AppointmentsPage() {
                             <p className="p-10 text-center text-bos-muted">No hay barberos activos.</p>
                         ) : (
                             <DayGrid dayKey={dayKey} todayKey={todayKey} nowMinutes={nowMinutes} appointments={dayAppointments} columns={columns}
-                                colorOf={colorOf} schedule={schedule} timeOff={liveOff} canManage={canManage}
+                                colorOf={colorOf} schedule={schedule} timeOff={liveOff} canManage={canManage} defaultColumnId={ownBarberId}
                                 onSlot={(time, barberId) => openForm(dayKey, time, barberId)} onOpenAppointment={openAppointment} />
                         ))}
                         {view === 'week' && (
@@ -495,7 +522,7 @@ export default function AppointmentsPage() {
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLE[apt.status]}`}>{STATUS_LABELS[apt.status]}</span>
                                                 {apt.walk_in && <span className="px-2 py-0.5 rounded-full text-xs font-semibold border border-dashed border-bos-border">Sin cita</span>}
                                                 <span>{apt.barber ? apt.barber.name : 'Sin barbero asignado'}</span>
-                                                {apt.customer_phone && <span>· {apt.customer_phone}</span>}
+                                                {canManage && apt.customer_phone && <span>· {apt.customer_phone}</span>}
                                             </p>
                                             {apt.notes && <p className="mt-2 text-sm text-bos-muted whitespace-pre-line">{apt.notes}</p>}
                                         </div>

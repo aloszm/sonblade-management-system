@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { CLIENT_CREATE_ROLES } from '@/lib/barber/permissions';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -28,9 +29,10 @@ export async function GET(request: NextRequest) {
     } catch (error) { return authErrorResponse(error); }
 }
 
+// Crear: también el barbero (registra a quien llega). Editar y eliminar (`[id]`) no.
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'cashier', 'receptionist']);
+        const context = await requireAuthContext(CLIENT_CREATE_ROLES);
         const body = ClientSchema.safeParse(await request.json().catch(() => null));
         if (!body.success) return NextResponse.json({ error: body.error.issues[0]?.message ?? 'Los datos del cliente no son válidos.' }, { status: 400 });
         const { data, error } = await (await createSupabaseServerClient()).from('clients').insert({

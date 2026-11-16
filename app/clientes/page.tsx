@@ -21,6 +21,15 @@ export default function ClientsPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [listError, setListError] = useState('');
+    // El barbero registra clientes nuevos, pero no edita ni elimina los existentes.
+    // Hasta saber el puesto se asume que no puede (nunca se muestra un botón que luego falla).
+    const [canEdit, setCanEdit] = useState(false);
+
+    useEffect(() => {
+        fetch('/api/auth/me', { cache: 'no-store' }).then((r) => r.json())
+            .then((me) => setCanEdit(Boolean(me?.authenticated) && me.user?.role !== 'barber'))
+            .catch(() => setCanEdit(false));
+    }, []);
 
     const fetchClients = useCallback(async () => {
         try {
@@ -175,19 +184,19 @@ export default function ClientsPage() {
                                 <th className={th}>Contacto</th>
                                 <th className={`${th} text-center`}>Fidelización</th>
                                 <th className={`${th} text-right`}>Última visita</th>
-                                <th className={`${th} text-center`}>Acciones</th>
+                                {canEdit && <th className={`${th} text-center`}>Acciones</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={5} className="p-8 text-center">
+                                    <td colSpan={canEdit ? 5 : 4} className="p-8 text-center">
                                         <Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" />
                                     </td>
                                 </tr>
                             ) : filteredClients.length === 0 ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={5} className="p-8 text-center text-bos-muted">
+                                    <td colSpan={canEdit ? 5 : 4} className="p-8 text-center text-bos-muted">
                                         {searchQuery ? 'No se encontraron clientes coincidiendo con tu búsqueda' : 'No hay clientes registrados en el sistema'}
                                     </td>
                                 </tr>
@@ -230,7 +239,7 @@ export default function ClientsPage() {
                                             <span className="text-xs bg-bos-raised text-bos-muted px-2 py-1 rounded-full font-medium">Nunca</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-2 text-center">
+                                    {canEdit && <td className="px-4 py-2 text-center">
                                         <div className="flex items-center justify-center gap-1">
                                             <button
                                                 onClick={() => openEdit(c)}
@@ -249,7 +258,7 @@ export default function ClientsPage() {
                                                 <Trash2 className="h-4 w-4" />
                                             </button>
                                         </div>
-                                    </td>
+                                    </td>}
                                 </tr>
                             ))}
                         </tbody>

@@ -22,7 +22,7 @@ const mobileItems = [
     { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
     { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber'] },
     { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'barber', 'recepcion'] },
-    { href: '/citas', label: 'Citas', icon: Calendar, roles: ['admin', 'recepcion'] },
+    { href: '/citas', label: 'Citas', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },
     { href: '/liquidaciones', label: 'Recibos', icon: Wallet, roles: ['barber', 'recepcion'] },
 ];
 
