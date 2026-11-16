@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, use } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 
 interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; serviceCommission: number; productCommission: number; }
 interface Movement { id: string; date: string; services: string; products: string; payment_method: string; cash_amount: number; card_amount: number; transfer_amount: number; tip: number; total: number; commission: number; }
@@ -87,9 +88,7 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                     );
                 })}
                 <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
-                    <input type="date" aria-label="Desde" value={dateRange.from} onChange={e => setDateRange(d => ({ ...d, from: e.target.value }))} className={`${dateField} flex-1 min-w-0`} />
-                    <span className="text-bos-muted">—</span>
-                    <input type="date" aria-label="Hasta" value={dateRange.to} onChange={e => setDateRange(d => ({ ...d, to: e.target.value }))} className={`${dateField} flex-1 min-w-0`} />
+                    <DateRangePicker aria-label="Periodo" shortcuts={false} value={dateRange} onChange={(r) => setDateRange(r)} className={`${dateField} flex-1 min-w-0 sm:min-w-64`} />
                 </div>
             </div>
 

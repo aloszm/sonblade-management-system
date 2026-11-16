@@ -16,6 +16,8 @@ import {
 import DayGrid from './_components/DayGrid';
 import WeekAgenda from './_components/WeekAgenda';
 import { BARBER_COLORS, NO_BARBER_COLOR, STATUS_STYLE, money } from './_components/agenda-ui';
+import DatePicker from '@/components/ui/DatePicker';
+import TimePicker from '@/components/ui/TimePicker';
 
 type View = 'day' | 'week' | 'month';
 
@@ -569,14 +571,12 @@ export default function AppointmentsPage() {
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label htmlFor="apt-date" className={fieldLabel}>Fecha</label>
-                                <input id="apt-date" type="date" required value={form.date} onChange={(e) => updateForm({ date: e.target.value })} className={field} />
+                                <DatePicker id="apt-date" required value={form.date} onChange={(v) => updateForm({ date: v })} className={field} />
                             </div>
                             <div>
                                 <label htmlFor="apt-time" className={fieldLabel}>Hora</label>
-                                <select id="apt-time" required value={form.time} disabled={formClosed} onChange={(e) => updateForm({ time: e.target.value })} className={field}>
-                                    <option value="">{formClosed ? 'Cerrado' : 'Elige la hora'}</option>
-                                    {formTimes.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                </select>
+                                <TimePicker id="apt-time" required value={form.time} disabled={formClosed} options={formTimes}
+                                    placeholder={formClosed ? 'Cerrado' : 'Elige la hora'} onChange={(v) => updateForm({ time: v })} className={field} />
                             </div>
                         </div>
                         {formClosed && <p role="status" className="-mt-1 text-sm text-bos-danger">El negocio cierra ese día (o el barbero no trabaja). Elige otra fecha.</p>}
@@ -673,19 +673,19 @@ export default function AppointmentsPage() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label htmlFor="off-from-date" className={fieldLabel}>Desde</label>
-                                    <input id="off-from-date" type="date" required value={offForm.from_date} onChange={(e) => setOffForm({ ...offForm, from_date: e.target.value, to_date: offForm.to_date < e.target.value ? e.target.value : offForm.to_date })} className={field} />
+                                    <DatePicker id="off-from-date" required value={offForm.from_date} onChange={(v) => setOffForm({ ...offForm, from_date: v, to_date: offForm.to_date < v ? v : offForm.to_date })} className={field} />
                                 </div>
                                 <div>
                                     <label htmlFor="off-from-time" className={fieldLabel}>Hora</label>
-                                    <input id="off-from-time" type="time" required value={offForm.from_time} onChange={(e) => setOffForm({ ...offForm, from_time: e.target.value })} className={field} />
+                                    <TimePicker id="off-from-time" required step={30} value={offForm.from_time} onChange={(v) => setOffForm({ ...offForm, from_time: v })} className={field} />
                                 </div>
                                 <div>
                                     <label htmlFor="off-to-date" className={fieldLabel}>Hasta</label>
-                                    <input id="off-to-date" type="date" required value={offForm.to_date} onChange={(e) => setOffForm({ ...offForm, to_date: e.target.value })} className={field} />
+                                    <DatePicker id="off-to-date" required value={offForm.to_date} onChange={(v) => setOffForm({ ...offForm, to_date: v })} className={field} />
                                 </div>
                                 <div>
                                     <label htmlFor="off-to-time" className={fieldLabel}>Hora</label>
-                                    <input id="off-to-time" type="time" required value={offForm.to_time} onChange={(e) => setOffForm({ ...offForm, to_time: e.target.value })} className={field} />
+                                    <TimePicker id="off-to-time" required step={30} value={offForm.to_time} onChange={(v) => setOffForm({ ...offForm, to_time: v })} className={field} />
                                 </div>
                             </div>
                             <div>
@@ -696,11 +696,11 @@ export default function AppointmentsPage() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label htmlFor="off-req-date" className={fieldLabel}>Cuándo avisó</label>
-                                    <input id="off-req-date" type="date" required value={offForm.requested_date} onChange={(e) => setOffForm({ ...offForm, requested_date: e.target.value })} className={field} />
+                                    <DatePicker id="off-req-date" required value={offForm.requested_date} onChange={(v) => setOffForm({ ...offForm, requested_date: v })} className={field} />
                                 </div>
                                 <div>
                                     <label htmlFor="off-req-time" className={fieldLabel}>Hora del aviso</label>
-                                    <input id="off-req-time" type="time" required value={offForm.requested_time} onChange={(e) => setOffForm({ ...offForm, requested_time: e.target.value })} className={field} />
+                                    <TimePicker id="off-req-time" required step={30} value={offForm.requested_time} onChange={(v) => setOffForm({ ...offForm, requested_time: v })} className={field} />
                                 </div>
                             </div>
                             <div>

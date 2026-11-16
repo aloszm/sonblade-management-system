@@ -8,6 +8,7 @@ import { localDateKey } from '@/lib/utils/dates';
 import {
     Barbers, DashboardSkeleton, dayLabel, ExpensesByCategory, Hero, KpiStrip, Notices, PaymentMethods, Per100, Tips, Trend, Waterfall,
 } from './sections';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 
 type PeriodId = ProfitPreset | 'custom';
 const PERIODS: { id: PeriodId; label: string }[] = [
@@ -75,15 +76,9 @@ export default function FinanzasPage() {
                     ))}
                 </div>
                 {period === 'custom' && (
-                    <div className="grid max-w-md grid-cols-2 gap-3 print:hidden">
-                        <label className="block">
-                            <span className="mb-1.5 block text-[13px] font-medium text-bos-muted">Desde</span>
-                            <input type="date" value={custom.from} max={custom.to || undefined} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} className={field} />
-                        </label>
-                        <label className="block">
-                            <span className="mb-1.5 block text-[13px] font-medium text-bos-muted">Hasta</span>
-                            <input type="date" value={custom.to} min={custom.from || undefined} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} className={field} />
-                        </label>
+                    <div className="max-w-md print:hidden">
+                        <label htmlFor="fin-range" className="mb-1.5 block text-[13px] font-medium text-bos-muted">Periodo</label>
+                        <DateRangePicker id="fin-range" shortcuts={false} value={custom} onChange={setCustom} className={field} />
                     </div>
                 )}
                 {!rangeError && <p className="text-[13px] text-bos-muted">Del {dayLabel(range.from)} al {dayLabel(range.to)}, hora de la barbería.</p>}

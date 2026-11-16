@@ -8,6 +8,7 @@ import type { Barber, Service, Product, Sale } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import CreateSaleModal from '@/components/CreateSaleModal';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 
 function PaymentBadge({ sale }: { sale: Sale }) {
     const cash = Number(sale.cash_amount || 0);
@@ -212,8 +213,7 @@ export default function SalesHistoryPage() {
             {/* Filtros */}
             <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                    <div><label htmlFor="f-start" className={label}>Fecha inicio</label><input id="f-start" type="date" value={dateRange.start} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, start: e.target.value })); setCurrentPage(1); }} className={field} /></div>
-                    <div><label htmlFor="f-end" className={label}>Fecha fin</label><input id="f-end" type="date" value={dateRange.end} onChange={e => { setPeriodFilter('custom'); setDateRange(p => ({ ...p, end: e.target.value })); setCurrentPage(1); }} className={field} /></div>
+                    <div><label htmlFor="f-range" className={label}>Periodo</label><DateRangePicker id="f-range" shortcuts={false} value={{ from: dateRange.start, to: dateRange.end }} onChange={r => { setPeriodFilter('custom'); setDateRange({ start: r.from, end: r.to }); setCurrentPage(1); }} className={field} /></div>
                     <div><label htmlFor="f-barber" className={label}>Barbero</label><select id="f-barber" value={selectedBarber} onChange={e => { setSelectedBarber(e.target.value); setCurrentPage(1); }} className={field}><option value="all">Todos</option>{barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
                     <div><label htmlFor="f-service" className={label}>Servicio</label><select id="f-service" value={selectedService} onChange={e => { setSelectedService(e.target.value); setCurrentPage(1); }} className={field}><option value="all">Todos</option>{serviceNames.map(sn => <option key={sn} value={sn}>{sn}</option>)}</select></div>
                     <div><label htmlFor="f-product" className={label}>Producto</label><select id="f-product" value={selectedProduct} onChange={e => { setSelectedProduct(e.target.value); setCurrentPage(1); }} className={field}><option value="all">Todos</option>{productNames.map(pn => <option key={pn} value={pn}>{pn}</option>)}</select></div>

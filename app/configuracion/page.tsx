@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import { WEEKDAYS, validWeekHours, type WeekHours } from '@/lib/appointments/hours';
+import TimePicker from '@/components/ui/TimePicker';
 
 const TIMEZONES = [
     { value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)' },
@@ -219,11 +220,11 @@ export default function SettingsPage() {
                                         </label>
                                         {day && (
                                             <span className="flex items-center gap-2">
-                                                <input type="time" aria-label={`${dayName}: abre`} value={day.open}
-                                                    onChange={(e) => setDay({ ...day, open: e.target.value })} className={`${field} w-32 font-semibold tabular-nums`} />
+                                                <TimePicker aria-label={`${dayName}: abre`} value={day.open} step={30}
+                                                    onChange={(v) => setDay({ ...day, open: v })} className={`${field} w-40! font-semibold tabular-nums`} />
                                                 <span className="text-bos-muted">a</span>
-                                                <input type="time" aria-label={`${dayName}: cierra`} value={day.close}
-                                                    onChange={(e) => setDay({ ...day, close: e.target.value })} className={`${field} w-32 font-semibold tabular-nums`} />
+                                                <TimePicker aria-label={`${dayName}: cierra`} value={day.close} step={30}
+                                                    onChange={(v) => setDay({ ...day, close: v })} className={`${field} w-40! font-semibold tabular-nums`} />
                                             </span>
                                         )}
                                     </li>

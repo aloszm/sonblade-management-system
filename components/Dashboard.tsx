@@ -10,6 +10,7 @@ import {
     METHOD_LABELS, PRESETS, WEEKDAYS, activityRows, busiestHour, delta, presetRange,
     type Kpis, type Metrics, type PresetId,
 } from '@/lib/reports/metrics';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 
 // Lo que devuelve /api/admin/profit (la misma fuente que Finanzas); aquí solo se usan estas cifras.
 type Finance = {
@@ -198,15 +199,9 @@ export default function Dashboard() {
             <div className="flex flex-wrap items-center gap-3">
                 {preset === 'custom' && range && (
                     <div className="flex flex-wrap items-center gap-2">
-                        <label className="sr-only" htmlFor="metrics-from">Desde</label>
-                        <input id="metrics-from" type="date" value={range.from} max={range.to}
-                            onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })}
-                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text" />
-                        <span className="text-bos-muted">a</span>
-                        <label className="sr-only" htmlFor="metrics-to">Hasta</label>
-                        <input id="metrics-to" type="date" value={range.to} min={range.from}
-                            onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })}
-                            className="h-11 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text" />
+                        <label className="sr-only" htmlFor="metrics-range">Periodo personalizado</label>
+                        <DateRangePicker id="metrics-range" shortcuts={false} value={range} onChange={setRange}
+                            className="h-11 min-w-64 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text" />
                     </div>
                 )}
                 <div role="group" aria-label="Filtrar por persona" className="flex flex-wrap gap-2">

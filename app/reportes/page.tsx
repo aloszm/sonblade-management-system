@@ -10,6 +10,7 @@ import {
     type ReportPresetId,
 } from '@/lib/reports/full-report';
 import type { Audience, ExportedReport, FullReport } from '@/lib/reports/full-report-types';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface';
 const label = 'text-[13px] font-medium text-bos-muted';
@@ -131,11 +132,8 @@ export default function ReportsPage() {
                     </div>
                     {preset === 'custom' && range && (
                         <div className="flex flex-wrap items-center gap-2 pt-1">
-                            <label className="sr-only" htmlFor="report-from">Desde</label>
-                            <input id="report-from" type="date" value={range.from} max={range.to} onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })} className={field} />
-                            <span className="text-bos-muted">a</span>
-                            <label className="sr-only" htmlFor="report-to">Hasta</label>
-                            <input id="report-to" type="date" value={range.to} min={range.from} onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })} className={field} />
+                            <label className="sr-only" htmlFor="report-range">Periodo personalizado</label>
+                            <DateRangePicker id="report-range" shortcuts={false} value={range} onChange={setRange} className={`${field} min-w-64`} />
                         </div>
                     )}
                     {rangeError && <p role="alert" className="text-sm text-bos-danger">{rangeError}</p>}

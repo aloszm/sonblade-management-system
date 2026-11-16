@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { WEEKDAYS, formatHour, type ScheduleData, type WeekHours } from '@/lib/appointments/hours';
+import TimePicker from '@/components/ui/TimePicker';
 
 // "Horario del negocio" se guarda como el día completo: la base lo recorta al horario del negocio,
 // así un cambio de horario del negocio aplica solo a quien no tiene horario propio ese día.
@@ -82,9 +83,9 @@ export default function BarberScheduleModal({ barber, onClose }: { barber: { id:
                                     {d.mode === 'business' && <span className="text-sm text-bos-muted">{businessText(weekday)}</span>}
                                     {d.mode === 'custom' && (
                                         <span className="flex items-center gap-2">
-                                            <input type="time" aria-label={`${WEEKDAYS[weekday]}: entra`} value={d.starts} onChange={(e) => set({ starts: e.target.value })} className={`${field} w-32`} />
+                                            <TimePicker aria-label={`${WEEKDAYS[weekday]}: entra`} value={d.starts} step={30} onChange={(v) => set({ starts: v })} className={`${field} w-40!`} />
                                             <span className="text-bos-muted">a</span>
-                                            <input type="time" aria-label={`${WEEKDAYS[weekday]}: sale`} value={d.ends} onChange={(e) => set({ ends: e.target.value })} className={`${field} w-32`} />
+                                            <TimePicker aria-label={`${WEEKDAYS[weekday]}: sale`} value={d.ends} step={30} onChange={(v) => set({ ends: v })} className={`${field} w-40!`} />
                                         </span>
                                     )}
                                 </li>

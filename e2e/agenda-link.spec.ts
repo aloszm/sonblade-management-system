@@ -41,8 +41,10 @@ test.describe('agenda entrelazada', () => {
         await page.reload({ waitUntil: 'networkidle' });
         await page.getByRole('button', { name: 'Ausencia', exact: true }).click();
         await page.locator('#off-barber').selectOption(id);
-        await page.locator('#off-from-time').fill('15:00');
-        await page.locator('#off-to-time').fill('16:30');
+        await page.locator('#off-from-time').click();
+        await page.locator('[role="option"][data-value="15:00"]').click();
+        await page.locator('#off-to-time').click();
+        await page.locator('[role="option"][data-value="16:30"]').click();
         await page.locator('#off-reason').fill('Prueba E2E ausencia');
         await page.locator('#off-via').selectOption('llamada');
         await page.getByRole('button', { name: 'Bloquear horario' }).click();

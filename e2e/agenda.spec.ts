@@ -37,8 +37,10 @@ test.describe('agenda', () => {
         // Agendar desde la ventana del día.
         await day.click();
         await page.getByRole('button', { name: 'Agendar en este día' }).click();
-        await expect(page.locator('#apt-date')).toHaveValue(key);
-        await page.locator('#apt-time').selectOption(time);
+        // La fecha y la hora son selectores propios (botón + diálogo), no controles nativos.
+        await expect(page.locator('#apt-date')).toHaveText(new RegExp(`\\b${Number(key.slice(8))} [a-z]{3} ${key.slice(0, 4)}$`));
+        await page.locator('#apt-time').click();
+        await page.locator(`[role="option"][data-value="${time}"]`).click();
         await page.locator('#apt-name').fill('Visitante agenda E2E');
         await page.getByRole('button', { name: 'Guardar cita' }).click();
 

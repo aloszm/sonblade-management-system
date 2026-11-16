@@ -7,6 +7,7 @@ import { useSupabase } from '@/hooks/useSupabase';
 import type { Product, CreateProduct } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
 import { localDateKey } from '@/lib/utils/dates';
+import DatePicker from '@/components/ui/DatePicker';
 
 const Inventory: React.FC = () => {
     const [modalOpen, setModalOpen] = useState(false);
@@ -373,11 +374,11 @@ const Inventory: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="p-entry" className={label}>Fecha de ingreso</label>
-                                    <input id="p-entry" type="date" value={form.entry_date || ''} onChange={(e) => setForm(f => ({ ...f, entry_date: e.target.value }))} className={field} />
+                                    <DatePicker id="p-entry" clearable value={form.entry_date || ''} onChange={(v) => setForm(f => ({ ...f, entry_date: v }))} className={field} />
                                 </div>
                                 <div>
                                     <label htmlFor="p-exit" className={label}>Fecha de egreso (opcional)</label>
-                                    <input id="p-exit" type="date" value={form.exit_date || ''} onChange={(e) => setForm(f => ({ ...f, exit_date: e.target.value }))} className={field} />
+                                    <DatePicker id="p-exit" clearable value={form.exit_date || ''} onChange={(v) => setForm(f => ({ ...f, exit_date: v }))} className={field} />
                                 </div>
                             </div>
                         </section>

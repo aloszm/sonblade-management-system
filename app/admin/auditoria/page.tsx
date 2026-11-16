@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { AuditLog } from '@/types';
 import { format } from 'date-fns';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 
 const ACTION_LABELS: Record<string, string> = {
     initial_owner_bootstrap: 'Alta del negocio',
@@ -107,12 +108,8 @@ export default function AuditoriaPage() {
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="a-from" className={label}>Desde</label>
-                        <input id="a-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={field} />
-                    </div>
-                    <div>
-                        <label htmlFor="a-to" className={label}>Hasta</label>
-                        <input id="a-to" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={field} />
+                        <label htmlFor="a-range" className={label}>Periodo</label>
+                        <DateRangePicker id="a-range" value={{ from: dateFrom, to: dateTo }} onChange={(r) => { setDateFrom(r.from); setDateTo(r.to); }} placeholder="Todas las fechas" className={`${field} text-left`} />
                     </div>
                 </div>
                 <button onClick={clearFilters} className="min-h-11 text-sm text-bos-muted hover:text-bos-text font-semibold flex items-center gap-1.5"><X className="h-4 w-4" /> Limpiar filtros</button>
