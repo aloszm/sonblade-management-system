@@ -14,6 +14,30 @@ Con eso, cada agente levanta la app (`npm run build && npm run start -- -p <puer
 
 Reglas que siguen vigentes: un solo responsable por archivo; una sola persona a la vez cambia funciones de dinero en la base; cada migración se guarda en `supabase/migrations/` idéntica a lo aplicado; todo se sube a `feat/v2-integration` (única rama conectada a la base de desarrollo en Vercel) después de pasar tipos, lint, pruebas unitarias y compilación.
 
+## Avance al 16 de noviembre de 2026
+
+Subido a `feat/v2-integration`. Verificado con tipos, lint, 229 pruebas unitarias y compilación; las reglas de la base, con SQL en transacciones revertidas. **Las pantallas solo se vieron con datos de ejemplo, sin sesión iniciada** (el contenedor no tiene la contraseña de las cuentas de demostración). Falta la prueba real en Vercel por parte del dueño.
+
+| Punto | Estado |
+|---|---|
+| 1. Cobro agrupado | Hecho: `services.category` y `services.sort_order`; chips por categoría, orden del cartel, tarjetas uniformes; categoría, orden y duración (múltiplos de 30) editables en Servicios |
+| 2. Agenda | Hecho: cuadrícula de 30 minutos, encabezado fijo, carriles legibles, vista Semana nueva, celular con un barbero a la vez, formulario con horas :00/:30 y duraciones 30/60/90/120 |
+| 3. Duraciones | Hecho en la base. Decididas sin confirmar por el dueño: ritual de barba 60, facial con masaje 60, mascarilla negra 30, grecas 30 |
+| 4. Logo en el comprobante de pago | Hecho |
+| 5. Cuadre con acciones | Hecho: tabla `reconciliation_reviews`, "Revisada, está bien" con motivo, reabrir, "Aceptar todas" para las ventas anteriores a la agenda, filtros y pestañas. La base rechaza citas fuera de :00/:30 o que no duren múltiplos de 30 |
+| 6. Semana simulada | Pendiente. Decisión del dueño: va en `sonblade-dev`, junto con las ventas de prueba; producción arrancará en una base nueva |
+| 7. Panel | Hecho: el Panel (`/`) y `/admin` toman la utilidad de Finanzas y enlazan a Finanzas y Reportes |
+
+Pendientes que salieron de esta tanda:
+
+- Nadie ha aceptado diferencias en Cuadre: lo decide el dueño (hoy hay 40 ventas anteriores a la agenda y 4 que requieren atención del 1 al 16 de noviembre).
+- "Ir a la agenda" desde Cuadre abre la agenda sin fecha ni barbero; la agenda no acepta parámetros en la dirección. Tampoco se puede, desde Cuadre, ligar una venta a una cita ni marcar "no llegó".
+- Con filtro por barbero, el Panel usa las cifras de `business_metrics` (no resta costo de producto y filtra gastos por fecha de captura) y lo avisa en pantalla. Corregirlo requiere cambiar esa función.
+- Hay dos paneles: `/` (el del menú) y `/admin` (sin entrada en el menú). Decidir cuál se queda.
+- El formulario de cita no tiene selector de servicio (solo una nota), así que la duración no se llena sola desde el catálogo.
+- `e2e/agenda.spec.ts` y `e2e/agenda-link.spec.ts` se ajustaron a la regla de 30 minutos sin poder ejecutarlos.
+- Limpieza de la base: el único objeto sin uso encontrado es `private.receipt_counters` (contador de los recibos `LIQ-…`); borrarlo espera la aprobación del dueño. El proyecto `sonblade_mvp` (versión 1) no se toca sin confirmación expresa.
+
 ## Lo que pidió el dueño (15 de noviembre, noche)
 
 ### 1. Cobro: los servicios aparecen todos desplegados, sin agrupar y desordenados

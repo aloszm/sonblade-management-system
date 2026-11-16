@@ -87,7 +87,7 @@ test.describe('agenda entrelazada', () => {
         const when = new Date(await page.evaluate(() => {
             const d = new Date();
             d.setDate(d.getDate() + 60 + Math.floor(Math.random() * 300));
-            d.setHours(13 + Math.floor(Math.random() * 5), [0, 15, 30][Math.floor(Math.random() * 3)], 0, 0);
+            d.setHours(13 + Math.floor(Math.random() * 5), [0, 30][Math.floor(Math.random() * 2)], 0, 0);
             return d.toISOString();
         }));
         const created = await page.request.post('/api/appointments', {

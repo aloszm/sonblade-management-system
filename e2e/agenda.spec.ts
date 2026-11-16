@@ -18,7 +18,8 @@ test.describe('agenda', () => {
         const now = new Date();
         const next = new Date(now.getFullYear(), now.getMonth() + 1, 1 + (now.getMinutes() % 27));
         const key = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
-        const time = `${pad(13 + (now.getSeconds() % 3))}:${pad((now.getMinutes() % 4) * 15)}`;
+        // Las citas van en bloques de 30 minutos: la hora cae en :00 o :30.
+        const time = `${pad(13 + (now.getSeconds() % 3))}:${pad((now.getMinutes() % 2) * 30)}`;
         const day = page.getByTestId(`day-${key}`);
 
         // Abre la ventana y se cierra tocando afuera.
@@ -37,7 +38,7 @@ test.describe('agenda', () => {
         await day.click();
         await page.getByRole('button', { name: 'Agendar en este día' }).click();
         await expect(page.locator('#apt-date')).toHaveValue(key);
-        await page.locator('#apt-time').fill(time);
+        await page.locator('#apt-time').selectOption(time);
         await page.locator('#apt-name').fill('Visitante agenda E2E');
         await page.getByRole('button', { name: 'Guardar cita' }).click();
 
