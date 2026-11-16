@@ -2,42 +2,30 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Ban, ChevronLeft, ChevronRight, Clock, Loader2, Plus, Receipt } from 'lucide-react';
+import { Ban, Calendar, ChevronLeft, ChevronRight, Clock, Loader2, Plus, Receipt, RotateCw } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import type { Appointment, AppointmentStatus, Barber, Client } from '@/types';
 import {
-    ACTION_LABELS, STATUS_LABELS, canCharge, isActive, layoutLanes, localDateKey, localDateTimeToIso, monthRange, nextStatuses,
+    ACTION_LABELS, STATUS_LABELS, canCharge, isActive, loadRange, localDateKey, localDateTimeToIso, nextStatuses,
 } from '@/lib/appointments/appointments-view';
 import { REQUESTED_VIA, VIA_LABELS, overlapMinutes, type RequestedVia, type TimeOffView } from '@/lib/appointments/time-off';
 import { formatHour, minutesToHHMM, workingWindow, type ScheduleData } from '@/lib/appointments/hours';
+import {
+    DEFAULT_DURATION, addDays, durationOptions, nearestOption, reconcileTime, snapDuration, timeOptions, weekDays,
+} from '@/lib/appointments/calendar-grid';
+import DayGrid from './_components/DayGrid';
+import WeekAgenda from './_components/WeekAgenda';
+import { BARBER_COLORS, NO_BARBER_COLOR, STATUS_STYLE, money } from './_components/agenda-ui';
 
-const STATUS_STYLE: Record<AppointmentStatus, string> = {
-    scheduled: 'bg-bos-raised text-bos-text',
-    confirmed: 'bg-bos-accent-soft text-bos-accent-text',
-    checked_in: 'bg-bos-success-soft text-bos-success',
-    in_progress: 'bg-bos-success-soft text-bos-success',
-    completed: 'bg-bos-success-soft text-bos-success',
-    cancelled: 'bg-bos-raised text-bos-danger',
-    no_show: 'bg-bos-raised text-bos-muted',
-};
+type View = 'day' | 'week' | 'month';
+
 // En la agenda solo se usan estas acciones: confirmar, marcar que llegó y cancelar.
 const UI_ACTIONS: AppointmentStatus[] = ['confirmed', 'checked_in', 'cancelled'];
 const actionsFor = (status: AppointmentStatus) => nextStatuses(status).filter((s) => UI_ACTIONS.includes(s));
-// Un color discreto por barbero para distinguirlos en el calendario.
-// Al menos 3:1 sobre la superficie en modo claro y oscuro (WCAG 1.4.11).
-const BARBER_COLORS = ['#A97A2F', '#4F86E0', '#2A9680', '#CC5F7C', '#7F6FD6', '#CC6A30'];
-const HOUR_PX = 64; // alto de una hora en la vista por día
-// Si el negocio no tiene horario configurado, la vista por día muestra de 8 a.m. a 10 p.m.
-// Con horario, se muestra de una hora antes de abrir a una hora después de cerrar.
-const DEFAULT_START_HOUR = 8;
-const DEFAULT_END_HOUR = 22;
-// Rayado para los horarios bloqueados por una ausencia.
-const HATCH = 'repeating-linear-gradient(135deg, transparent 0 7px, var(--bos-border) 7px 9px)';
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-const DURATIONS = [30, 45, 60, 90, 120];
 const EMPTY_OFF = { barber_id: '', from_date: '', from_time: '08:00', to_date: '', to_time: '22:00', reason: '', requested_date: '', requested_time: '', requested_via: 'whatsapp' as RequestedVia };
-const EMPTY_FORM = { client_id: '', customer_name: '', customer_phone: '', barber_id: '', date: '', time: '', duration: 30, service_note: '' };
+const EMPTY_FORM = { client_id: '', customer_name: '', customer_phone: '', barber_id: '', date: '', time: '', duration: DEFAULT_DURATION, service_note: '' };
 
 const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
 const fieldLabel = 'block text-[13px] font-medium text-bos-muted mb-1.5';
@@ -46,7 +34,6 @@ const secondary = 'min-h-[52px] px-5 rounded-xl border border-bos-border text-bo
 
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 const dayOf = (iso: string) => localDateKey(new Date(iso));
-const money = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 const dateTimeOf = (iso: string) => new Date(iso).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const nowParts = () => { const d = new Date(); return { date: localDateKey(d), time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }; };
 
@@ -57,14 +44,20 @@ async function readError(res: Response, fallback: string): Promise<string> {
 
 export default function AppointmentsPage() {
     const [today] = useState(() => new Date());
+    // El reloj avanza cada minuto: la línea de "ahora" y el día de hoy se mantienen al día.
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
     const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
-    const [view, setView] = useState<'month' | 'day'>('day');
+    const [view, setView] = useState<View>('day');
     const [barberFilter, setBarberFilter] = useState('');
     const [dayKey, setDayKey] = useState(() => localDateKey(today));
     const [onlyApt, setOnlyApt] = useState<string | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
+    // loadError: no se pudieron cargar las citas (la agenda no se puede dibujar). warning: falló algo secundario (ausencias).
     const [loadError, setLoadError] = useState('');
+    const [warning, setWarning] = useState('');
+    const [barbersState, setBarbersState] = useState<'loading' | 'ok' | 'error'>('loading');
     const [canManage, setCanManage] = useState(false);
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
@@ -89,13 +82,14 @@ export default function AppointmentsPage() {
 
     const year = cursor.getFullYear();
     const month = cursor.getMonth();
-    const todayKey = localDateKey(today);
+    const todayKey = localDateKey(now);
 
     const fetchAppointments = useCallback(async () => {
         setLoading(true);
         setLoadError('');
+        setWarning('');
         try {
-            const { from, to } = monthRange(year, month);
+            const { from, to } = loadRange(year, month);
             const range = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
             const [res, offRes] = await Promise.all([
                 fetch(`/api/appointments?${range}`, { cache: 'no-store' }),
@@ -105,7 +99,7 @@ export default function AppointmentsPage() {
             setAppointments(await res.json());
             // Las ausencias no deben impedir ver la agenda: si fallan, se avisa pero las citas se muestran.
             if (offRes.ok) setTimeOff(await offRes.json());
-            else setLoadError(await readError(offRes, 'No se pudieron cargar las ausencias.'));
+            else setWarning(await readError(offRes, 'No se pudieron cargar las ausencias.'));
         } catch (e) {
             setLoadError(e instanceof Error ? e.message : 'No se pudieron cargar las citas.');
         } finally { setLoading(false); }
@@ -114,7 +108,7 @@ export default function AppointmentsPage() {
     useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
 
     useEffect(() => {
-        fetch('/api/barbers').then(r => r.json()).then(d => { if (Array.isArray(d)) setBarbers(d); }).catch(() => {});
+        fetch('/api/barbers').then(r => r.json()).then(d => { if (Array.isArray(d)) { setBarbers(d); setBarbersState('ok'); } else setBarbersState('error'); }).catch(() => setBarbersState('error'));
         fetch('/api/schedule', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(d => { if (d) setSchedule(d); }).catch(() => {});
         fetch('/api/clients').then(r => r.json()).then(d => { if (Array.isArray(d)) setClients(d); }).catch(() => {});
         fetch('/api/auth/me', { cache: 'no-store' }).then(r => r.json())
@@ -133,7 +127,7 @@ export default function AppointmentsPage() {
     const activeBarbers = useMemo(() => barbers.filter((b) => b.status === 'active'), [barbers]);
     const colorOf = useCallback((id: string | null | undefined) => {
         const i = activeBarbers.findIndex((b) => b.id === id);
-        return i < 0 ? 'var(--bos-muted)' : BARBER_COLORS[i % BARBER_COLORS.length];
+        return i < 0 ? NO_BARBER_COLOR : BARBER_COLORS[i % BARBER_COLORS.length];
     }, [activeBarbers]);
     const visible = useMemo(() => (barberFilter ? appointments.filter((a) => a.barber?.id === barberFilter) : appointments), [appointments, barberFilter]);
 
@@ -152,14 +146,30 @@ export default function AppointmentsPage() {
         const d = new Date(`${key}T12:00:00`);
         if (d.getFullYear() !== year || d.getMonth() !== month) setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
     };
-    const shiftDay = (delta: number) => {
-        const d = new Date(`${dayKey}T12:00:00`);
-        d.setDate(d.getDate() + delta);
-        goToDay(localDateKey(d));
+    const shiftDay = (delta: number) => goToDay(addDays(dayKey, delta));
+    // Al pasar de Mes a Día o Semana se muestra el mes que se estaba viendo, no un día de otro mes sin citas cargadas.
+    const changeView = (next: View) => {
+        if (next !== 'month' && new Date(`${dayKey}T12:00:00`).getMonth() !== month) {
+            goToDay(today.getMonth() === month && today.getFullYear() === year ? todayKey : localDateKey(new Date(year, month, 1)));
+        }
+        setView(next);
     };
 
+    // Horas disponibles del formulario: de 30 en 30 dentro del horario del día (y del barbero, si lo hay).
+    const windowFor = (date: string, barberId: string) => (schedule && date ? workingWindow(schedule, date, barberId || null) : undefined);
+    const formWindow = windowFor(form.date, form.barber_id);
+    const formTimes = timeOptions(formWindow, form.duration);
+    const formDurations = durationOptions(form.duration);
+    const formClosed = formWindow === null;
+    // Cada cambio revisa que la hora elegida siga cabiendo (otro día, otro barbero o una duración más larga).
+    const updateForm = (patch: Partial<typeof EMPTY_FORM>) => setForm((prev) => {
+        const next = { ...prev, ...patch };
+        return { ...next, time: reconcileTime(next.time, timeOptions(windowFor(next.date, next.barber_id), next.duration)) };
+    });
+
     const openForm = (date: string, time = '', barberId = '') => {
-        setForm({ ...EMPTY_FORM, date, time, barber_id: barberId });
+        // Tocar 12:00 en un día que abre a las 12:30 agenda a las 12:30.
+        setForm({ ...EMPTY_FORM, date, time: time ? nearestOption(time, timeOptions(windowFor(date, barberId), DEFAULT_DURATION)) : '', barber_id: barberId });
         setFormError('');
         setShowForm(true);
     };
@@ -167,7 +177,8 @@ export default function AppointmentsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError('');
-        if (!form.date || !form.time) { setFormError('Elige la fecha y la hora.'); return; }
+        if (!form.date || !form.time) { setFormError(formClosed ? 'El negocio cierra ese día. Elige otra fecha.' : 'Elige la fecha y la hora.'); return; }
+        if (!formTimes.some((o) => o.value === form.time)) { setFormError('Elige una hora disponible dentro del horario.'); return; }
         if (!form.client_id && form.customer_name.trim().length < 2) { setFormError('Elige un cliente o escribe el nombre de quien reserva.'); return; }
         setSubmitting(true);
         try {
@@ -180,7 +191,7 @@ export default function AppointmentsPage() {
                     customer_phone: form.client_id ? null : (form.customer_phone.trim() || null),
                     barber_id: form.barber_id || null,
                     scheduled_at: localDateTimeToIso(form.date, form.time),
-                    duration_minutes: form.duration,
+                    duration_minutes: snapDuration(form.duration),
                     service_note: form.service_note.trim() || null,
                 }),
             });
@@ -188,6 +199,7 @@ export default function AppointmentsPage() {
             await fetchAppointments();
             setShowForm(false);
             if (view === 'month') setOpenDay(form.date);
+            else if (form.date !== dayKey) goToDay(form.date);
         } catch (err) {
             setFormError(err instanceof Error ? err.message : 'No se pudo guardar la cita.');
         } finally { setSubmitting(false); }
@@ -287,27 +299,8 @@ export default function AppointmentsPage() {
         ...(barberFilter ? activeBarbers.filter((b) => b.id === barberFilter) : activeBarbers).map((b) => ({ id: b.id as string | null, name: b.name })),
         ...(!barberFilter && dayAppointments.some((a) => !a.barber) ? [{ id: null, name: 'Sin asignar' }] : []),
     ];
-    const minutesOf = (iso: string) => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); };
     // Horario del día: el del negocio (o el más amplio de los barberos si no hay del negocio).
     const businessWindow = schedule ? workingWindow(schedule, dayKey) : undefined;
-    const startHour = businessWindow ? Math.max(0, Math.floor(businessWindow.open / 60) - 1) : DEFAULT_START_HOUR;
-    const endHour = businessWindow ? Math.min(24, Math.ceil(businessWindow.close / 60) + 1) : DEFAULT_END_HOUR;
-    const closedDay = businessWindow === null;
-    // Tramos cerrados de una columna (antes de abrir, después de cerrar, o el día completo si descansa).
-    const closedSpans = (barberId: string | null): { from: number; to: number; label: string }[] => {
-        if (!schedule) return [];
-        const w = workingWindow(schedule, dayKey, barberId);
-        if (w === undefined) return [];
-        if (w === null) return [{ from: startHour * 60, to: endHour * 60, label: closedDay ? 'El negocio cierra' : 'Descansa' }];
-        return [
-            ...(w.open > startHour * 60 ? [{ from: startHour * 60, to: w.open, label: '' }] : []),
-            ...(w.close < endHour * 60 ? [{ from: w.close, to: endHour * 60, label: '' }] : []),
-        ];
-    };
-    const hoursRange = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
-    const endOf = (a: Appointment) => (a.end_at ? minutesOf(a.end_at) : minutesOf(a.scheduled_at) + 30);
-    // Fuera del horario visible: no se dibujan en la cuadrícula, pero se avisan para no perderlas.
-    const outOfHours = dayAppointments.filter((a) => minutesOf(a.scheduled_at) < startHour * 60 || minutesOf(a.scheduled_at) >= endHour * 60);
     const dayStart = new Date(`${dayKey}T00:00:00`);
     const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
     const liveOff = timeOff.filter((t) => !t.cancelled);
@@ -317,7 +310,19 @@ export default function AppointmentsPage() {
         const s = new Date(`${key}T00:00:00`); const e = new Date(s); e.setDate(e.getDate() + 1);
         return liveOff.filter((t) => overlapMinutes(new Date(t.starts_at), new Date(t.ends_at), s, e) && (!barberFilter || t.barber_id === barberFilter));
     };
-    const nowMinutes = today.getHours() * 60 + today.getMinutes();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const weekKeys = weekDays(dayKey);
+    const weekTitle = () => {
+        const first = new Date(`${weekKeys[0]}T12:00:00`);
+        const last = new Date(`${weekKeys[6]}T12:00:00`);
+        const lastText = last.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+        return first.getMonth() === last.getMonth() ? `${first.getDate()} – ${lastText}` : `${first.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })} – ${lastText}`;
+    };
+    const openAppointment = (a: Appointment) => { setActionError(''); setOnlyApt(a.id); setOpenDay(dayOf(a.scheduled_at)); };
+    const rangeAppointments = view === 'week' ? weekKeys.reduce((n, k) => n + (byDay.get(k)?.length ?? 0), 0)
+        : view === 'day' ? dayAppointments.length : cells.reduce<number>((n, d) => n + (d ? (byDay.get(localDateKey(new Date(year, month, d)))?.length ?? 0) : 0), 0);
+    const emptyNote = view === 'day' ? 'No hay citas este día.' : view === 'week' ? 'No hay citas esta semana.' : 'No hay citas este mes.';
+    const waiting = loading || (view === 'day' && barbersState === 'loading');
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
@@ -325,7 +330,7 @@ export default function AppointmentsPage() {
                 <div>
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Agenda</h1>
                     <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="calendar-label">
-                        {view === 'day' ? dayTitle(dayKey) : `${MONTHS[month]} ${year}`}
+                        {view === 'day' ? dayTitle(dayKey) : view === 'week' ? weekTitle() : `${MONTHS[month]} ${year}`}
                     </p>
                     {view === 'day' && schedule && businessWindow !== undefined && (
                         <p className="text-sm text-bos-muted" data-testid="day-hours">
@@ -333,158 +338,129 @@ export default function AppointmentsPage() {
                         </p>
                     )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <div role="group" aria-label="Vista" className="flex p-1 rounded-lg bg-bos-raised">
-                        {([['day', 'Día'], ['month', 'Mes']] as const).map(([id, text]) => (
-                            <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}
-                                className={`h-9 px-4 rounded-md text-sm font-medium transition-colors ${view === id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                    <div role="group" aria-label="Vista" className="flex rounded-lg bg-bos-raised p-1">
+                        {([['day', 'Día'], ['week', 'Semana'], ['month', 'Mes']] as const).map(([id, text]) => (
+                            <button key={id} type="button" aria-pressed={view === id} onClick={() => changeView(id)}
+                                className={`h-9 rounded-md px-3.5 text-sm font-medium transition-colors sm:px-4 ${view === id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
                         ))}
                     </div>
                     <div className="flex items-center rounded-lg border border-bos-border bg-bos-surface">
-                        <button type="button" aria-label={view === 'day' ? 'Día anterior' : 'Mes anterior'}
-                            onClick={() => (view === 'day' ? shiftDay(-1) : setCursor(new Date(year, month - 1, 1)))}
-                            className="h-10 w-10 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronLeft className="h-5 w-5" /></button>
+                        <button type="button" aria-label={view === 'day' ? 'Día anterior' : view === 'week' ? 'Semana anterior' : 'Mes anterior'}
+                            onClick={() => (view === 'day' ? shiftDay(-1) : view === 'week' ? shiftDay(-7) : setCursor(new Date(year, month - 1, 1)))}
+                            className="inline-flex h-10 w-10 items-center justify-center text-bos-muted hover:text-bos-text"><ChevronLeft className="h-5 w-5" /></button>
                         <button type="button" onClick={() => { goToDay(todayKey); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); }}
                             className="h-10 px-3 text-sm font-medium text-bos-text hover:bg-bos-raised">Hoy</button>
-                        <button type="button" aria-label={view === 'day' ? 'Día siguiente' : 'Mes siguiente'}
-                            onClick={() => (view === 'day' ? shiftDay(1) : setCursor(new Date(year, month + 1, 1)))}
-                            className="h-10 w-10 inline-flex items-center justify-center text-bos-muted hover:text-bos-text"><ChevronRight className="h-5 w-5" /></button>
+                        <button type="button" aria-label={view === 'day' ? 'Día siguiente' : view === 'week' ? 'Semana siguiente' : 'Mes siguiente'}
+                            onClick={() => (view === 'day' ? shiftDay(1) : view === 'week' ? shiftDay(7) : setCursor(new Date(year, month + 1, 1)))}
+                            className="inline-flex h-10 w-10 items-center justify-center text-bos-muted hover:text-bos-text"><ChevronRight className="h-5 w-5" /></button>
                     </div>
                     {canManage && (
-                        <button type="button" onClick={() => openOff(barberFilter, view === 'day' ? dayKey : todayKey)} className={secondary}><Ban className="h-5 w-5" /> Ausencia</button>
-                    )}
-                    {canManage && (
-                        <button type="button" onClick={() => openForm(view === 'day' ? dayKey : todayKey, '', barberFilter)} className={primary}><Plus className="h-5 w-5" /> Nueva cita</button>
+                        <div className="flex w-full gap-2 sm:w-auto">
+                            <button type="button" onClick={() => openOff(barberFilter, view === 'day' ? dayKey : todayKey)} className={`${secondary} flex-1 sm:flex-none`}><Ban className="h-5 w-5" /> Ausencia</button>
+                            <button type="button" onClick={() => openForm(view === 'day' ? dayKey : todayKey, '', barberFilter)} className={`${primary} flex-1 sm:flex-none`}><Plus className="h-5 w-5" /> Nueva cita</button>
+                        </div>
                     )}
                 </div>
             </header>
 
-            <div role="group" aria-label="Barbero" className="flex flex-wrap gap-2">
+            {/* En celular la vista por día ya trae su propio selector de barbero dentro de la cuadrícula. */}
+            <div role="group" aria-label="Barbero" className={`${view === 'day' ? 'hidden md:flex' : 'flex'} flex-wrap gap-2`}>
                 {[{ id: '', name: 'Todos' }, ...activeBarbers].map((b) => (
                     <button key={b.id || 'all'} type="button" aria-pressed={barberFilter === b.id} onClick={() => setBarberFilter(b.id)}
-                        className={`inline-flex items-center gap-2 h-9 px-3.5 rounded-full border text-sm font-medium transition-colors ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
-                        {b.id && <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: colorOf(b.id) }} />}
-                        {b.name}
+                        className={`inline-flex h-9 max-w-full items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
+                        {b.id && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorOf(b.id) }} />}
+                        <span className="truncate">{b.name}</span>
                     </button>
                 ))}
             </div>
 
-            {loadError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-4 text-bos-danger">{loadError}</p>}
+            {warning && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-4 text-bos-danger">{warning}</p>}
 
-            {view === 'day' && !loading && outOfHours.length > 0 && (
-                <button type="button" data-testid="out-of-hours" onClick={() => { setActionError(''); setOnlyApt(null); setOpenDay(dayKey); }}
-                    className="w-full rounded-xl border border-bos-border bg-bos-surface p-3 text-left text-sm hover:bg-bos-raised">
-                    <span className="font-semibold">{outOfHours.length} cita{outOfHours.length === 1 ? '' : 's'} fuera del horario visible</span>{' '}
-                    <span className="text-bos-muted">({outOfHours.map((a) => `${timeOf(a.scheduled_at)} ${a.client_name}`).join(', ')}) · Ver</span>
-                </button>
-            )}
-
-            {view === 'day' && (
-                <section aria-label="Agenda del día por barbero" data-testid="day-view" className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-80"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>
-                    ) : columns.length === 0 ? (
-                        <p className="p-10 text-center text-bos-muted">No hay barberos activos.</p>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <div className="min-w-[560px]" style={{ display: 'grid', gridTemplateColumns: `56px repeat(${columns.length}, minmax(160px, 1fr))` }}>
-                                <div className="sticky left-0 z-10 bg-bos-surface border-b border-bos-border" />
-                                {columns.map((c) => {
-                                    const count = dayAppointments.filter((a) => (a.barber?.id ?? null) === c.id && isActive(a.status)).length;
-                                    return (
-                                        <div key={c.id ?? 'none'} className="px-3 py-3 border-b border-l border-bos-border">
-                                            <p className="flex items-center gap-2 text-sm font-semibold">
-                                                <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: c.id ? colorOf(c.id) : 'var(--bos-muted)' }} />{c.name}
-                                            </p>
-                                            <p className="text-xs text-bos-muted">{count === 0 ? 'Sin citas' : `${count} cita${count === 1 ? '' : 's'}`}</p>
-                                        </div>
-                                    );
-                                })}
-
-                                <div className="sticky left-0 z-10 bg-bos-surface">
-                                    {hoursRange.map((h) => (
-                                        <div key={h} style={{ height: HOUR_PX }} className="pr-2 text-right text-xs text-bos-muted tabular-nums -translate-y-2">
-                                            {h % 12 === 0 ? 12 : h % 12} {h < 12 ? 'a.m.' : 'p.m.'}
-                                        </div>
-                                    ))}
+            <section aria-label={view === 'day' ? 'Agenda del día por barbero' : view === 'week' ? 'Agenda de la semana' : 'Calendario'}
+                data-testid={view === 'day' ? 'day-view' : view === 'week' ? 'week-agenda' : undefined} className="overflow-hidden rounded-xl border border-bos-border bg-bos-surface">
+                {waiting ? (
+                    <div role="status" aria-live="polite" data-testid="agenda-loading" className="flex h-80 flex-col items-center justify-center gap-3 text-bos-muted">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                        <span className="text-sm">Cargando la agenda…</span>
+                    </div>
+                ) : loadError ? (
+                    <div role="alert" data-testid="agenda-error" className="flex min-h-64 flex-col items-center justify-center gap-4 p-8 text-center">
+                        <p className="font-semibold text-bos-danger">No se pudo cargar la agenda.</p>
+                        <p className="max-w-md text-sm text-bos-muted">{loadError}</p>
+                        <button type="button" onClick={() => fetchAppointments()} className={secondary}><RotateCw className="h-5 w-5" /> Reintentar</button>
+                    </div>
+                ) : (
+                    <>
+                        {rangeAppointments === 0 && (
+                            <p data-testid="agenda-empty" className="flex items-center gap-2 border-b border-bos-border px-4 py-3 text-sm text-bos-muted">
+                                <Calendar aria-hidden="true" className="h-4 w-4 shrink-0" />
+                                <span>{emptyNote}{canManage && view === 'day' ? ' Toca una hora libre para agendar.' : ''}</span>
+                            </p>
+                        )}
+                        {view === 'day' && (barbersState === 'error' ? (
+                            <p role="alert" className="p-10 text-center text-bos-danger">No se pudieron cargar los barberos. Recarga la página para intentar de nuevo.</p>
+                        ) : columns.length === 0 ? (
+                            <p className="p-10 text-center text-bos-muted">No hay barberos activos.</p>
+                        ) : (
+                            <DayGrid dayKey={dayKey} todayKey={todayKey} nowMinutes={nowMinutes} appointments={dayAppointments} columns={columns}
+                                colorOf={colorOf} schedule={schedule} timeOff={liveOff} canManage={canManage}
+                                onSlot={(time, barberId) => openForm(dayKey, time, barberId)} onOpenAppointment={openAppointment} />
+                        ))}
+                        {view === 'week' && (
+                            <WeekAgenda days={weekKeys} todayKey={todayKey} byDay={byDay} schedule={schedule} offOnDay={offOnDay} colorOf={colorOf}
+                                onPickDay={(key) => { goToDay(key); setView('day'); }} onOpenAppointment={openAppointment} />
+                        )}
+                        {view === 'month' && (
+                            <div aria-label="Calendario del mes">
+                                <div className="grid grid-cols-7 border-b border-bos-border">
+                                    {WEEK.map((d) => <div key={d} className="py-3 text-center text-[13px] font-medium text-bos-muted"><span className="sm:hidden">{d.slice(0, 1)}</span><span className="hidden sm:inline">{d}</span></div>)}
                                 </div>
-                                {columns.map((c) => (
-                                    <div key={c.id ?? 'none'} className="relative border-l border-bos-border" style={{ height: hoursRange.length * HOUR_PX }}>
-                                        {hoursRange.map((h) => (
-                                            <button key={h} type="button" disabled={!canManage}
-                                                aria-label={canManage ? `Agendar con ${c.name} a las ${h}:00` : undefined}
-                                                onClick={() => {
-                                                    // Si abre a media hora (12:30), la cita empieza a la hora de apertura.
-                                                    const w = schedule ? workingWindow(schedule, dayKey, c.id) : undefined;
-                                                    openForm(dayKey, minutesToHHMM(w ? Math.max(h * 60, w.open) : h * 60), c.id ?? '');
-                                                }}
-                                                style={{ top: (h - startHour) * HOUR_PX, height: HOUR_PX }}
-                                                className="absolute inset-x-0 border-t border-bos-border/60 enabled:hover:bg-bos-raised/60 disabled:cursor-default" />
-                                        ))}
-                                        {closedSpans(c.id).map((span) => (
-                                            <div key={`closed-${span.from}`} data-testid="closed-block" title={span.label || 'Fuera de horario'}
-                                                style={{ top: ((span.from - startHour * 60) / 60) * HOUR_PX, height: ((span.to - span.from) / 60) * HOUR_PX, backgroundImage: HATCH }}
-                                                className="absolute inset-x-0 z-[14] bg-bos-bg/60 px-2 py-1">
-                                                {span.label && <span className="inline-block rounded bg-bos-surface px-1.5 py-0.5 text-xs font-semibold text-bos-muted">{span.label}</span>}
-                                            </div>
-                                        ))}
-                                        {c.id && liveOff.filter((t) => t.barber_id === c.id).map((t) => {
-                                            const span = overlapMinutes(new Date(t.starts_at), new Date(t.ends_at), dayStart, dayEnd);
-                                            if (!span) return null;
-                                            const from = Math.max(span.from, startHour * 60);
-                                            const to = Math.min(span.to, endHour * 60);
-                                            if (to <= from) return null;
-                                            return (
-                                                <div key={t.id} data-testid="time-off-block" title={`${t.barber_name}: ${t.reason}`}
-                                                    style={{ top: ((from - startHour * 60) / 60) * HOUR_PX, height: ((to - from) / 60) * HOUR_PX, backgroundImage: HATCH }}
-                                                    className="absolute inset-x-0 z-[15] bg-bos-bg/70 border-y border-bos-border px-2 py-1 pointer-events-none">
-                                                    <span className="inline-block rounded bg-bos-surface px-1.5 py-0.5 text-xs font-semibold text-bos-muted">No disponible · {t.reason}</span>
-                                                </div>
-                                            );
-                                        })}
-                                        {dayKey === todayKey && nowMinutes >= startHour * 60 && nowMinutes < endHour * 60 && (
-                                            <div aria-hidden="true" className="absolute inset-x-0 h-px bg-bos-danger z-10" style={{ top: ((nowMinutes - startHour * 60) / 60) * HOUR_PX }} />
-                                        )}
-                                        {(() => {
-                                            const inColumn = dayAppointments.filter((a) => (a.barber?.id ?? null) === c.id && !outOfHours.includes(a));
-                                            // La tarjeta mide al menos 30 px; se usa ese alto para decidir si dos se enciman.
-                                            const lanes = layoutLanes(inColumn.map((a) => ({ id: a.id, start: minutesOf(a.scheduled_at), end: Math.max(Math.min(endOf(a), endHour * 60), minutesOf(a.scheduled_at) + 30) })));
-                                            return inColumn.map((a) => {
-                                            const start = minutesOf(a.scheduled_at);
-                                            const end = Math.min(endOf(a), endHour * 60);
-                                            const { lane, lanes: laneCount } = lanes.get(a.id) ?? { lane: 0, lanes: 1 };
-                                            const top = ((start - startHour * 60) / 60) * HOUR_PX;
-                                            const height = Math.max(((end - start) / 60) * HOUR_PX - 2, 30);
-                                            const live = isActive(a.status);
-                                            return (
-                                                <button key={a.id} type="button" data-testid="day-appointment"
-                                                    onClick={() => { setActionError(''); setOnlyApt(a.id); setOpenDay(dayKey); }}
-                                                    style={{ top: top + 1, height, borderLeftColor: c.id ? colorOf(c.id) : 'var(--bos-muted)',
-                                                        left: `calc(${(lane / laneCount) * 100}% + 4px)`, width: `calc(${100 / laneCount}% - 8px)` }}
-                                                    className={`absolute z-20 overflow-hidden rounded-md border border-bos-border border-l-[3px] px-2 py-1 text-left transition-colors ${a.walk_in ? 'border-dashed' : ''} ${live ? 'bg-bos-raised hover:bg-bos-bg' : 'bg-bos-surface'}`}>
-                                                    {/* Cancelada: se atenúa con color (no con opacidad) para que se siga leyendo. */}
-                                                    <span className={`block truncate text-[13px] font-semibold ${live ? '' : 'line-through text-bos-muted'}`}>{a.client_name}</span>
-                                                    <span className="block truncate text-xs text-bos-muted">
-                                                        {timeOf(a.scheduled_at)} · {a.walk_in ? 'Sin cita' : STATUS_LABELS[a.status]}{a.sale ? ` · ${money(a.sale.total)}` : ''}
-                                                    </span>
-                                                </button>
-                                            );
-                                            });
-                                        })()}
-                                    </div>
-                                ))}
+                                <div className="grid grid-cols-7">
+                                    {cells.map((d, i) => {
+                                        if (d === null) return <div key={`e${i}`} className="min-h-16 border-b border-r border-bos-border bg-bos-bg/40 md:min-h-32" />;
+                                        const key = localDateKey(new Date(year, month, d));
+                                        const list = byDay.get(key) ?? [];
+                                        const active = list.filter((a) => isActive(a.status));
+                                        const isToday = key === todayKey;
+                                        return (
+                                            <button key={key} type="button" data-testid={`day-${key}`} onClick={() => { setActionError(''); setOnlyApt(null); setOpenDay(key); }}
+                                                aria-label={`${dayTitle(key)}: ${active.length === 0 ? 'sin citas' : `${active.length} cita${active.length === 1 ? '' : 's'}`}`}
+                                                className="flex min-h-16 min-w-0 flex-col items-center gap-1 border-b border-r border-bos-border p-1.5 text-left align-top transition-colors hover:bg-bos-raised focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bos-accent md:min-h-32 md:items-stretch md:p-2">
+                                                <span className="flex items-center md:block">
+                                                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${isToday ? 'bg-bos-accent text-bos-on-accent' : 'text-bos-text'}`}>{d}</span>
+                                                    {offOnDay(key).length > 0 && (
+                                                        <span className="ml-1 hidden text-xs text-bos-muted md:inline">· {offOnDay(key).map((t) => t.barber_name).join(', ')} no viene</span>
+                                                    )}
+                                                </span>
+                                                <span className="mt-1 hidden flex-col gap-1 md:flex">
+                                                    {list.slice(0, 3).map((a) => (
+                                                        <span key={a.id} className={`truncate rounded-md px-1.5 py-0.5 text-xs ${isActive(a.status) ? 'bg-bos-raised text-bos-text' : 'text-bos-muted line-through'}`}>
+                                                            {timeOf(a.scheduled_at)} {a.client_name}
+                                                        </span>
+                                                    ))}
+                                                    {list.length > 3 && <span className="px-1.5 text-xs text-bos-muted">+{list.length - 3} más</span>}
+                                                </span>
+                                                {active.length > 0 && (
+                                                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-bos-accent-soft px-1.5 text-xs font-bold text-bos-accent-text md:hidden">{active.length}</span>
+                                                )}
+                                                {offOnDay(key).length > 0 && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-bos-muted md:hidden" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </section>
-            )}
+                        )}
+                    </>
+                )}
+            </section>
 
             {view === 'day' && dayOff.length > 0 && (
                 <section aria-label="Ausencias del día" data-testid="time-off-list" className="rounded-xl border border-bos-border bg-bos-surface p-4">
                     <h2 className="text-[15px] font-semibold">Ausencias</h2>
                     <ul className="mt-3 divide-y divide-bos-border">
                         {dayOff.map((t) => (
-                            <li key={t.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                            <li key={t.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0 text-sm">
                                     <p className={`font-semibold ${t.cancelled ? 'line-through text-bos-muted' : ''}`}>{t.barber_name} · {t.reason}</p>
                                     <p className="text-bos-muted">De {dateTimeOf(t.starts_at)} a {dateTimeOf(t.ends_at)}</p>
@@ -493,54 +469,12 @@ export default function AppointmentsPage() {
                                 </div>
                                 {canManage && !t.cancelled && (
                                     <button type="button" onClick={() => { setActionError(''); setOffCancelReason(''); setOffCancel(t); }}
-                                        className="min-h-11 px-4 rounded-xl border border-bos-border text-sm font-semibold text-bos-danger hover:bg-bos-raised">Cancelar ausencia</button>
+                                        className="min-h-11 rounded-xl border border-bos-border px-4 text-sm font-semibold text-bos-danger hover:bg-bos-raised">Cancelar ausencia</button>
                                 )}
                             </li>
                         ))}
                     </ul>
                 </section>
-            )}
-
-            {view === 'month' && (
-            <section aria-label="Calendario" className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
-                <div className="grid grid-cols-7 border-b border-bos-border">
-                    {WEEK.map((d) => <div key={d} className="py-3 text-center text-[13px] font-medium text-bos-muted">{d}</div>)}
-                </div>
-                {loading ? (
-                    <div className="flex items-center justify-center h-80"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>
-                ) : (
-                    <div className="grid grid-cols-7">
-                        {cells.map((d, i) => {
-                            if (d === null) return <div key={`e${i}`} className="min-h-24 md:min-h-32 border-b border-r border-bos-border bg-bos-bg/40" />;
-                            const key = localDateKey(new Date(year, month, d));
-                            const list = byDay.get(key) ?? [];
-                            const active = list.filter((a) => isActive(a.status));
-                            const isToday = key === todayKey;
-                            return (
-                                <button key={key} type="button" data-testid={`day-${key}`} onClick={() => { setActionError(''); setOpenDay(key); }}
-                                    aria-label={`${dayTitle(key)}: ${active.length === 0 ? 'sin citas' : `${active.length} cita${active.length === 1 ? '' : 's'}`}`}
-                                    className="min-h-24 md:min-h-32 p-2 border-b border-r border-bos-border text-left align-top hover:bg-bos-raised transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bos-accent">
-                                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${isToday ? 'bg-bos-accent text-bos-on-accent' : 'text-bos-text'}`}>{d}</span>
-                                    {offOnDay(key).length > 0 && (
-                                        <span className="ml-1 hidden md:inline text-xs text-bos-muted">· {offOnDay(key).map((t) => t.barber_name).join(', ')} no viene</span>
-                                    )}
-                                    <span className="hidden md:flex flex-col gap-1 mt-1">
-                                        {list.slice(0, 3).map((a) => (
-                                            <span key={a.id} className={`truncate rounded-md px-1.5 py-0.5 text-xs ${isActive(a.status) ? 'bg-bos-raised text-bos-text' : 'text-bos-muted line-through'}`}>
-                                                {timeOf(a.scheduled_at)} {a.client_name}
-                                            </span>
-                                        ))}
-                                        {list.length > 3 && <span className="text-xs text-bos-muted px-1.5">+{list.length - 3} más</span>}
-                                    </span>
-                                    {active.length > 0 && (
-                                        <span className="md:hidden mt-1 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-bos-accent-soft text-xs font-bold text-bos-accent-text">{active.length}</span>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </section>
             )}
 
             {/* Citas del día: ventana flotante */}
@@ -608,24 +542,28 @@ export default function AppointmentsPage() {
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label htmlFor="apt-date" className={fieldLabel}>Fecha</label>
-                                <input id="apt-date" type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={field} />
+                                <input id="apt-date" type="date" required value={form.date} onChange={(e) => updateForm({ date: e.target.value })} className={field} />
                             </div>
                             <div>
                                 <label htmlFor="apt-time" className={fieldLabel}>Hora</label>
-                                <input id="apt-time" type="time" required value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className={field} />
+                                <select id="apt-time" required value={form.time} disabled={formClosed} onChange={(e) => updateForm({ time: e.target.value })} className={field}>
+                                    <option value="">{formClosed ? 'Cerrado' : 'Elige la hora'}</option>
+                                    {formTimes.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
                             </div>
                         </div>
+                        {formClosed && <p role="status" className="-mt-1 text-sm text-bos-danger">El negocio cierra ese día (o el barbero no trabaja). Elige otra fecha.</p>}
                         <div>
                             <label htmlFor="apt-barber" className={fieldLabel}>Barbero</label>
-                            <select id="apt-barber" value={form.barber_id} onChange={(e) => setForm({ ...form, barber_id: e.target.value })} className={field}>
+                            <select id="apt-barber" value={form.barber_id} onChange={(e) => updateForm({ barber_id: e.target.value })} className={field}>
                                 <option value="">Sin barbero asignado</option>
                                 {barbers.filter((b) => b.status === 'active').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label htmlFor="apt-duration" className={fieldLabel}>Duración</label>
-                            <select id="apt-duration" value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })} className={field}>
-                                {DURATIONS.map((m) => <option key={m} value={m}>{m} minutos</option>)}
+                            <select id="apt-duration" value={form.duration} onChange={(e) => updateForm({ duration: Number(e.target.value) })} className={field}>
+                                {formDurations.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
                         </div>
                         <div>
