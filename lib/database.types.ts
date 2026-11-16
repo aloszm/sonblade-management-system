@@ -1545,6 +1545,89 @@ export type Database = {
         }
         Relationships: []
       }
+      reconciliation_reviews: {
+        Row: {
+          appointment_id: string | null
+          batch_id: string | null
+          branch_id: string
+          business_id: string
+          created_at: string
+          created_by: string
+          decision: string
+          employee_id: string | null
+          id: number
+          issue_day: string
+          issue_key: string
+          issue_kind: string
+          reason: string
+          sale_id: string | null
+          sale_item_id: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          batch_id?: string | null
+          branch_id: string
+          business_id: string
+          created_at?: string
+          created_by: string
+          decision: string
+          employee_id?: string | null
+          id?: never
+          issue_day: string
+          issue_key: string
+          issue_kind: string
+          reason: string
+          sale_id?: string | null
+          sale_item_id?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          batch_id?: string | null
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          decision?: string
+          employee_id?: string | null
+          id?: never
+          issue_day?: string
+          issue_key?: string
+          issue_kind?: string
+          reason?: string
+          sale_id?: string | null
+          sale_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_reviews_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_reviews_branch_fk"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "reconciliation_reviews_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_reviews_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_exports: {
         Row: {
           audience: string
@@ -2015,6 +2098,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_pre_agenda_sales: { Args: { p_branch_id: string }; Returns: Json }
       adjust_inventory_stock: {
         Args: {
           p_branch_id: string
@@ -2231,6 +2315,15 @@ export type Database = {
       }
       review_commission_adjustment: {
         Args: { p_adjustment_id: string; p_approve: boolean; p_note: string }
+        Returns: Json
+      }
+      review_reconciliation_issue: {
+        Args: {
+          p_branch_id: string
+          p_decision: string
+          p_issue_key: string
+          p_reason: string
+        }
         Returns: Json
       }
       set_cash_settings: {
