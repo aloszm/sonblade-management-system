@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Download, Loader2, Search } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Download, Loader2, Search } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { localDateKey } from '@/lib/utils/dates';
 import { downloadCsv } from '@/lib/utils/csv';
@@ -9,6 +10,14 @@ import {
     METHOD_LABELS, PRESETS, WEEKDAYS, activityRows, busiestHour, delta, presetRange,
     type Kpis, type Metrics, type PresetId,
 } from '@/lib/reports/metrics';
+
+// Lo que devuelve /api/admin/profit (la misma fuente que Finanzas); aquí solo se usan estas cifras.
+type Finance = {
+    revenue: { total: number }; commissions: { total: number }; tips: { total: number }; expenses: { total: number };
+    productCost: { total: number }; profit: number; productsWithoutCost: number;
+    comparison: { hasBase: boolean; revenue: { previous: number }; profit: { previous: number }; commissions: { previous: number }; tips: { previous: number }; expenses: { previous: number } };
+};
+const isFinance = (v: unknown): v is Finance => !!v && typeof v === 'object' && typeof (v as Finance).profit === 'number' && !!(v as Finance).revenue && !!(v as Finance).comparison;
 
 const money = (n: number) => `$${Math.round(n).toLocaleString('es-MX')}`;
 const money2 = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
@@ -64,6 +73,7 @@ export default function Dashboard() {
     const [barber, setBarber] = useState('');
     const [team, setTeam] = useState<{ id: string; name: string }[]>([]);
     const [data, setData] = useState<Metrics | null>(null);
+    const [finance, setFinance] = useState<Finance | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
@@ -88,6 +98,17 @@ export default function Dashboard() {
             const res = await fetch(`/api/metrics?${qs}`, { cache: 'no-store' });
             const body = await res.json();
             if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar las métricas.');
+            // La utilidad, comisiones, gastos y propinas salen de Finanzas (una sola fórmula). Si no se
+            // puede leer (por ejemplo un rango de más de un año), se queda con las cifras de las métricas.
+            let fin: Finance | null = null;
+            if (!barber) {
+                try {
+                    const fr = await fetch(`/api/admin/profit?from=${range.from}&to=${range.to}`, { cache: 'no-store' });
+                    const fb = fr.ok ? await fr.json() : null;
+                    if (isFinance(fb)) fin = fb;
+                } catch { /* se usan las métricas */ }
+            }
+            setFinance(fin);
             setData(body as Metrics);
             setError('');
             setShown(25);
@@ -102,8 +123,13 @@ export default function Dashboard() {
         if (id !== 'custom' && today) setRange(presetRange(id, today));
     };
 
-    const k: Kpis | undefined = data?.kpis;
-    const p: Kpis | undefined = data?.previous;
+    const fromFinance = !barber && finance !== null;
+    const k: Kpis | undefined = data && fromFinance && finance
+        ? { ...data.kpis, revenue: finance.revenue.total, commissions: finance.commissions.total, tips: finance.tips.total, expenses: finance.expenses.total, net: finance.profit }
+        : data?.kpis;
+    const p: Kpis | undefined = data && fromFinance && finance?.comparison.hasBase
+        ? { ...data.previous, revenue: finance.comparison.revenue.previous, commissions: finance.comparison.commissions.previous, tips: finance.comparison.tips.previous, expenses: finance.comparison.expenses.previous, net: finance.comparison.profit.previous }
+        : data?.previous;
     const singleDay = (data?.range.days ?? 1) === 1;
     const tz = data?.range.timezone ?? 'America/Mexico_City';
 
@@ -157,6 +183,7 @@ export default function Dashboard() {
                 <div>
                     <h1 className="font-display text-3xl font-semibold">Panel</h1>
                     <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="range-label">{rangeLabel}</p>
+                    <p className="text-sm text-bos-muted mt-0.5">Resumen del periodo. La utilidad al detalle está en Finanzas.</p>
                 </div>
                 <div role="group" aria-label="Periodo" className="flex flex-wrap gap-1 p-1 rounded-xl bg-bos-raised">
                     {PRESETS.map((pr) => (
@@ -191,6 +218,9 @@ export default function Dashboard() {
                     ))}
                 </div>
                 {loading && data && <Loader2 aria-label="Actualizando" className="h-5 w-5 animate-spin text-bos-muted" />}
+                <Link href="/reportes" className="ml-auto inline-flex items-center gap-2 min-h-10 text-sm font-semibold text-bos-accent-text hover:underline underline-offset-2">
+                    <Download aria-hidden="true" className="h-4 w-4" /> Descargar reporte del periodo
+                </Link>
             </div>
 
             {error && <p role="alert" className={`${card} p-4 text-bos-danger`}>{error}</p>}
@@ -218,15 +248,22 @@ export default function Dashboard() {
                         {barber ? <SmallStat title="Ventas registradas" value={String(data.activity.length)} /> : <SmallStat title="Comisiones" value={money(k.commissions)} />}
                     </section>
                     {!barber && (
-                        <p className="text-sm text-bos-muted">
-                            Utilidad = ingresos − comisiones − gastos ({money(k.expenses)}). Todavía no descuenta el costo de los productos ni los gastos fijos.
-                        </p>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-bos-muted" data-testid="profit-note">
+                            <p>
+                                {fromFinance && finance
+                                    ? `Utilidad = ingresos − comisiones − costo de producto (${money(finance.productCost.total)}) − gastos (${money(k.expenses)}). Las propinas son del barbero y no cuentan.`
+                                    : `Utilidad = ingresos − comisiones − gastos (${money(k.expenses)}), sin costo de producto: puede no coincidir con Finanzas.`}
+                            </p>
+                            <Link href="/administracion" className="inline-flex items-center gap-1 font-semibold text-bos-accent-text hover:underline underline-offset-2">
+                                Ver detalle en Finanzas <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                            </Link>
+                        </div>
                     )}
 
                     <div className="grid gap-6 lg:grid-cols-2">
                         <section aria-labelledby="cuts-chart-title" className={`${card} p-5`}>
                             <h2 id="cuts-chart-title" className="font-display text-lg font-semibold">{singleDay ? 'Cortes por hora' : 'Cortes por día'}</h2>
-                            <p className="text-sm text-bos-muted mb-4">Cuántos servicios se cobraron. Cada barra es {singleDay ? "una hora" : "un día"}.</p>
+                            <p className="text-sm text-bos-muted mb-4">Servicios cobrados, {rangeLabel}. Cada barra es {singleDay ? "una hora" : "un día"}.</p>
                             <div className="h-64" data-testid="chart-cuts">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={singleDay ? hours : days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -241,7 +278,7 @@ export default function Dashboard() {
                         </section>
                         <section aria-labelledby="revenue-chart-title" className={`${card} p-5`}>
                             <h2 id="revenue-chart-title" className="font-display text-lg font-semibold">{singleDay ? 'Ingresos por hora' : 'Ingresos por día'}</h2>
-                            <p className="text-sm text-bos-muted mb-4">Pesos cobrados, con servicios y productos.</p>
+                            <p className="text-sm text-bos-muted mb-4">Pesos cobrados con servicios y productos, {rangeLabel}.</p>
                             <div className="h-64" data-testid="chart-revenue">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={singleDay ? hours : days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -273,7 +310,7 @@ export default function Dashboard() {
                         </section>
                         <section aria-labelledby="days-title" className={`${card} p-5`}>
                             <h2 id="days-title" className="font-display text-lg font-semibold">Días fuertes</h2>
-                            <p className="text-sm text-bos-muted mb-4">Cortes por día de la semana en el periodo.</p>
+                            <p className="text-sm text-bos-muted mb-4">Cortes por día de la semana, {rangeLabel}.</p>
                             <div className="h-56">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={weekdays} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>

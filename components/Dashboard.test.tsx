@@ -16,11 +16,18 @@ const metrics = {
     activity: [{ at: '2026-11-15T02:30:05Z', sale_id: 's1', type: 'service', item: 'Corte de cabello', quantity: 1, amount: 200, employee: 'Deya', client: null, methods: 'cash' }],
 };
 
-function mockApi() {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
-        ok: true,
-        json: async () => (url.startsWith('/api/metrics') ? metrics : [{ id: 'b1', name: 'Deya' }]),
-    })));
+// Lo que devuelve /api/admin/profit (Finanzas): utilidad con costo de producto, distinta de kpis.net.
+const finance = {
+    revenue: { total: 3000 }, commissions: { total: 1300 }, tips: { total: 120 }, expenses: { total: 200 }, productCost: { total: 150 },
+    profit: 1350, productsWithoutCost: 0,
+    comparison: { hasBase: true, revenue: { previous: 2000 }, profit: { previous: 1200 }, commissions: { previous: 800 }, tips: { previous: 0 }, expenses: { previous: 100 } },
+};
+
+function mockApi(profit: unknown = finance) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+        if (url.startsWith('/api/admin/profit')) return { ok: profit !== null, json: async () => profit };
+        return { ok: true, json: async () => (url.startsWith('/api/metrics') ? metrics : [{ id: 'b1', name: 'Deya' }]) };
+    }));
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -60,5 +67,21 @@ describe('Panel del dueño', () => {
         for (const name of ['Hoy', 'Semana', 'Mes', '30 días', 'Fechas', 'Toda la barbería']) {
             expect(screen.getByRole('button', { name })).toBeInTheDocument();
         }
+    });
+
+    it('muestra la utilidad de Finanzas, no la de las métricas, y enlaza a Finanzas y Reportes', async () => {
+        mockApi();
+        render(<Dashboard />);
+        expect(await screen.findByTestId('kpi-net')).toHaveTextContent('$1,350');
+        expect(screen.getByTestId('profit-note')).toHaveTextContent('costo de producto ($150)');
+        expect(screen.getByRole('link', { name: /Ver detalle en Finanzas/ })).toHaveAttribute('href', '/administracion');
+        expect(screen.getByRole('link', { name: /Descargar reporte del periodo/ })).toHaveAttribute('href', '/reportes');
+    });
+
+    it('si Finanzas no responde, conserva las cifras de las métricas y lo avisa', async () => {
+        mockApi(null);
+        render(<Dashboard />);
+        expect(await screen.findByTestId('kpi-net')).toHaveTextContent('$1,500');
+        expect(screen.getByTestId('profit-note')).toHaveTextContent('puede no coincidir con Finanzas');
     });
 });
