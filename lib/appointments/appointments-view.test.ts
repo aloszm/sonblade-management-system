@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isActive, localDateKey, localDateTimeToIso, monthRange, nextStatuses, toAppointmentView } from './appointments-view';
+import { isActive, loadRange, localDateKey, localDateTimeToIso, monthRange, nextStatuses, toAppointmentView } from './appointments-view';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -19,6 +19,13 @@ describe('fechas locales de la agenda', () => {
     it('el mes abarca de la medianoche local del día 1 a la del mes siguiente', () => {
         vi.stubEnv('TZ', 'America/Mexico_City');
         expect(monthRange(2026, 10)).toEqual({ from: '2026-11-01T06:00:00.000Z', to: '2026-12-01T06:00:00.000Z' });
+    });
+});
+
+describe('rango que se pide a la API', () => {
+    it('incluye una semana de margen a cada lado del mes (la semana puede cruzar de mes)', () => {
+        vi.stubEnv('TZ', 'America/Mexico_City');
+        expect(loadRange(2026, 10)).toEqual({ from: '2026-10-25T06:00:00.000Z', to: '2026-12-08T06:00:00.000Z' });
     });
 });
 

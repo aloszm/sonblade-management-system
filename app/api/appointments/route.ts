@@ -3,11 +3,13 @@ import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { toAppointmentView, type AppointmentRow } from '@/lib/appointments/appointments-view';
+import { bookingSlotError } from '@/lib/appointments/calendar-grid';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
+const DEFAULT_TIMEZONE = 'America/Mexico_City';
 const COLUMNS = 'id, client_id, assigned_employee_id, customer_name, customer_phone, scheduled_start_at, scheduled_end_at, status, notes, created_at, source, clients(id, full_name), employees(id, display_name), sales(id, status, total_amount)';
 
 const RangeSchema = z.object({ from: z.string().datetime(), to: z.string().datetime() });
@@ -17,7 +19,8 @@ const AppointmentSchema = z.object({
     customer_name: z.string().trim().min(2, 'Escribe el nombre de quien reserva.').max(120).optional().nullable(),
     customer_phone: z.string().trim().max(32).optional().nullable(),
     scheduled_at: z.string().datetime({ message: 'La fecha u hora no son válidas.' }),
-    duration_minutes: z.number().int().min(5).max(480).default(30),
+    duration_minutes: z.number({ message: 'La duración no es válida.' }).int('La duración debe ser de 30 minutos o múltiplos de 30.')
+        .min(30, 'La duración mínima es de 30 minutos.').max(480, 'La duración máxima es de 8 horas.').default(30),
     service_note: z.string().trim().max(500).optional().nullable(),
 });
 
@@ -57,6 +60,11 @@ export async function POST(request: NextRequest) {
         }
         const input = parsed.data;
         const db = await createSupabaseServerClient();
+        // Las citas agendadas van en bloques de 30 minutos, en la hora de la barbería. Los registros "sin cita"
+        // que crea el cobro (a la hora real, p. ej. 13:17) no pasan por aquí: los inserta la base directamente.
+        const { data: business } = await db.from('businesses').select('timezone').eq('id', context.businessId).maybeSingle();
+        const slotError = bookingSlotError(input.scheduled_at, input.duration_minutes, business?.timezone ?? DEFAULT_TIMEZONE);
+        if (slotError) return NextResponse.json({ error: slotError }, { status: 400, headers: NO_STORE });
         let customerName = input.customer_name ?? undefined;
         let customerPhone = input.customer_phone || null;
         if (input.client_id) {

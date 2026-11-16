@@ -51,6 +51,14 @@ export function monthRange(year: number, month: number): { from: string; to: str
     return { from: new Date(year, month, 1).toISOString(), to: new Date(year, month + 1, 1).toISOString() };
 }
 
+/**
+ * Rango que se pide a la API para la agenda: el mes y una semana de margen a cada lado, para que la vista de
+ * semana (que puede cruzar de un mes a otro) y los días de las orillas del mes tengan todas sus citas.
+ */
+export function loadRange(year: number, month: number): { from: string; to: string } {
+    return { from: new Date(year, month, 1 - 7).toISOString(), to: new Date(year, month + 1, 1 + 7).toISOString() };
+}
+
 /** Une fecha 'YYYY-MM-DD' y hora 'HH:MM' del dispositivo en un instante ISO. */
 export function localDateTimeToIso(date: string, time: string): string {
     return new Date(`${date}T${time}`).toISOString();
