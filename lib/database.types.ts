@@ -1924,6 +1924,7 @@ export type Database = {
       services: {
         Row: {
           business_id: string
+          category: string
           created_at: string
           description: string | null
           duration_minutes: number
@@ -1931,11 +1932,13 @@ export type Database = {
           is_active: boolean
           name: string
           price: number
+          sort_order: number
           updated_at: string
           variable_price: boolean
         }
         Insert: {
           business_id: string
+          category?: string
           created_at?: string
           description?: string | null
           duration_minutes?: number
@@ -1943,11 +1946,13 @@ export type Database = {
           is_active?: boolean
           name: string
           price: number
+          sort_order?: number
           updated_at?: string
           variable_price?: boolean
         }
         Update: {
           business_id?: string
+          category?: string
           created_at?: string
           description?: string | null
           duration_minutes?: number
@@ -1955,6 +1960,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           price?: number
+          sort_order?: number
           updated_at?: string
           variable_price?: boolean
         }
