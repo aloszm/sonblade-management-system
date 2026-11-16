@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import { weekLabel } from '@/lib/settlements/week';
+import BrandLogo from '@/components/BrandLogo';
 
 type Receipt = {
     receipt_number: string;
@@ -61,6 +62,7 @@ export default function ReciboPage() {
             <article className="bg-bos-surface text-bos-text rounded-xl border border-bos-border p-5 sm:p-8 print:bg-white print:text-black print:border-0 print:p-0 print:rounded-none" data-testid="receipt">
                 <header className="flex flex-wrap justify-between items-start gap-3 border-b-2 border-bos-text pb-4">
                     <div>
+                        <BrandLogo alt="" className="h-16 w-auto mb-2 print:h-14" />
                         <h1 className="font-display text-2xl font-semibold tracking-tight">{receipt.business.name}</h1>
                         <p className="text-sm text-bos-muted">{receipt.branch.name}</p>
                         {receipt.branch.address && <p className="text-sm text-bos-muted">{receipt.branch.address}</p>}
