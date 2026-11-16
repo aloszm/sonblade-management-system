@@ -11,6 +11,7 @@ import {
     UserPlus,
     Calendar,
     Wallet,
+    Trophy,
     LogOut
 } from 'lucide-react';
 
@@ -20,6 +21,7 @@ const mobileItems = [
     // El cobro es solo en computadora; en el celular no se ofrece.
     { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: [] as string[] },
     { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
+    { href: '/equipo-hoy', label: 'Barberos', icon: Trophy, roles: ['admin', 'recepcion'] },
     { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber'] },
     { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'barber', 'recepcion'] },
     { href: '/citas', label: 'Citas', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },

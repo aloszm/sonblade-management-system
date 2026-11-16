@@ -2,10 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { PERIODS, PERIOD_LABELS, type MyWeek, type Period } from '@/lib/barber/my-week';
-import { rankPodium, type PodiumRow, type RankedRow } from '@/lib/reports/podium';
 import { SectionError, SectionSkeleton, Skeleton, card } from '@/app/barbero/_components/ui';
 import { ClientsSection, EarningsSection, ReceiptsSection, ServicesSection, TipsSection, TodaySection } from '@/app/barbero/_components/sections';
-import PodiumCard from '@/app/barbero/_components/PodiumCard';
+import Ranking from '@/components/Ranking';
 
 type Me = { id: string; role: 'admin' | 'recepcion' | 'barber'; employeeId: string | null };
 type Barber = { id: string; name: string };
@@ -31,10 +30,6 @@ export default function BarberDashboard() {
     const [stats, setStats] = useState<Stats | null>(null);
         const [statsError, setStatsError] = useState('');
     const [statsKey, setStatsKey] = useState(0);
-
-    const [podium, setPodium] = useState<RankedRow[] | null>(null);
-    const [podiumError, setPodiumError] = useState('');
-    const [podiumKey, setPodiumKey] = useState(0);
 
     const [today, setToday] = useState('');
     const requestRef = useRef(0);
@@ -65,16 +60,6 @@ export default function BarberDashboard() {
         })();
         return () => { cancelled = true; };
     }, [startKey]);
-
-    // El podio es de toda la semana en curso y no depende del periodo elegido.
-    useEffect(() => {
-        let cancelled = false;
-        setPodiumError('');
-        getJson<{ rows: PodiumRow[] }>('/api/podium', 'No se pudo cargar el podio.')
-            .then((body) => { if (!cancelled) setPodium(rankPodium(body.rows ?? [])); })
-            .catch((e) => { if (!cancelled) setPodiumError(fail(e, 'No se pudo cargar el podio.')); });
-        return () => { cancelled = true; };
-    }, [podiumKey]);
 
     useEffect(() => {
         if (!selectedId) return;
@@ -149,14 +134,7 @@ export default function BarberDashboard() {
                         </>
                     )}
 
-                    {podiumError ? (
-                        <SectionError message={podiumError} onRetry={() => setPodiumKey((k) => k + 1)} />
-                    ) : !podium ? (
-                        <SectionSkeleton title="Podio" rows={2} />
-                    ) : (
-                        <PodiumCard rows={podium} selectedId={selectedId} mine={mine}
-                            extras={data ? { weekCuts: data.services.weekCount, lastWeekCuts: data.services.lastWeekCount, bestDay: data.window.period === 'week' ? data.earnings.bestDay : null } : null} />
-                    )}
+                    <Ranking highlightId={selectedId} mine={mine} />
 
                     {data && (
                         <>

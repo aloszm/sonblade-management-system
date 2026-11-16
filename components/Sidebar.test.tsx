@@ -29,6 +29,7 @@ describe('Menú lateral', () => {
         mockMe({ name: 'Dago', role: 'recepcion', title: 'Recepción' });
         render(<Sidebar isOpen={true} />);
         expect(await screen.findByRole('link', { name: 'Cobro' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Barberos hoy' })).toHaveAttribute('href', '/equipo-hoy');
         expect(screen.queryByRole('link', { name: 'Panel' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Equipo' })).not.toBeInTheDocument();
     });
@@ -40,6 +41,7 @@ describe('Menú lateral', () => {
         for (const label of ['Agenda', 'Clientes', 'Pago semanal']) expect(screen.getByRole('link', { name: label })).toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Cobro' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Caja' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Barberos hoy' })).not.toBeInTheDocument();
     });
 
     it('no renderiza nada cuando está cerrado', () => {

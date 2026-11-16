@@ -31,3 +31,16 @@ describe('cifras de un barbero: cada quien solo las suyas', () => {
         expect(mayReadBarberStats('cashier', null, DEYA)).toBe(false);
     });
 });
+
+describe('importes del ranking', () => {
+    it('recepción, caja, gerencia y dueño ven el dinero de todos', async () => {
+        const { mayReadRankingMoney } = await import('./permissions');
+        for (const role of ['owner', 'admin', 'cashier', 'receptionist'] as const) expect(mayReadRankingMoney(role, null, 'otro')).toBe(true);
+    });
+    it('el barbero solo ve el suyo', async () => {
+        const { mayReadRankingMoney } = await import('./permissions');
+        expect(mayReadRankingMoney('barber', 'dani', 'dani')).toBe(true);
+        expect(mayReadRankingMoney('barber', 'dani', 'deya')).toBe(false);
+        expect(mayReadRankingMoney('barber', null, 'deya')).toBe(false);
+    });
+});

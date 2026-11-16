@@ -12,3 +12,15 @@ export function mayReadBarberStats(role: BusinessRole, ownEmployeeId: string | n
     if (role === 'owner' || role === 'admin') return true;
     return role === 'barber' && ownEmployeeId !== null && ownEmployeeId === targetEmployeeId;
 }
+
+/**
+ * Importes del ranking de ingreso: dueño, gerencia, caja y recepción ven los de todos;
+ * un barbero ve el orden y los nombres, pero solo su propio importe (nunca el dinero ajeno).
+ */
+export function mayReadRankingMoney(role: BusinessRole, ownEmployeeId: string | null, targetEmployeeId: string): boolean {
+    if (role === 'owner' || role === 'admin' || role === 'cashier' || role === 'receptionist') return true;
+    return role === 'barber' && ownEmployeeId !== null && ownEmployeeId === targetEmployeeId;
+}
+
+/** Quién puede abrir "Barberos hoy": el equipo de mostrador y la dirección; el barbero no. */
+export const TEAM_SUMMARY_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist'];

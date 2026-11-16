@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, LogOut, Package, Scissors,
-    Settings, ShoppingCart, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon, Scale, PiggyBank } from 'lucide-react';
+    Settings, ShoppingCart, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon, Scale, PiggyBank } from 'lucide-react';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 
@@ -23,6 +23,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
             { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin'] },
             { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'] },
             { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
+            { href: '/equipo-hoy', label: 'Barberos hoy', icon: Trophy, roles: ['admin', 'recepcion'] },
             { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },
             { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'recepcion', 'barber'] },
             { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet, roles: ['admin', 'recepcion', 'barber'] },

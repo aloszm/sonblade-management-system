@@ -20,10 +20,23 @@ describe('Menú inferior del celular', () => {
         expect(screen.getAllByRole('link')).toHaveLength(4);
     });
 
-    it('recepción conserva Caja, Clientes, Citas y Recibos', async () => {
+    it('recepción conserva Caja, Clientes, Citas y Recibos, y suma Barberos', async () => {
         mockMe('recepcion');
         render(<MobileNav />);
         expect(await screen.findByRole('link', { name: /Caja/ })).toBeInTheDocument();
-        expect(screen.getAllByRole('link')).toHaveLength(4);
+        expect(screen.getByRole('link', { name: /Barberos/ })).toHaveAttribute('href', '/equipo-hoy');
+        // Cinco accesos y Salir: caben en 390 px.
+        expect(screen.getAllByRole('link')).toHaveLength(5);
+    });
+
+    it('el dueño y la gerencia también ven Barberos; el barbero no', async () => {
+        mockMe('admin');
+        const { unmount } = render(<MobileNav />);
+        expect(await screen.findByRole('link', { name: /Barberos/ })).toBeInTheDocument();
+        unmount();
+        mockMe('barber');
+        render(<MobileNav />);
+        await screen.findByRole('link', { name: /Mi semana/ });
+        expect(screen.queryByRole('link', { name: /Barberos/ })).not.toBeInTheDocument();
     });
 });

@@ -11,6 +11,7 @@ import {
     type Kpis, type Metrics, type PresetId,
 } from '@/lib/reports/metrics';
 import DateRangePicker from '@/components/ui/DateRangePicker';
+import Ranking from '@/components/Ranking';
 
 // Lo que devuelve /api/admin/profit (la misma fuente que Finanzas); aquí solo se usan estas cifras.
 type Finance = {
@@ -404,6 +405,8 @@ export default function Dashboard() {
                             )}
                         </section>
                     </div>
+
+                    <Ranking mine={false} />
 
                     <section aria-labelledby="log-title" className={`${card} overflow-hidden`}>
                         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
