@@ -13,7 +13,9 @@ function loginMessage(status: number, serverMessage: unknown): string {
     if (status === 429) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.';
     if (status === 401) return 'Usuario o PIN incorrectos.';
     if (status === 400) return typeof serverMessage === 'string' && serverMessage ? serverMessage : 'Escribe tu usuario y tu PIN de 6 números.';
-    return OFFLINE; // 5xx, 503 de configuración o cualquier otra respuesta que no sea de credenciales
+    // 503 = el servidor responde pero el acceso no está configurado: decirlo, no culpar al internet.
+    if (status === 503) return 'El sistema no está listo para entrar todavía. Avisa al encargado.';
+    return OFFLINE; // 5xx o cualquier otra respuesta que no sea de credenciales
 }
 
 export default function LoginPage() {
