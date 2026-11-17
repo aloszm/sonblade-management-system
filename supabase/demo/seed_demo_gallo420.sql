@@ -14,6 +14,12 @@
 --   node -e "const u=['alonso','sonia','lucia','deya','dani','dago','emi','prueba'];console.log(JSON.stringify(Object.fromEntries(u.map(x=>[x,String(require('crypto').randomInt(1e6)).padStart(6,'0')]))))"
 -- y ejecuta el archivo en una base VACIA. Cada cuenta queda marcada para cambiar su
 -- PIN al primer ingreso. No guardes los PIN reales en Git; entregalos en persona.
+--
+-- La contrasena que se guarda en Supabase Auth NO es el PIN: es
+-- HMAC-SHA256(PIN_PEPPER, '<usuario>@gallo-420.barberos.invalid:<PIN>') en hex (lib/auth/pin-hash.ts;
+-- la llave del HMAC son los 32 bytes del pepper en hexadecimal). Reemplaza tambien __PIN_PEPPER__ por el
+-- MISMO valor de la variable PIN_PEPPER del servidor que usara esta base (sin el, nadie puede entrar).
+-- No guardes el pepper en Git.
 -- Se niega a correr si ya existe algun negocio.
 --
 -- Usuarios:
@@ -34,6 +40,7 @@
 DO $do$
 DECLARE
   pins_text text := '__DEMO_PINS__';
+  pepper text := '__PIN_PEPPER__';
   pins jsonb;
   v_tz text;
   u_owner uuid := gen_random_uuid(); u_dago uuid := gen_random_uuid(); u_emi uuid := gen_random_uuid();
@@ -54,6 +61,9 @@ BEGIN
   IF pins_text = '__DEMO_PINS__' THEN
     RAISE EXCEPTION 'Reemplaza __DEMO_PINS__ por un JSON con 8 PIN distintos de 6 numeros (ver encabezado)';
   END IF;
+  IF pepper !~ '^[0-9a-fA-F]{64,}$' THEN
+    RAISE EXCEPTION 'Reemplaza __PIN_PEPPER__ por el valor de PIN_PEPPER del servidor (64 caracteres hexadecimales)';
+  END IF;
   pins := pins_text::jsonb;
   IF (SELECT count(DISTINCT v) FROM jsonb_each_text(pins) AS e(k, v) WHERE v ~ '^[0-9]{6}$'
         AND k IN ('alonso','sonia','lucia','deya','dani','dago','emi','prueba')) <> 8 THEN
@@ -66,7 +76,7 @@ BEGIN
     phone_change, phone_change_token, reauthentication_token,
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
   SELECT '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated', u.email,
-    extensions.crypt(pins->>u.login, extensions.gen_salt('bf')), now(), '', '', '', '', '', '', '', '',
+    extensions.crypt(encode(extensions.hmac(convert_to(u.email || ':' || (pins->>u.login), 'UTF8'), decode(pepper, 'hex'), 'sha256'), 'hex'), extensions.gen_salt('bf')), now(), '', '', '', '', '', '', '', '',
     '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('full_name', u.full_name), now(), now()
   FROM (VALUES
     (u_owner,  'alonso', 'Alonso'),

@@ -7,6 +7,7 @@ import { loginIdFor, normalizeLoginName } from '@/lib/auth/login-id';
 import { generateTemporaryPin } from '@/lib/auth/pin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { adminKeyConfigured, createSupabaseAdminClient, MISSING_ADMIN_KEY } from '@/lib/supabase/admin';
+import { MISSING_PIN_PEPPER, pinPassword, pinPepperConfigured } from '@/lib/auth/pin-hash';
 
 export const dynamic = 'force-dynamic';
 const NO_CACHE = { 'Cache-Control': 'no-store' };
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
 
         const admin = createSupabaseAdminClient();
         if (!admin) return NextResponse.json({ error: MISSING_ADMIN_KEY }, { status: 503, headers: NO_CACHE });
+        if (!pinPepperConfigured()) return NextResponse.json({ error: MISSING_PIN_PEPPER }, { status: 503, headers: NO_CACHE });
 
         const supabase = await createSupabaseServerClient();
         const { data: business, error: businessError } = await supabase.from('businesses').select('slug').eq('id', context.businessId).single();
@@ -66,8 +68,9 @@ export async function POST(request: NextRequest) {
         if (taken?.length) return NextResponse.json({ error: 'Ese usuario ya está en uso. Elige otro.' }, { status: 409, headers: NO_CACHE });
 
         const pin = generateTemporaryPin();
+        const loginId = loginIdFor(loginName, business.slug);
         const { data: created, error: createError } = await admin.auth.admin.createUser({
-            email: loginIdFor(loginName, business.slug), password: pin, email_confirm: true,
+            email: loginId, password: pinPassword(loginId, pin), email_confirm: true,
             user_metadata: { full_name: parsed.data.fullName },
         });
         if (createError || !created.user) {

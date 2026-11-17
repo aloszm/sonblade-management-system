@@ -1,12 +1,18 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { Database } from '@/lib/database.types';
+import { SESSION_COOKIE_OPTIONS } from '@/lib/supabase/cookie-options';
+import { isCrossOriginWrite } from '@/lib/security/origin';
 
 // /reservar, /privacidad y /api/public son la puerta de reservas para clientes: sin sesión a propósito; la base valida todo.
 const PUBLIC_PATHS = ['/login', '/onboarding', '/auth/callback', '/api/auth/login', '/api/health', '/api/public', '/reservar', '/privacidad'];
 const NO_CACHE = { 'Cache-Control': 'no-store' };
 
 export async function middleware(request: NextRequest) {
+    // Escrituras a la API desde otro sitio (CSRF): si el navegador dice de dónde viene y no es este host, se rechaza.
+    if (isCrossOriginWrite(request.method, request.nextUrl.pathname, request.headers.get('origin'), request.headers.get('host'))) {
+        return NextResponse.json({ error: 'Origen no permitido.' }, { status: 403, headers: NO_CACHE });
+    }
     let response = NextResponse.next({ request });
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -17,6 +23,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const supabase = createServerClient<Database>(url, key, {
+        cookieOptions: SESSION_COOKIE_OPTIONS,
         cookies: {
             getAll: () => request.cookies.getAll(),
             setAll: (cookiesToSet) => {

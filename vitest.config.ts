@@ -16,6 +16,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, '.'),
+            // 'server-only' solo existe dentro de Next; en las pruebas es un módulo vacío.
+            'server-only': path.resolve(__dirname, 'node_modules/next/dist/compiled/server-only/empty.js'),
         },
     },
 });

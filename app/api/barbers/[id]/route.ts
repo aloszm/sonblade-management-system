@@ -31,12 +31,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         if (parsed.data.name !== undefined) update.display_name = parsed.data.name;
         if (parsed.data.phone !== undefined) update.phone = parsed.data.phone || null;
         if (parsed.data.status !== undefined) update.is_active = parsed.data.status === 'active';
-        if (parsed.data.can_authorize_discounts !== undefined) update.can_authorize_discounts = parsed.data.can_authorize_discounts;
 
         const supabase = await createSupabaseServerClient();
-        const { data, error } = await supabase.from('employees').update(update as never)
-            .eq('business_id', context.businessId).eq('id', id.data)
-            .select('id, display_name, phone, is_active, can_authorize_discounts').maybeSingle();
+        const current = await supabase.from('employees').select('id, can_authorize_discounts')
+            .eq('business_id', context.businessId).eq('id', id.data).maybeSingle();
+        if (current.error) throw current.error;
+        if (!current.data) return Response.json({ error: 'Barbero no encontrado.' }, { status: 404, headers: NO_STORE });
+        // El permiso de autorizar descuentos ya no se escribe directo: lo cambia la base con sus reglas
+        // (gerencia solo con barberos y recepción, nunca consigo misma). Solo se llama si cambia.
+        const wanted = parsed.data.can_authorize_discounts;
+        if (wanted !== undefined && wanted !== current.data.can_authorize_discounts) {
+            const { error: permissionError } = await supabase.rpc('set_employee_discount_permission', { p_employee_id: id.data, p_allowed: wanted });
+            if (permissionError) throw permissionError;
+        }
+        const query = Object.keys(update).length > 0
+            ? supabase.from('employees').update(update as never).eq('business_id', context.businessId).eq('id', id.data)
+            : supabase.from('employees').select('id').eq('business_id', context.businessId).eq('id', id.data);
+        const { data, error } = await query.select('id, display_name, phone, is_active, can_authorize_discounts').maybeSingle();
         if (error) throw error;
         if (!data) return Response.json({ error: 'Barbero no encontrado.' }, { status: 404, headers: NO_STORE });
         const row = data as unknown as { id: string; display_name: string; phone: string | null; is_active: boolean; can_authorize_discounts: boolean };

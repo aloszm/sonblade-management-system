@@ -2275,7 +2275,11 @@ export type Database = {
       }
       login_attempt_check: { Args: { p_login_id: string }; Returns: number }
       login_attempt_failed: { Args: { p_login_id: string }; Returns: number }
-      login_attempt_succeeded: { Args: never; Returns: undefined }
+      login_attempt_succeeded: { Args: { p_login_id: string }; Returns: undefined }
+      assert_can_manage_account: {
+        Args: { p_actor_user_id: string; p_business_id: string; p_user_id: string }
+        Returns: Json
+      }
       mark_pin_reset: {
         Args: {
           p_actor_user_id: string
@@ -2359,6 +2363,10 @@ export type Database = {
       }
       set_account_active: {
         Args: { p_active: boolean; p_business_id: string; p_user_id: string }
+        Returns: Json
+      }
+      set_employee_discount_permission: {
+        Args: { p_allowed: boolean; p_employee_id: string }
         Returns: Json
       }
       set_cash_settings: {

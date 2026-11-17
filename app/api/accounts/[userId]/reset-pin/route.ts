@@ -5,6 +5,7 @@ import { canManageAccount } from '@/lib/auth/account-rules';
 import { generateTemporaryPin } from '@/lib/auth/pin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdminClient, MISSING_ADMIN_KEY } from '@/lib/supabase/admin';
+import { MISSING_PIN_PEPPER, pinPassword, pinPepperConfigured } from '@/lib/auth/pin-hash';
 
 export const dynamic = 'force-dynamic';
 const NO_CACHE = { 'Cache-Control': 'no-store' };
@@ -12,7 +13,8 @@ const NO_CACHE = { 'Cache-Control': 'no-store' };
 /**
  * Restablecer el PIN de otra persona: se genera uno temporal aleatorio, se guarda con la API de
  * administración de Supabase Auth y se devuelve UNA vez para dictárselo. La base marca que debe
- * cambiarlo al entrar, limpia su bloqueo y deja constancia en la bitácora (nunca el PIN).
+ * cambiarlo al entrar, limpia su bloqueo, cierra sus sesiones abiertas y deja constancia en la
+ * bitácora (nunca el PIN).
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ userId: string }> }) {
     try {
@@ -29,8 +31,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ us
 
         const admin = createSupabaseAdminClient();
         if (!admin) return NextResponse.json({ error: MISSING_ADMIN_KEY }, { status: 503, headers: NO_CACHE });
+        if (!pinPepperConfigured()) return NextResponse.json({ error: MISSING_PIN_PEPPER }, { status: 503, headers: NO_CACHE });
+        // La base confirma el permiso ANTES de tocar la contraseña (no basta la revisión de la app).
+        const { error: permissionError } = await admin.rpc('assert_can_manage_account', { p_actor_user_id: context.userId, p_business_id: context.businessId, p_user_id: userId });
+        if (permissionError) throw permissionError;
+        const { data: authUser, error: userError } = await admin.auth.admin.getUserById(userId);
+        if (userError || !authUser.user?.email) return NextResponse.json({ error: 'No se pudo restablecer el PIN. Intenta de nuevo.' }, { status: 502, headers: NO_CACHE });
         const pin = generateTemporaryPin();
-        const { error: updateError } = await admin.auth.admin.updateUserById(userId, { password: pin });
+        const { error: updateError } = await admin.auth.admin.updateUserById(userId, { password: pinPassword(authUser.user.email, pin) });
         if (updateError) return NextResponse.json({ error: 'No se pudo restablecer el PIN. Intenta de nuevo.' }, { status: 502, headers: NO_CACHE });
         const { error: markError } = await admin.rpc('mark_pin_reset', { p_actor_user_id: context.userId, p_business_id: context.businessId, p_user_id: userId });
         if (markError) throw markError;

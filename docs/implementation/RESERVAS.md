@@ -9,12 +9,14 @@ Responsable de los datos: **Barbería Gallo 420**, contacto **barberia.gallo420@
 ## Cómo funciona
 
 ```
-Navegador ──► /api/public/booking/** (Next, valida con zod) ──► public.booking_* (anon, security invoker)
+Navegador ──► /api/public/booking/** (Next, valida con zod) ──► public.booking_* (service_role, security invoker)
                                                               └─► private.booking_*_impl (security definer)
 ```
 
-- El público nunca lee ni escribe tablas. Las rutas usan un cliente **siempre anónimo** (clave publicable, sin
-  cookies ni sesión; `lib/booking/db.ts`), y anon solo puede ejecutar las seis funciones `public.booking_*`.
+- El público nunca lee ni escribe tablas ni llama la base. Las rutas usan un cliente de servidor con la **llave
+  secreta** (sin cookies ni sesión; `lib/booking/db.ts`, `server-only`); desde la corrección de seguridad anon ya
+  no puede ejecutar `public.booking_*` (pendiente de aplicar: `supabase/pending/security_sales_booking_cash.sql`).
+  Sin `SUPABASE_SECRET_KEY` las rutas responden 500.
 - Las funciones devuelven `jsonb`; un rechazo es `{"error": "<código>"}` (no una excepción), para que el intento
   registrado en el límite no se pierda con un rollback. `lib/booking/rules.ts` traduce cada código a la respuesta
   del contrato (`bookingErrorResponse`).
@@ -53,6 +55,7 @@ En `businesses.settings.booking` (la base usa estos valores por omisión si falt
 | `max_days_ahead` | 30 | Hasta cuántos días adelante (de hoy a hoy + 30). |
 | `cancel_hours` | 2 | El cliente puede cancelar hasta 2 h antes. |
 | `max_active_per_phone` | 2 | Reservas en línea futuras activas por teléfono. |
+| `max_online_per_day` | 30 | Reservas en línea activas por negocio y día (al llegar, responde `slot_taken`). |
 | `privacy_version` | `2026-11-17` | Versión del aviso que se guarda al aceptar. Súbela al cambiar el aviso. |
 
 Fijos en `private.booking_rules` (cambiarlos requiere migración): 5 intentos de reserva por hora por teléfono y por
@@ -102,8 +105,8 @@ Deben ser públicas en `middleware.ts`: `/api/public`, `/reservar` y `/privacida
 5. No puede saber si un teléfono ya es cliente: la reserva nunca se liga a `clients`.
 6. Llenar la agenda con datos falsos está limitado: 5 por hora por teléfono y por huella, 2 activas por teléfono,
    40 por hora en total; el dueño ve cada una marcada como "en línea" y puede cancelarla.
-7. Quien llame a la base directamente con la clave publicable (sin pasar por la API) puede inventar el IP de la huella,
-   pero no evita el límite por teléfono, el de reservas activas, el tope global ni las validaciones de la base.
+7. Nadie puede llamar las funciones de reservas con la clave publicable: solo el servidor (llave secreta), que pasa el
+   IP de `x-forwarded-for` que pone Vercel. Además hay tope de 30 reservas en línea activas por día.
 8. No puede cancelar con menos de 2 h ni cancelar citas atendidas, y no puede cambiar hora, barbero ni servicio.
-9. Ningún secreto vive en el servidor de Next para esto: solo la clave publicable.
+9. El servidor de Next usa la llave secreta para esto (variable de servidor, nunca en el navegador).
 10. Con el interruptor apagado, ninguna función de reservas hace nada (403).

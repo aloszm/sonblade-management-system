@@ -1,10 +1,14 @@
+import 'server-only';
+
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * Cliente de la página pública de reservas: siempre anónimo (clave publicable, sin sesión ni cookies),
- * aunque quien abra la página tenga una sesión del sistema. Solo puede ejecutar las funciones public.booking_*.
- * Tipos propios (no se regenera lib/database.types.ts). Sin 'server-only' para poder probar las rutas con Vitest:
- * no guarda secretos (solo la clave publicable) y solo lo importan rutas de API.
+ * Cliente de la página pública de reservas. Usa la llave SECRETA del servidor (service_role): las
+ * funciones public.booking_* ya no las puede ejecutar anon, así nadie llena la agenda llamando la
+ * base directo con la llave publicable e inventando el IP de la huella. Solo esta capa (rutas
+ * /api/public/booking/**) las llama, pasando como p_client el IP que pone Vercel en x-forwarded-for
+ * (Vercel lo sobrescribe; no lo controla quien llama). Sin sesión ni cookies; solo lo importan
+ * rutas de API. Tipos propios (no se regenera lib/database.types.ts para esto).
  */
 type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -34,8 +38,8 @@ export type BookingFunction = keyof BookingDatabase['public']['Functions'];
 
 function bookingClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) throw new Error('Falta la configuración pública de Supabase.');
+    const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) throw new Error('Falta la llave secreta del servidor para las reservas en línea.');
     return createClient<BookingDatabase>(url, key, {
         auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
