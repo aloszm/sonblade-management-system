@@ -78,6 +78,8 @@ export default function AppointmentsPage() {
     const [warning, setWarning] = useState('');
     const [barbersState, setBarbersState] = useState<'loading' | 'ok' | 'error'>('loading');
     const [canManage, setCanManage] = useState(false);
+    // Gerencia, recepción y la cuenta de consulta ven el teléfono; la de consulta no puede cambiar nada.
+    const [canSeePhones, setCanSeePhones] = useState(false);
     // Barbero: la agenda es de solo lectura. Arranca en sus citas y puede ver las de toda la barbería.
     const [meLoaded, setMeLoaded] = useState(false);
     const [ownBarberId, setOwnBarberId] = useState<string | null>(null);
@@ -136,7 +138,9 @@ export default function AppointmentsPage() {
         fetch('/api/schedule', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(d => { if (d) setSchedule(d); }).catch(() => {});
         fetch('/api/auth/me', { cache: 'no-store' }).then(r => r.json())
             .then(me => {
-                const manage = me?.user?.role === 'admin' || me?.user?.role === 'recepcion';
+                const frontDesk = me?.user?.role === 'admin' || me?.user?.role === 'recepcion';
+                const manage = frontDesk && !me?.user?.readOnly;
+                setCanSeePhones(frontDesk);
                 setCanManage(manage);
                 // La lista de clientes solo sirve para agendar: el barbero no agenda.
                 if (manage) fetch('/api/clients').then(r => r.json()).then(d => { if (Array.isArray(d)) setClients(d); }).catch(() => {});
@@ -568,7 +572,7 @@ export default function AppointmentsPage() {
                                                         {apt.barber ? <><Avatar name={apt.barber.name} color={colorOf(apt.barber.id)} size={24} /> {apt.barber.name}</> : 'Sin barbero asignado'}
                                                     </dd>
                                                 </div>
-                                                {canManage && apt.customer_phone && (
+                                                {canSeePhones && apt.customer_phone && (
                                                     <div>
                                                         <dt className="text-xs font-medium text-bos-muted">Teléfono</dt>
                                                         <dd className="mt-1 font-medium tabular-nums">{apt.customer_phone}</dd>
