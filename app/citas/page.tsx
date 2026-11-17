@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { Ban, Calendar, ChevronLeft, ChevronRight, Clock, Loader2, Plus, Receipt, RotateCw } from 'lucide-react';
+import { Ban, Calendar, ChevronLeft, ChevronRight, Clock, Loader2, Plus, Receipt, RotateCw, TriangleAlert } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import type { Appointment, AppointmentStatus, Barber, Client } from '@/types';
 import {
@@ -11,11 +11,14 @@ import {
 import { REQUESTED_VIA, VIA_LABELS, overlapMinutes, type RequestedVia, type TimeOffView } from '@/lib/appointments/time-off';
 import { formatHour, minutesToHHMM, workingWindow, type ScheduleData } from '@/lib/appointments/hours';
 import {
-    DEFAULT_DURATION, addDays, durationOptions, nearestOption, reconcileTime, snapDuration, timeOptions, weekDays,
+    DEFAULT_DURATION, addDays, durationOptions, formatClock, nearestOption, reconcileTime, snapDuration, timeOptions, weekDays,
 } from '@/lib/appointments/calendar-grid';
 import DayGrid from './_components/DayGrid';
 import WeekAgenda from './_components/WeekAgenda';
-import { BARBER_COLORS, NO_BARBER_COLOR, STATUS_STYLE, money } from './_components/agenda-ui';
+import WeekGrid from './_components/WeekGrid';
+import AgendaSkeleton from './_components/AgendaSkeleton';
+import { Avatar } from './_components/parts';
+import { BARBER_COLORS, NO_BARBER_COLOR, STATUS_STYLE, SUBTLE_BG, longDayTitle, money, tintOf } from './_components/agenda-ui';
 import DatePicker from '@/components/ui/DatePicker';
 import TimePicker from '@/components/ui/TimePicker';
 
@@ -34,7 +37,20 @@ const fieldLabel = 'block text-[13px] font-medium text-bos-muted mb-1.5';
 const primary = 'min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent text-[15px] font-bold hover:brightness-105 disabled:opacity-50 inline-flex items-center justify-center gap-2';
 const secondary = 'min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text text-[15px] font-semibold hover:bg-bos-raised inline-flex items-center justify-center gap-2';
 
-const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+const navBtn = 'inline-flex h-11 items-center justify-center text-sm font-medium text-bos-muted transition-colors hover:bg-bos-raised hover:text-bos-text motion-reduce:transition-none';
+/** Duración legible de una cita: "30 min", "1 h", "1 h 30 min". */
+function durationText(a: Appointment): string {
+    const minutes = a.end_at ? Math.round((new Date(a.end_at).getTime() - new Date(a.scheduled_at).getTime()) / 60_000) : a.duration_minutes ?? 0;
+    if (!minutes || minutes <= 0) return '';
+    const h = Math.floor(minutes / 60), m = minutes % 60;
+    return [h ? `${h} h` : '', m ? `${m} min` : ''].filter(Boolean).join(' ');
+}
+const WIDE_QUERY = '(min-width: 1024px)';
+const subscribeWide = (cb: () => void) => { const mq = window.matchMedia(WIDE_QUERY); mq.addEventListener('change', cb); return () => mq.removeEventListener('change', cb); };
+/** Computadora (≥ 1024 px): la semana se dibuja como cuadrícula de siete columnas. */
+const useWide = () => useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => false);
+
+const timeOf = (iso: string) => { const d = new Date(iso); return formatClock(d.getHours() * 60 + d.getMinutes()); };
 const dayOf = (iso: string) => localDateKey(new Date(iso));
 const dateTimeOf = (iso: string) => new Date(iso).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const nowParts = () => { const d = new Date(); return { date: localDateKey(d), time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }; };
@@ -45,6 +61,7 @@ async function readError(res: Response, fallback: string): Promise<string> {
 }
 
 export default function AppointmentsPage() {
+    const wide = useWide();
     const [today] = useState(() => new Date());
     // El reloj avanza cada minuto: la línea de "ahora" y el día de hoy se mantienen al día.
     const [now, setNow] = useState(() => new Date());
@@ -342,42 +359,42 @@ export default function AppointmentsPage() {
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
-            <header className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                    <h1 className="font-display text-3xl font-semibold tracking-tight">Agenda</h1>
-                    <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="calendar-label">
-                        {view === 'day' ? dayTitle(dayKey) : view === 'week' ? weekTitle() : `${MONTHS[month]} ${year}`}
+            <header className="flex flex-wrap items-center gap-x-3 gap-y-3 lg:flex-nowrap">
+                <div className="order-1 min-w-[200px] flex-1 basis-0">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-bos-accent-text">Agenda
+                        {view === 'day' && dayKey === todayKey && <span className="rounded-full bg-bos-accent-soft px-2 py-0.5 text-xs font-semibold text-bos-accent-text">Hoy</span>}
                     </p>
+                    <h1 data-testid="calendar-label" className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-display text-xl font-semibold leading-tight tracking-tight sm:text-3xl">
+                        <span key={`${view}-${dayKey}-${month}`} className="bos-fade">{view === 'day' ? longDayTitle(dayKey) : view === 'week' ? weekTitle() : `${MONTHS[month]} ${year}`}</span>
+                    </h1>
                     {view === 'day' && schedule && businessWindow !== undefined && (
-                        <p className="text-sm text-bos-muted" data-testid="day-hours">
+                        <p className="mt-0.5 text-sm text-bos-muted" data-testid="day-hours">
                             {businessWindow === null ? 'El negocio cierra este día' : `Abierto de ${formatHour(minutesToHHMM(businessWindow.open))} a ${formatHour(minutesToHHMM(businessWindow.close))}`}
                         </p>
                     )}
                 </div>
-                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                    <div role="group" aria-label="Vista" className="flex rounded-lg bg-bos-raised p-1">
-                        {([['day', 'Día'], ['week', 'Semana'], ['month', 'Mes']] as const).map(([id, text]) => (
-                            <button key={id} type="button" aria-pressed={view === id} onClick={() => changeView(id)}
-                                className={`h-9 rounded-md px-3.5 text-sm font-medium transition-colors sm:px-4 ${view === id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
-                        ))}
-                    </div>
-                    <div className="flex items-center rounded-lg border border-bos-border bg-bos-surface">
-                        <button type="button" aria-label={view === 'day' ? 'Día anterior' : view === 'week' ? 'Semana anterior' : 'Mes anterior'}
-                            onClick={() => (view === 'day' ? shiftDay(-1) : view === 'week' ? shiftDay(-7) : setCursor(new Date(year, month - 1, 1)))}
-                            className="inline-flex h-10 w-10 items-center justify-center text-bos-muted hover:text-bos-text"><ChevronLeft className="h-5 w-5" /></button>
-                        <button type="button" onClick={() => { goToDay(todayKey); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); }}
-                            className="h-10 px-3 text-sm font-medium text-bos-text hover:bg-bos-raised">Hoy</button>
-                        <button type="button" aria-label={view === 'day' ? 'Día siguiente' : view === 'week' ? 'Semana siguiente' : 'Mes siguiente'}
-                            onClick={() => (view === 'day' ? shiftDay(1) : view === 'week' ? shiftDay(7) : setCursor(new Date(year, month + 1, 1)))}
-                            className="inline-flex h-10 w-10 items-center justify-center text-bos-muted hover:text-bos-text"><ChevronRight className="h-5 w-5" /></button>
-                    </div>
-                    {canManage && (
-                        <div className="flex w-full gap-2 sm:w-auto">
-                            <button type="button" onClick={() => openOff(barberFilter, view === 'day' ? dayKey : todayKey)} className={`${secondary} flex-1 sm:flex-none`}><Ban className="h-5 w-5" /> Ausencia</button>
-                            <button type="button" onClick={() => openForm(view === 'day' ? dayKey : todayKey, '', barberFilter)} className={`${primary} flex-1 sm:flex-none`}><Plus className="h-5 w-5" /> Nueva cita</button>
-                        </div>
-                    )}
+                <div className="order-3 flex shrink-0 items-center rounded-xl border border-bos-border bg-bos-surface">
+                    <button type="button" aria-label={view === 'day' ? 'Día anterior' : view === 'week' ? 'Semana anterior' : 'Mes anterior'}
+                        onClick={() => (view === 'day' ? shiftDay(-1) : view === 'week' ? shiftDay(-7) : setCursor(new Date(year, month - 1, 1)))}
+                        className={`${navBtn} w-10 rounded-l-xl sm:w-11`}><ChevronLeft className="h-5 w-5" /></button>
+                    <button type="button" onClick={() => { goToDay(todayKey); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); }}
+                        className={`${navBtn} border-x border-bos-border px-3.5 font-semibold text-bos-text`}>Hoy</button>
+                    <button type="button" aria-label={view === 'day' ? 'Día siguiente' : view === 'week' ? 'Semana siguiente' : 'Mes siguiente'}
+                        onClick={() => (view === 'day' ? shiftDay(1) : view === 'week' ? shiftDay(7) : setCursor(new Date(year, month + 1, 1)))}
+                        className={`${navBtn} w-10 rounded-r-xl sm:w-11`}><ChevronRight className="h-5 w-5" /></button>
                 </div>
+                <div role="group" aria-label="Vista" className="order-4 flex min-w-[190px] flex-1 basis-0 rounded-xl bg-bos-raised p-1 lg:order-2 lg:flex-none lg:basis-auto">
+                    {([['day', 'Día'], ['week', 'Semana'], ['month', 'Mes']] as const).map(([id, text]) => (
+                        <button key={id} type="button" aria-pressed={view === id} onClick={() => changeView(id)}
+                            className={`h-9 flex-1 rounded-lg px-2 text-sm lg:px-4 font-medium transition-colors motion-reduce:transition-none lg:flex-none ${view === id ? 'bg-bos-surface font-semibold text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
+                    ))}
+                </div>
+                {canManage && (
+                    <div className="order-2 flex gap-2 lg:order-5">
+                        <button type="button" aria-label="Ausencia" onClick={() => openOff(barberFilter, view === 'day' ? dayKey : todayKey)} className={`${secondary} !min-h-11 !px-0 w-11 sm:!px-4 sm:w-auto`}><Ban className="h-5 w-5" /> <span className="hidden sm:inline">Ausencia</span></button>
+                        <button type="button" aria-label="Nueva cita" onClick={() => openForm(view === 'day' ? dayKey : todayKey, '', barberFilter)} className={`${primary} !min-h-11 !px-0 w-11 sm:!px-4 sm:w-auto`}><Plus className="h-5 w-5" /> <span className="hidden sm:inline">Nueva cita</span></button>
+                    </div>
+                )}
             </header>
 
             {/* Barbero: agenda de solo lectura, con su calendario por omisión y el de toda la barbería. */}
@@ -386,7 +403,7 @@ export default function AppointmentsPage() {
                     <div role="group" aria-label="Qué agenda ver" data-testid="agenda-scope" className="grid grid-cols-2 gap-1 rounded-xl bg-bos-raised p-1 sm:inline-grid sm:grid-cols-[auto_auto]">
                         {([['mine', 'Mis citas'], ['all', 'Toda la barbería']] as const).map(([id, text]) => (
                             <button key={id} type="button" aria-pressed={scope === id} onClick={() => setScope(id)}
-                                className={`min-h-11 rounded-lg px-4 text-[15px] font-semibold transition-colors ${scope === id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
+                                className={`min-h-11 rounded-lg px-4 text-[15px] font-semibold transition-colors motion-reduce:transition-none ${scope === id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
                         ))}
                     </div>
                     <p className="text-sm text-bos-muted">Solo lectura. Para agendar o cambiar una cita, habla con recepción.</p>
@@ -394,11 +411,11 @@ export default function AppointmentsPage() {
             )}
 
             {/* En celular la vista por día ya trae su propio selector de barbero dentro de la cuadrícula. */}
-            <div role="group" aria-label="Barbero" className={`${readOnly ? 'hidden' : view === 'day' ? 'hidden md:flex' : 'flex'} flex-wrap gap-2`}>
+            <div role="group" aria-label="Barbero" className={`${readOnly ? 'hidden' : view === 'day' ? 'hidden md:flex' : 'flex'} gap-2 overflow-x-auto md:flex-wrap md:overflow-visible`}>
                 {[{ id: '', name: 'Todos' }, ...activeBarbers].map((b) => (
                     <button key={b.id || 'all'} type="button" aria-pressed={barberFilter === b.id} onClick={() => setBarberFilter(b.id)}
-                        className={`inline-flex h-9 max-w-full items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
-                        {b.id && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorOf(b.id) }} />}
+                        className={`inline-flex h-10 max-w-full shrink-0 items-center gap-2 rounded-full border text-sm font-medium transition-colors motion-reduce:transition-none ${b.id ? 'pl-1.5 pr-3.5' : 'px-4'} ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:bg-bos-raised hover:text-bos-text'}`}>
+                        {b.id && <Avatar name={b.name} color={colorOf(b.id)} size={28} />}
                         <span className="truncate">{b.name}</span>
                     </button>
                 ))}
@@ -407,14 +424,12 @@ export default function AppointmentsPage() {
             {warning && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-4 text-bos-danger">{warning}</p>}
 
             <section aria-label={view === 'day' ? 'Agenda del día por barbero' : view === 'week' ? 'Agenda de la semana' : 'Calendario'}
-                data-testid={view === 'day' ? 'day-view' : view === 'week' ? 'week-agenda' : undefined} className="overflow-hidden rounded-xl border border-bos-border bg-bos-surface">
+                data-testid={view === 'day' ? 'day-view' : view === 'week' ? 'week-agenda' : undefined} className="overflow-clip rounded-2xl border border-bos-border bg-bos-surface shadow-sm">
                 {waiting ? (
-                    <div role="status" aria-live="polite" data-testid="agenda-loading" className="flex h-80 flex-col items-center justify-center gap-3 text-bos-muted">
-                        <Loader2 className="h-8 w-8 animate-spin" />
-                        <span className="text-sm">Cargando la agenda…</span>
-                    </div>
+                    <AgendaSkeleton view={view} />
                 ) : loadError ? (
-                    <div role="alert" data-testid="agenda-error" className="flex min-h-64 flex-col items-center justify-center gap-4 p-8 text-center">
+                    <div role="alert" data-testid="agenda-error" className="bos-fade flex min-h-64 flex-col items-center justify-center gap-4 p-8 text-center">
+                        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-bos-danger-soft text-bos-danger"><TriangleAlert aria-hidden="true" className="h-6 w-6" /></span>
                         <p className="font-semibold text-bos-danger">No se pudo cargar la agenda.</p>
                         <p className="max-w-md text-sm text-bos-muted">{loadError}</p>
                         <button type="button" onClick={() => fetchAppointments()} className={secondary}><RotateCw className="h-5 w-5" /> Reintentar</button>
@@ -422,8 +437,8 @@ export default function AppointmentsPage() {
                 ) : (
                     <>
                         {rangeAppointments === 0 && (
-                            <p data-testid="agenda-empty" className="flex items-center gap-2 border-b border-bos-border px-4 py-3 text-sm text-bos-muted">
-                                <Calendar aria-hidden="true" className="h-4 w-4 shrink-0" />
+                            <p data-testid="agenda-empty" className="flex items-center gap-3 border-b border-bos-border bg-bos-raised px-4 py-3 text-sm text-bos-muted">
+                                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bos-surface text-bos-muted"><Calendar aria-hidden="true" className="h-4 w-4" /></span>
                                 <span>{emptyNote}{canManage && view === 'day' ? ' Toca una hora libre para agendar.' : ''}</span>
                             </p>
                         )}
@@ -436,44 +451,58 @@ export default function AppointmentsPage() {
                                 colorOf={colorOf} schedule={schedule} timeOff={liveOff} canManage={canManage} defaultColumnId={ownBarberId}
                                 onSlot={(time, barberId) => openForm(dayKey, time, barberId)} onOpenAppointment={openAppointment} />
                         ))}
-                        {view === 'week' && (
-                            <WeekAgenda days={weekKeys} todayKey={todayKey} byDay={byDay} schedule={schedule} offOnDay={offOnDay} colorOf={colorOf}
+                        {view === 'week' && (wide ? (
+                            <WeekGrid key={weekKeys[0]} days={weekKeys} todayKey={todayKey} nowMinutes={nowMinutes} byDay={byDay} schedule={schedule} offOnDay={offOnDay} colorOf={colorOf}
                                 onPickDay={(key) => { goToDay(key); setView('day'); }} onOpenAppointment={openAppointment} />
-                        )}
+                        ) : (
+                            <WeekAgenda key={weekKeys[0]} days={weekKeys} todayKey={todayKey} byDay={byDay} schedule={schedule} offOnDay={offOnDay} colorOf={colorOf}
+                                onPickDay={(key) => { goToDay(key); setView('day'); }} onOpenAppointment={openAppointment} />
+                        ))}
                         {view === 'month' && (
-                            <div aria-label="Calendario del mes">
-                                <div className="grid grid-cols-7 border-b border-bos-border">
-                                    {WEEK.map((d) => <div key={d} className="py-3 text-center text-[13px] font-medium text-bos-muted"><span className="sm:hidden">{d.slice(0, 1)}</span><span className="hidden sm:inline">{d}</span></div>)}
+                            <div key={`${year}-${month}`} aria-label="Calendario del mes" className="bos-fade">
+                                <div className="grid grid-cols-7 border-b border-bos-border bg-bos-bg">
+                                    {WEEK.map((d) => <div key={d} className="py-3 text-center text-xs font-semibold text-bos-muted"><span className="sm:hidden">{d.slice(0, 1)}</span><span className="hidden sm:inline">{d}</span></div>)}
                                 </div>
                                 <div className="grid grid-cols-7">
                                     {cells.map((d, i) => {
-                                        if (d === null) return <div key={`e${i}`} className="min-h-16 border-b border-r border-bos-border bg-bos-bg/40 md:min-h-32" />;
+                                        if (d === null) return <div key={`e${i}`} className="min-h-[72px] border-b border-r border-bos-border md:min-h-36" style={{ background: SUBTLE_BG }} />;
                                         const key = localDateKey(new Date(year, month, d));
-                                        const list = byDay.get(key) ?? [];
+                                        const list = [...(byDay.get(key) ?? [])].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
                                         const active = list.filter((a) => isActive(a.status));
+                                        const barberDots = [...new Set(active.map((a) => a.barber?.id ?? ''))].slice(0, 4);
                                         const isToday = key === todayKey;
+                                        const off = offOnDay(key);
                                         return (
                                             <button key={key} type="button" data-testid={`day-${key}`} onClick={() => { setActionError(''); setOnlyApt(null); setOpenDay(key); }}
                                                 aria-label={`${dayTitle(key)}: ${active.length === 0 ? 'sin citas' : `${active.length} cita${active.length === 1 ? '' : 's'}`}`}
-                                                className="flex min-h-16 min-w-0 flex-col items-center gap-1 border-b border-r border-bos-border p-1.5 text-left align-top transition-colors hover:bg-bos-raised focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bos-accent md:min-h-32 md:items-stretch md:p-2">
+                                                className={`flex min-h-[72px] min-w-0 flex-col items-center gap-1.5 border-b border-r border-bos-border p-1.5 text-left align-top transition-colors hover:bg-bos-raised focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bos-accent motion-reduce:transition-none md:min-h-36 md:items-stretch md:p-2.5 ${isToday ? 'bg-bos-accent-soft' : ''}`}>
                                                 <span className="flex items-center md:block">
-                                                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${isToday ? 'bg-bos-accent text-bos-on-accent' : 'text-bos-text'}`}>{d}</span>
-                                                    {offOnDay(key).length > 0 && (
-                                                        <span className="ml-1 hidden text-xs text-bos-muted md:inline">· {offOnDay(key).map((t) => t.barber_name).join(', ')} no viene</span>
+                                                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold tabular-nums ${isToday ? 'bg-bos-accent text-bos-on-accent' : 'text-bos-text'}`}>{d}</span>
+                                                    {off.length > 0 && (
+                                                        <span className="ml-1 hidden text-xs text-bos-muted md:inline">· {off.map((t) => t.barber_name).join(', ')} no viene</span>
                                                     )}
                                                 </span>
-                                                <span className="mt-1 hidden flex-col gap-1 md:flex">
-                                                    {list.slice(0, 3).map((a) => (
-                                                        <span key={a.id} className={`truncate rounded-md px-1.5 py-0.5 text-xs ${isActive(a.status) ? 'bg-bos-raised text-bos-text' : 'text-bos-muted line-through'}`}>
-                                                            {timeOf(a.scheduled_at)} {a.client_name}
-                                                        </span>
-                                                    ))}
-                                                    {list.length > 3 && <span className="px-1.5 text-xs text-bos-muted">+{list.length - 3} más</span>}
+                                                <span className="hidden min-w-0 flex-col gap-1 md:flex">
+                                                    {list.slice(0, 3).map((a) => {
+                                                        const color = a.barber ? colorOf(a.barber.id) : NO_BARBER_COLOR;
+                                                        const live = isActive(a.status) && a.status !== 'no_show';
+                                                        return (
+                                                            <span key={a.id} style={{ borderLeftColor: color, ...(live ? { background: tintOf(color) } : {}) }}
+                                                                className={`flex items-center gap-1.5 truncate rounded-md border-l-[3px] px-1.5 py-0.5 text-xs leading-4 ${live ? 'text-bos-text' : 'bg-bos-raised text-bos-muted'} ${isActive(a.status) ? '' : 'line-through'}`}>
+                                                                <span className="shrink-0 font-semibold tabular-nums">{timeOf(a.scheduled_at)}</span>
+                                                                <span className="truncate">{a.client_name}</span>
+                                                            </span>
+                                                        );
+                                                    })}
+                                                    {list.length > 3 && <span className="px-1.5 text-xs font-medium text-bos-muted">+{list.length - 3} más</span>}
                                                 </span>
                                                 {active.length > 0 && (
-                                                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-bos-accent-soft px-1.5 text-xs font-bold text-bos-accent-text md:hidden">{active.length}</span>
+                                                    <span className="flex items-center gap-1 md:hidden">
+                                                        {barberDots.map((id) => <span key={id || 'none'} aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: id ? colorOf(id) : NO_BARBER_COLOR }} />)}
+                                                        <span className="text-xs font-semibold tabular-nums text-bos-text">{active.length}</span>
+                                                    </span>
                                                 )}
-                                                {offOnDay(key).length > 0 && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-bos-muted md:hidden" />}
+                                                {off.length > 0 && <Ban aria-hidden="true" className="h-3 w-3 text-bos-muted md:hidden" />}
                                             </button>
                                         );
                                     })}
@@ -516,43 +545,64 @@ export default function AppointmentsPage() {
                     ) : (
                         <ul className="space-y-3">
                             {dayList.map((apt) => (
-                                <li key={apt.id} data-testid="appointment" className="rounded-2xl border border-bos-border p-4">
-                                    <div className="flex flex-col-reverse sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
-                                        <div className="min-w-0">
-                                            <p className={`text-[15px] font-semibold ${isActive(apt.status) ? '' : 'text-bos-muted line-through'}`}>{apt.client_name}</p>
-                                            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-bos-muted">
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLE[apt.status]}`}>{STATUS_LABELS[apt.status]}</span>
-                                                {apt.walk_in && <span className="px-2 py-0.5 rounded-full text-xs font-semibold border border-dashed border-bos-border">Sin cita</span>}
-                                                <span>{apt.barber ? apt.barber.name : 'Sin barbero asignado'}</span>
-                                                {canManage && apt.customer_phone && <span>· {apt.customer_phone}</span>}
+                                <li key={apt.id} data-testid="appointment" className="bos-fade overflow-hidden rounded-2xl border border-bos-border bg-bos-surface">
+                                    <div className="flex">
+                                        <span aria-hidden="true" className="w-1.5 shrink-0" style={{ background: apt.barber ? colorOf(apt.barber.id) : NO_BARBER_COLOR }} />
+                                        <div className="min-w-0 flex-1 p-4 sm:p-5">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <p className={`min-w-0 text-lg font-semibold leading-snug ${isActive(apt.status) ? '' : 'text-bos-muted line-through'}`}>{apt.client_name}</p>
+                                                <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                                                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[apt.status]}`}>{STATUS_LABELS[apt.status]}</span>
+                                                    {apt.walk_in && <span className="rounded-full border border-dashed border-bos-control px-2.5 py-0.5 text-xs font-semibold">Sin cita</span>}
+                                                </span>
+                                            </div>
+                                            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-semibold tabular-nums">
+                                                <Clock aria-hidden="true" className="h-4 w-4 text-bos-muted" />
+                                                {timeOf(apt.scheduled_at)}{apt.end_at ? ` – ${timeOf(apt.end_at)}` : ''}
+                                                {durationText(apt) && <span className="rounded-md bg-bos-raised px-1.5 py-0.5 text-xs font-medium text-bos-muted">{durationText(apt)}</span>}
                                             </p>
-                                            {apt.notes && <p className="mt-2 text-sm text-bos-muted whitespace-pre-line">{apt.notes}</p>}
-                                        </div>
-                                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[15px] font-semibold tabular-nums">
-                                            <Clock aria-hidden="true" className="h-4 w-4 text-bos-muted" />
-                                            {timeOf(apt.scheduled_at)}{apt.end_at ? ` – ${timeOf(apt.end_at)}` : ''}
-                                        </span>
-                                    </div>
-                                    {apt.sale && (
-                                        <Link href={`/ticket/${apt.sale.id}`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-bos-success hover:underline">
-                                            <Receipt aria-hidden="true" className="h-4 w-4" /> Cobrada · {money(apt.sale.total)} · Ver ticket
-                                        </Link>
-                                    )}
-                                    {canManage && (actionsFor(apt.status).length > 0 || canCharge(apt)) && (
-                                        <div className="flex flex-wrap gap-2 mt-3">
-                                            {canCharge(apt) && (
-                                                <Link href={`/pos?cita=${apt.id}`} data-testid="charge-appointment"
-                                                    className="min-h-11 px-4 rounded-xl bg-bos-accent text-bos-on-accent text-sm font-bold inline-flex items-center hover:brightness-105">Cobrar</Link>
+                                            <dl className="mt-3 grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
+                                                <div>
+                                                    <dt className="text-xs font-medium text-bos-muted">Barbero</dt>
+                                                    <dd className="mt-1 flex items-center gap-2 font-medium">
+                                                        {apt.barber ? <><Avatar name={apt.barber.name} color={colorOf(apt.barber.id)} size={24} /> {apt.barber.name}</> : 'Sin barbero asignado'}
+                                                    </dd>
+                                                </div>
+                                                {canManage && apt.customer_phone && (
+                                                    <div>
+                                                        <dt className="text-xs font-medium text-bos-muted">Teléfono</dt>
+                                                        <dd className="mt-1 font-medium tabular-nums">{apt.customer_phone}</dd>
+                                                    </div>
+                                                )}
+                                                {apt.notes && (
+                                                    <div className="sm:col-span-2">
+                                                        <dt className="text-xs font-medium text-bos-muted">Servicio o nota</dt>
+                                                        <dd className="mt-1 whitespace-pre-line">{apt.notes}</dd>
+                                                    </div>
+                                                )}
+                                            </dl>
+                                            {apt.sale && (
+                                                <Link href={`/ticket/${apt.sale.id}`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-bos-success hover:underline">
+                                                    <Receipt aria-hidden="true" className="h-4 w-4" /> Cobrada · {money(apt.sale.total)} · Ver ticket
+                                                </Link>
                                             )}
-                                            {actionsFor(apt.status).map((next) => (
-                                                <button key={next} type="button" disabled={busyId === apt.id}
-                                                    onClick={() => { if (next === 'cancelled') { setActionError(''); setCancelReason(''); setCancelTarget(apt); } else changeStatus(apt, next); }}
-                                                    className={`min-h-11 px-4 rounded-xl border text-sm font-semibold disabled:opacity-50 ${next === 'cancelled' ? 'border-bos-border text-bos-danger hover:bg-bos-raised' : 'border-bos-border text-bos-text hover:bg-bos-raised'}`}>
-                                                    {ACTION_LABELS[next]}
-                                                </button>
-                                            ))}
+                                            {canManage && (actionsFor(apt.status).length > 0 || canCharge(apt)) && (
+                                                <div className="mt-4 flex flex-wrap gap-2 border-t border-bos-border pt-4">
+                                                    {canCharge(apt) && (
+                                                        <Link href={`/pos?cita=${apt.id}`} data-testid="charge-appointment"
+                                                            className="inline-flex min-h-11 items-center rounded-xl bg-bos-accent px-4 text-sm font-bold text-bos-on-accent hover:brightness-105">Cobrar</Link>
+                                                    )}
+                                                    {actionsFor(apt.status).map((next) => (
+                                                        <button key={next} type="button" disabled={busyId === apt.id}
+                                                            onClick={() => { if (next === 'cancelled') { setActionError(''); setCancelReason(''); setCancelTarget(apt); } else changeStatus(apt, next); }}
+                                                            className={`min-h-11 rounded-xl border px-4 text-sm font-semibold hover:bg-bos-raised disabled:opacity-50 ${next === 'cancelled' ? 'border-bos-border text-bos-danger' : 'border-bos-border text-bos-text'}`}>
+                                                            {ACTION_LABELS[next]}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </li>
                             ))}
                         </ul>

@@ -208,3 +208,25 @@ export function weekDays(dateKey: string): string[] {
     const sunday = addDays(dateKey, -weekday);
     return Array.from({ length: 7 }, (_, i) => addDays(sunday, i));
 }
+
+// ---- Cuadrícula semanal y marcas de hora ----
+
+/** Horas en punto (en minutos del día) que caen dentro de un rango: las únicas que llevan etiqueta en el eje. */
+export function hourMarks(range: Span): number[] {
+    const out: number[] = [];
+    for (let m = Math.ceil(range.start / 60) * 60; m < range.end; m += 60) out.push(m);
+    return out;
+}
+
+/**
+ * Rango de la semana en cuadrícula: el mismo de 8:00 a 22:00 que el día, ampliado solo si alguna cita de la
+ * semana cae fuera (así no se pierde). Todas las columnas comparten las mismas filas.
+ */
+export function weekGridRange(appointmentSpans: Span[] = []): Span {
+    return gridRange(undefined, appointmentSpans);
+}
+
+/** ¿Un tramo ya empezó y aún no termina a esa hora? (para la línea de "ahora" y el resaltado de lo que está pasando). */
+export function isHappening(span: Span, nowMinutes: number): boolean {
+    return nowMinutes >= span.start && nowMinutes < span.end;
+}
