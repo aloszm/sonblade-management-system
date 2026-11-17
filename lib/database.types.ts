@@ -2365,6 +2365,10 @@ export type Database = {
         }
         Returns: Json
       }
+      team_ranking: {
+        Args: { p_branch_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       update_business_profile: {
         Args: {
           p_address: string
@@ -2394,7 +2398,13 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "no_show"
-      business_role: "owner" | "admin" | "cashier" | "receptionist" | "barber"
+      business_role:
+        | "owner"
+        | "admin"
+        | "cashier"
+        | "receptionist"
+        | "barber"
+        | "viewer"
       cash_direction: "in" | "out"
       cash_movement_type:
         | "sale_payment"
@@ -2565,7 +2575,14 @@ export const Constants = {
         "cancelled",
         "no_show",
       ],
-      business_role: ["owner", "admin", "cashier", "receptionist", "barber"],
+      business_role: [
+        "owner",
+        "admin",
+        "cashier",
+        "receptionist",
+        "barber",
+        "viewer",
+      ],
       cash_direction: ["in", "out"],
       cash_movement_type: [
         "sale_payment",

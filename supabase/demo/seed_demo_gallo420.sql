@@ -1,7 +1,7 @@
 -- ============================================================================
 -- DATOS DE EJEMPLO (DEMO) — solo para sonblade-dev, NUNCA para produccion.
 --
--- Crea el negocio "Gallo 420" con 6 usuarios de prueba, catalogo, inventario y
+-- Crea el negocio "Gallo 420" con 7 usuarios de prueba, catalogo, inventario y
 -- ventas de la semana pasada hechas con las funciones reales (confirm_sale,
 -- open_cash_session, close_cash_session), para poder ver el sistema funcionando.
 --
@@ -10,12 +10,13 @@
 -- Se niega a correr si ya existe algun negocio.
 --
 -- Usuarios (mismo correo, contrasena temporal compartida):
---   demo.dueno@gallo420.test   dueno (owner)
+--   demo.dueno@gallo420.test   Alonso, dueno (owner)
 --   demo.dago@gallo420.test    cajero
 --   demo.emi@gallo420.test     cajero
 --   demo.deya@gallo420.test    barbero
---   demo.sonia@gallo420.test   barbero
+--   demo.sonia@gallo420.test   barbera y gerente (admin)
 --   demo.dani@gallo420.test    barbero
+--   lucia@gallo420.test        consulta (viewer): ve lo mismo que gerencia, no cambia nada
 --
 -- NOTA HONESTA: para que existan ventas "de la semana pasada" las fechas de los
 -- registros de venta, pago, caja y comision se corren hacia atras despues de
@@ -28,6 +29,7 @@ DECLARE
   v_tz text;
   u_owner uuid := gen_random_uuid(); u_dago uuid := gen_random_uuid(); u_emi uuid := gen_random_uuid();
   u_deya uuid := gen_random_uuid(); u_sonia uuid := gen_random_uuid(); u_dani uuid := gen_random_uuid();
+  u_lucia uuid := gen_random_uuid();
   v_biz uuid; v_branch uuid;
   e_deya uuid; e_sonia uuid; e_dani uuid;
   s_corte uuid; s_infantil uuid; s_barba uuid; p_pomada uuid;
@@ -53,31 +55,33 @@ BEGIN
     extensions.crypt(pw, extensions.gen_salt('bf')), now(), '', '', '', '', '', '', '', '',
     '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('full_name', u.full_name), now(), now()
   FROM (VALUES
-    (u_owner, 'demo.dueno@gallo420.test', 'Dueño Gallo 420'),
+    (u_owner, 'demo.dueno@gallo420.test', 'Alonso'),
     (u_dago,  'demo.dago@gallo420.test',  'Dago'),
     (u_emi,   'demo.emi@gallo420.test',   'Emi'),
     (u_deya,  'demo.deya@gallo420.test',  'Deya'),
     (u_sonia, 'demo.sonia@gallo420.test', 'Sonia'),
-    (u_dani,  'demo.dani@gallo420.test',  'Dani')
+    (u_dani,  'demo.dani@gallo420.test',  'Dani'),
+    (u_lucia, 'lucia@gallo420.test',      'Lucía')
   ) AS u(id, email, full_name);
   INSERT INTO auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
   SELECT id::text, id, jsonb_build_object('sub', id::text, 'email', email, 'email_verified', true, 'phone_verified', false),
     'email', now(), now(), now()
-  FROM auth.users WHERE id IN (u_owner, u_dago, u_emi, u_deya, u_sonia, u_dani);
+  FROM auth.users WHERE id IN (u_owner, u_dago, u_emi, u_deya, u_sonia, u_dani, u_lucia);
 
   -- 2) Negocio, sucursal y equipo (con la funcion real de arranque)
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
-  PERFORM public.bootstrap_first_owner(u_owner, 'Dueño Gallo 420', 'Gallo 420', 'gallo-420', 'Sucursal Principal');
+  PERFORM public.bootstrap_first_owner(u_owner, 'Alonso', 'Gallo 420', 'gallo-420', 'Sucursal Principal');
   SELECT id INTO v_biz FROM public.businesses LIMIT 1;
   SELECT id INTO v_branch FROM public.branches WHERE business_id = v_biz LIMIT 1;
   SELECT timezone INTO v_tz FROM public.businesses WHERE id = v_biz;
   INSERT INTO public.profiles (user_id, full_name) VALUES
-    (u_dago, 'Dago'), (u_emi, 'Emi'), (u_deya, 'Deya'), (u_sonia, 'Sonia'), (u_dani, 'Dani');
+    (u_dago, 'Dago'), (u_emi, 'Emi'), (u_deya, 'Deya'), (u_sonia, 'Sonia'), (u_dani, 'Dani'), (u_lucia, 'Lucía');
   INSERT INTO public.business_memberships (business_id, user_id, role) VALUES
     (v_biz, u_dago, 'receptionist'), (v_biz, u_emi, 'receptionist'),
-    (v_biz, u_deya, 'barber'), (v_biz, u_sonia, 'admin'), (v_biz, u_dani, 'barber'); -- Sonia es gerente de la sucursal
+    (v_biz, u_deya, 'barber'), (v_biz, u_sonia, 'admin'), (v_biz, u_dani, 'barber'), -- Sonia es gerente de la sucursal
+    (v_biz, u_lucia, 'viewer'); -- Lucía: consulta, sin empleado (no es barbera ni recepción)
   INSERT INTO public.user_branch_access (business_id, branch_id, user_id) VALUES
-    (v_biz, v_branch, u_dago), (v_biz, v_branch, u_emi), (v_biz, v_branch, u_deya), (v_biz, v_branch, u_sonia), (v_biz, v_branch, u_dani);
+    (v_biz, v_branch, u_dago), (v_biz, v_branch, u_emi), (v_biz, v_branch, u_deya), (v_biz, v_branch, u_sonia), (v_biz, v_branch, u_dani), (v_biz, v_branch, u_lucia);
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_deya, 'Deya') RETURNING id INTO e_deya;
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_sonia, 'Sonia') RETURNING id INTO e_sonia;
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_dani, 'Dani') RETURNING id INTO e_dani;
