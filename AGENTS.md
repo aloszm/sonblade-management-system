@@ -1,4 +1,4 @@
-# Sonblade — instrucciones para Codex
+# BarberOS (Gallo 4:20) — instrucciones para agentes
 
 Antes de modificar el código, lee estos documentos en este orden:
 1. `docs/product/PRD.md`

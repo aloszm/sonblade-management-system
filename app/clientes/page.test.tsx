@@ -26,12 +26,12 @@ describe('Clientes por puesto', () => {
         expect(screen.queryByRole('columnheader', { name: 'Acciones' })).not.toBeInTheDocument();
     });
 
-    it('recepción y gerencia siguen viendo editar y eliminar', async () => {
+    it('recepción y gerencia siguen viendo editar, y nadie ve eliminar', async () => {
         for (const role of ['recepcion', 'admin'] as const) {
             mockSession(role);
             const { unmount } = render(<ClientsPage />);
             expect(await screen.findByRole('button', { name: 'Editar a Marco Pérez' })).toBeInTheDocument();
-            expect(screen.getByRole('button', { name: 'Eliminar a Marco Pérez' })).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /Eliminar a/ })).not.toBeInTheDocument();
             expect(screen.getByRole('columnheader', { name: 'Acciones' })).toBeInTheDocument();
             unmount();
         }

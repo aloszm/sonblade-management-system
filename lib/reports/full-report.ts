@@ -59,7 +59,7 @@ export const AUDIENCE_NOTES: Record<Audience, string> = {
     contador: 'Sin nombres ni teléfonos de clientes: solo totales y movimientos del negocio.',
 };
 export const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
-export const ROLE_LABELS: Record<string, string> = { owner: 'Dueño', admin: 'Gerencia', cashier: 'Recepción', receptionist: 'Recepción', barber: 'Barbero' };
+export const ROLE_LABELS: Record<string, string> = { owner: 'Dueño', admin: 'Gerencia', cashier: 'Recepción', receptionist: 'Recepción', barber: 'Barbero', viewer: 'Consulta' };
 export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
     scheduled: 'Programada', confirmed: 'Confirmada', checked_in: 'Ya llegó', in_progress: 'En servicio',
     completed: 'Completada', cancelled: 'Cancelada', no_show: 'No llegó',

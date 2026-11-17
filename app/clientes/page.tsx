@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Loader2, Star, Clock, FileText, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Loader2, Star, Clock, FileText, Pencil } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import type { Client } from '@/types';
 import { format } from 'date-fns';
@@ -20,7 +20,6 @@ export default function ClientsPage() {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
-    const [listError, setListError] = useState('');
     // El barbero registra clientes nuevos, pero no edita ni elimina los existentes.
     // Hasta saber el puesto se asume que no puede (nunca se muestra un botón que luego falla).
     const [canEdit, setCanEdit] = useState(false);
@@ -111,18 +110,6 @@ export default function ClientsPage() {
         }
     };
 
-    const handleDelete = async (c: Client) => {
-        if (!window.confirm(`¿Eliminar a ${c.name}? Esta acción no se puede deshacer.`)) return;
-        setListError('');
-        try {
-            const res = await fetch(`/api/clients/${c.id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error((await res.json()).error || 'Error al eliminar');
-            await fetchClients();
-        } catch (err: unknown) {
-            setListError(err instanceof Error ? err.message : 'Error al eliminar');
-        }
-    };
-
     const filteredClients = clients.filter(c =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (c.phone && c.phone.includes(searchQuery)) ||
@@ -148,8 +135,6 @@ export default function ClientsPage() {
                     <Plus className="h-4 w-4" /> Registrar cliente
                 </button>}
             </header>
-
-            {listError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-3 text-sm text-bos-danger">{listError}</p>}
 
             {/* Resumen */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -254,14 +239,6 @@ export default function ClientsPage() {
                                                 className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text hover:bg-bos-raised rounded-xl transition-colors"
                                             >
                                                 <Pencil className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(c)}
-                                                title="Eliminar cliente"
-                                                aria-label={`Eliminar a ${c.name}`}
-                                                className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-danger hover:bg-bos-raised rounded-xl transition-colors"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
                                             </button>
                                         </div>
                                     </td>}
