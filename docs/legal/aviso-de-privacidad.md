@@ -10,9 +10,9 @@
 
 ### 1. Quién es el responsable de sus datos
 
-`[POR COMPLETAR: nombre completo o razón social del responsable; RFC si aplica]`, que opera **Gallo 4:20, Barber Shop** (el "Responsable"), con domicilio en Efeso 2, Colonia Lomas Estrella 2da Sección, Alcaldía Iztapalapa, C.P. 09890, Ciudad de México. Teléfono: 55 3309 8072.
+**Barbería Gallo 420**, que opera **Gallo 4:20, Barber Shop** (el "Responsable"), con domicilio en Efeso 2, Colonia Lomas Estrella 2da Sección, Alcaldía Iztapalapa, C.P. 09890, Ciudad de México. Teléfono: 55 3309 8072.
 
-Contacto para asuntos de privacidad: `[POR COMPLETAR: correo electrónico o persona/área designada para atender solicitudes de privacidad]`.
+Contacto para asuntos de privacidad: barberia.gallo420@gmail.com.
 
 ### 2. Qué datos personales tratamos
 
@@ -68,7 +68,7 @@ Usted puede:
 - **Oponerse** a que los usemos para ciertos fines.
 - **Revocar** el consentimiento que nos haya dado y **limitar** el uso o la divulgación de sus datos.
 
-**Cómo solicitarlo:** envíe una solicitud a `[POR COMPLETAR: correo electrónico]` o entréguela por escrito en Efeso 2, Lomas Estrella 2da Sección, Iztapalapa, 09890, CDMX, `[POR COMPLETAR: horario de atención]`. Debe incluir:
+**Cómo solicitarlo:** envíe una solicitud a barberia.gallo420@gmail.com o entréguela por escrito en Efeso 2, Lomas Estrella 2da Sección, Iztapalapa, 09890, CDMX, `[POR COMPLETAR: horario de atención]`. Debe incluir:
 1. Su nombre y un medio para responderle.
 2. Un documento que acredite su identidad (o el de su representante, o del menor y de su tutor).
 3. La descripción clara de los datos y del derecho que quiere ejercer.
