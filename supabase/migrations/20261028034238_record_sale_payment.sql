@@ -180,3 +180,4 @@ REVOKE ALL ON FUNCTION public.record_sale_payment(uuid, text, numeric, public.pa
 GRANT EXECUTE ON FUNCTION public.record_sale_payment(uuid, text, numeric, public.payment_method, text) TO authenticated;
 
 COMMIT;
+

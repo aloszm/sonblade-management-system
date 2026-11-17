@@ -297,3 +297,4 @@ GRANT EXECUTE ON FUNCTION public.review_commission_adjustment(uuid, boolean, tex
 GRANT EXECUTE ON FUNCTION public.settle_commissions(uuid, uuid, date, date, public.payment_method, text) TO authenticated;
 
 COMMIT;
+

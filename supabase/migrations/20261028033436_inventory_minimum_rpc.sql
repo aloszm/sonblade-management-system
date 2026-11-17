@@ -46,3 +46,4 @@ REVOKE ALL ON FUNCTION public.set_inventory_minimum(uuid, uuid, integer) FROM PU
 GRANT EXECUTE ON FUNCTION public.set_inventory_minimum(uuid, uuid, integer) TO authenticated;
 
 COMMIT;
+

@@ -51,3 +51,4 @@ REVOKE ALL ON FUNCTION public.update_business_profile(uuid, uuid, text, text, te
 GRANT EXECUTE ON FUNCTION public.update_business_profile(uuid, uuid, text, text, text, text, text, jsonb) TO authenticated;
 
 COMMIT;
+

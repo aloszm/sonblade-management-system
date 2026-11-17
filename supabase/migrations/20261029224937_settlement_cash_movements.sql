@@ -57,3 +57,4 @@ AFTER INSERT ON public.commission_settlements
 FOR EACH ROW EXECUTE FUNCTION private.record_commission_settlement_cash_movement();
 
 COMMIT;
+

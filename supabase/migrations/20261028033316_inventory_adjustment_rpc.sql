@@ -77,3 +77,4 @@ REVOKE ALL ON FUNCTION public.adjust_inventory_stock(uuid, uuid, integer, text) 
 GRANT EXECUTE ON FUNCTION public.adjust_inventory_stock(uuid, uuid, integer, text) TO authenticated;
 
 COMMIT;
+
