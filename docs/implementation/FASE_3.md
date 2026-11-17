@@ -49,12 +49,12 @@ Subido a `feat/v2-integration`; tipos, lint, pruebas unitarias y compilación si
 - **Recepción:** pantalla "Barberos hoy" (`/equipo-hoy`): servicios por tipo, productos y lo que lleva cada barbero al día, semana y mes.
 - **Ranking** rediseñado (`components/Ranking.tsx`) con podio y tres pestañas: cortes, ingreso y productos vendidos. Dueño, gerencia y recepción ven importes; el barbero ve cortes y productos, y en ingreso solo su lugar y su importe (la regla se aplica en el servidor).
 
-### Bloqueado: migraciones pendientes de aprobación del dueño
+### Migraciones aplicadas el 16 de noviembre (noche)
 
-Las aprobaciones del conector de Supabase no están llegando al dueño (cinco intentos cancelados por falta de respuesta). Hasta que se apruebe desde la computadora o se pegue el SQL en el panel de Supabase, quedan sin aplicar:
+- `20261116213703_clients_update_front_desk_only`: solo dueño, gerencia, caja y recepción pueden actualizar clientes en la base; cualquier miembro puede registrar uno nuevo.
+- `20261117010529_team_ranking`: función `team_ranking`. El barbero ya ve las tres pestañas del ranking y los tres periodos; la función le entrega en nulo los importes de los demás. Probada como Dani (solo ve su ingreso) y como Dago (ve todos), con la semana simulada.
 
-1. **Permisos de clientes** (hueco de seguridad): hoy cualquier miembro del negocio puede actualizar un cliente directamente en la base. Reemplazar la política `clients_update_member` por una limitada a dueño, gerencia, caja y recepción. La app ya lo impide; la base todavía no.
-2. **`supabase/pending/team_ranking.sql`**: función `team_ranking`. Sin ella el barbero solo ve el ranking de cortes de la semana actual; ingreso, productos y otros periodos muestran "disponible pronto". Al aplicarla se encienden solos. Al aplicarla, mover el archivo a `supabase/migrations/<versión>_team_ranking.sql`.
+Pendiente menor: `lib/database.types.ts` no incluye todavía `team_ranking` (la ruta la llama sin tipos generados); regenerar los tipos en la próxima tanda que toque la base.
 
 ### Decisiones abiertas
 
