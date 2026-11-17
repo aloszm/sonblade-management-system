@@ -11,7 +11,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
     const pathname = usePathname();
 
-    if (pathname === '/login' || pathname === '/onboarding') return <>{children}</>;
+    // Páginas públicas (clientes sin cuenta): sin menú ni encabezado internos.
+    const isPublic = pathname === '/login' || pathname === '/onboarding'
+        || pathname === '/privacidad' || pathname === '/reservar' || pathname.startsWith('/reservar/');
+    if (isPublic) return <>{children}</>;
 
     return (
         <div className="flex h-screen overflow-hidden bg-bos-bg flex-col md:flex-row print:block print:h-auto print:overflow-visible">
