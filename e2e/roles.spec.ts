@@ -38,7 +38,7 @@ test.describe('acceso por puesto', () => {
         expect((await page.request.post('/api/appointments', { data: { customer_name: 'Prueba', scheduled_at: new Date().toISOString() } })).status()).toBe(403);
     });
 
-    test('la gerente opera la sucursal, pero solo el dueño cambia configuración y comisiones', async ({ page }) => {
+    test('la gerente opera la sucursal, pero solo el dueño cambia comisiones; la caja la cambia con PIN', async ({ page }) => {
         await login(page, USERS.manager);
         const me = (await (await page.request.get('/api/auth/me')).json()).user;
         expect(me.title).toBe('Gerente');
@@ -49,8 +49,9 @@ test.describe('acceso por puesto', () => {
         expect((await page.request.get('/api/cash/history')).status()).toBe(200);
 
         const cash = await (await page.request.get('/api/cash/settings')).json();
-        expect(cash.can_edit).toBe(false);
-        expect((await page.request.post('/api/cash/settings', { data: { float_target: 1, reserve_amount: 1, reserve_label: 'No' } })).status()).toBe(403);
+        // La gerente puede cambiar los ajustes de caja, pero solo con su PIN y un comentario.
+        expect(cash.can_edit).toBe(true);
+        expect((await page.request.post('/api/cash/settings', { data: { float_target: 1, reserve_amount: 1, reserve_label: 'No' } })).status()).toBe(400);
         const profile = await (await page.request.get('/api/settings?key=shop_profile')).json();
         expect((await page.request.post('/api/settings', { data: { key: 'shop_profile', value: { ...profile, productCommissionPct: 90 } } })).status()).toBe(403);
 
