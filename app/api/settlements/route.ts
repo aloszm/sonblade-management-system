@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { addDays, isSunday, latestClosedWeekStart } from '@/lib/settlements/week';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -31,7 +32,7 @@ type Preview = {
  */
 export async function GET(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_READ_ROLES);
         const supabase = await createSupabaseServerClient();
 
         const { data: business, error: businessError } = await supabase.from('businesses').select('timezone').eq('id', context.businessId).single();

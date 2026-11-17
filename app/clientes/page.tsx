@@ -24,11 +24,17 @@ export default function ClientsPage() {
     // El barbero registra clientes nuevos, pero no edita ni elimina los existentes.
     // Hasta saber el puesto se asume que no puede (nunca se muestra un botón que luego falla).
     const [canEdit, setCanEdit] = useState(false);
+    // La cuenta de consulta no registra ni edita: solo ve la cartera.
+    const [readOnly, setReadOnly] = useState(true);
 
     useEffect(() => {
         fetch('/api/auth/me', { cache: 'no-store' }).then((r) => r.json())
-            .then((me) => setCanEdit(Boolean(me?.authenticated) && me.user?.role !== 'barber'))
-            .catch(() => setCanEdit(false));
+            .then((me) => {
+                const ro = !me?.authenticated || Boolean(me.user?.readOnly);
+                setReadOnly(ro);
+                setCanEdit(Boolean(me?.authenticated) && me.user?.role !== 'barber' && !ro);
+            })
+            .catch(() => { setCanEdit(false); setReadOnly(true); });
     }, []);
 
     const fetchClients = useCallback(async () => {
@@ -135,12 +141,12 @@ export default function ClientsPage() {
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Cartera de clientes</h1>
                     <p className="text-bos-muted text-sm mt-1">Gestión de clientes y sistema de fidelización</p>
                 </div>
-                <button
+                {!readOnly && <button
                     onClick={openCreate}
                     className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong flex items-center justify-center gap-2"
                 >
                     <Plus className="h-4 w-4" /> Registrar cliente
-                </button>
+                </button>}
             </header>
 
             {listError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-3 text-sm text-bos-danger">{listError}</p>}

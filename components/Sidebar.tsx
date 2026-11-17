@@ -10,9 +10,11 @@ import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 
 interface SidebarProps { isOpen: boolean }
-interface MenuItem { href: string; label: string; icon: LucideIcon; roles: Role[]; ownerOnly?: boolean }
+// writesOnly: pantallas que solo sirven para cambiar algo (cobrar) o propias de quien trabaja (Mi semana);
+// la cuenta de consulta (readOnly) no las ve.
+interface MenuItem { href: string; label: string; icon: LucideIcon; roles: Role[]; ownerOnly?: boolean; writesOnly?: boolean }
 type Role = 'admin' | 'recepcion' | 'barber';
-type User = { name: string; role: Role; id: string; isOwner?: boolean; title?: string };
+type User = { name: string; role: Role; id: string; isOwner?: boolean; title?: string; readOnly?: boolean };
 
 // Cada puesto ve solo lo que usa. Pocas secciones y nombres cortos.
 const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
@@ -20,8 +22,8 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
         title: null,
         items: [
             { href: '/', label: 'Panel', icon: LayoutDashboard, roles: ['admin'] },
-            { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin'] },
-            { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'] },
+            { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin'], writesOnly: true },
+            { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'], writesOnly: true },
             { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
             { href: '/equipo-hoy', label: 'Barberos hoy', icon: Trophy, roles: ['admin', 'recepcion'] },
             { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },
@@ -66,7 +68,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     if (!isOpen) return null;
 
     const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`));
-    const allowed = (item: MenuItem) => Boolean(user) && item.roles.includes(user!.role) && (!item.ownerOnly || Boolean(user!.isOwner));
+    const allowed = (item: MenuItem) => Boolean(user) && item.roles.includes(user!.role) && (!item.ownerOnly || Boolean(user!.isOwner))
+        && !(item.writesOnly && user!.readOnly);
 
     return (
         <aside className="h-full w-60 flex flex-col shrink-0 bg-bos-surface text-bos-text border-r border-bos-border">

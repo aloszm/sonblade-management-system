@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     try {
         const context = await requireAuthContext();
         // Administración puede pedir también a los inactivos (para reactivarlos); el resto solo ve activos.
-        const includeInactive = request.nextUrl.searchParams.get('include_inactive') === '1' && ['owner', 'admin'].includes(context.role);
+        const includeInactive = request.nextUrl.searchParams.get('include_inactive') === '1' && MANAGEMENT_READ_ROLES.includes(context.role);
         let query = (await createSupabaseServerClient()).from('employees')
             .select('id, display_name, phone, is_active, is_barber, user_id, can_authorize_discounts')
             .eq('business_id', context.businessId).order('display_name');

@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/onboarding', request.url));
         }
         const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
-        if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin'].includes(membership.role)) {
+        if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin', 'viewer'].includes(membership.role)) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/pos', request.url));
         }
@@ -58,12 +58,14 @@ export async function middleware(request: NextRequest) {
 
         // Pantallas que no corresponden al puesto: se manda al Punto de Venta. Las APIs validan su propio rol.
         const role = membership.role;
-        const isAdmin = role === 'owner' || role === 'admin';
+        // La consulta (viewer) ve las pantallas de gerencia en modo de solo lectura; no cobra ni tiene "Mi semana".
+        const isAdmin = role === 'owner' || role === 'admin' || role === 'viewer';
         const matches = (paths: string[]) => paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
         const notForRole = (!isAdmin && pathname === '/')
             || (role === 'barber' && matches(['/caja', '/pos', '/equipo-hoy']))
-            || ((role === 'receptionist' || role === 'cashier') && matches(['/barbero', '/barberos']));
-        if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : '/pos', request.url));
+            || ((role === 'receptionist' || role === 'cashier') && matches(['/barbero', '/barberos']))
+            || (role === 'viewer' && matches(['/pos', '/barbero']));
+        if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : role === 'viewer' ? '/' : '/pos', request.url));
     }
 
     return response;

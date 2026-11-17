@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Plus, Search, Loader2, Info } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 
@@ -13,6 +14,8 @@ interface Gasto {
 }
 
 export default function GastosPage() {
+    // Cuenta de consulta: ve los gastos sin registrar nuevos.
+    const readOnly = useReadOnly();
     const [gastos, setGastos] = useState<Gasto[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -96,13 +99,14 @@ export default function GastosPage() {
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Gastos e insumos</h1>
                     <p className="text-bos-muted text-sm mt-1">Control de egresos y compras de la barbería</p>
                 </div>
-                <button
+                {!readOnly && <button
                     onClick={() => { setFormError(''); setShowAddModal(true); }}
                     className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong transition-opacity"
                 >
                     <Plus className="h-4 w-4" /> Registrar gasto
-                </button>
+                </button>}
             </header>
+            <ReadOnlyNotice readOnly={readOnly} />
 
             {/* Explicación para recepción */}
             <section aria-labelledby="gasto-vs-retiro" className="rounded-xl border border-bos-border bg-bos-surface p-5">

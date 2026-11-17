@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { ArrowDown, CheckCircle2, Loader2, TriangleAlert } from 'lucide-react';
 import { presetRange, type PresetId } from '@/lib/reports/metrics';
 import {
@@ -24,6 +25,8 @@ const chip = (on: boolean) => `min-h-9 px-3 rounded-full border text-sm font-med
  * corrige o la marca como revisada con motivo (queda en el historial y en la bitácora).
  */
 export default function ReconciliationPage() {
+    // Cuenta de consulta: ve el cuadre y las diferencias, sin revisarlas ni aceptarlas.
+    const readOnly = useReadOnly();
     const today = useMemo(() => localDateKey(new Date()), []);
     const [preset, setPreset] = useState<(typeof PRESETS)[number]['id']>('today');
     const [data, setData] = useState<Reconciliation | null>(null);
@@ -121,6 +124,7 @@ export default function ReconciliationPage() {
                     ))}
                 </div>
             </header>
+            <ReadOnlyNotice readOnly={readOnly}>Ves el cuadre y las diferencias, pero no las marcas como revisadas.</ReadOnlyNotice>
 
             {error && (
                 <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bos-border bg-bos-danger-soft p-4">
@@ -245,16 +249,16 @@ export default function ReconciliationPage() {
 
                         {tab === 'pendiente' && groups.preAgenda.length > 0 && (
                             <PreAgendaGroup issues={groups.preAgenda} total={Math.max(preAgendaTotal, groups.preAgenda.length)}
-                                before={data.summary?.pre_agenda_before ?? '2026-11-15T17:56:46Z'} timeZone={tz} onAcceptAll={acceptAll} />
+                                before={data.summary?.pre_agenda_before ?? '2026-11-15T17:56:46Z'} timeZone={tz} onAcceptAll={readOnly ? undefined : acceptAll} />
                         )}
 
                         {tab === 'revisada' && groups.preAgenda.length > 0 && (
-                            <PreAgendaReviewedGroup issues={groups.preAgenda} timeZone={tz} onReview={review} />
+                            <PreAgendaReviewedGroup issues={groups.preAgenda} timeZone={tz} onReview={readOnly ? undefined : review} />
                         )}
 
                         {groups.others.length > 0 ? (
                             <ul className="space-y-3">
-                                {groups.others.map((i) => <IssueCard key={i.key} issue={i} timeZone={tz} onReview={review} />)}
+                                {groups.others.map((i) => <IssueCard key={i.key} issue={i} timeZone={tz} onReview={readOnly ? undefined : review} />)}
                             </ul>
                         ) : groups.preAgenda.length === 0 && (
                             <p className="rounded-xl border border-dashed border-bos-border p-6 text-center text-sm text-bos-muted">

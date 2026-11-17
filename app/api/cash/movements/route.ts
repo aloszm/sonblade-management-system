@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -15,7 +15,7 @@ const MovementSchema = z.object({
 
 export async function GET(request: NextRequest) {
     try {
-        const context = await requireAuthContext(FRONT_DESK_ROLES);
+        const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const supabase = await createSupabaseServerClient();
         const sessionId = request.nextUrl.searchParams.get('session_id');
         let query = supabase.from('cash_movements')

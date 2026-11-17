@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { loadOpenSession } from '@/lib/cash/session-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -13,7 +13,7 @@ const OpenSchema = z.object({ opening_cash: z.number().min(0).max(1_000_000) });
 /** Caja abierta de la sucursal (o null si no hay). */
 export async function GET() {
     try {
-        const context = await requireAuthContext(FRONT_DESK_ROLES);
+        const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const supabase = await createSupabaseServerClient();
         const session = await loadOpenSession(supabase, context.businessId, context.branchId);
         return Response.json(session, { headers: NO_STORE });

@@ -31,6 +31,8 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 export default function LiquidacionesPage() {
     const router = useRouter();
     const [role, setRole] = useState<'admin' | 'recepcion' | 'barber' | null>(null);
+    // Cuenta de consulta: ve la semana y los recibos, pero no registra pagos.
+    const [readOnly, setReadOnly] = useState(true);
     const [periodStart, setPeriodStart] = useState<string | null>(null);
     const [week, setWeek] = useState<Week | null>(null);
     const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -59,8 +61,9 @@ export default function LiquidacionesPage() {
     useEffect(() => {
         (async () => {
             try {
-                const me = await api<{ user: { role: 'admin' | 'recepcion' | 'barber' } }>('/api/auth/me');
+                const me = await api<{ user: { role: 'admin' | 'recepcion' | 'barber'; readOnly?: boolean } }>('/api/auth/me');
                 setRole(me.user.role);
+                setReadOnly(Boolean(me.user.readOnly));
                 if (me.user.role === 'admin') await loadWeek(null); else setLoading(false);
             } catch { setLoading(false); setError('No se pudo identificar tu sesión.'); }
             loadHistory();
@@ -104,6 +107,7 @@ export default function LiquidacionesPage() {
         }
         if (row.reason === 'week_not_closed') return <span className="text-bos-accent-text font-medium">Cierra el sábado a las 8:00 pm</span>;
         if (row.reason === 'nothing_to_pay') return <span className="text-bos-muted">Sin comisiones</span>;
+        if (readOnly) return <span className="text-bos-muted font-medium">Pendiente de pago</span>;
         return (
             <button onClick={() => openPay(row)} className="min-h-11 px-4 rounded-xl bg-bos-accent text-bos-on-accent text-sm font-bold hover:bg-bos-accent-strong inline-flex items-center gap-1.5">
                 <Wallet className="h-4 w-4" /> Pagar

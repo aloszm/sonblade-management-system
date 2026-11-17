@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { toAppointmentView, type AppointmentRow } from '@/lib/appointments/appointments-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -19,7 +19,7 @@ const COLUMNS = 'id, client_id, assigned_employee_id, customer_name, customer_ph
 /** Una cita, para precargar el cobro desde la agenda. */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext([...FRONT_DESK_ROLES]);
+        const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const id = IdSchema.safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Cita no encontrada.', 404);
         const { data, error } = await (await createSupabaseServerClient()).from('appointments').select(COLUMNS)

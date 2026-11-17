@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, TriangleAlert, X } from 'lucide-react';
 import type { CashMovement, CashSession } from '@/types';
 import { toUiMovement, type CashMovementRow } from '@/lib/cash/session-view';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { DENOMINATIONS, breakdownTotal, compactBreakdown, proposeSplit, withdrawnFor } from '@/lib/cash/closing';
 
 interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean }
@@ -100,6 +101,8 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
 }
 
 export default function CashRegister() {
+    // Cuenta de consulta: ve el estado y el historial, sin abrir, cerrar ni registrar movimientos.
+    const readOnly = useReadOnly();
     const [session, setSession] = useState<CashSession | null>(null);
     const [movements, setMovements] = useState<Movement[]>([]);
     const [settings, setSettings] = useState<CashSettings | null>(null);
@@ -280,6 +283,15 @@ export default function CashRegister() {
                     </section>
                 )}
 
+                {readOnly ? (
+                    <section className={`${card} p-6 space-y-4`}>
+                        <div className="flex items-center gap-3">
+                            <span aria-hidden="true" className="h-11 w-11 rounded-full bg-bos-raised inline-flex items-center justify-center"><Lock className="h-5 w-5 text-bos-muted" /></span>
+                            <h1 className="font-display text-2xl font-semibold">La caja está cerrada</h1>
+                        </div>
+                        <ReadOnlyNotice readOnly>Ves el estado y los cierres anteriores, pero no abres ni cierras la caja.</ReadOnlyNotice>
+                    </section>
+                ) : (
                 <form onSubmit={handleOpen} className={`${card} p-6 space-y-5`}>
                     <div className="flex items-center gap-3">
                         <span aria-hidden="true" className="h-11 w-11 rounded-full bg-bos-raised inline-flex items-center justify-center"><Lock className="h-5 w-5 text-bos-muted" /></span>
@@ -307,6 +319,7 @@ export default function CashRegister() {
                         {opening ? <Loader2 className="h-5 w-5 animate-spin" /> : null} Abrir caja
                     </button>
                 </form>
+                )}
                 <PastClosings sessions={history} reserveLabel={settings?.reserve_label ?? 'Apartado'} />
             </div>
         );
@@ -323,11 +336,12 @@ export default function CashRegister() {
                     <h1 className="font-display text-3xl font-semibold">Caja abierta</h1>
                     <p className="text-sm text-bos-muted">Abierta por {session.opened_by} a las {timeOf(session.opened_at)}</p>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                {!readOnly && <div className="flex flex-wrap gap-3">
                     <button type="button" onClick={() => { setFormError(''); setMovementOpen(true); }} className={secondary}><Plus className="h-5 w-5" /> Gasto, retiro o entrada</button>
                     <button type="button" onClick={startClose} className={primary}>Cerrar caja</button>
-                </div>
+                </div>}
             </header>
+            <ReadOnlyNotice readOnly={readOnly}>Ves la caja en vivo, pero no registras movimientos ni la cierras.</ReadOnlyNotice>
 
             {loadError && <p role="alert" className="rounded-xl border border-bos-danger/40 bg-bos-surface p-4 text-bos-danger">{loadError}</p>}
             {openingMismatch && (

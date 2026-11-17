@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
 import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
@@ -13,6 +14,8 @@ interface BarberLive {
 }
 
 export default function TeamPage() {
+    // Cuenta de consulta: ve al equipo y su rendimiento sin agregar, editar, cambiar horario ni desactivar.
+    const readOnly = useReadOnly();
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [liveStats, setLiveStats] = useState<BarberLive[]>([]);
     const [loading, setLoading] = useState(true);
@@ -99,11 +102,12 @@ export default function TeamPage() {
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => { fetchBarbers(); fetchLiveStats(); }} aria-label="Actualizar" title="Actualizar" className="h-[52px] w-[52px] inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><RefreshCw className="h-4 w-4" /></button>
-                    <button onClick={() => openModal()} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong">
+                    {!readOnly && <button onClick={() => openModal()} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong">
                         <Plus className="w-4 h-4" />Agregar persona
-                    </button>
+                    </button>}
                 </div>
             </header>
+            <ReadOnlyNotice readOnly={readOnly} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {barbers.map(barber => {
@@ -143,7 +147,7 @@ export default function TeamPage() {
                                 </div>
                             )}
 
-                            <div className="mt-4 pt-4 border-t border-bos-border flex flex-wrap gap-2">
+                            {!readOnly && <div className="mt-4 pt-4 border-t border-bos-border flex flex-wrap gap-2">
                                 <button onClick={() => openModal(barber)} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
                                     <Edit2 className="w-4 h-4" /> Editar
                                 </button>
@@ -155,7 +159,7 @@ export default function TeamPage() {
                                 <button onClick={() => toggleStatus(barber)} className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border transition-colors hover:bg-bos-raised ${active ? 'text-bos-danger' : 'text-bos-success'}`}>
                                     {active ? <><UserX className="w-4 h-4" /> Desactivar</> : <><UserCheck className="w-4 h-4" /> Activar</>}
                                 </button>
-                            </div>
+                            </div>}
                         </div>
                     );
                 })}

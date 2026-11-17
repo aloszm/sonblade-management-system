@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ const BodySchema = z.object({
  */
 export async function POST(request: NextRequest) {
     try {
-        await requireAuthContext(['owner', 'admin']);
+        await requireAuthContext(MANAGEMENT_READ_ROLES);
         const parsed = BodySchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });
         const supabase = await createSupabaseServerClient();

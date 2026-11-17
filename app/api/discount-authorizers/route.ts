@@ -1,5 +1,5 @@
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
     try {
-        const context = await requireAuthContext([...FRONT_DESK_ROLES]);
+        const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const supabase = await createSupabaseServerClient();
         const { data, error } = await supabase.rpc('list_discount_authorizers', { p_branch_id: context.branchId });
         if (error) throw error;

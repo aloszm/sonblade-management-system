@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ const toIso = (value: string | undefined, endOfDay: boolean) => {
 /** Registro de quién hizo qué. Solo dueño y administrador; la base valida el permiso. */
 export async function GET(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_READ_ROLES);
         const query = QuerySchema.parse(Object.fromEntries(request.nextUrl.searchParams));
         const supabase = await createSupabaseServerClient();
         const { data, error } = await supabase.rpc('list_audit_log', {

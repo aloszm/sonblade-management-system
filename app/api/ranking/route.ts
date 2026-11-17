@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { readerRole } from '@/lib/auth/roles';
 import { periodWindow } from '@/lib/barber/my-week';
 import { loadBusinessTimezone } from '@/lib/business/timezone';
 import type { PodiumRow } from '@/lib/reports/podium';
@@ -42,7 +43,8 @@ export async function GET(request: NextRequest) {
         const supabase = await createSupabaseServerClient();
         const timezone = await loadBusinessTimezone(supabase, context.businessId);
         const win = periodWindow(period, new Date(), timezone);
-        const viewer = { role: context.role, employeeId: context.employeeId };
+        // La consulta lee el ranking como gerencia (con importes); nunca escribe aquí.
+        const viewer = { role: readerRole(context.role), employeeId: context.employeeId };
 
         let boards: Boards;
         let source: Source = 'function';

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { businessDayKey } from '@/lib/admin/profit';
 import { loadProfitReport } from '@/lib/admin/profit-data';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
@@ -21,7 +22,7 @@ const PeriodSchema = z.enum(['today', 'week', 'month']).catch('week');
  */
 export async function GET(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_READ_ROLES);
         const params = request.nextUrl.searchParams;
         const period = PeriodSchema.parse(params.get('period') ?? undefined);
         const supabase = await createSupabaseServerClient();
