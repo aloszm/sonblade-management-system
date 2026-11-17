@@ -129,3 +129,21 @@
     --bos-success: #166534; --bos-success-soft: #FFFFFF; --bos-danger: #991B1B;
   }
 }
+
+/* Tablas que en celular se vuelven tarjetas: cada fila es una tarjeta y cada celda lleva su etiqueta
+   (data-label). La primera celda (nombre) va sin etiqueta y a todo lo ancho. */
+@media (max-width: 767px) {
+    table.bos-stack, .bos-stack tbody, .bos-stack tr, .bos-stack td { display: block; width: 100%; }
+    .bos-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .bos-stack tr { padding: 0.75rem 1rem; }
+    .bos-stack td {
+        display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        padding: 0.375rem 0 !important; text-align: right !important; white-space: normal !important; min-width: 0;
+    }
+    .bos-stack td::before {
+        content: attr(data-label); flex: none; font-size: 0.8125rem; font-weight: 500; color: var(--bos-muted); text-align: left;
+    }
+    .bos-stack td[data-label=""] { justify-content: flex-start; text-align: left !important; }
+    .bos-stack td[data-label=""]::before { display: none; }
+    .bos-stack td:last-child[data-label=""] { justify-content: flex-end; }
+}

@@ -9,6 +9,7 @@ import type { Product, CreateProduct } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
 import { localDateKey } from '@/lib/utils/dates';
 import DatePicker from '@/components/ui/DatePicker';
+import { formatMoney } from '@/lib/utils/money';
 
 const Inventory: React.FC = () => {
     // Cuenta de consulta: ve existencias y exporta, sin agregar, editar ni dar de baja.
@@ -177,7 +178,7 @@ const Inventory: React.FC = () => {
                 <div className={`${card} p-5`}>
                     <h3 className="text-[13px] font-medium text-bos-muted">Valor del inventario</h3>
                     <div className="mt-1 font-display text-3xl font-semibold tabular-nums text-bos-accent-text">
-                        ${stats?.totalValue?.toLocaleString('en-US', { minimumFractionDigits: 2 }) ?? '—'}
+                        {stats?.totalValue != null ? formatMoney(stats.totalValue, { cents: true }) : '—'}
                     </div>
                 </div>
             </div>
@@ -221,7 +222,7 @@ const Inventory: React.FC = () => {
             {!loading && !error && (
                 <div className={`${card} overflow-hidden`}>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="bos-stack w-full text-left border-collapse">
                             <thead className="text-bos-muted">
                                 <tr>
                                     <th className={th}>Producto</th>
@@ -244,7 +245,7 @@ const Inventory: React.FC = () => {
                                     const isLow = ['low', 'critical', 'empty'].includes(p.status);
                                     return (
                                         <tr key={p.id} className="border-t border-bos-border hover:bg-bos-raised">
-                                            <td className="px-5 py-4">
+                                            <td data-label="" className="px-5 py-4">
                                                 <div className="flex items-start gap-3">
                                                     <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${isLow ? 'bg-bos-accent-soft text-bos-accent-text' : 'bg-bos-raised text-bos-muted'}`}>
                                                         {isLow ? <AlertTriangle className="h-5 w-5" /> : <Package className="h-5 w-5" />}
@@ -260,12 +261,12 @@ const Inventory: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4">
+                                            <td data-label="Categoría" className="px-5 py-4">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bos-raised text-bos-text border border-bos-border">
                                                     {p.category}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-4">
+                                            <td data-label="Existencias" className="px-5 py-4">
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-baseline gap-2">
                                                         <span className={`font-display text-lg font-semibold tabular-nums ${isLow ? 'text-bos-accent-text' : ''}`}>{p.stock}</span>
@@ -279,19 +280,19 @@ const Inventory: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4 whitespace-nowrap">
+                                            <td data-label="Precios" className="px-5 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col">
                                                     <div className="flex justify-between gap-4 text-sm">
                                                         <span className="text-bos-muted">Costo:</span>
-                                                        <span className="font-medium tabular-nums">${p.cost.toFixed(2)}</span>
+                                                        <span className="font-medium tabular-nums">{formatMoney(p.cost, { cents: true })}</span>
                                                     </div>
                                                     <div className="flex justify-between gap-4 text-sm mt-1">
                                                         <span className="text-bos-muted">Venta:</span>
-                                                        <span className="font-semibold tabular-nums">${p.price.toFixed(2)}</span>
+                                                        <span className="font-semibold tabular-nums">{formatMoney(p.price, { cents: true })}</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-2 text-right">
+                                            <td data-label="" className="px-5 py-2 text-right">
                                                 {!readOnly && <div className="flex justify-end gap-1">
                                                     <button onClick={() => handleEditClick(p)} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text hover:bg-bos-raised rounded-xl transition-colors" title="Editar / Ajustar Stock" aria-label={`Editar ${p.name}`}>
                                                         <Edit2 className="h-4 w-4" />

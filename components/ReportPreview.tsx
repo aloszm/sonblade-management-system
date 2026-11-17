@@ -172,7 +172,7 @@ function DataTable({ table, timeZone }: { table: ReportTable; timeZone: string }
                         </table>
                     </div>
                     {body.length > PAGE && (
-                        <button type="button" onClick={() => setAll(!all)} className="mt-2 h-9 px-3 rounded-lg border border-bos-border text-sm font-semibold text-bos-muted hover:text-bos-text hover:bg-bos-raised">
+                        <button type="button" onClick={() => setAll(!all)} className="mt-2 min-h-11 px-3 rounded-lg border border-bos-border text-sm font-semibold text-bos-muted hover:text-bos-text hover:bg-bos-raised">
                             {all ? 'Mostrar menos' : `Mostrar las ${body.length} filas`}
                         </button>
                     )}

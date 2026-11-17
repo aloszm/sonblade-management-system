@@ -7,11 +7,13 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Too
 import { localDateKey } from '@/lib/utils/dates';
 import { downloadCsv } from '@/lib/utils/csv';
 import {
-    METHOD_LABELS, PRESETS, WEEKDAYS, activityRows, busiestHour, delta, presetRange,
+    METHOD_LABELS, PRESETS, WEEKDAYS, activityRows, busiestHour, comparable, delta, presetRange,
     type Kpis, type Metrics, type PresetId,
 } from '@/lib/reports/metrics';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import Ranking from '@/components/Ranking';
+import { formatMoney } from '@/lib/utils/money';
+import { formatDateTime } from '@/lib/utils/dates';
 
 // Lo que devuelve /api/admin/profit (la misma fuente que Finanzas); aquí solo se usan estas cifras.
 type Finance = {
@@ -21,8 +23,8 @@ type Finance = {
 };
 const isFinance = (v: unknown): v is Finance => !!v && typeof v === 'object' && typeof (v as Finance).profit === 'number' && !!(v as Finance).revenue && !!(v as Finance).comparison;
 
-const money = (n: number) => `$${Math.round(n).toLocaleString('es-MX')}`;
-const money2 = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+const money = (n: number) => formatMoney(n);
+const money2 = (n: number) => formatMoney(n);
 const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? 'am' : 'pm'}`;
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface';
@@ -37,7 +39,7 @@ const TOOLTIP = {
 
 function Delta({ current, previous, invert = false }: { current: number; previous: number; invert?: boolean }) {
     const d = delta(current, previous);
-    if (d === null) return <span className="text-sm text-bos-muted">Sin datos para comparar</span>;
+    if (d === null || !comparable(current, previous)) return <span className="text-sm text-bos-muted">Sin datos suficientes para comparar</span>;
     if (d === 0) return <span className="text-sm text-bos-muted">Igual que el periodo anterior</span>;
     const good = invert ? d < 0 : d > 0;
     const Icon = d > 0 ? ArrowUpRight : ArrowDownRight;
@@ -49,21 +51,23 @@ function Delta({ current, previous, invert = false }: { current: number; previou
     );
 }
 
-function BigStat({ title, value, current, previous, testId, invert, accent }: { title: string; value: string; current: number; previous: number; testId: string; invert?: boolean; accent?: boolean }) {
+function BigStat({ title, hint, value, current, previous, testId, invert, accent }: { title: string; hint: string; value: string; current: number; previous: number; testId: string; invert?: boolean; accent?: boolean }) {
     return (
         <div className={`${card} p-5 flex flex-col gap-2 transition-colors hover:border-bos-control`}>
             <p className={label}>{title}</p>
             <p data-testid={testId} className={`font-display text-4xl font-semibold tabular-nums leading-none ${accent ? 'text-bos-accent-text' : ''}`}>{value}</p>
             <Delta current={current} previous={previous} invert={invert} />
+            <p className="text-xs text-bos-muted">{hint}</p>
         </div>
     );
 }
 
-function SmallStat({ title, value }: { title: string; value: string }) {
+function SmallStat({ title, hint, value }: { title: string; hint: string; value: string }) {
     return (
         <div className="px-4 py-3 rounded-xl bg-bos-raised">
             <p className="text-xs text-bos-muted">{title}</p>
             <p className="mt-0.5 font-display text-xl font-semibold tabular-nums">{value}</p>
+            <p className="mt-0.5 text-xs text-bos-muted">{hint}</p>
         </div>
     );
 }
@@ -190,7 +194,7 @@ export default function Dashboard() {
                 <div role="group" aria-label="Periodo" className="flex flex-wrap gap-1 p-1 rounded-xl bg-bos-raised">
                     {PRESETS.map((pr) => (
                         <button key={pr.id} type="button" aria-pressed={preset === pr.id} onClick={() => pickPreset(pr.id)}
-                            className={`h-10 px-4 rounded-lg text-sm font-semibold transition-colors ${preset === pr.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
+                            className={`min-h-11 px-4 rounded-lg text-sm font-semibold transition-colors ${preset === pr.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
                             {pr.label}
                         </button>
                     ))}
@@ -208,14 +212,14 @@ export default function Dashboard() {
                 <div role="group" aria-label="Filtrar por persona" className="flex flex-wrap gap-2">
                     {[{ id: '', name: 'Toda la barbería' }, ...team].map((t) => (
                         <button key={t.id || 'all'} type="button" aria-pressed={barber === t.id} onClick={() => setBarber(t.id)}
-                            className={`min-h-10 px-4 rounded-full border text-sm font-semibold transition-colors ${barber === t.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
+                            className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${barber === t.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
                             {t.name}
                         </button>
                     ))}
                 </div>
                 {loading && data && <Loader2 aria-label="Actualizando" className="h-5 w-5 animate-spin text-bos-muted" />}
-                <Link href="/reportes" className="ml-auto inline-flex items-center gap-2 min-h-10 text-sm font-semibold text-bos-accent-text hover:underline underline-offset-2">
-                    <Download aria-hidden="true" className="h-4 w-4" /> Descargar reporte del periodo
+                <Link href="/reportes" className="ml-auto inline-flex items-center gap-2 min-h-11 text-sm font-semibold text-bos-accent-text hover:underline underline-offset-2">
+                    <ArrowRight aria-hidden="true" className="h-4 w-4" /> Ver reportes
                 </Link>
             </div>
 
@@ -225,23 +229,23 @@ export default function Dashboard() {
             {data && k && p && (
                 <>
                     <section aria-label="Indicadores principales" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <BigStat title="Ingresos" value={money(k.revenue)} current={k.revenue} previous={p.revenue} testId="kpi-revenue" accent />
-                        <BigStat title="Cortes" value={String(k.cuts)} current={k.cuts} previous={p.cuts} testId="kpi-cuts" />
-                        <BigStat title="Ticket promedio" value={money(k.avg_ticket)} current={k.avg_ticket} previous={p.avg_ticket} testId="kpi-ticket" />
+                        <BigStat title="Ingresos" hint="Total cobrado en el periodo." value={money(k.revenue)} current={k.revenue} previous={p.revenue} testId="kpi-revenue" accent />
+                        <BigStat title="Cortes" hint="Solo servicios de corte, sin productos." value={String(k.cuts)} current={k.cuts} previous={p.cuts} testId="kpi-cuts" />
+                        <BigStat title="Ticket promedio" hint="Ingresos entre número de ventas." value={money(k.avg_ticket)} current={k.avg_ticket} previous={p.avg_ticket} testId="kpi-ticket" />
                         {barber ? (
-                            <BigStat title="Comisión generada" value={money(k.commissions)} current={k.commissions} previous={p.commissions} testId="kpi-net" />
+                            <BigStat title="Comisión generada" hint="Lo que ganó por sus servicios." value={money(k.commissions)} current={k.commissions} previous={p.commissions} testId="kpi-net" />
                         ) : (
-                            <BigStat title="Utilidad" value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
+                            <BigStat title="Utilidad" hint="Lo que queda tras comisiones, producto y gastos." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
                         )}
                     </section>
 
                     <section aria-label="Más indicadores" className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-                        <SmallStat title="Ventas" value={String(k.tickets)} />
-                        <SmallStat title="Clientes atendidos" value={String(k.clients)} />
-                        <SmallStat title="Clientes nuevos" value={String(data.new_clients)} />
-                        <SmallStat title="Productos vendidos" value={String(k.products)} />
-                        <SmallStat title="Propinas" value={money(k.tips)} />
-                        {barber ? <SmallStat title="Ventas registradas" value={String(data.activity.length)} /> : <SmallStat title="Comisiones" value={money(k.commissions)} />}
+                        <SmallStat title="Ventas" hint="Cobros registrados" value={String(k.tickets)} />
+                        <SmallStat title="Clientes con registro" hint="Solo ventas con cliente registrado" value={String(k.clients)} />
+                        <SmallStat title="Clientes nuevos" hint="Dados de alta en el periodo" value={String(data.new_clients)} />
+                        <SmallStat title="Productos vendidos" hint="Piezas, no servicios" value={String(k.products)} />
+                        <SmallStat title="Propinas" hint="Son del barbero" value={money(k.tips)} />
+                        {barber ? <SmallStat title="Ventas registradas" hint="Cobros de este barbero" value={String(data.activity.length)} /> : <SmallStat title="Comisiones" hint="Pagadas a barberos" value={money(k.commissions)} />}
                     </section>
                     {!barber && (
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-bos-muted" data-testid="profit-note">
@@ -424,7 +428,7 @@ export default function Dashboard() {
                                     className="h-10 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text">
                                     <option value="all">Todo</option><option value="service">Servicios</option><option value="product">Productos</option>
                                 </select>
-                                <button type="button" onClick={exportActivity} className="h-10 px-4 rounded-xl border border-bos-border text-sm font-semibold inline-flex items-center gap-2 hover:bg-bos-raised">
+                                <button type="button" onClick={exportActivity} className="min-h-11 px-4 rounded-xl border border-bos-border text-sm font-semibold inline-flex items-center gap-2 hover:bg-bos-raised">
                                     <Download aria-hidden="true" className="h-4 w-4" /> Descargar
                                 </button>
                             </div>
@@ -444,7 +448,7 @@ export default function Dashboard() {
                                     {activity.slice(0, shown).map((a, i) => (
                                         <tr key={`${a.sale_id}-${i}`} data-testid="log-row" className="border-t border-bos-border">
                                             <td className="px-5 py-3 tabular-nums whitespace-nowrap">
-                                                {new Date(a.at).toLocaleString('es-MX', { timeZone: tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                {formatDateTime(a.at, tz, { year: false })}
                                             </td>
                                             <td className="px-5 py-3">{a.employee ?? '—'}</td>
                                             <td className="px-5 py-3">

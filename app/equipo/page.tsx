@@ -262,7 +262,7 @@ export default function TeamPage() {
         <div className="max-w-6xl mx-auto space-y-6">
             <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-semibold tracking-tight">Gestión de equipo</h1>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Equipo</h1>
                     <p className="text-sm text-bos-muted mt-1">Rendimiento en tiempo real · Semana actual</p>
                 </div>
                 <div className="flex gap-2">

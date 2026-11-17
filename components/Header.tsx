@@ -5,42 +5,21 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, ChevronDown, Plus, LogOut, KeyRound } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { PAGE_TITLES } from '@/lib/nav';
 
 interface HeaderProps {
   toggleSidebar: () => void;
 }
 
-const pageTitles: Record<string, string> = {
-  '/': 'Panel',
-  '/pos': 'Punto de Venta',
-  '/ventas/historial': 'Historial de Ventas',
-  '/inventario': 'Inventario',
-  '/caja': 'Caja',
-  '/gastos': 'Gastos',
-  '/citas': 'Agenda',
-  '/clientes': 'Clientes',
-  '/servicios': 'Servicios',
-  '/equipo': 'Equipo',
-  '/liquidaciones': 'Pago semanal',
-  '/reportes': 'Reportes',
-  '/cuadre': 'Cuadre',
-  '/administracion': 'Finanzas',
-  '/equipo-hoy': 'Barberos hoy',
-  '/reportes/verificar': 'Verificar reporte',
-  '/admin': 'Administración',
-  '/admin/auditoria': 'Bitácora',
-  '/configuracion': 'Configuración',
-  '/mi-cuenta': 'Mi cuenta',
-};
-
 const ROLE_LABELS: Record<string, string> = { admin: 'Administración', recepcion: 'Recepción', barber: 'Barbero' };
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const pathname = usePathname();
-  const title = pageTitles[pathname] ?? '';
+  const title = PAGE_TITLES[pathname] ?? '';
   const [userName, setUserName] = useState<string>('');
   const [userRole, setUserRole] = useState<string>('');
   const [canBook, setCanBook] = useState(false);
+  const [mustChangePin, setMustChangePin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +29,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       .then(data => {
         if (data.authenticated) {
           // La cuenta de consulta (readOnly) no agenda.
-          setCanBook((data.user.role === 'admin' || data.user.role === 'recepcion') && !data.user.readOnly);
+          setCanBook((data.user.role === 'admin' || data.user.role === 'recepcion') && !data.user.readOnly && !data.user.mustChangePin);
+          setMustChangePin(Boolean(data.user.mustChangePin));
           setUserName(data.user.name);
           setUserRole(data.user.title ?? data.user.role);
         }
@@ -121,7 +101,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
               <Link href="/mi-cuenta" onClick={() => setMenuOpen(false)}
                 className="w-full flex items-center gap-2 px-4 min-h-11 text-sm text-bos-text hover:bg-bos-raised transition-colors">
-                <KeyRound className="h-4 w-4" /> Mi cuenta · cambiar PIN
+                <KeyRound className="h-4 w-4" /> {mustChangePin ? 'Mi cuenta · elegir PIN' : 'Mi cuenta · cambiar PIN'}
               </Link>
               <button 
                 onClick={handleLogout}

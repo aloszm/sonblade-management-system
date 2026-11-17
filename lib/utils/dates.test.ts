@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { localDateKey, zonedDayStartIso } from './dates';
+import { formatDate, formatDateTime, formatTime, localDateKey, zonedDayStartIso } from './dates';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -30,5 +30,24 @@ describe('businessDayRange', () => {
         expect(saleAt >= range.from && saleAt < range.to).toBe(true);
         // Antes el servidor filtraba por día UTC y esta venta quedaba fuera de "hoy".
         expect(saleAt <= '2026-11-14T23:59:59.999Z').toBe(false);
+    });
+});
+
+
+describe('formato en la zona de la barbería', () => {
+    it('hora en 12 horas', () => {
+        expect(formatTime('2026-11-17T21:41:14Z')).toBe('3:41 p. m.');
+        expect(formatTime('2026-11-17T18:00:00Z')).toBe('12:00 p. m.'); // mediodía en México
+        expect(formatTime('2026-11-17T06:00:00Z')).toBe('12:00 a. m.'); // medianoche en México
+    });
+    it('el cambio de día sigue la zona, no el navegador ni UTC', () => {
+        // 02:30 UTC del 18 aún es 17 por la noche en México.
+        expect(formatDate('2026-11-18T02:30:00Z')).toBe('mar 17 nov 2026');
+        expect(formatDateTime('2026-11-18T02:30:00Z')).toBe('mar 17 nov 2026, 8:30 p. m.');
+        expect(formatDate('2026-11-18T06:00:00Z')).toBe('mié 18 nov 2026');
+    });
+    it('otra zona y sin año', () => {
+        expect(formatTime('2026-11-17T21:41:14Z', 'America/Tijuana')).toBe('1:41 p. m.');
+        expect(formatDate('2026-11-17T21:41:14Z', 'America/Mexico_City', { year: false })).toBe('mar 17 nov');
     });
 });

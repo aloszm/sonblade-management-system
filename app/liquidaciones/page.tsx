@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle, ChevronLeft, ChevronRight, Loader2, Receipt, Wallet } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { addDays, weekLabel } from '@/lib/settlements/week';
+import { formatMoney } from '@/lib/utils/money';
+import { formatDateTime } from '@/lib/utils/dates';
 
 type Row = {
     employee_id: string; name: string; gross_commission: number; deductions: number; tips: number; total_amount: number;
@@ -18,7 +20,7 @@ type HistoryRow = {
     id: string; receipt_number: string; employee_name: string; period_start: string; period_end: string; total_amount: number; paid_at: string | null;
 };
 
-const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+const money = (n: number) => formatMoney(n, { cents: true });
 const cents = (n: number) => Math.round(n * 100);
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -123,7 +125,7 @@ export default function LiquidacionesPage() {
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             <header>
-                <h1 className="font-display text-3xl font-semibold tracking-tight">{role === 'admin' ? 'Pago semanal' : 'Mis recibos de pago'}</h1>
+                <h1 className="font-display text-3xl font-semibold tracking-tight">Pago semanal</h1>
                 {role === 'admin' && <p className="text-bos-muted text-sm mt-1">Cada semana va de domingo a sábado y cierra el sábado a las 8:00 pm.</p>}
             </header>
 
@@ -201,7 +203,7 @@ export default function LiquidacionesPage() {
                                     {role === 'admin' && <td className="px-4 py-3">{h.employee_name}</td>}
                                     <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{weekLabel(h.period_start)}</td>
                                     <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(h.total_amount)}</td>
-                                    <td className="px-4 py-3 text-right text-bos-muted whitespace-nowrap">{h.paid_at ? new Date(h.paid_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
+                                    <td className="px-4 py-3 text-right text-bos-muted whitespace-nowrap">{h.paid_at ? formatDateTime(h.paid_at) : '—'}</td>
                                     <td className="px-4 py-2 text-center">
                                         <Link href={`/liquidaciones/${h.id}`} className="inline-flex items-center gap-1.5 min-h-11 px-2 text-sm font-semibold text-bos-text hover:underline">
                                             <Receipt className="h-4 w-4" /> Ver

@@ -21,6 +21,7 @@ import { Avatar } from './_components/parts';
 import { BARBER_COLORS, NO_BARBER_COLOR, STATUS_STYLE, SUBTLE_BG, longDayTitle, money, tintOf } from './_components/agenda-ui';
 import DatePicker from '@/components/ui/DatePicker';
 import TimePicker from '@/components/ui/TimePicker';
+import { BUSINESS_TIME_ZONE, formatDateTime } from '@/lib/utils/dates';
 
 type View = 'day' | 'week' | 'month';
 
@@ -52,7 +53,7 @@ const useWide = () => useSyncExternalStore(subscribeWide, () => window.matchMedi
 
 const timeOf = (iso: string) => { const d = new Date(iso); return formatClock(d.getHours() * 60 + d.getMinutes()); };
 const dayOf = (iso: string) => localDateKey(new Date(iso));
-const dateTimeOf = (iso: string) => new Date(iso).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const dateTimeOf = (iso: string) => formatDateTime(iso, BUSINESS_TIME_ZONE, { year: false });
 const nowParts = () => { const d = new Date(); return { date: localDateKey(d), time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }; };
 
 async function readError(res: Response, fallback: string): Promise<string> {
@@ -380,17 +381,17 @@ export default function AppointmentsPage() {
                 <div className="order-3 flex shrink-0 items-center rounded-xl border border-bos-border bg-bos-surface">
                     <button type="button" aria-label={view === 'day' ? 'Día anterior' : view === 'week' ? 'Semana anterior' : 'Mes anterior'}
                         onClick={() => (view === 'day' ? shiftDay(-1) : view === 'week' ? shiftDay(-7) : setCursor(new Date(year, month - 1, 1)))}
-                        className={`${navBtn} w-10 rounded-l-xl sm:w-11`}><ChevronLeft className="h-5 w-5" /></button>
+                        className={`${navBtn} w-11 rounded-l-xl`}><ChevronLeft className="h-5 w-5" /></button>
                     <button type="button" onClick={() => { goToDay(todayKey); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); }}
                         className={`${navBtn} border-x border-bos-border px-3.5 font-semibold text-bos-text`}>Hoy</button>
                     <button type="button" aria-label={view === 'day' ? 'Día siguiente' : view === 'week' ? 'Semana siguiente' : 'Mes siguiente'}
                         onClick={() => (view === 'day' ? shiftDay(1) : view === 'week' ? shiftDay(7) : setCursor(new Date(year, month + 1, 1)))}
-                        className={`${navBtn} w-10 rounded-r-xl sm:w-11`}><ChevronRight className="h-5 w-5" /></button>
+                        className={`${navBtn} w-11 rounded-r-xl`}><ChevronRight className="h-5 w-5" /></button>
                 </div>
                 <div role="group" aria-label="Vista" className="order-4 flex min-w-[190px] flex-1 basis-0 rounded-xl bg-bos-raised p-1 lg:order-2 lg:flex-none lg:basis-auto">
                     {([['day', 'Día'], ['week', 'Semana'], ['month', 'Mes']] as const).map(([id, text]) => (
                         <button key={id} type="button" aria-pressed={view === id} onClick={() => changeView(id)}
-                            className={`h-9 flex-1 rounded-lg px-2 text-sm lg:px-4 font-medium transition-colors motion-reduce:transition-none lg:flex-none ${view === id ? 'bg-bos-surface font-semibold text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
+                            className={`min-h-11 flex-1 rounded-lg px-2 text-sm lg:px-4 font-medium transition-colors motion-reduce:transition-none lg:flex-none ${view === id ? 'bg-bos-surface font-semibold text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>{text}</button>
                     ))}
                 </div>
                 {canManage && (
@@ -418,7 +419,7 @@ export default function AppointmentsPage() {
             <div role="group" aria-label="Barbero" className={`${readOnly ? 'hidden' : view === 'day' ? 'hidden md:flex' : 'flex'} gap-2 overflow-x-auto md:flex-wrap md:overflow-visible`}>
                 {[{ id: '', name: 'Todos' }, ...activeBarbers].map((b) => (
                     <button key={b.id || 'all'} type="button" aria-pressed={barberFilter === b.id} onClick={() => setBarberFilter(b.id)}
-                        className={`inline-flex h-10 max-w-full shrink-0 items-center gap-2 rounded-full border text-sm font-medium transition-colors motion-reduce:transition-none ${b.id ? 'pl-1.5 pr-3.5' : 'px-4'} ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:bg-bos-raised hover:text-bos-text'}`}>
+                        className={`inline-flex min-h-11 max-w-full shrink-0 items-center gap-2 rounded-full border text-sm font-medium transition-colors motion-reduce:transition-none ${b.id ? 'pl-1.5 pr-3.5' : 'px-4'} ${barberFilter === b.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:bg-bos-raised hover:text-bos-text'}`}>
                         {b.id && <Avatar name={b.name} color={colorOf(b.id)} size={28} />}
                         <span className="truncate">{b.name}</span>
                     </button>

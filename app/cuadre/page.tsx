@@ -17,7 +17,7 @@ const PRESETS: { id: Exclude<PresetId, 'custom' | 'last30'>; label: string }[] =
     { id: 'month', label: 'Mes' },
 ];
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-const chip = (on: boolean) => `min-h-9 px-3 rounded-full border text-sm font-medium inline-flex items-center gap-1.5 ${on ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`;
+const chip = (on: boolean) => `min-h-11 px-3 rounded-full border text-sm font-medium inline-flex items-center gap-1.5 ${on ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`;
 
 /**
  * Cuadre: lo que dice la agenda, lo que se cobró, la comisión que eso generó y lo que ya se pagó al equipo
@@ -120,7 +120,7 @@ export default function ReconciliationPage() {
                 <div role="group" aria-label="Periodo" className="flex gap-2">
                     {PRESETS.map((p) => (
                         <button key={p.id} type="button" aria-pressed={preset === p.id} onClick={() => setPreset(p.id)}
-                            className={`h-9 px-3.5 rounded-full border text-sm font-medium ${preset === p.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>{p.label}</button>
+                            className={`min-h-11 px-3.5 rounded-full border text-sm font-medium ${preset === p.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>{p.label}</button>
                     ))}
                 </div>
             </header>
@@ -209,7 +209,7 @@ export default function ReconciliationPage() {
                             <div role="tablist" aria-label="Estado de las diferencias" className="inline-flex rounded-xl border border-bos-border bg-bos-surface p-1">
                                 {([['pendiente', 'Por revisar', counts.pending], ['revisada', 'Revisadas', counts.reviewed]] as const).map(([id, label, n]) => (
                                     <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); setKind('all'); }}
-                                        className={`min-h-9 px-3 rounded-lg text-sm font-semibold ${tab === id ? 'bg-bos-raised text-bos-text' : 'text-bos-muted hover:text-bos-text'}`}>
+                                        className={`min-h-11 px-3 rounded-lg text-sm font-semibold ${tab === id ? 'bg-bos-raised text-bos-text' : 'text-bos-muted hover:text-bos-text'}`}>
                                         {label} ({n})
                                     </button>
                                 ))}

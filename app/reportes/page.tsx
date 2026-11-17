@@ -128,7 +128,7 @@ export default function ReportsPage() {
                     <div role="group" aria-label="Periodo" className="flex flex-wrap gap-1 p-1 rounded-xl bg-bos-raised w-fit max-w-full">
                         {REPORT_PRESETS.map((pr) => (
                             <button key={pr.id} type="button" aria-pressed={preset === pr.id} onClick={() => pickPreset(pr.id)}
-                                className={`h-10 px-4 rounded-lg text-sm font-semibold transition-colors ${preset === pr.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
+                                className={`min-h-11 px-4 rounded-lg text-sm font-semibold transition-colors ${preset === pr.id ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
                                 {pr.label}
                             </button>
                         ))}

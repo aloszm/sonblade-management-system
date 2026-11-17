@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import Sidebar from './Sidebar';
 
-function mockMe(user: { name: string; role: 'admin' | 'recepcion' | 'barber'; isOwner?: boolean; title: string; readOnly?: boolean }) {
+function mockMe(user: { name: string; role: 'admin' | 'recepcion' | 'barber'; isOwner?: boolean; title: string; readOnly?: boolean; mustChangePin?: boolean }) {
     vi.stubGlobal('fetch', vi.fn(async () => ({ json: async () => ({ authenticated: true, user: { id: 'u1', ...user } }) })));
 }
 
@@ -52,6 +52,13 @@ describe('Menú lateral', () => {
         expect(screen.queryByRole('link', { name: 'Cobro' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Caja' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Barberos hoy' })).not.toBeInTheDocument();
+    });
+
+    it('con PIN temporal solo muestra Mi cuenta', async () => {
+        mockMe({ name: 'Dago', role: 'recepcion', title: 'Recepción', mustChangePin: true });
+        render(<Sidebar isOpen={true} />);
+        expect(await screen.findByRole('link', { name: 'Mi cuenta' })).toBeInTheDocument();
+        expect(screen.getAllByRole('link').filter((l) => l.closest('nav'))).toHaveLength(1);
     });
 
     it('no renderiza nada cuando está cerrado', () => {

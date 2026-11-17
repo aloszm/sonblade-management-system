@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, Download, Loader2, Package, TriangleAlert } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Finance {
     period: { from: string; to: string; timezone: string };
@@ -29,7 +30,7 @@ const PERIODS: { id: Period; chip: string; label: string; empty: string }[] = [
     { id: 'month', chip: 'Mes', label: 'Este mes', empty: 'Aún no hay ventas este mes' },
 ];
 
-const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (n: number) => formatMoney(n, { cents: true });
 const shortDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const rangeText = (from: string, to: string) => (from === to ? shortDay(from) : `${shortDay(from)} – ${shortDay(to)}`);
 

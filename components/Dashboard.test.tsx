@@ -40,7 +40,7 @@ describe('Panel del dueño', () => {
         expect(screen.getByTestId('kpi-cuts')).toHaveTextContent('12');
         expect(screen.getByText('+50%')).toBeInTheDocument();
         expect(screen.getByText('Igual que el periodo anterior')).toBeInTheDocument();
-        expect(screen.getByText('Sin datos para comparar')).toBeInTheDocument();
+        expect(screen.getByText('Sin datos suficientes para comparar')).toBeInTheDocument();
     });
 
     it('señala la hora fuerte, el equipo y el registro con hora exacta', async () => {
@@ -75,7 +75,7 @@ describe('Panel del dueño', () => {
         expect(await screen.findByTestId('kpi-net')).toHaveTextContent('$1,350');
         expect(screen.getByTestId('profit-note')).toHaveTextContent('costo de producto ($150)');
         expect(screen.getByRole('link', { name: /Ver detalle en Finanzas/ })).toHaveAttribute('href', '/administracion');
-        expect(screen.getByRole('link', { name: /Descargar reporte del periodo/ })).toHaveAttribute('href', '/reportes');
+        expect(screen.getByRole('link', { name: /Ver reportes/ })).toHaveAttribute('href', '/reportes');
     });
 
     it('si Finanzas no responde, conserva las cifras de las métricas y lo avisa', async () => {

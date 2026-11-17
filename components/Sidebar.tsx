@@ -3,61 +3,17 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-    BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, LogOut, Package, Scissors,
-    Settings, ShoppingCart, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, type LucideIcon, Scale, PiggyBank } from 'lucide-react';
+import { KeyRound, LogOut } from 'lucide-react';
+import { ACCOUNT_ITEM, menuSections } from '@/lib/nav';
+import { useNavUser } from '@/hooks/useNavUser';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 
 interface SidebarProps { isOpen: boolean }
-// writesOnly: pantallas que solo sirven para cambiar algo (cobrar) o propias de quien trabaja (Mi semana);
-// la cuenta de consulta (readOnly) no las ve.
-interface MenuItem { href: string; label: string; icon: LucideIcon; roles: Role[]; ownerOnly?: boolean; writesOnly?: boolean }
-type Role = 'admin' | 'recepcion' | 'barber';
-type User = { name: string; role: Role; id: string; isOwner?: boolean; title?: string; readOnly?: boolean };
-
-// Cada puesto ve solo lo que usa. Pocas secciones y nombres cortos.
-const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
-    {
-        title: null,
-        items: [
-            { href: '/', label: 'Panel', icon: LayoutDashboard, roles: ['admin'] },
-            { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin'], writesOnly: true },
-            { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'], writesOnly: true },
-            { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
-            { href: '/equipo-hoy', label: 'Barberos hoy', icon: Trophy, roles: ['admin', 'recepcion'] },
-            { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },
-            { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'recepcion', 'barber'] },
-            { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet, roles: ['admin', 'recepcion', 'barber'] },
-        ],
-    },
-    {
-        title: 'Negocio',
-        items: [
-            { href: '/ventas/historial', label: 'Ventas', icon: FileText, roles: ['admin'] },
-            { href: '/cuadre', label: 'Cuadre', icon: Scale, roles: ['admin'] },
-            { href: '/administracion', label: 'Finanzas', icon: PiggyBank, roles: ['admin'] },
-            { href: '/gastos', label: 'Gastos', icon: TrendingDown, roles: ['admin'] },
-            { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin'] },
-            { href: '/servicios', label: 'Servicios', icon: Scissors, roles: ['admin'] },
-            { href: '/equipo', label: 'Equipo', icon: Users, roles: ['admin'] },
-            { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['admin'] },
-            { href: '/admin/auditoria', label: 'Bitácora', icon: Layers, roles: ['admin'] },
-            { href: '/configuracion', label: 'Configuración', icon: Settings, roles: ['admin'], ownerOnly: true },
-        ],
-    },
-];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     const pathname = usePathname();
-    const [user, setUser] = React.useState<User | null>(null);
-
-    React.useEffect(() => {
-        fetch('/api/auth/me', { cache: 'no-store' })
-            .then((res) => res.json())
-            .then((data) => { if (data.authenticated) setUser(data.user); })
-            .catch(() => {});
-    }, []);
+    const user = useNavUser();
 
     const handleLogout = async () => {
         if (!window.confirm('¿Cerrar sesión?')) return;
@@ -68,21 +24,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     if (!isOpen) return null;
 
     const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`));
-    const allowed = (item: MenuItem) => Boolean(user) && item.roles.includes(user!.role) && (!item.ownerOnly || Boolean(user!.isOwner))
-        && !(item.writesOnly && user!.readOnly);
+    // Con PIN temporal no hay menú: solo Mi cuenta y Salir.
+    const mustChangePin = Boolean(user?.mustChangePin);
+    const sections = menuSections(user);
 
     return (
         <aside className="h-full w-60 flex flex-col shrink-0 bg-bos-surface text-bos-text border-r border-bos-border">
-            <Link href={user?.role === 'barber' ? '/barbero' : user?.role === 'recepcion' ? '/pos' : '/'} aria-label={`${CLIENT_NAME}, ${CLIENT_TAGLINE}. ${SYSTEM_NAME}: ir al inicio`}
+            <Link href={mustChangePin ? '/mi-cuenta' : user?.role === 'barber' ? '/barbero' : user?.role === 'recepcion' ? '/pos' : '/'} aria-label={`${CLIENT_NAME}, ${CLIENT_TAGLINE}. ${SYSTEM_NAME}: ir al inicio`}
                 className="flex flex-col items-start gap-1.5 px-5 pt-4 pb-3 border-b border-bos-border">
                 <BrandLogo alt={`${CLIENT_NAME} ${CLIENT_TAGLINE}`} className="h-20 w-auto max-w-full" />
                 <span className="text-xs font-medium text-bos-muted">{SYSTEM_NAME}</span>
             </Link>
 
             <nav aria-label="Principal" className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-                {SECTIONS.map((section, i) => {
-                    const items = section.items.filter(allowed);
-                    if (items.length === 0) return null;
+                {mustChangePin && (
+                    <ul className="space-y-0.5">
+                        <li>
+                            <Link href={ACCOUNT_ITEM.href} aria-current={isActive(ACCOUNT_ITEM.href) ? 'page' : undefined}
+                                className="relative flex items-center gap-3 min-h-11 md:min-h-9 px-3 rounded-lg text-sm bg-bos-accent-soft text-bos-text font-semibold">
+                                <KeyRound aria-hidden="true" className="h-4 w-4 shrink-0 text-bos-accent-text" />
+                                {ACCOUNT_ITEM.label}
+                            </Link>
+                        </li>
+                    </ul>
+                )}
+                {sections.map((section, i) => {
+                    const items = section.items;
                     return (
                         <div key={section.title ?? i}>
                             {section.title && <p className="px-3 mb-1.5 text-xs font-medium text-bos-muted">{section.title}</p>}
@@ -93,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                                     return (
                                         <li key={item.href}>
                                             <Link href={item.href} aria-current={active ? 'page' : undefined}
-                                                className={`relative flex items-center gap-3 h-9 px-3 rounded-lg text-sm transition-colors ${active ? 'bg-bos-accent-soft text-bos-text font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-bos-accent' : 'text-bos-muted font-medium hover:text-bos-text hover:bg-bos-raised'}`}>
+                                                className={`relative flex items-center gap-3 min-h-11 md:min-h-9 px-3 rounded-lg text-sm transition-colors ${active ? 'bg-bos-accent-soft text-bos-text font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-bos-accent' : 'text-bos-muted font-medium hover:text-bos-text hover:bg-bos-raised'}`}>
                                                 <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active ? 'text-bos-accent-text' : ''}`} />
                                                 {item.label}
                                             </Link>

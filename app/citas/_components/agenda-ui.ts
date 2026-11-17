@@ -1,4 +1,5 @@
 import type { AppointmentStatus } from '@/types';
+import { formatMoney } from '@/lib/utils/money';
 
 // Un color discreto por barbero para distinguirlos en el calendario.
 // Al menos 3:1 sobre la superficie en modo claro y oscuro (WCAG 1.4.11). El color solo se usa en barras, puntos,
@@ -46,7 +47,7 @@ export const STATUS_DOT: Record<AppointmentStatus, string> = {
     no_show: 'bg-bos-muted',
 };
 
-export const money = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+export const money = (n: number) => formatMoney(n);
 
 /** "Lunes 16 de noviembre": el título legible de un día 'YYYY-MM-DD'. */
 export function longDayTitle(key: string): string {

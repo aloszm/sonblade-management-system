@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityRows, busiestHour, delta, presetRange } from './metrics';
+import { activityRows, busiestHour, comparable, delta, presetRange } from './metrics';
 
 describe('atajos de periodo', () => {
     it('la semana va del domingo a hoy', () => {
@@ -19,6 +19,9 @@ describe('comparación y hora fuerte', () => {
         expect(delta(150, 100)).toBe(50);
         expect(delta(80, 100)).toBe(-20);
         expect(delta(10, 0)).toBeNull();
+        expect(comparable(1300, 130)).toBe(true);
+        expect(comparable(1300, 129)).toBe(false);
+        expect(comparable(1300, 0)).toBe(false);
     });
 
     it('elige la hora con más cortes', () => {

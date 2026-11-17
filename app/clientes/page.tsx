@@ -4,8 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Loader2, Star, Clock, FileText, Pencil } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import type { Client } from '@/types';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { formatDate, formatDateTime } from '@/lib/utils/dates';
 
 const EMPTY_FORM = { name: '', phone: '', email: '' };
 
@@ -125,7 +124,7 @@ export default function ClientsPage() {
         <div className="max-w-7xl mx-auto space-y-6">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-semibold tracking-tight">Cartera de clientes</h1>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Clientes</h1>
                     <p className="text-bos-muted text-sm mt-1">Gestión de clientes y sistema de fidelización</p>
                 </div>
                 {!readOnly && <button
@@ -168,7 +167,7 @@ export default function ClientsPage() {
             {/* Tabla */}
             <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="bos-stack w-full text-left text-sm">
                         <thead className="text-bos-muted">
                             <tr>
                                 <th className={th}>Cliente</th>
@@ -193,7 +192,7 @@ export default function ClientsPage() {
                                 </tr>
                             ) : filteredClients.map(c => (
                                 <tr key={c.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
-                                    <td className="px-4 py-3">
+                                    <td data-label="" className="px-4 py-3">
                                         <div className="flex items-center gap-3">
                                             <div aria-hidden="true" className="w-10 h-10 shrink-0 rounded-full bg-bos-raised border border-bos-border flex items-center justify-center font-display font-semibold text-bos-text">
                                                 {c.name.charAt(0).toUpperCase()}
@@ -201,16 +200,16 @@ export default function ClientsPage() {
                                             <div>
                                                 <div className="font-semibold">{c.name}</div>
                                                 <div className="text-xs text-bos-muted mt-0.5 flex items-center gap-1 whitespace-nowrap">
-                                                    <FileText className="h-3 w-3" /> {c.client_number} • Añadido el {format(new Date(c.created_at), 'dd MMM yyyy', { locale: es })}
+                                                    <FileText className="h-3 w-3" /> {c.client_number} • Añadido el {formatDate(c.created_at)}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3 text-bos-muted">
+                                    <td data-label="Contacto" className="px-4 py-3 text-bos-muted">
                                         <div className="text-sm font-medium text-bos-text">{c.phone || 'Sin teléfono'}</div>
                                         <div className="text-xs mt-0.5">{c.email || 'Sin email'}</div>
                                     </td>
-                                    <td className="px-4 py-3 text-center">
+                                    <td data-label="Fidelización" className="px-4 py-3 text-center">
                                         <div className="flex flex-col items-center justify-center gap-1">
                                             <span className="bg-bos-accent-soft text-bos-accent-text px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
                                                 <Star className="h-3.5 w-3.5 fill-current" /> {c.points ?? 0} pts
@@ -220,17 +219,17 @@ export default function ClientsPage() {
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                                    <td data-label="Última visita" className="px-4 py-3 text-right whitespace-nowrap">
                                         {c.last_visit_at ? (
                                             <div className="flex items-center justify-end gap-1.5 text-sm font-medium">
                                                 <Clock className="h-4 w-4 text-bos-muted" />
-                                                {format(new Date(c.last_visit_at), 'dd MMM, HH:mm', { locale: es })}
+                                                {formatDateTime(c.last_visit_at, undefined, { year: false })}
                                             </div>
                                         ) : (
                                             <span className="text-xs bg-bos-raised text-bos-muted px-2 py-1 rounded-full font-medium">Nunca</span>
                                         )}
                                     </td>
-                                    {canEdit && <td className="px-4 py-2 text-center">
+                                    {canEdit && <td data-label="" className="px-4 py-2 text-center">
                                         <div className="flex items-center justify-center gap-1">
                                             <button
                                                 onClick={() => openEdit(c)}

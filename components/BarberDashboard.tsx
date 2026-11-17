@@ -1,5 +1,6 @@
 'use client';
 
+import { BUSINESS_TIME_ZONE } from '@/lib/utils/dates';
 import React, { useEffect, useRef, useState } from 'react';
 import { PERIODS, PERIOD_LABELS, type MyWeek, type Period } from '@/lib/barber/my-week';
 import { SectionError, SectionSkeleton, Skeleton, card } from '@/app/barbero/_components/ui';
@@ -36,7 +37,7 @@ export default function BarberDashboard() {
 
     // Quién es la persona y a quién se puede ver. La fecha se toma del dispositivo, no del servidor (que está en UTC).
     useEffect(() => {
-        setToday(new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }));
+        setToday(new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: BUSINESS_TIME_ZONE }));
         let cancelled = false;
         (async () => {
             try {

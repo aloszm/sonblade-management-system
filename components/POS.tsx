@@ -6,8 +6,10 @@ import { Check, Loader2, Lock, Minus, Plus, Search, X } from 'lucide-react';
 import { usePOS, MAX_FREE_PRICE, MIN_FREE_PRICE, parseFreePrice, type CartItem, type PaymentType, type PosError, type PosErrorField } from '@/hooks/usePOS';
 import { useCountUp } from '@/hooks/useCountUp';
 import { groupServices, isTestName, formatDuration, type ServiceCategory } from '@/lib/services/categories';
+import { formatMoney } from '@/lib/utils/money';
+import { formatTime } from '@/lib/utils/dates';
 
-const money = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;
+const money = (n: number) => formatMoney(n);
 const METHODS: { id: PaymentType; label: string }[] = [
     { id: 'cash', label: 'Efectivo' },
     { id: 'card', label: 'Tarjeta' },
@@ -165,7 +167,7 @@ export default function POS() {
                         {appointment ? (
                             <p className="text-sm">
                                 <span className="font-semibold">Cobrando la cita de {appointment.client_name}</span>
-                                <span className="text-bos-muted"> · {new Date(appointment.scheduled_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                <span className="text-bos-muted"> · {formatTime(appointment.scheduled_at)}
                                     {appointment.barber ? ` con ${appointment.barber.name}` : ''}{appointment.notes ? ` · ${appointment.notes}` : ''}</span>
                                 <span className="block text-bos-muted">Al cobrar, la cita queda como atendida y ligada a este ticket.</span>
                             </p>

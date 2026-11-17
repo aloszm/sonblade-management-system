@@ -10,6 +10,8 @@ import { downloadCsv } from '@/lib/utils/csv';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import CreateSaleModal from '@/components/CreateSaleModal';
 import DateRangePicker from '@/components/ui/DateRangePicker';
+import { formatMoney } from '@/lib/utils/money';
+import { formatDate, formatTime } from '@/lib/utils/dates';
 
 function PaymentBadge({ sale }: { sale: Sale }) {
     const cash = Number(sale.cash_amount || 0);
@@ -19,9 +21,9 @@ function PaymentBadge({ sale }: { sale: Sale }) {
 
     if (sale.payment_method === 'mixed' || [cash, card, transfer].filter(v => v > 0).length > 1) {
         const parts: string[] = [];
-        if (cash > 0) parts.push(`Efect. $${cash.toFixed(0)}`);
-        if (card > 0) parts.push(`Tarj. $${card.toFixed(0)}`);
-        if (transfer > 0) parts.push(`Transf. $${transfer.toFixed(0)}`);
+        if (cash > 0) parts.push(`Efect. ${formatMoney(cash)}`);
+        if (card > 0) parts.push(`Tarj. ${formatMoney(card)}`);
+        if (transfer > 0) parts.push(`Transf. ${formatMoney(transfer)}`);
         return <span className={pill}>{parts.join(' / ')}</span>;
     }
 
@@ -189,7 +191,7 @@ export default function SalesHistoryPage() {
         <div className="max-w-7xl mx-auto space-y-6">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-semibold tracking-tight">Registro de ventas</h1>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Ventas</h1>
                     <p className="text-bos-muted text-sm mt-1">Se actualiza cada 30 s · {sales.length} ventas ({periodLabel})</p>
                 </div>
                 <div className="flex gap-2">
@@ -197,9 +199,9 @@ export default function SalesHistoryPage() {
                     <button onClick={exportCSV} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised flex items-center gap-2">
                         <Download className="h-4 w-4" />CSV
                     </button>
-                    <button onClick={() => setShowCreateModal(true)} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong flex items-center gap-2">
+                    {!readOnly && <button onClick={() => setShowCreateModal(true)} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong flex items-center gap-2">
                         <Plus className="h-4 w-4" />Nueva venta
-                    </button>
+                    </button>}
                 </div>
             </header>
             <ReadOnlyNotice readOnly={readOnly}>Ves las ventas y sus tickets, pero no anulas ventas.</ReadOnlyNotice>
@@ -228,7 +230,7 @@ export default function SalesHistoryPage() {
 
             {/* Resumen */}
             <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Total generado</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums text-bos-accent-text">${totalFiltered.toFixed(2)}</p></div>
+                <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Total generado</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums text-bos-accent-text">{formatMoney(totalFiltered, { cents: true })}</p></div>
                 <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Ventas</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums">{sales.length}</p></div>
             </div>
 
@@ -256,20 +258,19 @@ export default function SalesHistoryPage() {
                             ) : page.length === 0 ? (
                                 <tr className="border-t border-bos-border"><td colSpan={10} className="p-8 text-center text-bos-muted">Sin resultados para {periodLabel}</td></tr>
                             ) : page.map(sale => {
-                                const d = new Date(sale.created_at);
                                 const srvs = sale.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(', ') || '—';
                                 const prds = sale.items?.filter(i => i.item_type === 'product').map(i => `${i.item_name}${(i.quantity || 1) > 1 ? ` x${i.quantity}` : ''}`).join(', ') || '—';
                                 return (
                                     <tr key={sale.id} className="border-t border-bos-border hover:bg-bos-raised">
                                         <td className="px-4 py-3 font-medium whitespace-nowrap tabular-nums" data-testid="sale-folio">{sale.folio || '—'}</td>
-                                        <td className="px-4 py-3 font-medium whitespace-nowrap">{format(d, 'MMM dd, yyyy')}</td>
-                                        <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{format(d, 'hh:mm a')}</td>
+                                        <td className="px-4 py-3 font-medium whitespace-nowrap">{formatDate(sale.created_at)}</td>
+                                        <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{formatTime(sale.created_at)}</td>
                                         <td className="px-4 py-3 font-medium">{sale.barber?.name || '—'}</td>
                                         <td className="px-4 py-3">{srvs}</td>
                                         <td className="px-4 py-3 text-bos-muted">{prds}</td>
-                                        <td className="px-4 py-3 text-right tabular-nums">${Number(sale.tip || 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 text-right tabular-nums">{formatMoney(Number(sale.tip || 0), { cents: true })}</td>
                                         <td className="px-4 py-3"><PaymentBadge sale={sale} /></td>
-                                        <td className={`px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${sale.status === 'refunded' ? 'line-through text-bos-muted' : ''}`}>${Number(sale.total).toFixed(2)}{sale.status === 'refunded' && <span className="ml-2 text-xs no-underline text-bos-danger font-semibold align-middle inline-block">Anulada</span>}</td>
+                                        <td className={`px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${sale.status === 'refunded' ? 'line-through text-bos-muted' : ''}`}>{formatMoney(Number(sale.total), { cents: true })}{sale.status === 'refunded' && <span className="ml-2 text-xs no-underline text-bos-danger font-semibold align-middle inline-block">Anulada</span>}</td>
                                         <td className="px-4 py-1 text-center whitespace-nowrap">
                                             <Link href={`/ticket/${sale.id}`} aria-label="Ver ticket" title="Ver ticket" className={iconBtn}>
                                                 <FileText className="h-4 w-4" />
@@ -316,13 +317,13 @@ export default function SalesHistoryPage() {
             )}
 
             {/* Crear venta manual */}
-            <CreateSaleModal
+            {!readOnly && <CreateSaleModal
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
                 onCreated={() => fetchSales()}
                 barbers={barbers}
                 services={services}
-            />
+            />}
         </div>
     );
 }

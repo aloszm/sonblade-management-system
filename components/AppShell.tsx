@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
@@ -10,6 +10,9 @@ import MobileNav from '@/components/MobileNav';
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
     const pathname = usePathname();
+
+    // El cajón se cierra al cambiar de pantalla.
+    useEffect(() => { setIsSidebarOpen(false); }, [pathname]);
 
     // Páginas públicas (clientes sin cuenta): sin menú ni encabezado internos.
     const isPublic = pathname === '/login' || pathname === '/onboarding'

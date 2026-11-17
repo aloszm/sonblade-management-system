@@ -48,6 +48,15 @@ export function delta(current: number, previous: number): number | null {
     return Math.round(((current - previous) / Math.abs(previous)) * 1000) / 10;
 }
 
+/**
+ * Si la comparación con el periodo anterior es confiable: ese periodo debe tener
+ * al menos el 10 % de lo actual (si no, el porcentaje sale absurdo, p. ej. +1250 %).
+ */
+export function comparable(current: number, previous: number): boolean {
+    if (!previous || previous < 0) return false;
+    return Math.abs(previous) >= Math.abs(current) * 0.1;
+}
+
 /** La hora con más cortes; null si no hubo cortes. */
 export function busiestHour(hourly: Metrics['hourly']): number | null {
     let best: Metrics['hourly'][number] | null = null;

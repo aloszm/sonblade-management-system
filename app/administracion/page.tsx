@@ -65,14 +65,14 @@ export default function FinanzasPage() {
                         <p className="max-w-2xl text-sm text-bos-muted print:hidden">Cuánto entró, a dónde se fue y cuánto le quedó realmente al negocio.</p>
                     </div>
                     <button type="button" onClick={() => window.print()} disabled={!data}
-                        className="inline-flex h-9 items-center gap-2 rounded-full border border-bos-border px-3.5 text-sm font-medium text-bos-muted hover:text-bos-text disabled:opacity-60 print:hidden">
+                        className="inline-flex min-h-11 items-center gap-2 rounded-full border border-bos-border px-3.5 text-sm font-medium text-bos-muted hover:text-bos-text disabled:opacity-60 print:hidden">
                         <Printer aria-hidden="true" className="h-4 w-4" /> Imprimir
                     </button>
                 </div>
                 <div role="group" aria-label="Periodo" className="flex flex-wrap gap-2 print:hidden">
                     {PERIODS.map((p) => (
                         <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}
-                            className={`h-9 px-3.5 rounded-full border text-sm font-medium ${period === p.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>{p.label}</button>
+                            className={`min-h-11 px-3.5 rounded-full border text-sm font-medium ${period === p.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>{p.label}</button>
                     ))}
                 </div>
                 {period === 'custom' && (
@@ -88,7 +88,7 @@ export default function FinanzasPage() {
             {!rangeError && error && (
                 <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bos-danger bg-bos-danger-soft p-4">
                     <p className="text-bos-text">{error}</p>
-                    <button type="button" onClick={() => load(range.from, range.to)} className="inline-flex h-9 items-center gap-2 rounded-full border border-bos-border bg-bos-surface px-3.5 text-sm font-medium text-bos-text print:hidden">
+                    <button type="button" onClick={() => load(range.from, range.to)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-bos-border bg-bos-surface px-3.5 text-sm font-medium text-bos-text print:hidden">
                         <RefreshCw aria-hidden="true" className="h-4 w-4" /> Reintentar
                     </button>
                 </div>

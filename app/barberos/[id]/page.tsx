@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback, use } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
 import Link from 'next/link';
 import DateRangePicker from '@/components/ui/DateRangePicker';
+import { formatMoney } from '@/lib/utils/money';
+import { formatDate, formatTime } from '@/lib/utils/dates';
 
 interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; serviceCommission: number; productCommission: number; }
 interface Movement { id: string; date: string; services: string; products: string; payment_method: string; cash_amount: number; card_amount: number; transfer_amount: number; tip: number; total: number; commission: number; }
@@ -13,9 +14,9 @@ interface ServiceBreak { name: string; count: number; revenue: number; }
 function PaymentDetail({ m }: { m: Movement }) {
     const pill = 'inline-block whitespace-nowrap text-xs font-medium px-2.5 py-0.5 rounded-full border border-bos-border bg-bos-raised text-bos-text';
     const parts: string[] = [];
-    if (m.cash_amount > 0) parts.push(`Efect. $${m.cash_amount.toFixed(0)}`);
-    if (m.card_amount > 0) parts.push(`Tarj. $${m.card_amount.toFixed(0)}`);
-    if (m.transfer_amount > 0) parts.push(`Transf. $${m.transfer_amount.toFixed(0)}`);
+    if (m.cash_amount > 0) parts.push(`Efect. ${formatMoney(m.cash_amount)}`);
+    if (m.card_amount > 0) parts.push(`Tarj. ${formatMoney(m.card_amount)}`);
+    if (m.transfer_amount > 0) parts.push(`Transf. ${formatMoney(m.transfer_amount)}`);
     if (parts.length > 1) return <span className={pill}>{parts.join(' / ')}</span>;
     const label = m.payment_method === 'cash' ? 'Efectivo' : m.payment_method === 'card' ? 'Tarjeta' : m.payment_method === 'transfer' ? 'Transferencia' : m.payment_method;
     return <span className={pill}>{label}</span>;
@@ -98,23 +99,23 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className={`${card} p-4`}>
                             <span className="text-[13px] font-medium text-bos-muted">Cortes</span>
-                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">${kpis.serviceRevenue.toFixed(2)}</p>
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{formatMoney(kpis.serviceRevenue, { cents: true })}</p>
                             <p className="text-xs text-bos-muted">{kpis.cuts} servicios realizados</p>
                         </div>
                         <div className={`${card} p-4`}>
                             <span className="text-[13px] font-medium text-bos-muted">Comisión</span>
-                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">${kpis.serviceCommission.toFixed(2)}</p>
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{formatMoney(kpis.serviceCommission, { cents: true })}</p>
                             <p className="text-xs text-bos-muted">{kpis.commissionRate}% de servicios</p>
                         </div>
                         <div className={`${card} p-4`}>
                             <span className="text-[13px] font-medium text-bos-muted">Propina</span>
-                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">${kpis.tips.toFixed(2)}</p>
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{formatMoney(kpis.tips, { cents: true })}</p>
                             <p className="text-xs text-bos-muted">100% para el barbero</p>
                         </div>
                         <div className={`${card} p-4 border-bos-accent`}>
                             <span className="text-[13px] font-medium text-bos-muted">Total a recibir</span>
-                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-bos-accent-text">${kpis.totalCommission.toFixed(2)}</p>
-                            {kpis.productCommission > 0 && <p className="text-xs text-bos-muted">Incluye ${kpis.productCommission.toFixed(2)} por productos</p>}
+                            <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-bos-accent-text">{formatMoney(kpis.totalCommission, { cents: true })}</p>
+                            {kpis.productCommission > 0 && <p className="text-xs text-bos-muted">Incluye {formatMoney(kpis.productCommission, { cents: true })} por productos</p>}
                         </div>
                     </div>
 
@@ -147,13 +148,13 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                                     <tr key={s.name} className="border-t border-bos-border hover:bg-bos-raised">
                                         <td className="px-4 py-3 font-medium">{s.name}</td>
                                         <td className="px-4 py-3 text-center font-semibold tabular-nums">{s.count}</td>
-                                        <td className="px-4 py-3 text-right font-semibold tabular-nums">${s.revenue.toFixed(2)}</td>
+                                        <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatMoney(s.revenue, { cents: true })}</td>
                                     </tr>
                                 ))}
                                 <tr className="border-t border-bos-border bg-bos-raised font-semibold">
                                     <td className="px-4 py-3">Total</td>
                                     <td className="px-4 py-3 text-center tabular-nums">{serviceBreakdown.reduce((s, b) => s + b.count, 0)}</td>
-                                    <td className="px-4 py-3 text-right tabular-nums">${svcTotal.toFixed(2)}</td>
+                                    <td className="px-4 py-3 text-right tabular-nums">{formatMoney(svcTotal, { cents: true })}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -186,17 +187,16 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                             ) : movements.length === 0 ? (
                                 <tr className="border-t border-bos-border"><td colSpan={8} className="p-8 text-center text-bos-muted">Sin movimientos en este período</td></tr>
                             ) : movements.map(m => {
-                                const d = new Date(m.date);
                                 return (
                                     <tr key={m.id} className="border-t border-bos-border hover:bg-bos-raised">
-                                        <td className="px-4 py-3 font-medium whitespace-nowrap">{format(d, 'MMM dd')}</td>
-                                        <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{format(d, 'hh:mm a')}</td>
+                                        <td className="px-4 py-3 font-medium whitespace-nowrap">{formatDate(m.date, undefined, { year: false })}</td>
+                                        <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{formatTime(m.date)}</td>
                                         <td className="px-4 py-3">{m.services}</td>
                                         <td className="px-4 py-3 text-bos-muted">{m.products}</td>
                                         <td className="px-4 py-3"><PaymentDetail m={m} /></td>
-                                        <td className="px-4 py-3 text-right tabular-nums">${m.tip.toFixed(2)}</td>
-                                        <td className="px-4 py-3 text-right font-semibold tabular-nums">${m.total.toFixed(2)}</td>
-                                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-bos-accent-text">${m.commission.toFixed(2)}</td>
+                                        <td className="px-4 py-3 text-right tabular-nums">{formatMoney(m.tip, { cents: true })}</td>
+                                        <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatMoney(m.total, { cents: true })}</td>
+                                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-bos-accent-text">{formatMoney(m.commission, { cents: true })}</td>
                                     </tr>
                                 );
                             })}

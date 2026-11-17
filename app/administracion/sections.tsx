@@ -4,12 +4,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Banknote, CreditCard, Landmark, Minus, TriangleAlert, Wallet } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { BarberRow, Delta, ProfitReport } from '@/lib/admin/profit';
+import { formatMoney } from '@/lib/utils/money';
 
 // Piezas de presentación del tablero de Finanzas. Reciben el reporte ya calculado; no calculan dinero propio
 // salvo proporciones para dibujar barras. Solo colores del sistema (bos-*).
 
-export const money = (n: number) => Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
-const moneyShort = (n: number) => Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+export const money = (n: number) => formatMoney(n, { cents: true });
+const moneyShort = (n: number) => formatMoney(n);
 const pctText = (n: number) => `${Math.abs(n).toLocaleString('es-MX', { maximumFractionDigits: 1 })} %`;
 export const dayLabel = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
 const shortDay = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
@@ -125,7 +126,7 @@ export function Waterfall({ data }: { data: ProfitReport }) {
         { key: 'rev', label: 'Ingresos', hint: `Servicios ${money(data.revenue.services)} · productos ${money(data.revenue.products)}. Ya sin descuentos (${money(data.revenue.discounts)}).`, amount: revenue, sign: '', start: 0, end: revenue, tone: 'bg-bos-text' },
         { key: 'com', label: 'Comisiones', hint: `Servicios ${money(data.commissions.services)} · productos ${money(data.commissions.products)}.`, amount: out.commissions, sign: '−', start: afterCommissions, end: revenue, tone: 'bg-bos-accent' },
         { key: 'cost', label: 'Costo de productos vendidos', hint: `${units(data.counts.productUnits)} vendidas, a su costo registrado.`, amount: out.cost, sign: '−', start: afterCost, end: afterCommissions, tone: 'bg-bos-control' },
-        { key: 'exp', label: 'Gastos', hint: 'Gastos registrados en caja (Gastos e insumos).', amount: out.expenses, sign: '−', start: data.profit, end: afterCost, tone: 'bg-bos-danger' },
+        { key: 'exp', label: 'Gastos', hint: 'Gastos registrados en caja (Gastos).', amount: out.expenses, sign: '−', start: data.profit, end: afterCost, tone: 'bg-bos-danger' },
         { key: 'net', label: 'Utilidad neta', hint: 'Lo que le queda al negocio.', amount: data.profit, sign: '=', start: 0, end: Math.max(data.profit, 0), tone: data.profit < 0 ? 'bg-bos-danger' : 'bg-bos-success' },
     ];
     return (
@@ -331,7 +332,7 @@ export function Barbers({ rows }: { rows: BarberRow[] }) {
                 <div role="group" aria-label="Ordenar por" className="flex flex-wrap gap-2 print:hidden">
                     {SORTS.map((s) => (
                         <button key={s.id} type="button" aria-pressed={sort === s.id} onClick={() => setSort(s.id)}
-                            className={`h-8 px-3 rounded-full border text-[13px] font-medium ${sort === s.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>{s.label}</button>
+                            className={`min-h-11 px-3 rounded-full border text-[13px] font-medium ${sort === s.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>{s.label}</button>
                     ))}
                 </div>
             </div>

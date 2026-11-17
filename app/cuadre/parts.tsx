@@ -7,13 +7,15 @@ import {
     ISSUE_LABELS, PRE_AGENDA_GUIDE, issueGuide, primaryAction, secondaryAction,
     type ReconciliationIssue, type ReviewDecision,
 } from '@/lib/reports/reconciliation';
+import { formatMoney } from '@/lib/utils/money';
+import { formatDateTime } from '@/lib/utils/dates';
 
 // Piezas de la pantalla de Cuadre. Solo colores del sistema (bos-*).
 
-export const money = (n: number) => Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+export const money = (n: number) => formatMoney(n, { cents: true });
 export const dayLabel = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
 export const timeOf = (iso: string, timeZone?: string) =>
-    new Date(iso).toLocaleString('es-MX', { timeZone, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    formatDateTime(iso, timeZone, { year: false });
 
 export const btnPrimary = 'min-h-11 px-4 rounded-xl bg-bos-accent text-bos-on-accent font-bold inline-flex items-center justify-center gap-2 hover:bg-bos-accent-strong disabled:cursor-not-allowed';
 export const btnSecondary = 'min-h-11 px-4 rounded-xl border border-bos-border font-semibold inline-flex items-center justify-center gap-2 hover:bg-bos-raised disabled:cursor-not-allowed';
@@ -145,7 +147,7 @@ export function PreAgendaGroup({ issues, total, before, timeZone, onAcceptAll }:
     const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
-    const cutoff = new Date(before).toLocaleString('es-MX', { timeZone, day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' });
+    const cutoff = formatDateTime(before, timeZone, { year: false });
     const others = Math.max(0, total - issues.length);
     const accept = async () => {
         setBusy(true);

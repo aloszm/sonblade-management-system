@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Loader2, Plus, Minus, Search, Trash2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import type { Barber, Service, Client } from '@/types';
+import { formatMoney } from '@/lib/utils/money';
 
 interface CreateSaleModalProps {
     isOpen: boolean;
@@ -196,7 +197,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                                     <span className="font-medium text-sm min-w-0 truncate">{s.name}</span>
                                     <div className="flex items-center gap-3 shrink-0">
                                         <span className="text-sm text-bos-muted tabular-nums">${s.price} × {s.qty}</span>
-                                        <span className="font-semibold text-sm tabular-nums">${(s.price * s.qty).toFixed(2)}</span>
+                                        <span className="font-semibold text-sm tabular-nums">{formatMoney((s.price * s.qty), { cents: true })}</span>
                                         <button type="button" aria-label={`Quitar ${s.name}`} onClick={() => removeService(s.id)} className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-danger"><Minus className="h-4 w-4" /></button>
                                     </div>
                                 </div>
@@ -244,7 +245,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                 {/* Total */}
                 <div className="rounded-xl p-4 border border-bos-border bg-bos-bg flex justify-between items-center">
                     <span className="font-medium text-bos-muted">Total</span>
-                    <span className="font-display text-2xl font-semibold tabular-nums text-bos-accent-text">${total.toFixed(2)}</span>
+                    <span className="font-display text-2xl font-semibold tabular-nums text-bos-accent-text">{formatMoney(total, { cents: true })}</span>
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">

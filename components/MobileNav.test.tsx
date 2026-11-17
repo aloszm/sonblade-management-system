@@ -1,42 +1,61 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import MobileNav from './MobileNav';
 
-function mockMe(role: 'admin' | 'recepcion' | 'barber') {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ json: async () => ({ authenticated: true, user: { id: 'u1', name: 'Dani', role } }) })));
+type U = { role: 'admin' | 'recepcion' | 'barber'; readOnly?: boolean; isOwner?: boolean; mustChangePin?: boolean };
+function mockMe(user: U) {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ json: async () => ({ authenticated: true, user: { id: 'u1', name: 'Dani', ...user } }) })));
 }
 
 afterEach(() => vi.unstubAllGlobals());
 
+const bar = () => screen.getByRole('navigation', { name: 'Principal' });
+const names = () => within(bar()).getAllByRole('link').map((l) => l.textContent);
+
 describe('Menú inferior del celular', () => {
-    it('el barbero ve Mi semana, Citas, Clientes, Recibos y Salir; no cobra ni maneja caja', async () => {
-        mockMe('barber');
-        render(<MobileNav />);
-        expect(await screen.findByRole('link', { name: /Mi semana/ })).toBeInTheDocument();
-        for (const name of [/Citas/, /Clientes/, /Recibos/]) expect(screen.getByRole('link', { name })).toBeInTheDocument();
-        expect(screen.queryByRole('link', { name: /Cobro/ })).not.toBeInTheDocument();
-        expect(screen.queryByRole('link', { name: /Caja/ })).not.toBeInTheDocument();
-        // Cuatro accesos y Salir: caben en 390 px sin desbordar.
-        expect(screen.getAllByRole('link')).toHaveLength(4);
-    });
-
-    it('recepción conserva Caja, Clientes, Citas y Recibos, y suma Barberos', async () => {
-        mockMe('recepcion');
-        render(<MobileNav />);
-        expect(await screen.findByRole('link', { name: /Caja/ })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /Barberos/ })).toHaveAttribute('href', '/equipo-hoy');
-        // Cinco accesos y Salir: caben en 390 px.
-        expect(screen.getAllByRole('link')).toHaveLength(5);
-    });
-
-    it('el dueño y la gerencia también ven Barberos; el barbero no', async () => {
-        mockMe('admin');
-        const { unmount } = render(<MobileNav />);
-        expect(await screen.findByRole('link', { name: /Barberos/ })).toBeInTheDocument();
-        unmount();
-        mockMe('barber');
+    it('el barbero ve Mi semana, Agenda, Clientes y Pago semanal; no cobra ni maneja caja', async () => {
+        mockMe({ role: 'barber' });
         render(<MobileNav />);
         await screen.findByRole('link', { name: /Mi semana/ });
-        expect(screen.queryByRole('link', { name: /Barberos/ })).not.toBeInTheDocument();
+        expect(names()).toEqual(['Mi semana', 'Agenda', 'Clientes', 'Pago semanal']);
+    });
+
+    it('recepción: Caja, Agenda, Barberos hoy y Clientes; el resto en Más', async () => {
+        mockMe({ role: 'recepcion' });
+        render(<MobileNav />);
+        await screen.findByRole('link', { name: /Caja/ });
+        expect(names()).toEqual(['Caja', 'Agenda', 'Barberos hoy', 'Clientes']);
+        fireEvent.click(screen.getByRole('button', { name: /Más/ }));
+        const sheet = screen.getByRole('dialog', { name: 'Más' });
+        expect(within(sheet).getByRole('link', { name: 'Cobro' })).toBeInTheDocument();
+        expect(within(sheet).getByRole('link', { name: 'Pago semanal' })).toBeInTheDocument();
+        expect(within(sheet).getByRole('link', { name: 'Cobro' }).className).toContain('min-h-11');
+    });
+
+    it('el dueño llega a Finanzas, y desde Más a Reportes y Gastos', async () => {
+        mockMe({ role: 'admin', isOwner: true });
+        render(<MobileNav />);
+        await screen.findByRole('link', { name: /Panel/ });
+        expect(names()).toEqual(['Panel', 'Agenda', 'Caja', 'Finanzas']);
+        fireEvent.click(screen.getByRole('button', { name: /Más/ }));
+        const sheet = screen.getByRole('dialog', { name: 'Más' });
+        for (const l of ['Reportes', 'Gastos', 'Configuración']) expect(within(sheet).getByRole('link', { name: l })).toBeInTheDocument();
+    });
+
+    it('la consulta no ve Caja entre los atajos ni Cobro', async () => {
+        mockMe({ role: 'admin', readOnly: true });
+        render(<MobileNav />);
+        await screen.findByRole('link', { name: /Panel/ });
+        expect(names()).toEqual(['Panel', 'Agenda', 'Finanzas', 'Barberos hoy']);
+        expect(screen.queryByRole('link', { name: /Cobro/ })).not.toBeInTheDocument();
+    });
+
+    it('con PIN temporal solo hay Mi cuenta y Salir', async () => {
+        mockMe({ role: 'admin', isOwner: true, mustChangePin: true });
+        render(<MobileNav />);
+        await screen.findByRole('link', { name: /Mi cuenta/ });
+        expect(names()).toEqual(['Mi cuenta']);
+        expect(screen.getByRole('button', { name: /Salir/ })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Más/ })).not.toBeInTheDocument();
     });
 });

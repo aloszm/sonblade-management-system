@@ -5,7 +5,7 @@ import { PRIVACY_NOTICE_VERSION, PRIVACY_SECTIONS } from '@/lib/booking-ui/priva
 
 export const metadata: Metadata = {
     title: 'Aviso de privacidad · Gallo 4:20',
-    description: 'Aviso de privacidad simplificado de Gallo 4:20, Barber Shop.',
+    description: 'Aviso de privacidad simplificado de Gallo 4:20.',
     robots: { index: true, follow: true },
 };
 
@@ -17,7 +17,7 @@ export default function PrivacidadPage() {
             <main className="mx-auto w-full max-w-[560px] px-4 pb-12 pt-6">
                 <div className="flex items-center gap-3">
                     <BrandLogo className="h-14 w-14 shrink-0" />
-                    <p className="text-sm text-bos-muted">Gallo 4:20, Barber Shop</p>
+                    <p className="text-sm text-bos-muted">Gallo 4:20</p>
                 </div>
                 <h1 className="font-display mt-5 text-3xl font-semibold text-bos-text">Aviso de privacidad</h1>
                 <p className="mt-1 text-sm text-bos-muted">Versión {PRIVACY_NOTICE_VERSION}</p>

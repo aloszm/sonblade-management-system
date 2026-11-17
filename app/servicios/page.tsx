@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Plus, Search, Loader2, Edit2, Check, X } from 'lucide-react';
 import { CATEGORY_LABELS, DEFAULT_CATEGORY, DURATION_OPTIONS, SERVICE_CATEGORIES, categoryOf, formatDuration, groupServices, isServiceCategory, type ServiceCategory } from '@/lib/services/categories';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Service {
     id: string;
@@ -123,7 +124,7 @@ export default function ServicesPage() {
         <div className="max-w-6xl mx-auto space-y-6">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-semibold tracking-tight">Catálogo de servicios</h1>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Servicios</h1>
                     <p className="text-bos-muted text-sm mt-1">Administra los servicios ofrecidos en la barbería</p>
                 </div>
                 {!readOnly && <button
@@ -153,7 +154,7 @@ export default function ServicesPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="bos-stack w-full text-left text-sm">
                         <thead className="text-bos-muted">
                             <tr>
                                 <th className={th}>Nombre</th>
@@ -168,9 +169,9 @@ export default function ServicesPage() {
                         <tbody>
                             {isAdding && (
                                 <tr className="border-t border-bos-border bg-bos-accent-soft">
-                                    <td className="p-3">{nameInput}</td>
-                                    <td className="p-3">{categoryInput}</td>
-                                    <td className="p-3">
+                                    <td data-label="" className="p-3">{nameInput}</td>
+                                    <td data-label="Categoría" className="p-3">{categoryInput}</td>
+                                    <td data-label="Precio" className="p-3">
                                         <input
                                             type="number"
                                             inputMode="decimal"
@@ -185,12 +186,12 @@ export default function ServicesPage() {
                                             Precio libre al cobrar
                                         </label>
                                     </td>
-                                    <td className="p-3">{durationInput}</td>
-                                    <td className="p-3">{orderInput}</td>
-                                    <td className="p-3 text-center">
+                                    <td data-label="Duración" className="p-3">{durationInput}</td>
+                                    <td data-label="Orden" className="p-3">{orderInput}</td>
+                                    <td data-label="Estado" className="p-3 text-center">
                                         <span className="text-xs text-bos-success font-medium bg-bos-success-soft px-2.5 py-1 rounded-full">Activo</span>
                                     </td>
-                                    <td className="p-3 text-right">
+                                    <td data-label="" className="p-3 text-right">
                                         <div className="flex justify-end gap-1">
                                             <button onClick={() => setIsAdding(false)} aria-label="Cancelar" className={iconBtn}><X className="h-4 w-4" /></button>
                                             <button onClick={() => handleSave()} aria-label="Guardar servicio" className="h-11 w-11 inline-flex items-center justify-center rounded-xl bg-bos-accent text-bos-on-accent"><Check className="h-4 w-4" /></button>
@@ -219,17 +220,17 @@ export default function ServicesPage() {
                                     </tr>
                                     {group.items.map(service => (
                                 <tr key={service.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
-                                    <td className="px-4 py-3">
+                                    <td data-label="" className="px-4 py-3">
                                         {editingId === service.id ? nameInput : (
                                             <span className="font-semibold">{service.name}</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td data-label="Categoría" className="px-4 py-3">
                                         {editingId === service.id ? categoryInput : (
                                             <span className="text-bos-muted">{CATEGORY_LABELS[categoryOf(service.category)]}</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-center">
+                                    <td data-label="Precio" className="px-4 py-3 text-center">
                                         {editingId === service.id ? (
                                             <input
                                                 type="number"
@@ -248,20 +249,20 @@ export default function ServicesPage() {
                                         ) : service.variable_price ? (
                                             <span className="text-sm font-medium text-bos-muted">Precio al cobrar</span>
                                         ) : (
-                                            <span className="font-display font-semibold tabular-nums">${Number(service.price).toFixed(2)}</span>
+                                            <span className="font-display font-semibold tabular-nums">{formatMoney(Number(service.price), { cents: true })}</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-center">
+                                    <td data-label="Duración" className="px-4 py-3 text-center">
                                         {editingId === service.id ? durationInput : (
                                             <span className="text-bos-muted tabular-nums">{formatDuration(service.duration_minutes)}</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-center">
+                                    <td data-label="Orden" className="px-4 py-3 text-center">
                                         {editingId === service.id ? orderInput : (
                                             <span className="text-bos-muted tabular-nums">{service.sort_order ?? 0}</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-2 text-center">
+                                    <td data-label="Estado" className="px-4 py-2 text-center">
                                         <button
                                             disabled={readOnly}
                                             onClick={() => handleToggleStatus(service)}
@@ -274,7 +275,7 @@ export default function ServicesPage() {
                                             {service.is_active ? 'Activo' : 'Inactivo'}
                                         </button>
                                     </td>
-                                    <td className="px-4 py-2 text-right">
+                                    <td data-label="" className="px-4 py-2 text-right">
                                         <div className="flex justify-end gap-1">
                                             {editingId === service.id ? (
                                                 <>

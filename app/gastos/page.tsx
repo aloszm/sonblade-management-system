@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Plus, Search, Loader2, Info } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import { formatMoney } from '@/lib/utils/money';
+import { formatDate } from '@/lib/utils/dates';
 
 interface Gasto {
     id: string;
@@ -96,7 +98,7 @@ export default function GastosPage() {
         <div className="max-w-6xl mx-auto space-y-6">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-3xl font-semibold tracking-tight">Gastos e insumos</h1>
+                    <h1 className="font-display text-3xl font-semibold tracking-tight">Gastos</h1>
                     <p className="text-bos-muted text-sm mt-1">Control de egresos y compras de la barbería</p>
                 </div>
                 {!readOnly && <button
@@ -112,9 +114,9 @@ export default function GastosPage() {
             <section aria-labelledby="gasto-vs-retiro" className="rounded-xl border border-bos-border bg-bos-surface p-5">
                 <h2 id="gasto-vs-retiro" className="flex items-center gap-2 font-display font-semibold"><Info className="h-4 w-4 text-bos-muted" /> ¿Gasto, retiro o entrada?</h2>
                 <ul className="mt-3 space-y-2 text-sm text-bos-muted leading-relaxed">
-                    <li><strong className="text-bos-text">Gasto:</strong> sale dinero de la caja para PAGAR algo del negocio (agua, basura, insumos, una reparación). Baja la utilidad.</li>
-                    <li><strong className="text-bos-text">Retiro</strong> (se hace en la pantalla Caja): el dinero solo CAMBIA DE LUGAR, por ejemplo al banco, a la caja fuerte, al dueño o para pagar comisiones en efectivo. No baja la utilidad.</li>
-                    <li><strong className="text-bos-text">Entrada:</strong> metes efectivo a la caja, por ejemplo para tener cambio.</li>
+                    <li><strong className="text-bos-text">Gasto:</strong> sale dinero de la caja para pagar algo del negocio (agua, insumos, una reparación). Baja la utilidad.</li>
+                    <li><strong className="text-bos-text">Retiro</strong> (en Caja): el dinero solo cambia de lugar, por ejemplo al banco o a la caja fuerte. No baja la utilidad.</li>
+                    <li><strong className="text-bos-text">Entrada:</strong> metes efectivo a la caja, por ejemplo para dar cambio.</li>
                 </ul>
             </section>
 
@@ -122,7 +124,7 @@ export default function GastosPage() {
                 <div className="md:col-span-1">
                     <div className="rounded-xl border border-bos-border bg-bos-surface p-6 text-center">
                         <p className="text-[13px] font-medium text-bos-muted mb-2">Total del periodo</p>
-                        <p className="font-display text-4xl font-semibold tabular-nums">${totalGastos.toFixed(2)}</p>
+                        <p className="font-display text-4xl font-semibold tabular-nums">{formatMoney(totalGastos, { cents: true })}</p>
                         <div className="mt-4 pt-4 border-t border-bos-border">
                             <p className="text-xs text-bos-muted">{gastos.length} comprobantes registrados</p>
                         </div>
@@ -161,7 +163,7 @@ export default function GastosPage() {
                                     ) : filteredGastos.map((gasto) => (
                                         <tr key={gasto.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
                                             <td className="px-4 py-3 text-bos-muted whitespace-nowrap">
-                                                {new Date(gasto.created_at).toLocaleDateString()}
+                                                {formatDate(gasto.created_at)}
                                             </td>
                                             <td className="px-4 py-3 font-semibold">{gasto.description}</td>
                                             <td className="px-4 py-3">
@@ -170,7 +172,7 @@ export default function GastosPage() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-right font-semibold tabular-nums text-bos-danger whitespace-nowrap">
-                                                -${Number(gasto.amount).toFixed(2)}
+                                                -{formatMoney(Number(gasto.amount), { cents: true })}
                                             </td>
                                         </tr>
                                     ))}

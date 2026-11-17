@@ -9,7 +9,7 @@ export const PRIVACY_CONTACT_EMAIL = 'barberia.gallo420@gmail.com';
 export interface PrivacySection { title: string; body: string }
 
 export const PRIVACY_SECTIONS: PrivacySection[] = [
-    { title: 'Responsable', body: 'Barbería Gallo 420, que opera Gallo 4:20, Barber Shop. Efeso 2, Lomas Estrella 2da Secc., Iztapalapa, 09890, CDMX. Tel. 55 3309 8072.' },
+    { title: 'Responsable', body: 'Barbería Gallo 420 («Gallo 4:20»). Efeso 2, Lomas Estrella 2da Secc., Iztapalapa, 09890, CDMX. Tel. 55 3309 8072.' },
     { title: 'Datos que pedimos', body: 'Su nombre y teléfono (el teléfono lo necesitamos para confirmar o cancelar su cita). Guardamos el historial de sus citas, servicios, pagos y puntos.' },
     { title: 'Para qué', body: 'Agendar y confirmar su cita, atenderlo, cobrarle, llevar su historial y puntos, y cumplir obligaciones fiscales y contables.' },
     { title: 'Con quién los compartimos', body: 'Con nuestros proveedores de nube (Supabase y Vercel), que los guardan por nuestra cuenta y pueden estar fuera de México.' },

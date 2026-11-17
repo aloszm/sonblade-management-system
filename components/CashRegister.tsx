@@ -6,13 +6,15 @@ import type { CashMovement, CashSession } from '@/types';
 import { toUiMovement, type CashMovementRow } from '@/lib/cash/session-view';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { DENOMINATIONS, breakdownTotal, compactBreakdown, proposeSplit, withdrawnFor } from '@/lib/cash/closing';
+import { formatMoney } from '@/lib/utils/money';
+import { formatDate, formatTime } from '@/lib/utils/dates';
 
 interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean }
 type Movement = CashMovement & { direction: 'in' | 'out' };
 type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number; deliveredTo: string };
 
-const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
-const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+const money = (n: number) => formatMoney(n);
+const timeOf = (iso: string) => formatTime(iso);
 const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
 const MOVEMENT_TYPES = [
     { id: 'expense', label: 'Gasto', short: 'Pagas algo del negocio', example: 'Agua, basura, insumos, material de limpieza.', affects: true, effect: 'Baja la utilidad: es un costo del negocio.' },
@@ -58,7 +60,7 @@ function Dialog({ title, onClose, children }: { title: string; onClose: () => vo
 
 function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; reserveLabel: string }) {
     if (sessions.length === 0) return null;
-    const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }) : '—');
+    const day = (iso: string | null) => (iso ? formatDate(iso, undefined, { year: false }) : '—');
     const value = (n: number | null | undefined) => (n === null || n === undefined ? '—' : money(n));
     return (
         <section aria-labelledby="past-closings" className="space-y-3">

@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { AuditLog } from '@/types';
-import { format } from 'date-fns';
+import { BUSINESS_TIME_ZONE, formatDateTime, zonedDayStartIso } from '@/lib/utils/dates';
+import { addDays } from '@/lib/settlements/week';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 
 const ACTION_LABELS: Record<string, string> = {
@@ -25,6 +26,12 @@ const ACTION_LABELS: Record<string, string> = {
     commission_defaults_changed: 'Cambio de tasas de comisión',
     cash_settings_changed: 'Cambio de fondo y apartado de caja',
 };
+
+const ROLE_LABELS: Record<string, string> = {
+    system: 'Sistema', owner: 'Dueño', admin: 'Gerencia', viewer: 'Consulta',
+    recepcion: 'Recepción', receptionist: 'Recepción', cashier: 'Recepción', barbero: 'Barbero', barber: 'Barbero',
+};
+const roleLabel = (role: string | null | undefined) => (role ? ROLE_LABELS[role] ?? role : '—');
 
 const TABLE_LABELS: Record<string, string> = {
     services: 'servicio', products: 'producto', clients: 'cliente', commission_rules: 'regla de comisión',
@@ -55,8 +62,8 @@ export default function AuditoriaPage() {
             const params = new URLSearchParams();
             if (roleFilter !== 'all') params.set('role', roleFilter);
             if (actionFilter !== 'all') params.set('action', actionFilter);
-            if (dateFrom) params.set('from', new Date(dateFrom + 'T00:00:00').toISOString());
-            if (dateTo) params.set('to', new Date(dateTo + 'T23:59:59').toISOString());
+            if (dateFrom) params.set('from', zonedDayStartIso(dateFrom, BUSINESS_TIME_ZONE));
+            if (dateTo) params.set('to', zonedDayStartIso(addDays(dateTo, 1), BUSINESS_TIME_ZONE));
             params.set('limit', '200');
 
             const res = await fetch(`/api/audit?${params.toString()}`);
@@ -81,7 +88,7 @@ export default function AuditoriaPage() {
     return (
         <div className="max-w-7xl mx-auto space-y-6">
             <header>
-                <h1 className="font-display text-3xl font-semibold tracking-tight">Auditoría del sistema</h1>
+                <h1 className="font-display text-3xl font-semibold tracking-tight">Bitácora</h1>
                 <p className="text-bos-muted text-sm mt-1">Registro de todas las acciones realizadas · {logs.length} registros</p>
             </header>
 
@@ -92,7 +99,7 @@ export default function AuditoriaPage() {
                         <label htmlFor="a-role" className={label}>Rol</label>
                         <select id="a-role" value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className={field}>
                             <option value="all">Todos</option>
-                            <option value="admin">Admin</option>
+                            <option value="admin">Gerencia</option>
                             <option value="recepcion">Recepción</option>
                             <option value="barbero">Barbero</option>
                             <option value="system">Sistema</option>
@@ -115,8 +122,32 @@ export default function AuditoriaPage() {
                 <button onClick={clearFilters} className="min-h-11 text-sm text-bos-muted hover:text-bos-text font-semibold flex items-center gap-1.5"><X className="h-4 w-4" /> Limpiar filtros</button>
             </div>
 
-            {/* Tabla */}
-            <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
+            {/* Celular: una tarjeta por registro */}
+            <ul className="md:hidden space-y-3" aria-label="Registros">
+                {loading ? (
+                    <li className="rounded-xl border border-bos-border bg-bos-surface p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></li>
+                ) : logs.length === 0 ? (
+                    <li className="rounded-xl border border-bos-border bg-bos-surface p-6 text-center text-bos-muted text-sm">Sin registros</li>
+                ) : logs.map(log => (
+                    <li key={log.id} className="rounded-xl border border-bos-border bg-bos-surface p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                            <p className="font-semibold text-sm">{actionLabel(log.action)}</p>
+                            <span className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium bg-bos-raised text-bos-text border border-bos-border">{roleLabel(log.role)}</span>
+                        </div>
+                        <p className="text-xs text-bos-muted tabular-nums">{formatDateTime(log.created_at)}</p>
+                        <p className="text-sm">{log.user_name ?? log.user_id}</p>
+                        {log.details && Object.keys(log.details).length > 0 && (
+                            <details>
+                                <summary className="inline-flex min-h-11 items-center text-xs text-bos-accent-text font-medium cursor-pointer">Ver detalle</summary>
+                                <pre className="mt-1 text-xs bg-bos-bg border border-bos-control p-2 rounded-xl overflow-x-auto whitespace-pre-wrap break-words">{JSON.stringify(log.details, null, 2)}</pre>
+                            </details>
+                        )}
+                    </li>
+                ))}
+            </ul>
+
+            {/* Computadora: tabla */}
+            <div className="hidden md:block rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <thead className="text-bos-muted">
@@ -137,14 +168,14 @@ export default function AuditoriaPage() {
                             ) : logs.map(log => (
                                 <tr key={log.id} className="border-t border-bos-border hover:bg-bos-raised align-top">
                                     <td className="px-4 py-3 text-bos-muted text-xs whitespace-nowrap tabular-nums">
-                                        {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                                        {formatDateTime(log.created_at)}
                                     </td>
                                     <td className="px-4 py-3 font-medium">
                                         {log.user_name ?? log.user_id}
                                     </td>
                                     <td className="px-4 py-3">
                                         <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-bos-raised text-bos-text border border-bos-border">
-                                            {log.role}
+                                            {roleLabel(log.role)}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3">

@@ -18,7 +18,7 @@ describe('Header', () => {
     it('muestra el título de la página en español', async () => {
         mockMe('recepcion');
         render(<Header toggleSidebar={mockToggle} />);
-        expect(await screen.findByText('Punto de Venta')).toBeInTheDocument();
+        expect(await screen.findByText('Cobro')).toBeInTheDocument();
     });
 
     it('recepción ve "Nueva Cita" y lleva a la agenda', async () => {

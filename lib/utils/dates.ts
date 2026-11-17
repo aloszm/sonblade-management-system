@@ -22,3 +22,32 @@ export function zonedDayStartIso(date: string, timeZone: string): string {
     const wallAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
     return new Date(guess.getTime() - (wallAsUtc - guess.getTime())).toISOString();
 }
+
+// ---- Formato en pantalla, siempre en la zona de la barbería (no la del navegador) ----
+
+/** Zona de la barbería por omisión (la real viene de businesses.timezone cuando la pantalla la conoce). */
+export const BUSINESS_TIME_ZONE = 'America/Mexico_City';
+
+type When = string | number | Date;
+const toDate = (when: When) => (when instanceof Date ? when : new Date(when));
+
+/** Hora en 12 horas: "3:41 p. m.". */
+export function formatTime(when: When, timeZone: string = BUSINESS_TIME_ZONE): string {
+    return toDate(when)
+        .toLocaleTimeString('es-MX', { timeZone, hour: 'numeric', minute: '2-digit', hour12: true })
+        .replace(/\s+/g, ' ')
+        .replace(/([ap])\.?\s?m\.?/i, (_m, x: string) => `${x.toLowerCase()}. m.`);
+}
+
+/** Fecha corta: "mar 17 nov 2026" (con `year: false`: "mar 17 nov"). */
+export function formatDate(when: When, timeZone: string = BUSINESS_TIME_ZONE, options: { year?: boolean } = {}): string {
+    const parts = new Intl.DateTimeFormat('es-MX', { timeZone, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).formatToParts(toDate(when));
+    const get = (t: string) => (parts.find((p) => p.type === t)?.value ?? '').replace('.', '');
+    const base = `${get('weekday')} ${get('day')} ${get('month')}`;
+    return options.year === false ? base : `${base} ${get('year')}`;
+}
+
+/** Fecha y hora: "mar 17 nov 2026, 3:41 p. m.". */
+export function formatDateTime(when: When, timeZone: string = BUSINESS_TIME_ZONE, options: { year?: boolean } = {}): string {
+    return `${formatDate(when, timeZone, options)}, ${formatTime(when, timeZone)}`;
+}
