@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ const QuerySchema = z.object({
  */
 export async function GET(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_READ_ROLES);
         const params = request.nextUrl.searchParams;
         const parsed = QuerySchema.safeParse({ from: params.get('from'), to: params.get('to'), barber: params.get('barber') || undefined });
         if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

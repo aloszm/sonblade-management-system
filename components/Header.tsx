@@ -48,7 +48,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       .then(res => res.json())
       .then(data => {
         if (data.authenticated) {
-          setCanBook(data.user.role === 'admin' || data.user.role === 'recepcion');
+          // La cuenta de consulta (readOnly) no agenda.
+          setCanBook((data.user.role === 'admin' || data.user.role === 'recepcion') && !data.user.readOnly);
           setUserName(data.user.name);
           setUserRole(data.user.title ?? data.user.role);
         }

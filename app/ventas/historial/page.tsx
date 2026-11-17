@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileText, X, RefreshCw, Plus } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Link from 'next/link';
@@ -50,6 +51,8 @@ function getDateRange(period: PeriodFilter): { start: string; end: string } {
 }
 
 export default function SalesHistoryPage() {
+    // Cuenta de consulta: ve ventas y tickets, sin anular.
+    const readOnly = useReadOnly();
     const [sales, setSales] = useState<Sale[]>([]);
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [services, setServices] = useState<Service[]>([]);
@@ -199,6 +202,7 @@ export default function SalesHistoryPage() {
                     </button>
                 </div>
             </header>
+            <ReadOnlyNotice readOnly={readOnly}>Ves las ventas y sus tickets, pero no anulas ventas.</ReadOnlyNotice>
 
             {/* Periodo */}
             <div role="group" aria-label="Periodo" className="flex flex-wrap gap-2">
@@ -270,9 +274,9 @@ export default function SalesHistoryPage() {
                                             <Link href={`/ticket/${sale.id}`} aria-label="Ver ticket" title="Ver ticket" className={iconBtn}>
                                                 <FileText className="h-4 w-4" />
                                             </Link>
-                                            <button onClick={() => { setDeleteError(''); setShowDeleteConfirm(sale.id); }} disabled={deletingId === sale.id || sale.status === 'refunded'} aria-label="Anular venta" className={`${iconBtn} hover:text-bos-danger disabled:opacity-40`}>
+                                            {!readOnly && <button onClick={() => { setDeleteError(''); setShowDeleteConfirm(sale.id); }} disabled={deletingId === sale.id || sale.status === 'refunded'} aria-label="Anular venta" className={`${iconBtn} hover:text-bos-danger disabled:opacity-40`}>
                                                 {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                            </button>
+                                            </button>}
                                         </td>
                                     </tr>
                                 );

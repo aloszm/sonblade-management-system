@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES, readerRole } from '@/lib/auth/roles';
 import { fetchBusinessReport, sumEmployeeTips, toBarberProfile, toBarberStats, type ReportPeriod } from '@/lib/reports/business-report';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
@@ -96,12 +97,12 @@ async function myWeek(db: Db, branchId: string, employeeId: string, rate: number
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'barber']);
+        const context = await requireAuthContext([...MANAGEMENT_READ_ROLES, 'barber']);
         const parsedId = IdSchema.safeParse((await params).id);
         if (!parsedId.success) throw new AuthorizationError('Barbero no encontrado', 404);
         const employeeId = parsedId.data;
         // Un barbero solo pide lo suyo, aunque conozca el id de otro.
-        if (!mayReadBarberStats(context.role, context.employeeId, employeeId)) throw new AuthorizationError('Solo puedes ver tus propias cifras.', 403);
+        if (!mayReadBarberStats(readerRole(context.role), context.employeeId, employeeId)) throw new AuthorizationError('Solo puedes ver tus propias cifras.', 403);
         const supabase = await createSupabaseServerClient();
 
         const [{ data: employee }, { data: rule }, { data: business }] = await Promise.all([

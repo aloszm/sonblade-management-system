@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES } from '@/lib/auth/roles';
 import { toTicket, type TicketSaleRow } from '@/lib/sales/ticket';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -14,7 +14,7 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 /** Ticket de una venta para el cliente. Recepción y administración. */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext([...FRONT_DESK_ROLES]);
+        const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const id = z.string().uuid().safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Venta no encontrada.', 404);
         const supabase = await createSupabaseServerClient();

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Plus, Search, Loader2, Edit2, Check, X } from 'lucide-react';
 import { CATEGORY_LABELS, DEFAULT_CATEGORY, DURATION_OPTIONS, SERVICE_CATEGORIES, categoryOf, formatDuration, groupServices, isServiceCategory, type ServiceCategory } from '@/lib/services/categories';
 
@@ -20,6 +21,8 @@ interface FormData { name: string; price: number; duration_minutes: number; is_a
 const EMPTY_FORM: FormData = { name: '', price: 0, duration_minutes: 30, is_active: true, variable_price: false, category: DEFAULT_CATEGORY, sort_order: 0 };
 
 export default function ServicesPage() {
+    // Cuenta de consulta: ve el catálogo sin crear, editar ni activar/desactivar.
+    const readOnly = useReadOnly();
     const [services, setServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -123,13 +126,14 @@ export default function ServicesPage() {
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Catálogo de servicios</h1>
                     <p className="text-bos-muted text-sm mt-1">Administra los servicios ofrecidos en la barbería</p>
                 </div>
-                <button
+                {!readOnly && <button
                     onClick={() => { setIsAdding(true); setFormError(''); setFormData(EMPTY_FORM); }}
                     className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong transition-colors"
                 >
                     <Plus className="h-4 w-4" /> Nuevo servicio
-                </button>
+                </button>}
             </header>
+            <ReadOnlyNotice readOnly={readOnly} />
 
             {formError && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-3 text-sm text-bos-danger">{formError}</p>}
 
@@ -259,6 +263,7 @@ export default function ServicesPage() {
                                     </td>
                                     <td className="px-4 py-2 text-center">
                                         <button
+                                            disabled={readOnly}
                                             onClick={() => handleToggleStatus(service)}
                                             aria-label={`${service.name}: ${service.is_active ? 'Activo' : 'Inactivo'}. Cambiar estado`}
                                             className={`min-h-11 px-4 rounded-full text-xs font-semibold ${service.is_active
@@ -276,7 +281,7 @@ export default function ServicesPage() {
                                                     <button onClick={() => setEditingId(null)} aria-label="Cancelar" className={iconBtn}><X className="h-4 w-4" /></button>
                                                     <button onClick={() => handleSave(service.id)} aria-label="Guardar cambios" className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-success hover:bg-bos-raised"><Check className="h-4 w-4" /></button>
                                                 </>
-                                            ) : (
+                                            ) : readOnly ? null : (
                                                 <button
                                                     onClick={() => {
                                                         setEditingId(service.id);

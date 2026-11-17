@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { TEAM_SUMMARY_ROLES } from '@/lib/barber/permissions';
+import { FRONT_DESK_READ_ROLES } from '@/lib/auth/roles';
 import { loadBusinessTimezone } from '@/lib/business/timezone';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { loadEmployees, loadTeamSummary } from '@/lib/team/load';
@@ -17,7 +17,7 @@ const PeriodSchema = z.enum(['today', 'week', 'month']).catch('today');
  */
 export async function GET(request: NextRequest) {
     try {
-        const context = await requireAuthContext(TEAM_SUMMARY_ROLES);
+        const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const period = PeriodSchema.parse(request.nextUrl.searchParams.get('period') ?? undefined);
         const supabase = await createSupabaseServerClient();
         const timezone = await loadBusinessTimezone(supabase, context.businessId);

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
 import { Check, FileSpreadsheet, FileText, Loader2, ShieldCheck } from 'lucide-react';
 import ReportPreview from '@/components/ReportPreview';
@@ -33,6 +34,8 @@ function saveFile(bytes: Uint8Array, filename: string, mime: string) {
 }
 
 export default function ReportsPage() {
+    // Cuenta de consulta: ve la vista previa, pero no descarga (descargar emite un folio, que escribe en la base).
+    const readOnly = useReadOnly();
     const [today, setToday] = useState('');
     const [preset, setPreset] = useState<ReportPresetId>('week');
     const [range, setRange] = useState<{ from: string; to: string } | null>(null);
@@ -152,6 +155,12 @@ export default function ReportsPage() {
                     </div>
                 </div>
 
+                {readOnly ? (
+                    <ReadOnlyNotice readOnly>
+                        Ves el reporte completo en la vista previa de abajo. No se descarga desde esta cuenta porque cada descarga emite un folio
+                        nuevo que queda guardado en el sistema y en la bitácora; pídele la descarga al dueño o a la gerente.
+                    </ReadOnlyNotice>
+                ) : (
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                     <button type="button" data-testid="download-pdf" onClick={() => download('pdf')} disabled={busy !== null || !report || !!rangeError} className={primary}>
                         {busy === 'pdf' ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <FileText aria-hidden="true" className="h-5 w-5" />} Descargar PDF
@@ -161,6 +170,7 @@ export default function ReportsPage() {
                     </button>
                     <p className="text-sm text-bos-muted">Al descargar se emite un folio nuevo y queda anotado en la bitácora.</p>
                 </div>
+                )}
             </section>
 
             {issued && (

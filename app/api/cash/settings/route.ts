@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -21,7 +21,7 @@ type BranchRow = { cash_float_target: number | string; daily_reserve_amount: num
  */
 export async function GET() {
     try {
-        const context = await requireAuthContext([...FRONT_DESK_ROLES]);
+        const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const supabase = await createSupabaseServerClient();
         const [branch, last] = await Promise.all([
             supabase.from('branches').select('cash_float_target, daily_reserve_amount, daily_reserve_label').eq('id', context.branchId).single(),
@@ -38,7 +38,7 @@ export async function GET() {
             reserve_label: row.daily_reserve_label,
             last_float_left: left === null || left === undefined ? null : Number(left),
             can_edit: context.role === 'owner',
-            can_see_history: context.role === 'owner' || context.role === 'admin',
+            can_see_history: MANAGEMENT_READ_ROLES.includes(context.role),
         }, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);

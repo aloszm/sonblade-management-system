@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { toSaleView, type SaleRow } from '@/lib/sales/sales-view';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
@@ -42,7 +42,7 @@ const SaleSchema = z.object({
 
 export async function GET(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin', 'cashier', 'barber', 'receptionist']);
+        const context = await requireAuthContext([...FRONT_DESK_READ_ROLES, 'barber']);
         const supabase = await createSupabaseServerClient();
         let query = supabase.from('sales')
             .select('id, folio, created_at, status, total_amount, notes, client_id, sale_items(id, item_type, item_name_snapshot, unit_price, quantity, service_id, product_id, employee_id, commission_employee_id), payments(method, amount, status), sale_tips(amount, status)')

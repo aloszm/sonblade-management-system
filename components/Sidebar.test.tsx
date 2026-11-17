@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import Sidebar from './Sidebar';
 
-function mockMe(user: { name: string; role: 'admin' | 'recepcion' | 'barber'; isOwner?: boolean; title: string }) {
+function mockMe(user: { name: string; role: 'admin' | 'recepcion' | 'barber'; isOwner?: boolean; title: string; readOnly?: boolean }) {
     vi.stubGlobal('fetch', vi.fn(async () => ({ json: async () => ({ authenticated: true, user: { id: 'u1', ...user } }) })));
 }
 
@@ -23,6 +23,16 @@ describe('Menú lateral', () => {
         render(<Sidebar isOpen={true} />);
         expect(await screen.findByRole('link', { name: 'Panel' })).toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Configuración' })).not.toBeInTheDocument();
+    });
+
+    it('la cuenta de consulta ve lo mismo que gerencia, sin Cobro, Mi semana ni Configuración', async () => {
+        mockMe({ name: 'Lucía', role: 'admin', isOwner: false, title: 'Consulta', readOnly: true });
+        render(<Sidebar isOpen={true} />);
+        for (const label of ['Panel', 'Caja', 'Barberos hoy', 'Agenda', 'Clientes', 'Pago semanal', 'Ventas', 'Cuadre', 'Finanzas', 'Gastos', 'Inventario', 'Servicios', 'Equipo', 'Reportes', 'Bitácora']) {
+            expect(await screen.findByRole('link', { name: label })).toBeInTheDocument();
+        }
+        for (const label of ['Cobro', 'Mi semana', 'Configuración']) expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
+        expect(screen.getByText('Consulta')).toBeInTheDocument();
     });
 
     it('recepción ve solo lo de mostrador', async () => {

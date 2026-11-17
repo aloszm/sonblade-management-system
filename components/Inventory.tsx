@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, Loader2, Edit2, Trash2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -10,6 +11,8 @@ import { localDateKey } from '@/lib/utils/dates';
 import DatePicker from '@/components/ui/DatePicker';
 
 const Inventory: React.FC = () => {
+    // Cuenta de consulta: ve existencias y exporta, sin agregar, editar ni dar de baja.
+    const readOnly = useReadOnly();
     const [modalOpen, setModalOpen] = useState(false);
     const [filter, setFilter] = useState<'all' | 'low'>('all');
     const [search, setSearch] = useState('');
@@ -142,16 +145,17 @@ const Inventory: React.FC = () => {
                     }} className="min-h-[52px] flex items-center gap-2 px-5 border border-bos-border rounded-xl font-semibold text-bos-text hover:bg-bos-raised transition-colors">
                         <Download className="h-4 w-4" /> Exportar
                     </button>
-                    <button onClick={() => {
+                    {!readOnly && <button onClick={() => {
                         setEditingId(null);
                         setSaveError('');
                         setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
                         setModalOpen(true);
                     }} className="min-h-[52px] flex items-center gap-2 px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:bg-bos-accent-strong transition-opacity">
                         <Plus className="h-5 w-5" /> Agregar producto
-                    </button>
+                    </button>}
                 </div>
             </header>
+            <ReadOnlyNotice readOnly={readOnly} />
 
             {listError && <p role="alert" className={`${card} p-3 text-sm text-bos-danger`}>{listError}</p>}
 
@@ -288,14 +292,14 @@ const Inventory: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-5 py-2 text-right">
-                                                <div className="flex justify-end gap-1">
+                                                {!readOnly && <div className="flex justify-end gap-1">
                                                     <button onClick={() => handleEditClick(p)} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text hover:bg-bos-raised rounded-xl transition-colors" title="Editar / Ajustar Stock" aria-label={`Editar ${p.name}`}>
                                                         <Edit2 className="h-4 w-4" />
                                                     </button>
                                                     <button onClick={() => handleDelete(p.id, p.name)} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-danger hover:bg-bos-raised rounded-xl transition-colors" title="Dar de baja" aria-label={`Dar de baja ${p.name}`}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>
-                                                </div>
+                                                </div>}
                                             </td>
                                         </tr>
                                     );

@@ -1,4 +1,5 @@
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export async function POST() {
 
 export async function GET() {
     try {
-        await requireAuthContext(['owner', 'admin']);
+        await requireAuthContext(MANAGEMENT_READ_ROLES);
         return Response.json(NOT_AVAILABLE, { status: 501, headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
         return authErrorResponse(error);

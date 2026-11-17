@@ -56,7 +56,8 @@ function ReasonForm({ label, submitLabel, placeholder, onSubmit, onCancel }: {
 }
 
 /** Una diferencia: qué pasó, por qué importa, qué hacer y sus acciones. */
-export function IssueCard({ issue, timeZone, onReview }: { issue: ReconciliationIssue; timeZone: string; onReview: ReviewSubmit }) {
+// Sin onReview (cuenta de consulta) la tarjeta se muestra sin revisar/reabrir ni el atajo para cobrar.
+export function IssueCard({ issue, timeZone, onReview }: { issue: ReconciliationIssue; timeZone: string; onReview?: ReviewSubmit }) {
     const [open, setOpen] = useState(false);
     const guide = issueGuide(issue);
     const primary = primaryAction(issue);
@@ -92,17 +93,17 @@ export function IssueCard({ issue, timeZone, onReview }: { issue: Reconciliation
 
             {!open && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                    {!reviewed && primary && (
+                    {!reviewed && primary && (onReview || primary.kind !== 'cobrar') && (
                         <Link href={primary.href} className={primary.kind === 'cobrar' ? btnPrimary : btnSecondary}>{primary.label}</Link>
                     )}
                     {!reviewed && secondary && <Link href={secondary.href} className={btnSecondary}>{secondary.label}</Link>}
                     {reviewed && primary && primary.kind !== 'cobrar' && <Link href={primary.href} className={btnSecondary}>{primary.label}</Link>}
-                    <button type="button" onClick={() => setOpen(true)} className={btnSecondary}>
+                    {onReview && <button type="button" onClick={() => setOpen(true)} className={btnSecondary}>
                         {reviewed ? 'Reabrir' : 'Revisada, está bien'}
-                    </button>
+                    </button>}
                 </div>
             )}
-            {open && (
+            {open && onReview && (
                 <ReasonForm
                     label={reviewed ? '¿Por qué se reabre?' : '¿Por qué está bien? (queda guardado)'}
                     submitLabel={reviewed ? 'Reabrir' : 'Guardar como revisada'}
@@ -120,7 +121,7 @@ export function IssueCard({ issue, timeZone, onReview }: { issue: Reconciliation
 }
 
 /** Ventas anteriores a la agenda ya aceptadas: plegadas, cada una se puede reabrir. */
-export function PreAgendaReviewedGroup({ issues, timeZone, onReview }: { issues: ReconciliationIssue[]; timeZone: string; onReview: ReviewSubmit }) {
+export function PreAgendaReviewedGroup({ issues, timeZone, onReview }: { issues: ReconciliationIssue[]; timeZone: string; onReview?: ReviewSubmit }) {
     return (
         <details data-testid="pre-agenda-reviewed" className="group rounded-xl border border-bos-border bg-bos-surface">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
@@ -139,7 +140,7 @@ export function PreAgendaReviewedGroup({ issues, timeZone, onReview }: { issues:
 
 /** Grupo plegado de las ventas anteriores a la agenda, con "Aceptar todas". */
 export function PreAgendaGroup({ issues, total, before, timeZone, onAcceptAll }: {
-    issues: ReconciliationIssue[]; total: number; before: string; timeZone: string; onAcceptAll: () => Promise<string | null>;
+    issues: ReconciliationIssue[]; total: number; before: string; timeZone: string; onAcceptAll?: () => Promise<string | null>;
 }) {
     const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -149,6 +150,7 @@ export function PreAgendaGroup({ issues, total, before, timeZone, onAcceptAll }:
     const accept = async () => {
         setBusy(true);
         setError('');
+        if (!onAcceptAll) return;
         const failure = await onAcceptAll();
         setBusy(false);
         if (failure) setError(failure); else setConfirming(false);
@@ -168,7 +170,7 @@ export function PreAgendaGroup({ issues, total, before, timeZone, onAcceptAll }:
                 <p>{PRE_AGENDA_GUIDE.todo}</p>
                 {others > 0 && <p className="text-bos-muted">Además de estas {issues.length}, hay {others} de otros días fuera de este periodo; &quot;Aceptar todas&quot; las incluye.</p>}
                 {error && <p role="alert" className="text-bos-danger">{error}</p>}
-                {!confirming ? (
+                {!onAcceptAll ? null : !confirming ? (
                     <button type="button" onClick={() => setConfirming(true)} className={btnPrimary}>Aceptar todas ({total})</button>
                 ) : (
                     <div className="rounded-xl border border-bos-border bg-bos-bg p-3 space-y-2">
