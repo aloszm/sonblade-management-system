@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         if (problem) return NextResponse.json({ error: PIN_PROBLEM_MESSAGES[problem] }, { status: 400, headers: NO_CACHE });
 
         const admin = createSupabaseAdminClient();
-        if (!admin || !pinPepperConfigured()) return NextResponse.json({ error: MISSING_PIN_PEPPER }, { status: 503, headers: NO_CACHE });
+        if (!admin || !(await pinPepperConfigured())) return NextResponse.json({ error: MISSING_PIN_PEPPER }, { status: 503, headers: NO_CACHE });
         const supabase = await createSupabaseServerClient();
         const loginId = context.email.toLowerCase();
         const { data: lockedFor } = await admin.rpc('login_attempt_check', { p_login_id: loginId });
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
         const { url, key } = getPublicConfig();
         const verifier = createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-        const { data: signIn, error: signInError } = await verifier.auth.signInWithPassword({ email: context.email, password: pinPassword(loginId, current) });
+        const { data: signIn, error: signInError } = await verifier.auth.signInWithPassword({ email: context.email, password: await pinPassword(loginId, current) });
         if (signInError || signIn.user?.id !== context.userId) {
             const status = (signInError as { status?: number } | null)?.status;
             if (status === 429) return NextResponse.json({ error: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.' }, { status: 429, headers: NO_CACHE });
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Tu PIN actual no es correcto.' }, { status: 400, headers: NO_CACHE });
         }
 
-        const { error: updateError } = await verifier.auth.updateUser({ password: pinPassword(loginId, next) });
+        const { error: updateError } = await verifier.auth.updateUser({ password: await pinPassword(loginId, next) });
         // La sesión de verificación ya no se necesita.
         await verifier.auth.signOut({ scope: 'local' }).catch(() => undefined);
         if (updateError) {

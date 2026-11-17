@@ -61,7 +61,7 @@ describe('POST /api/auth/login', () => {
         expect(adminRpc).toHaveBeenCalledWith('login_attempt_succeeded', { p_login_id: LOGIN_ID });
         const sent = signIn.mock.calls[0][0] as { email: string; password: string };
         expect(sent.email).toBe(LOGIN_ID);
-        expect(sent.password).toBe(pinPassword(LOGIN_ID, '482913'));
+        expect(sent.password).toBe(await pinPassword(LOGIN_ID, '482913'));
         expect(sent.password).not.toBe('482913');
         expect(userRpc).not.toHaveBeenCalledWith('login_attempt_succeeded', expect.anything());
     });

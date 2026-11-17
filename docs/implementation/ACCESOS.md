@@ -1,5 +1,7 @@
 # Accesos con usuario y PIN
 
+> **Cambio del 17 de noviembre:** el pepper ya NO es una variable de Vercel. Se genera dentro de cada base (`private.app_secrets`, migración `pin_pepper_in_database`) y el servidor lo lee con la llave secreta (`public.server_pin_pepper()`, solo `service_role`). En Vercel solo hace falta `SUPABASE_SECRET_KEY`. No configures `PIN_PEPPER` en Vercel: si no coincide con el de la base, ningún PIN funciona. Si el pepper de una base se cambia, hay que restablecer todos los PIN de esa base.
+
 Decisión del dueño: nada de cuentas con correo real. Cada persona entra desde su celular con un
 **usuario** corto (`alonso`, `sonia`, `lucia`, `deya`, `dani`, `dago`, `emi`) y un **PIN de 6 números**.
 Cada quien puede cambiar su PIN; si lo olvida, gerencia se lo restablece.

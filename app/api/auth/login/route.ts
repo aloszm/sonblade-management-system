@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
     const unavailable = () => NextResponse.json({ error: 'No pudimos conectar con el servidor. Intenta de nuevo en un momento.' }, { status: 503, headers: NO_CACHE });
     const admin = createSupabaseAdminClient();
-    if (!admin || !pinPepperConfigured()) {
+    if (!admin || !(await pinPepperConfigured())) {
         console.error('[login] falta SUPABASE_SECRET_KEY o PIN_PEPPER en el servidor');
         return NextResponse.json({ error: MISSING_PIN_PEPPER }, { status: 503, headers: NO_CACHE });
     }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         };
         if (!name) return failed();
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email: loginId, password: pinPassword(loginId, parsed.data.pin) });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: loginId, password: await pinPassword(loginId, parsed.data.pin) });
         if (error) {
             const status = (error as { status?: number }).status;
             if (status === 429 || (error as { code?: string }).code === 'over_request_rate_limit') {

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
         const admin = createSupabaseAdminClient();
         if (!admin) return NextResponse.json({ error: MISSING_ADMIN_KEY }, { status: 503, headers: NO_CACHE });
-        if (!pinPepperConfigured()) return NextResponse.json({ error: MISSING_PIN_PEPPER }, { status: 503, headers: NO_CACHE });
+        if (!(await pinPepperConfigured())) return NextResponse.json({ error: MISSING_PIN_PEPPER }, { status: 503, headers: NO_CACHE });
 
         const supabase = await createSupabaseServerClient();
         const { data: business, error: businessError } = await supabase.from('businesses').select('slug').eq('id', context.businessId).single();
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         const pin = generateTemporaryPin();
         const loginId = loginIdFor(loginName, business.slug);
         const { data: created, error: createError } = await admin.auth.admin.createUser({
-            email: loginId, password: pinPassword(loginId, pin), email_confirm: true,
+            email: loginId, password: await pinPassword(loginId, pin), email_confirm: true,
             user_metadata: { full_name: parsed.data.fullName },
         });
         if (createError || !created.user) {
