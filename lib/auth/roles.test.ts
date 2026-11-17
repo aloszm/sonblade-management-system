@@ -78,6 +78,7 @@ describe('API: la consulta no entra a métodos que escriben', () => {
             const method = /export async function (\w+)/.exec(block)?.[1] ?? '';
             if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) continue;
             if (rel === 'auth/login/route.ts' || READ_ONLY_POSTS.has(rel)) continue;
+            if (rel.startsWith('public/')) continue; // reservas públicas: sin sesión a propósito; validan en la base
             if (EXEMPT[`${method} ${rel}`]) continue;
             it(`${method} ${rel}`, () => {
                 const checks = [...block.matchAll(/requireAuthContext\(([^)]*)\)/g)].map((m) => m[1]);
