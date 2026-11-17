@@ -2389,7 +2389,7 @@ export type Database = {
       weekly_cuts_podium: { Args: { p_branch_id: string }; Returns: Json }
     }
     Enums: {
-      appointment_source: "appointment" | "walk_in"
+      appointment_source: "appointment" | "walk_in" | "online"
       appointment_status:
         | "scheduled"
         | "confirmed"
@@ -2565,7 +2565,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      appointment_source: ["appointment", "walk_in"],
+      appointment_source: ["appointment", "walk_in", "online"],
       appointment_status: [
         "scheduled",
         "confirmed",
