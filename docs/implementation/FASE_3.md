@@ -7,7 +7,7 @@
 
 La Fase 3 es visual: no se puede hacer bien sin ver las pantallas con sesión iniciada. El contenedor de trabajo necesita:
 
-- `E2E_PASSWORD`: la contraseña de las cuentas de demostración de `sonblade-dev`. El dueño la agrega como variable del entorno en la configuración del entorno de la nube (nunca en el chat ni en el repositorio). Opcionales: `E2E_OWNER_EMAIL`, `E2E_RECEPTION_EMAIL`, `E2E_BARBER_EMAIL` (ver `e2e/README.md`).
+- Cuentas con usuario y PIN (ver `e2e/README.md`): `E2E_PIN` o `E2E_PIN_<USUARIO>`, y `E2E_OWNER_USER` y similares. Se agregan como variables del entorno de la nube, nunca en el chat ni en el repositorio.
 - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` de `sonblade-dev` para levantar la app local (son públicas; están en las variables de Vercel de la rama `feat/v2-integration`).
 
 Con eso, cada agente levanta la app (`npm run build && npm run start -- -p <puerto propio>`), entra con Playwright y **mira capturas antes y después** en modo claro y oscuro, a 1440 px y 390 px. Sin eso, el trabajo visual se entrega como "no verificado" y no se da por hecho.

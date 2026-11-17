@@ -3,7 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
-import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck } from 'lucide-react';
+import { roleTitle } from '@/lib/auth/roles';
+import { suggestLoginName } from '@/lib/auth/login-id';
+import type { BusinessRole } from '@/lib/auth/context';
 import Modal from '@/components/ui/Modal';
 import BarberScheduleModal from '@/components/BarberScheduleModal';
 import type { Barber } from '@/types';
@@ -11,6 +14,167 @@ import type { Barber } from '@/types';
 interface BarberLive {
     id: string; name: string; status: string;
     cuts: number; revenue: number; tips: number; rate: number; commission: number;
+}
+
+
+type Account = { userId: string; loginName: string | null; role: BusinessRole; isActive: boolean; mustChangePin: boolean; employeeId: string | null; name: string; isSelf: boolean; canManage: boolean };
+type AccessData = { accounts: Account[]; assignableRoles: BusinessRole[]; adminKeyConfigured: boolean };
+type NewAccess = { employeeId: string | null; fullName: string; loginName: string; role: BusinessRole };
+
+/**
+ * Accesos a la app (usuario + PIN). Dueño y gerencia crean accesos, restablecen PIN y los
+ * desactivan; gerencia solo con barberos y recepción (la base lo vuelve a revisar).
+ * El PIN temporal se muestra UNA vez para dictárselo a la persona.
+ */
+function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged }: { barbers: Barber[]; readOnly: boolean; createFor: Barber | null; onCreateHandled: () => void; onChanged: () => void }) {
+    const [data, setData] = useState<AccessData | null>(null);
+    const [error, setError] = useState('');
+    const [form, setForm] = useState<NewAccess | null>(null);
+    const [formError, setFormError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [issued, setIssued] = useState<{ name: string; loginName: string; pin: string } | null>(null);
+
+    const load = async () => {
+        const res = await fetch('/api/accounts', { cache: 'no-store' }).catch(() => null);
+        if (res?.ok) setData(await res.json()); else setError('No se pudieron cargar los accesos.');
+    };
+    useEffect(() => { load(); }, []);
+
+    const openCreate = (barber: Barber | null) => {
+        setFormError('');
+        const role: BusinessRole = barber && (barber as { isBarber?: boolean }).isBarber === false ? 'receptionist' : 'barber';
+        setForm({ employeeId: barber?.id ?? null, fullName: barber?.name ?? '', loginName: barber ? suggestLoginName(barber.name) : '', role });
+    };
+    useEffect(() => { if (createFor) { openCreate(createFor); onCreateHandled(); } }, [createFor]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const create = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!form) return;
+        setBusy(true); setFormError('');
+        const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }).catch(() => null);
+        const body = await res?.json().catch(() => null);
+        setBusy(false);
+        if (!res?.ok) { setFormError(body?.error ?? 'No se pudo crear el acceso.'); return; }
+        setForm(null);
+        setIssued({ name: form.fullName, loginName: body.loginName, pin: body.temporaryPin });
+        load(); onChanged();
+    };
+    const resetPin = async (account: Account) => {
+        if (!window.confirm(`¿Restablecer el PIN de ${account.name}? Su PIN actual dejará de funcionar.`)) return;
+        setError('');
+        const res = await fetch(`/api/accounts/${account.userId}/reset-pin`, { method: 'POST' }).catch(() => null);
+        const body = await res?.json().catch(() => null);
+        if (!res?.ok) { setError(body?.error ?? 'No se pudo restablecer el PIN.'); return; }
+        setIssued({ name: account.name, loginName: body.loginName ?? account.loginName ?? '', pin: body.temporaryPin });
+        load();
+    };
+    const setActive = async (account: Account, active: boolean) => {
+        if (!active && !window.confirm(`¿Desactivar el acceso de ${account.name}? Ya no podrá entrar a la app.`)) return;
+        setError('');
+        const res = await fetch(`/api/accounts/${account.userId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active }) }).catch(() => null);
+        const body = await res?.json().catch(() => null);
+        if (!res?.ok) setError(body?.error ?? 'No se pudo cambiar el acceso.');
+        load();
+    };
+
+    if (!data) return error ? <p role="alert" className="text-sm text-bos-danger">{error}</p> : null;
+    const canCreate = !readOnly && data.assignableRoles.length > 0;
+    const withoutAccess = barbers.filter((b) => !(b as { hasAccount?: boolean }).hasAccount && b.status === 'active');
+    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
+    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const btn = 'min-h-11 inline-flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border hover:bg-bos-raised transition-colors';
+
+    return (
+        <section aria-labelledby="access-title" className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h2 id="access-title" className="font-display text-2xl font-semibold tracking-tight">Accesos a la app</h2>
+                    <p className="text-sm text-bos-muted mt-1">Cada persona entra desde su celular con su usuario y un PIN de 6 números.</p>
+                </div>
+                {canCreate && <button onClick={() => openCreate(null)} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold inline-flex items-center justify-center gap-2 hover:bg-bos-accent-strong"><ShieldCheck className="w-4 h-4" />Crear acceso</button>}
+            </div>
+            {canCreate && !data.adminKeyConfigured && (
+                <p role="status" className="rounded-xl border border-bos-border bg-bos-raised p-4 text-sm text-bos-text">
+                    Falta configurar la llave del servidor para administrar accesos. Mientras tanto se puede desactivar o reactivar un acceso, pero no crear accesos ni restablecer PIN. Instrucciones en docs/implementation/ACCESOS.md.
+                </p>
+            )}
+            {error && <p role="alert" className="text-sm text-bos-danger">{error}</p>}
+            <ul className="divide-y divide-bos-border rounded-xl border border-bos-border bg-bos-surface">
+                {data.accounts.map((account) => (
+                    <li key={account.userId} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-bos-text truncate">{account.name}{account.isSelf && <span className="text-bos-muted font-normal"> (tú)</span>}</p>
+                            <p className="text-sm text-bos-muted">
+                                {account.loginName ? <>usuario <strong className="text-bos-text">{account.loginName}</strong> · </> : 'sin usuario · '}
+                                {roleTitle(account.role)}
+                                {!account.isActive && <span className="text-bos-danger"> · desactivado</span>}
+                                {account.isActive && account.mustChangePin && <span> · debe cambiar su PIN</span>}
+                            </p>
+                        </div>
+                        {!readOnly && account.canManage && (
+                            <div className="flex flex-wrap gap-2">
+                                {account.isActive && <button onClick={() => resetPin(account)} className={`${btn} text-bos-text`}><KeyRound className="w-4 h-4" />Restablecer PIN</button>}
+                                {account.isActive
+                                    ? <button onClick={() => setActive(account, false)} className={`${btn} text-bos-danger`}><UserX className="w-4 h-4" />Desactivar acceso</button>
+                                    : <button onClick={() => setActive(account, true)} className={`${btn} text-bos-success`}><UserCheck className="w-4 h-4" />Reactivar</button>}
+                            </div>
+                        )}
+                    </li>
+                ))}
+            </ul>
+
+            {form && (
+                <Modal title="Crear acceso" onClose={() => setForm(null)}>
+                    <form onSubmit={create} className="space-y-4">
+                        <div>
+                            <label htmlFor="acc-person" className={label}>Persona</label>
+                            <select id="acc-person" className={field} value={form.employeeId ?? ''} onChange={(e) => {
+                                const b = withoutAccess.find((x) => x.id === e.target.value) ?? null;
+                                setForm({ ...form, employeeId: b?.id ?? null, fullName: b?.name ?? '', loginName: b ? suggestLoginName(b.name) : '', role: b && (b as { isBarber?: boolean }).isBarber === false ? 'receptionist' : form.role });
+                            }}>
+                                <option value="">Otra persona (no es barbero ni recepción)</option>
+                                {withoutAccess.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+                        {!form.employeeId && (
+                            <div>
+                                <label htmlFor="acc-name" className={label}>Nombre</label>
+                                <input id="acc-name" className={field} required minLength={2} maxLength={120} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value, loginName: form.loginName || suggestLoginName(e.target.value) })} />
+                            </div>
+                        )}
+                        <div>
+                            <label htmlFor="acc-user" className={label}>Usuario (minúsculas, sin espacios ni acentos)</label>
+                            <input id="acc-user" className={field} required autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={32} value={form.loginName} onChange={(e) => setForm({ ...form, loginName: e.target.value.toLowerCase() })} />
+                        </div>
+                        <div>
+                            <label htmlFor="acc-role" className={label}>Puesto</label>
+                            <select id="acc-role" className={field} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as BusinessRole })}>
+                                {data.assignableRoles.map((role) => <option key={role} value={role}>{roleTitle(role)}</option>)}
+                            </select>
+                        </div>
+                        <p className="text-xs text-bos-muted bg-bos-bg border border-bos-border rounded-xl p-3">Se genera un PIN temporal que verás una sola vez para dictárselo. Al entrar, la persona elige su propio PIN.</p>
+                        {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
+                        <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                            <button type="button" onClick={() => setForm(null)} className="min-h-[52px] px-5 border border-bos-border rounded-xl text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
+                            <button type="submit" disabled={busy} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong disabled:opacity-60">Crear acceso</button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
+            {issued && (
+                <Modal title="PIN temporal" onClose={() => setIssued(null)}>
+                    <div className="space-y-4 text-center">
+                        <p className="text-sm text-bos-muted">Díctaselo a {issued.name}. No se volverá a mostrar.</p>
+                        <p className="text-sm text-bos-text">Usuario <strong>{issued.loginName}</strong></p>
+                        <p className="font-display text-5xl font-semibold tracking-[0.3em] tabular-nums text-bos-text">{issued.pin}</p>
+                        <p className="text-xs text-bos-muted">Al entrar, la app le pedirá cambiarlo por uno propio.</p>
+                        <button onClick={() => setIssued(null)} className="w-full min-h-[52px] rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong">Ya se lo di</button>
+                    </div>
+                </Modal>
+            )}
+        </section>
+    );
 }
 
 export default function TeamPage() {
@@ -23,6 +187,7 @@ export default function TeamPage() {
     const [formError, setFormError] = useState('');
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
     const [scheduleFor, setScheduleFor] = useState<Barber | null>(null);
+    const [accessFor, setAccessFor] = useState<Barber | null>(null);
     const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true });
 
     const fetchBarbers = async () => {
@@ -156,6 +321,11 @@ export default function TeamPage() {
                                         <Clock className="w-4 h-4" /> Horario
                                     </button>
                                 )}
+                                {!(barber as { hasAccount?: boolean }).hasAccount && active && (
+                                    <button onClick={() => setAccessFor(barber)} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
+                                        <KeyRound className="w-4 h-4" /> Crear acceso
+                                    </button>
+                                )}
                                 <button onClick={() => toggleStatus(barber)} className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border transition-colors hover:bg-bos-raised ${active ? 'text-bos-danger' : 'text-bos-success'}`}>
                                     {active ? <><UserX className="w-4 h-4" /> Desactivar</> : <><UserCheck className="w-4 h-4" /> Activar</>}
                                 </button>
@@ -164,6 +334,8 @@ export default function TeamPage() {
                     );
                 })}
             </div>
+
+            <AccessPanel barbers={barbers} readOnly={readOnly} createFor={accessFor} onCreateHandled={() => setAccessFor(null)} onChanged={fetchBarbers} />
 
             {scheduleFor && <BarberScheduleModal barber={{ id: scheduleFor.id, name: scheduleFor.name }} onClose={() => setScheduleFor(null)} />}
 
@@ -206,7 +378,7 @@ export default function TeamPage() {
                             </label>
                         )}
                         <p className="text-xs text-bos-muted bg-bos-bg border border-bos-border rounded-xl p-3">
-                            La comisión de cortes es el 50 % del precio antes de descuentos (regla del negocio). Cada persona entra al sistema con su correo y contraseña; el acceso lo crea la administración.
+                            La comisión de cortes es el 50 % del precio antes de descuentos (regla del negocio). Cada persona entra desde su celular con su usuario y un PIN de 6 números; el acceso se crea abajo, en «Accesos a la app».
                         </p>
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                         <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">

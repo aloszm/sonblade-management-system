@@ -1,22 +1,30 @@
 -- ============================================================================
 -- DATOS DE EJEMPLO (DEMO) — solo para sonblade-dev, NUNCA para produccion.
 --
--- Crea el negocio "Gallo 420" con 7 usuarios de prueba, catalogo, inventario y
+-- Crea el negocio "Gallo 420" con 8 cuentas de prueba, catalogo, inventario y
 -- ventas de la semana pasada hechas con las funciones reales (confirm_sale,
 -- open_cash_session, close_cash_session), para poder ver el sistema funcionando.
 --
--- Como usarla: reemplaza __DEMO_PASSWORD__ por una contrasena temporal y ejecuta
--- el archivo en una base VACIA. No guardes la contrasena real en Git.
+-- Acceso con USUARIO y PIN de 6 numeros (sin correos reales). Supabase Auth guarda
+-- un correo sintetico que nadie ve: <usuario>@gallo-420.barberos.invalid (el dominio
+-- .invalid esta reservado y no puede existir; ver lib/auth/login-id.ts).
+--
+-- Como asignar los PIN: reemplaza __DEMO_PINS__ por un objeto JSON con un PIN
+-- temporal DISTINTO de 6 numeros para cada usuario, por ejemplo generado con
+--   node -e "const u=['alonso','sonia','lucia','deya','dani','dago','emi','prueba'];console.log(JSON.stringify(Object.fromEntries(u.map(x=>[x,String(require('crypto').randomInt(1e6)).padStart(6,'0')]))))"
+-- y ejecuta el archivo en una base VACIA. Cada cuenta queda marcada para cambiar su
+-- PIN al primer ingreso. No guardes los PIN reales en Git; entregalos en persona.
 -- Se niega a correr si ya existe algun negocio.
 --
--- Usuarios (mismo correo, contrasena temporal compartida):
---   demo.dueno@gallo420.test   Alonso, dueno (owner)
---   demo.dago@gallo420.test    cajero
---   demo.emi@gallo420.test     cajero
---   demo.deya@gallo420.test    barbero
---   demo.sonia@gallo420.test   barbera y gerente (admin)
---   demo.dani@gallo420.test    barbero
---   lucia@gallo420.test        consulta (viewer): ve lo mismo que gerencia, no cambia nada
+-- Usuarios:
+--   alonso   dueno (owner)
+--   sonia    barbera y gerente (admin)
+--   lucia    consulta (viewer): ve lo mismo que gerencia, no cambia nada
+--   deya     barbero
+--   dani     barbero
+--   dago     recepcion
+--   emi      recepcion
+--   prueba   consulta (viewer), para pruebas automaticas de inicio de sesion
 --
 -- NOTA HONESTA: para que existan ventas "de la semana pasada" las fechas de los
 -- registros de venta, pago, caja y comision se corren hacia atras despues de
@@ -25,11 +33,12 @@
 -- ============================================================================
 DO $do$
 DECLARE
-  pw text := '__DEMO_PASSWORD__';
+  pins_text text := '__DEMO_PINS__';
+  pins jsonb;
   v_tz text;
   u_owner uuid := gen_random_uuid(); u_dago uuid := gen_random_uuid(); u_emi uuid := gen_random_uuid();
   u_deya uuid := gen_random_uuid(); u_sonia uuid := gen_random_uuid(); u_dani uuid := gen_random_uuid();
-  u_lucia uuid := gen_random_uuid();
+  u_lucia uuid := gen_random_uuid(); u_prueba uuid := gen_random_uuid();
   v_biz uuid; v_branch uuid;
   e_deya uuid; e_sonia uuid; e_dani uuid;
   s_corte uuid; s_infantil uuid; s_barba uuid; p_pomada uuid;
@@ -42,8 +51,13 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.businesses) THEN
     RAISE EXCEPTION 'La base ya tiene un negocio; la semilla demo solo corre en una base vacia';
   END IF;
-  IF pw = '__DEMO_PASSWORD__' OR length(pw) < 12 THEN
-    RAISE EXCEPTION 'Reemplaza __DEMO_PASSWORD__ por una contrasena temporal de al menos 12 caracteres';
+  IF pins_text = '__DEMO_PINS__' THEN
+    RAISE EXCEPTION 'Reemplaza __DEMO_PINS__ por un JSON con 8 PIN distintos de 6 numeros (ver encabezado)';
+  END IF;
+  pins := pins_text::jsonb;
+  IF (SELECT count(DISTINCT v) FROM jsonb_each_text(pins) AS e(k, v) WHERE v ~ '^[0-9]{6}$'
+        AND k IN ('alonso','sonia','lucia','deya','dani','dago','emi','prueba')) <> 8 THEN
+    RAISE EXCEPTION 'Reemplaza __DEMO_PINS__ por un JSON con 8 PIN distintos de 6 numeros (ver encabezado)';
   END IF;
 
   -- 1) Usuarios que pueden iniciar sesion (correo ya confirmado)
@@ -52,21 +66,23 @@ BEGIN
     phone_change, phone_change_token, reauthentication_token,
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
   SELECT '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated', u.email,
-    extensions.crypt(pw, extensions.gen_salt('bf')), now(), '', '', '', '', '', '', '', '',
+    extensions.crypt(pins->>u.login, extensions.gen_salt('bf')), now(), '', '', '', '', '', '', '', '',
     '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('full_name', u.full_name), now(), now()
   FROM (VALUES
-    (u_owner, 'demo.dueno@gallo420.test', 'Alonso'),
-    (u_dago,  'demo.dago@gallo420.test',  'Dago'),
-    (u_emi,   'demo.emi@gallo420.test',   'Emi'),
-    (u_deya,  'demo.deya@gallo420.test',  'Deya'),
-    (u_sonia, 'demo.sonia@gallo420.test', 'Sonia'),
-    (u_dani,  'demo.dani@gallo420.test',  'Dani'),
-    (u_lucia, 'lucia@gallo420.test',      'Lucía')
-  ) AS u(id, email, full_name);
+    (u_owner,  'alonso', 'Alonso'),
+    (u_dago,   'dago',   'Dago'),
+    (u_emi,    'emi',    'Emi'),
+    (u_deya,   'deya',   'Deya'),
+    (u_sonia,  'sonia',  'Sonia'),
+    (u_dani,   'dani',   'Dani'),
+    (u_lucia,  'lucia',  'Lucía'),
+    (u_prueba, 'prueba', 'Prueba')
+  ) AS v(id, login, full_name)
+  CROSS JOIN LATERAL (SELECT v.id, v.login, v.full_name, v.login || '@gallo-420.barberos.invalid' AS email) AS u;
   INSERT INTO auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
   SELECT id::text, id, jsonb_build_object('sub', id::text, 'email', email, 'email_verified', true, 'phone_verified', false),
     'email', now(), now(), now()
-  FROM auth.users WHERE id IN (u_owner, u_dago, u_emi, u_deya, u_sonia, u_dani, u_lucia);
+  FROM auth.users WHERE id IN (u_owner, u_dago, u_emi, u_deya, u_sonia, u_dani, u_lucia, u_prueba);
 
   -- 2) Negocio, sucursal y equipo (con la funcion real de arranque)
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
@@ -75,18 +91,25 @@ BEGIN
   SELECT id INTO v_branch FROM public.branches WHERE business_id = v_biz LIMIT 1;
   SELECT timezone INTO v_tz FROM public.businesses WHERE id = v_biz;
   INSERT INTO public.profiles (user_id, full_name) VALUES
-    (u_dago, 'Dago'), (u_emi, 'Emi'), (u_deya, 'Deya'), (u_sonia, 'Sonia'), (u_dani, 'Dani'), (u_lucia, 'Lucía');
+    (u_dago, 'Dago'), (u_emi, 'Emi'), (u_deya, 'Deya'), (u_sonia, 'Sonia'), (u_dani, 'Dani'), (u_lucia, 'Lucía'), (u_prueba, 'Prueba');
   INSERT INTO public.business_memberships (business_id, user_id, role) VALUES
     (v_biz, u_dago, 'receptionist'), (v_biz, u_emi, 'receptionist'),
     (v_biz, u_deya, 'barber'), (v_biz, u_sonia, 'admin'), (v_biz, u_dani, 'barber'), -- Sonia es gerente de la sucursal
-    (v_biz, u_lucia, 'viewer'); -- Lucía: consulta, sin empleado (no es barbera ni recepción)
+    (v_biz, u_lucia, 'viewer'), -- Lucía: consulta, sin empleado (no es barbera ni recepción)
+    (v_biz, u_prueba, 'viewer'); -- cuenta para pruebas automáticas de inicio de sesión
   INSERT INTO public.user_branch_access (business_id, branch_id, user_id) VALUES
-    (v_biz, v_branch, u_dago), (v_biz, v_branch, u_emi), (v_biz, v_branch, u_deya), (v_biz, v_branch, u_sonia), (v_biz, v_branch, u_dani), (v_biz, v_branch, u_lucia);
+    (v_biz, v_branch, u_dago), (v_biz, v_branch, u_emi), (v_biz, v_branch, u_deya), (v_biz, v_branch, u_sonia), (v_biz, v_branch, u_dani), (v_biz, v_branch, u_lucia), (v_biz, v_branch, u_prueba);
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_deya, 'Deya') RETURNING id INTO e_deya;
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_sonia, 'Sonia') RETURNING id INTO e_sonia;
   INSERT INTO public.employees (business_id, user_id, display_name) VALUES (v_biz, u_dani, 'Dani') RETURNING id INTO e_dani;
   -- Recepción: vende productos y gana su comisión, pero no realiza servicios.
   INSERT INTO public.employees (business_id, user_id, display_name, is_barber) VALUES (v_biz, u_dago, 'Dago', false), (v_biz, u_emi, 'Emi', false);
+
+  -- Usuario corto, PIN temporal que debe cambiarse al entrar, y la huella para saber cuándo cambió.
+  UPDATE public.business_memberships bm SET login_name = split_part(u.email, '@', 1), must_change_pin = true
+    FROM auth.users u WHERE u.id = bm.user_id AND bm.business_id = v_biz;
+  INSERT INTO private.pin_resets (user_id, password_hash_at_reset)
+    SELECT id, encrypted_password FROM auth.users WHERE id IN (u_owner, u_dago, u_emi, u_deya, u_sonia, u_dani, u_lucia, u_prueba);
 
   -- 3) Catalogo e inventario, creados como dueño (queda registrado quien lo hizo)
   PERFORM set_config('request.jwt.claims', json_build_object('role','authenticated','sub',u_owner)::text, true);

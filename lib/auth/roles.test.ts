@@ -59,6 +59,7 @@ const READ_ONLY_POSTS = new Set(['reports/verify/route.ts']);
 const EXEMPT: Record<string, true> = {
     'DELETE clients/[id]/route.ts': true, // siempre contesta 405: los clientes no se borran
     'PUT services/[id]/route.ts': true, // delega en PATCH, que exige dueño o gerencia
+    'POST account/pin/route.ts': true, // cambiar MI PIN: es la credencial propia, también para la consulta
 };
 
 describe('API: la consulta no entra a métodos que escriben', () => {

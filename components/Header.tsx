@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, ChevronDown, Plus, LogOut } from 'lucide-react';
+import { Menu, ChevronDown, Plus, LogOut, KeyRound } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 
 interface HeaderProps {
@@ -30,6 +30,7 @@ const pageTitles: Record<string, string> = {
   '/admin': 'Administración',
   '/admin/auditoria': 'Bitácora',
   '/configuracion': 'Configuración',
+  '/mi-cuenta': 'Mi cuenta',
 };
 
 const ROLE_LABELS: Record<string, string> = { admin: 'Administración', recepcion: 'Recepción', barber: 'Barbero' };
@@ -117,7 +118,11 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                  <p className="text-sm font-semibold text-bos-text">{userName || 'Usuario'}</p>
                  <p className="text-xs text-bos-muted">{ROLE_LABELS[userRole] ?? userRole}</p>
               </div>
-              
+
+              <Link href="/mi-cuenta" onClick={() => setMenuOpen(false)}
+                className="w-full flex items-center gap-2 px-4 min-h-11 text-sm text-bos-text hover:bg-bos-raised transition-colors">
+                <KeyRound className="h-4 w-4" /> Mi cuenta · cambiar PIN
+              </Link>
               <button 
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-4 min-h-11 text-sm text-bos-danger hover:bg-bos-raised transition-colors text-left"

@@ -321,6 +321,8 @@ export type Database = {
           business_id: string
           created_at: string
           is_active: boolean
+          login_name: string | null
+          must_change_pin: boolean
           role: Database["public"]["Enums"]["business_role"]
           user_id: string
         }
@@ -328,6 +330,8 @@ export type Database = {
           business_id: string
           created_at?: string
           is_active?: boolean
+          login_name?: string | null
+          must_change_pin?: boolean
           role: Database["public"]["Enums"]["business_role"]
           user_id: string
         }
@@ -335,6 +339,8 @@ export type Database = {
           business_id?: string
           created_at?: string
           is_active?: boolean
+          login_name?: string | null
+          must_change_pin?: boolean
           role?: Database["public"]["Enums"]["business_role"]
           user_id?: string
         }
@@ -2267,16 +2273,41 @@ export type Database = {
         Args: { p_branch_id: string }
         Returns: Json
       }
+      login_attempt_check: { Args: { p_login_id: string }; Returns: number }
+      login_attempt_failed: { Args: { p_login_id: string }; Returns: number }
+      login_attempt_succeeded: { Args: never; Returns: undefined }
+      mark_pin_reset: {
+        Args: {
+          p_actor_user_id: string
+          p_business_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      my_account_status: { Args: never; Returns: Json }
       open_cash_session: {
         Args: { p_branch_id: string; p_opening_cash: number }
         Returns: Json
       }
+      pin_changed: { Args: never; Returns: boolean }
       preview_commission_settlement: {
         Args: {
           p_branch_id: string
           p_employee_id: string
           p_period_end: string
           p_period_start: string
+        }
+        Returns: Json
+      }
+      provision_account: {
+        Args: {
+          p_actor_user_id: string
+          p_business_id: string
+          p_employee_id: string
+          p_full_name: string
+          p_login_name: string
+          p_role: Database["public"]["Enums"]["business_role"]
+          p_user_id: string
         }
         Returns: Json
       }
@@ -2324,6 +2355,10 @@ export type Database = {
           p_issue_key: string
           p_reason: string
         }
+        Returns: Json
+      }
+      set_account_active: {
+        Args: { p_active: boolean; p_business_id: string; p_user_id: string }
         Returns: Json
       }
       set_cash_settings: {

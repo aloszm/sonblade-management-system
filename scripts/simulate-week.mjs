@@ -356,7 +356,7 @@ begin
   select timezone into v_tz from public.businesses where id = c_business;
 
   select jsonb_object_agg(x.alias, u.id) into v_users from (values
-    ('owner','demo.dueno@gallo420.test'),('dago','demo.dago@gallo420.test'),('emi','demo.emi@gallo420.test'),('sonia','demo.sonia@gallo420.test')) x(alias, email)
+    ('owner','alonso@gallo-420.barberos.invalid'),('dago','dago@gallo-420.barberos.invalid'),('emi','emi@gallo-420.barberos.invalid'),('sonia','sonia@gallo-420.barberos.invalid')) x(alias, email)
     join auth.users u on u.email = x.email;
   if (select count(*) from jsonb_object_keys(v_users)) <> 4 then raise exception 'Faltan cuentas de demostración.'; end if;
   select jsonb_object_agg(e.display_name, e.id) into v_emps from public.employees e where e.business_id = c_business and e.is_active
@@ -589,7 +589,7 @@ ${engine((opt('--days', '0,1,2,3,4,5,6')).split(',').map(Number), true)}
 -- Cuadre, leído como el dueño (la función exige dueño o gerente).
 create temp table sim_check (k text, v jsonb) on commit drop;
 grant insert on sim_check to authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', (select id from auth.users where email = 'demo.dueno@gallo420.test'), 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', (select id from auth.users where email = 'alonso@gallo-420.barberos.invalid'), 'role', 'authenticated')::text, true);
 set local role authenticated;
 insert into sim_check select 'cuadre', public.agenda_reconciliation('00000000-0000-4000-8000-00000000e2e5', date '${WEEK_START}', date '${PERIOD_END}');
 reset role;

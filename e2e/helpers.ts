@@ -1,23 +1,28 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
+/** Usuarios de las cuentas de demostración (se entra con usuario + PIN, sin correo). */
 export const USERS = {
-    owner: process.env.E2E_OWNER_EMAIL ?? 'demo.dueno@gallo420.test',
-    reception: process.env.E2E_RECEPTION_EMAIL ?? 'demo.dago@gallo420.test',
-    barber: process.env.E2E_BARBER_EMAIL ?? 'demo.deya@gallo420.test',
-    manager: process.env.E2E_MANAGER_EMAIL ?? 'demo.sonia@gallo420.test',
+    owner: process.env.E2E_OWNER_USER ?? 'alonso',
+    reception: process.env.E2E_RECEPTION_USER ?? 'dago',
+    barber: process.env.E2E_BARBER_USER ?? 'deya',
+    manager: process.env.E2E_MANAGER_USER ?? 'sonia',
 };
 
-function password(): string {
-    const value = process.env.E2E_PASSWORD;
-    if (!value) throw new Error('Define E2E_PASSWORD con la contraseña de las cuentas de demostración.');
+/**
+ * PIN de la cuenta: E2E_PIN_<USUARIO> (p. ej. E2E_PIN_DEYA) o, si todas comparten uno, E2E_PIN.
+ * Las cuentas deben tener ya un PIN propio (no el temporal), o la app pedirá cambiarlo primero.
+ */
+function pinFor(username: string): string {
+    const value = process.env[`E2E_PIN_${username.toUpperCase()}`] ?? process.env.E2E_PIN;
+    if (!value) throw new Error(`Define E2E_PIN (o E2E_PIN_${username.toUpperCase()}) con el PIN de las cuentas de demostración.`);
     return value;
 }
 
-export async function login(page: Page, email: string): Promise<void> {
+export async function login(page: Page, username: string): Promise<void> {
     await page.goto('/login', { waitUntil: 'networkidle' });
     await page.waitForTimeout(1200); // el formulario debe terminar de hidratarse antes de escribir
-    await page.fill('#email', email);
-    await page.fill('#password', password());
+    await page.fill('#username', username);
+    await page.fill('#pin', pinFor(username));
     await Promise.all([
         page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 }),
         page.click('button[type="submit"]'),

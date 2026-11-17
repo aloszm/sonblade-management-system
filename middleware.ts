@@ -39,12 +39,19 @@ export async function middleware(request: NextRequest) {
 
     if (user && !isPublic) {
         const { data: memberships } = await supabase.from('business_memberships')
-            .select('business_id, role').eq('user_id', user.id).eq('is_active', true).order('created_at').limit(1);
+            .select('business_id, role, must_change_pin').eq('user_id', user.id).eq('is_active', true).order('created_at').limit(1);
         const membership = memberships?.[0];
         if (!membership) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'La cuenta no tiene un negocio asignado.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/onboarding', request.url));
         }
+        // PIN temporal (cuenta nueva o restablecida): antes de usar la app hay que cambiarlo en "Mi cuenta".
+        const pinPaths = ['/mi-cuenta', '/api/auth/', '/api/account/pin'];
+        if (membership.must_change_pin && !pinPaths.some((path) => pathname === path || pathname.startsWith(path))) {
+            if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Debes cambiar tu PIN temporal antes de continuar.' }, { status: 403, headers: NO_CACHE });
+            return NextResponse.redirect(new URL('/mi-cuenta', request.url));
+        }
+
         const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
         if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin', 'viewer'].includes(membership.role)) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
