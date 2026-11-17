@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
         }
         const { data, error } = await query;
         if (error) throw error;
-        return NextResponse.json(((data ?? []) as unknown as AppointmentRow[]).map(toAppointmentView), { headers: NO_STORE });
+        // source (aditivo): 'appointment' | 'walk_in' | 'online' (reservada por el cliente en la página pública).
+        return NextResponse.json(((data ?? []) as unknown as AppointmentRow[]).map((row) => ({ ...toAppointmentView(row), source: row.source })), { headers: NO_STORE });
     } catch (error) { return authErrorResponse(error); }
 }
 
@@ -94,6 +95,6 @@ export async function POST(request: NextRequest) {
             created_by: context.userId,
         }).select(COLUMNS).single();
         if (error) throw error;
-        return NextResponse.json(toAppointmentView(data as unknown as AppointmentRow), { status: 201, headers: NO_STORE });
+        return NextResponse.json({ ...toAppointmentView(data as unknown as AppointmentRow), source: (data as unknown as AppointmentRow).source }, { status: 201, headers: NO_STORE });
     } catch (error) { return authErrorResponse(error); }
 }
