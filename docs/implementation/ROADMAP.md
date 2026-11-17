@@ -8,7 +8,7 @@ Esta sección es la lista de trabajo vigente. Lo que no aparece en "Funciona" no
 
 ### Decisiones del negocio ya tomadas
 
-- BarberOS es el sistema; el cliente es **Gallo 4:20** (Barber Shop, desde 1989), Efeso 2, Lomas Estrella 2da Secc, Iztapalapa, CDMX; tel. 55 3309 8072. Antes se llamaba Sonblade en el sistema.
+- BarberOS es el sistema; el cliente es **Gallo 4:20** (Barber Shop, desde 2000), Efeso 2, Lomas Estrella 2da Secc, Iztapalapa, CDMX; tel. 55 3309 8072. Antes se llamaba Sonblade en el sistema.
 - Catálogo real (cartel de noviembre 2026) cargado con duraciones aprobadas por el dueño; grecas con precio libre al cobrar. "Cualquier producto $180": se aplica cuando el dueño pase la lista de productos.
 - Horario: domingo y lunes 10:00–19:00; martes a sábado 12:30–20:00 (editable en Configuración).
 - Color de marca: bronce del logo; todo texto con contraste AA medido.

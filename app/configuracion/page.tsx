@@ -153,7 +153,7 @@ export default function SettingsPage() {
                         </div>
                         <div>
                             <label htmlFor="shop-tagline" className={label}>Frase debajo del nombre</label>
-                            <input id="shop-tagline" type="text" maxLength={80} value={profile.tagline} onChange={e => updateField('tagline', e.target.value)} placeholder="Barber Shop · desde 1989" className={field} />
+                            <input id="shop-tagline" type="text" maxLength={80} value={profile.tagline} onChange={e => updateField('tagline', e.target.value)} placeholder="Barber Shop · desde 2000" className={field} />
                         </div>
                         <div>
                             <label htmlFor="shop-tax" className={label}>RFC / Tax ID (opcional)</label>
