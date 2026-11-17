@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import { WEEKDAYS, validWeekHours, type WeekHours } from '@/lib/appointments/hours';
 import TimePicker from '@/components/ui/TimePicker';
+import CashSettingsEditor from '@/components/CashSettingsEditor';
 
 const TIMEZONES = [
     { value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)' },
@@ -95,10 +96,6 @@ export default function SettingsPage() {
                     throw new Error('La tabla "settings" no existe en Supabase. Por favor ejecuta el SQL de configuración.');
                 }
                 throw new Error(data.error || 'Error al guardar configuración');
-            }
-            if (cash) {
-                const cashRes = await fetch('/api/cash/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cash) });
-                if (!cashRes.ok) throw new Error((await cashRes.json().catch(() => null))?.error || 'No se pudieron guardar los ajustes de caja.');
             }
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
@@ -239,23 +236,8 @@ export default function SettingsPage() {
                     <section className={card}>
                         <h2 className="font-display text-lg font-semibold mb-1">Caja</h2>
                         <p className="text-sm text-bos-muted mb-5">Al cerrar la caja se propone dejar el fondo para el día siguiente y separar el apartado; quien cierra puede ajustar los montos si ese día no alcanza.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                            <div>
-                                <label htmlFor="cash-float" className={label}>Fondo para el día siguiente ($)</label>
-                                <input id="cash-float" type="number" inputMode="decimal" min={0} step={50} required value={cash.float_target}
-                                    onChange={e => setCash({ ...cash, float_target: Number(e.target.value) })} className={field} />
-                            </div>
-                            <div>
-                                <label htmlFor="cash-reserve" className={label}>Apartado diario ($)</label>
-                                <input id="cash-reserve" type="number" inputMode="decimal" min={0} step={50} required value={cash.reserve_amount}
-                                    onChange={e => setCash({ ...cash, reserve_amount: Number(e.target.value) })} className={field} />
-                            </div>
-                            <div>
-                                <label htmlFor="cash-reserve-label" className={label}>¿Para qué es el apartado?</label>
-                                <input id="cash-reserve-label" type="text" minLength={2} maxLength={60} required value={cash.reserve_label}
-                                    onChange={e => setCash({ ...cash, reserve_label: e.target.value })} className={field} />
-                            </div>
-                        </div>
+                        {/* Se guarda aparte, con PIN y comentario. */}
+                        <CashSettingsEditor initial={cash} onSaved={setCash} />
                     </section>
                 )}
 

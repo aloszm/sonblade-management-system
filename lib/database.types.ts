@@ -501,11 +501,13 @@ export type Database = {
           expected_cash: number | null
           float_left: number | null
           id: string
+          closing_note: string | null
           notes: string | null
           opened_at: string
           opened_by: string
           opening_cash: number
           opening_expected: number | null
+          opening_note: string | null
           reserve_amount: number | null
           status: Database["public"]["Enums"]["cash_session_status"]
           withdrawal_delivered_to: string | null
@@ -522,7 +524,9 @@ export type Database = {
           expected_cash?: number | null
           float_left?: number | null
           id?: string
+          closing_note?: string | null
           notes?: string | null
+          opening_note?: string | null
           opened_at?: string
           opened_by: string
           opening_cash?: number
@@ -543,7 +547,9 @@ export type Database = {
           expected_cash?: number | null
           float_left?: number | null
           id?: string
+          closing_note?: string | null
           notes?: string | null
+          opening_note?: string | null
           opened_at?: string
           opened_by?: string
           opening_cash?: number
@@ -2200,6 +2206,7 @@ export type Database = {
           p_counted_cash: number
           p_float_left?: number
           p_reserve_amount?: number
+          p_short_float_reason?: string
           p_withdrawal_delivered_to?: string
         }
         Returns: Json
@@ -2290,10 +2297,48 @@ export type Database = {
       }
       my_account_status: { Args: never; Returns: Json }
       open_cash_session: {
-        Args: { p_branch_id: string; p_opening_cash: number }
+        Args: { p_branch_id: string; p_opening_cash: number; p_opening_reason?: string }
         Returns: Json
       }
       pin_changed: { Args: never; Returns: boolean }
+      record_cash_movement_confirmed: {
+        Args: {
+          p_amount: number
+          p_cash_session_id: string
+          p_description: string
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_movement_type: Database["public"]["Enums"]["cash_movement_type"]
+        }
+        Returns: Json
+      }
+      set_cash_settings_confirmed: {
+        Args: {
+          p_branch_id: string
+          p_comment: string
+          p_float_target: number
+          p_reserve_amount: number
+          p_reserve_label: string
+        }
+        Returns: Json
+      }
+      adjust_inventory_stock_confirmed: {
+        Args: {
+          p_branch_id: string
+          p_comment: string
+          p_product_id: string
+          p_quantity_delta: number
+        }
+        Returns: Json
+      }
+      set_inventory_minimum_confirmed: {
+        Args: {
+          p_branch_id: string
+          p_comment: string
+          p_minimum_quantity: number
+          p_product_id: string
+        }
+        Returns: Json
+      }
       preview_commission_settlement: {
         Args: {
           p_branch_id: string

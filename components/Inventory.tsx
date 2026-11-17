@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, Loader2, Edit2, Trash2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import PinConfirm from '@/components/ui/PinConfirm';
 import { useSupabase } from '@/hooks/useSupabase';
 import type { Product, CreateProduct } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
@@ -21,6 +22,8 @@ const Inventory: React.FC = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState('');
     const [listError, setListError] = useState('');
+    // Entradas, salidas y mínimo: se confirman con PIN y comentario (dueño y gerencia).
+    const [stockPin, setStockPin] = useState(false);
 
     // Form state for new product
     const [form, setForm] = useState<CreateProduct & { entry_date?: string; exit_date?: string }>({
@@ -48,29 +51,37 @@ const Inventory: React.FC = () => {
         .filter(p => filter === 'all' || ['low', 'critical', 'empty'].includes(p.status))
         .filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase()));
 
+    const editingProduct = editingId ? (products || []).find((p) => p.id === editingId) : undefined;
+    const stockChange = editingProduct ? Number(form.stock) - editingProduct.stock : 0;
+    const minChanged = editingProduct ? Number(form.min_stock) !== editingProduct.min_stock : false;
+
+    const saveProduct = async (confirm?: { pin: string; comment: string }) => {
+        const url = editingId ? `/api/products/${editingId}` : '/api/products';
+        const method = editingId ? 'PATCH' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(confirm ? { ...form, ...confirm } : form)
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            throw new Error(body?.error ? (body.detail && !body.pin_error ? `${body.error} (${body.detail})` : body.error) : 'Error al guardar producto');
+        }
+        setStockPin(false);
+        setModalOpen(false);
+        setEditingId(null);
+        setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0, entry_date: '', exit_date: '' });
+        refetch();
+        refetchStats();
+    };
+
     const handleSave = async () => {
         if (!form.name || !form.sku) return;
-        setSaving(true);
         setSaveError('');
+        if (editingProduct && (stockChange !== 0 || minChanged)) { setStockPin(true); return; }
+        setSaving(true);
         try {
-            const url = editingId ? `/api/products/${editingId}` : '/api/products';
-            const method = editingId ? 'PATCH' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form)
-            });
-            if (!res.ok) {
-                const body = await res.json().catch(() => null);
-                throw new Error(body?.error ? (body.detail ? `${body.error} (${body.detail})` : body.error) : 'Error al guardar producto');
-            }
-
-            setModalOpen(false);
-            setEditingId(null);
-            setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0, entry_date: '', exit_date: '' });
-            refetch();
-            refetchStats();
+            await saveProduct();
         } catch (err) {
             console.error('Error saving product:', err);
             setSaveError(err instanceof Error ? err.message : 'Error al guardar producto');
@@ -402,6 +413,17 @@ const Inventory: React.FC = () => {
                         </div>
                     </form>
                 </Modal>
+            )}
+            {stockPin && editingProduct && (
+                <PinConfirm title="Confirmar cambio de inventario" onClose={() => setStockPin(false)} onConfirm={saveProduct}
+                    commentPlaceholder={stockChange > 0 ? 'Ej: Llegó el pedido del proveedor' : 'Ej: Se rompió un frasco'}
+                    summary={(
+                        <div className="space-y-1">
+                            <p className="font-semibold">{editingProduct.name}</p>
+                            {stockChange !== 0 && <p>{stockChange > 0 ? `Entrada de ${stockChange}` : `Salida de ${-stockChange}`} · existencias {editingProduct.stock} → <strong>{Number(form.stock)}</strong></p>}
+                            {minChanged && <p>Mínimo {editingProduct.min_stock} → <strong>{Number(form.min_stock)}</strong></p>}
+                        </div>
+                    )} />
             )}
         </div>
     );

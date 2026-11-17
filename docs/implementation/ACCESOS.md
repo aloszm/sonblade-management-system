@@ -100,3 +100,30 @@ persona). Para producción, con la llave configurada, el dueño crea cada acceso
 - **Bloqueo a propósito.** Quien sepa el usuario de alguien puede provocarle un bloqueo de 15 min
   equivocándose 5 veces. Gerencia lo quita al restablecer el PIN.
 - **Celular prestado o perdido.** Desactivar el acceso en Equipo corta el uso de la app de inmediato.
+
+## Confirmación con PIN y motivos de caja (pedido del dueño, 17 nov 2026)
+
+"Sonia debe poder cambiar la caja y agregar inventario, pero poniendo su PIN siempre y un comentario."
+
+- **Cierre con menos del fondo recomendado** (`branches.cash_float_target`, hoy $500): la pantalla avisa
+  ("Se recomienda dejar $500 para mañana; vas a dejar $300") y pide un motivo de 5 a 300 letras.
+  `close_cash_session(..., p_short_float_reason)` lo exige (22023) y lo guarda en `cash_sessions.closing_note` y en la bitácora.
+- **Apertura distinta de lo que se dejó** (o del fondo recomendado si no hay cierre anterior): aviso
+  ("Ayer se dejaron $300; estás abriendo con $250") y motivo obligatorio. `open_cash_session(..., p_opening_reason)`
+  lo exige y lo guarda en `cash_sessions.opening_note` y en la bitácora. Sin diferencia, las llamadas antiguas siguen sirviendo.
+- **Confirmación con PIN** (`components/ui/PinConfirm.tsx`, `lib/auth/pin-confirm.ts`): el servidor revisa el
+  bloqueo por intentos (el mismo contador del inicio de sesión), abre una sesión aparte con el PIN y, si es
+  correcto, hace el cambio con esa sesión en la misma petición; luego la cierra. La base exige que esa sesión
+  tenga menos de 2 minutos y que no se haya usado antes (`private.consume_pin_proof`), así que tampoco se salta
+  llamando directo a la base. Cada cambio deja una fila `pin_confirmed_action` en la bitácora: quién, qué,
+  comentario y `confirmed_with_pin: true`.
+  - Ajustes de caja (fondo y apartado): dueño **y** gerencia, siempre con PIN + comentario
+    (`set_cash_settings_confirmed`). La tabla `branches` sigue siendo solo del dueño, igual que `set_cash_settings`.
+  - Inventario (entradas, salidas y mínimo): dueño y gerencia, siempre con PIN + comentario
+    (`adjust_inventory_stock_confirmed`, `set_inventory_minimum_confirmed`). Decisión: el dueño también pone PIN, por consistencia.
+  - Gastos, retiros y entradas manuales hechos por gerencia: PIN; el concepto es el comentario
+    (`record_cash_movement_confirmed`). Dueño y recepción siguen como antes.
+  - Comisiones, puestos, horarios y accesos: sin cambios (comisiones solo el dueño).
+- **Pendiente tras publicar la app nueva:** las funciones antiguas `adjust_inventory_stock`, `set_inventory_minimum`
+  y `record_cash_movement` todavía aceptan a gerencia sin PIN (para no romper la versión publicada mientras se
+  despliega). Cuando la nueva esté en producción conviene cerrarlas para gerencia.

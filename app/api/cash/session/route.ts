@@ -8,7 +8,11 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
-const OpenSchema = z.object({ opening_cash: z.number().min(0).max(1_000_000) });
+const OpenSchema = z.object({
+    opening_cash: z.number().min(0).max(1_000_000),
+    // Obligatorio (5 a 300 letras) cuando se abre con un monto distinto de lo que se dejó; lo exige la base.
+    opening_reason: z.string().trim().max(300, 'El motivo es muy largo (máximo 300 letras).').optional(),
+});
 
 /** Caja abierta de la sucursal (o null si no hay). */
 export async function GET() {
@@ -34,7 +38,8 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase.rpc('open_cash_session', {
             p_branch_id: context.branchId,
             p_opening_cash: parsed.data.opening_cash,
-        } as never);
+            ...(parsed.data.opening_reason ? { p_opening_reason: parsed.data.opening_reason } : {}),
+        });
         if (error) throw error;
         const session = await loadOpenSession(supabase, context.businessId, context.branchId);
         return Response.json(session, { status: 201, headers: NO_STORE });

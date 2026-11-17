@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, TriangleAlert, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, Settings2, TriangleAlert, X } from 'lucide-react';
+import PinConfirm from '@/components/ui/PinConfirm';
+import CashSettingsEditor from '@/components/CashSettingsEditor';
+import { REASON_MAX, closingNeedsReason, closingWarning, openingNeedsReason, openingWarning, reasonProblem } from '@/lib/cash/reasons';
 import type { CashMovement, CashSession } from '@/types';
 import { toUiMovement, type CashMovementRow } from '@/lib/cash/session-view';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
@@ -9,7 +13,7 @@ import { DENOMINATIONS, breakdownTotal, compactBreakdown, proposeSplit, withdraw
 import { formatMoney } from '@/lib/utils/money';
 import { formatDate, formatTime } from '@/lib/utils/dates';
 
-interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean }
+interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean; movement_needs_pin?: boolean }
 type Movement = CashMovement & { direction: 'in' | 'out' };
 type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number; deliveredTo: string };
 
@@ -45,7 +49,8 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-    return (
+    // En un portal: dentro del contenido animado (transform) el "fixed" quedaba recortado por el menú de abajo.
+    return createPortal(
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
             <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-xl border border-bos-border bg-bos-surface p-6 text-bos-text">
                 <div className="flex items-center justify-between gap-3 mb-5">
@@ -54,6 +59,22 @@ function Dialog({ title, onClose, children }: { title: string; onClose: () => vo
                 </div>
                 {children}
             </div>
+        </div>,
+        document.body,
+    );
+}
+
+/** Aviso + motivo obligatorio (apertura distinta o cierre con menos del fondo). */
+function ReasonBox({ id, warning, value, onChange, placeholder }: { id: string; warning: string; value: string; onChange: (v: string) => void; placeholder: string }) {
+    return (
+        <div className="space-y-2" data-testid={`${id}-box`}>
+            <p role="alert" className="flex items-start gap-2 rounded-xl bg-bos-accent-soft p-3 text-sm text-bos-text">
+                <TriangleAlert aria-hidden="true" className="h-4 w-4 mt-0.5 text-bos-accent-text shrink-0" />
+                <span>{warning} Se puede, pero escribe por qué.</span>
+            </p>
+            <label htmlFor={id} className={label}>Motivo (obligatorio)</label>
+            <textarea id={id} rows={2} maxLength={REASON_MAX} required value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+                className="w-full min-h-[72px] px-3 py-2 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text" />
         </div>
     );
 }
@@ -123,7 +144,10 @@ export default function CashRegister() {
     const [gain, setGain] = useState<{ amount: number; key: number } | null>(null);
 
     const [openAmount, setOpenAmount] = useState('');
+    const [openReason, setOpenReason] = useState('');
     const [opening, setOpening] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [movementPin, setMovementPin] = useState(false);
     const [formError, setFormError] = useState('');
 
     const [movementOpen, setMovementOpen] = useState(false);
@@ -139,6 +163,7 @@ export default function CashRegister() {
     const [floatLeft, setFloatLeft] = useState('');
     const [reserve, setReserve] = useState('');
     const [deliveredTo, setDeliveredTo] = useState('');
+    const [shortReason, setShortReason] = useState('');
     const [closeResult, setCloseResult] = useState<CloseResult | null>(null);
 
     const load = useCallback(async (silent = false) => {
@@ -191,13 +216,21 @@ export default function CashRegister() {
     const counted = byDenomination ? breakdownTotal(counts) : Number(countedTotal) || 0;
     const difference = Math.round((counted - expected) * 100) / 100;
     const withdrawn = withdrawnFor(counted, Number(floatLeft) || 0, Number(reserve) || 0);
+    const floatTarget = settings?.float_target ?? 0;
+    const closeShort = settings !== null && closingNeedsReason(Number(floatLeft) || 0, floatTarget);
+    const openDiffers = settings !== null && openAmount !== '' && openingNeedsReason(Number(openAmount) || 0, settings.last_float_left, floatTarget);
 
     const handleOpen = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError('');
+        if (openDiffers) {
+            const problem = reasonProblem(openReason);
+            if (problem) { setFormError(problem); return; }
+        }
         setOpening(true);
         try {
-            await api('/api/cash/session', { method: 'POST', body: JSON.stringify({ opening_cash: Number(openAmount) || 0 }) });
+            await api('/api/cash/session', { method: 'POST', body: JSON.stringify({ opening_cash: Number(openAmount) || 0, ...(openDiffers ? { opening_reason: openReason.trim() } : {}) }) });
+            setOpenReason('');
             setCloseResult(null);
             await load();
         } catch (err) { setFormError(err instanceof Error ? err.message : 'No se pudo abrir la caja.'); }
@@ -210,16 +243,22 @@ export default function CashRegister() {
         setFormError('');
         if (movementConcept.trim().length < 2) { setFormError('Escribe el concepto.'); return; }
         if (!(Number(movementAmount) > 0)) { setFormError('Escribe una cantidad mayor a cero.'); return; }
+        // Gerencia confirma con su PIN; el concepto es el comentario.
+        if (settings?.movement_needs_pin) { setMovementPin(true); return; }
         setSaving(true);
         try {
-            await api('/api/cash/movements', {
-                method: 'POST',
-                body: JSON.stringify({ cash_session_id: session.id, movement_type: movementType, method: 'cash', amount: Number(movementAmount), description: movementConcept.trim() }),
-            });
-            setMovementOpen(false); setMovementConcept(''); setMovementAmount('');
-            await load();
+            await postMovement();
         } catch (err) { setFormError(err instanceof Error ? err.message : 'No se pudo registrar.'); }
         finally { setSaving(false); }
+    };
+    const postMovement = async (pin?: string) => {
+        if (!session) return;
+        await api('/api/cash/movements', {
+            method: 'POST',
+            body: JSON.stringify({ cash_session_id: session.id, movement_type: movementType, method: 'cash', amount: Number(movementAmount), description: movementConcept.trim(), ...(pin ? { pin } : {}) }),
+        });
+        setMovementPin(false); setMovementOpen(false); setMovementConcept(''); setMovementAmount('');
+        await load();
     };
 
     const startClose = () => {
@@ -232,6 +271,10 @@ export default function CashRegister() {
     const handleClose = async () => {
         if (!session || withdrawn === null) return;
         setFormError('');
+        if (closeShort) {
+            const problem = reasonProblem(shortReason);
+            if (problem) { setFormError(problem); return; }
+        }
         setSaving(true);
         try {
             await api('/api/cash/session/close', {
@@ -241,10 +284,12 @@ export default function CashRegister() {
                     ...(byDenomination ? { breakdown: compactBreakdown(counts) } : {}),
                     float_left: Number(floatLeft) || 0, reserve_amount: Number(reserve) || 0,
                     ...(withdrawn > 0 && deliveredTo.trim() ? { withdrawal_delivered_to: deliveredTo.trim() } : {}),
+                    ...(closeShort ? { short_float_reason: shortReason.trim() } : {}),
                 }),
             });
             setCloseResult({ counted, difference, float: Number(floatLeft) || 0, reserve: Number(reserve) || 0, withdrawn, deliveredTo: withdrawn > 0 ? deliveredTo.trim() : '' });
             setDeliveredTo('');
+            setShortReason('');
             setCloseStep(0);
             setOpenAmount(String(Number(floatLeft) || 0));
             setSettings((s) => (s ? { ...s, last_float_left: Number(floatLeft) || 0 } : s));
@@ -254,12 +299,19 @@ export default function CashRegister() {
         finally { setSaving(false); }
     };
 
+    const settingsDialog = settingsOpen && settings ? (
+        <Dialog title="Ajustes de caja" onClose={() => setSettingsOpen(false)}>
+            <p className="text-sm text-bos-muted mb-4">Fondo que se recomienda dejar para el día siguiente y apartado diario. Se cambian con tu PIN y un comentario.</p>
+            <CashSettingsEditor initial={{ float_target: settings.float_target, reserve_amount: settings.reserve_amount, reserve_label: settings.reserve_label }}
+                onSaved={(v) => setSettings((s) => (s ? { ...s, ...v } : s))} />
+        </Dialog>
+    ) : null;
+
     if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>;
 
     // ───────────────────────── Caja cerrada
     if (!session) {
         const left = settings?.last_float_left ?? null;
-        const mismatch = left !== null && openAmount !== '' && Number(openAmount) !== left;
         return (
             <div className="max-w-3xl mx-auto space-y-6">
                 {loadError && <p role="alert" className="rounded-xl border border-bos-danger/40 bg-bos-surface p-4 text-bos-danger">{loadError}</p>}
@@ -309,20 +361,22 @@ export default function CashRegister() {
                         <p className="text-sm text-bos-muted">
                             {left !== null ? `En el último cierre se dejaron ${money(left)}.` : `El fondo habitual es de ${money(settings?.float_target ?? 0)}.`}
                         </p>
-                        {mismatch && (
-                            <p role="alert" className="flex items-start gap-2 rounded-xl bg-bos-accent-soft p-3 text-sm text-bos-text">
-                                <TriangleAlert aria-hidden="true" className="h-4 w-4 mt-0.5 text-bos-accent-text shrink-0" />
-                                No coincide con lo que se dejó ayer ({money(left ?? 0)}). Se puede abrir así, y la diferencia queda registrada.
-                            </p>
-                        )}
                     </div>
+                    {openDiffers && settings && (
+                        <ReasonBox id="open-reason" warning={openingWarning(Number(openAmount) || 0, settings.last_float_left, floatTarget)}
+                            value={openReason} onChange={setOpenReason} placeholder="Ej: Dago se llevó $50 de cambio al banco" />
+                    )}
                     {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                     <button type="submit" disabled={opening} className={`${primary} w-full`}>
                         {opening ? <Loader2 className="h-5 w-5 animate-spin" /> : null} Abrir caja
                     </button>
                 </form>
                 )}
+                {settings?.can_edit && !readOnly && (
+                    <button type="button" onClick={() => setSettingsOpen(true)} className={`${secondary} w-full`}><Settings2 className="h-5 w-5" /> Ajustes de caja (fondo y apartado)</button>
+                )}
                 <PastClosings sessions={history} reserveLabel={settings?.reserve_label ?? 'Apartado'} />
+                {settingsDialog}
             </div>
         );
     }
@@ -339,6 +393,7 @@ export default function CashRegister() {
                     <p className="text-sm text-bos-muted">Abierta por {session.opened_by} a las {timeOf(session.opened_at)}</p>
                 </div>
                 {!readOnly && <div className="flex flex-wrap gap-3">
+                    {settings?.can_edit && <button type="button" onClick={() => setSettingsOpen(true)} className={secondary}><Settings2 className="h-5 w-5" /> Ajustes de caja</button>}
                     <button type="button" onClick={() => { setFormError(''); setMovementOpen(true); }} className={secondary}><Plus className="h-5 w-5" /> Gasto, retiro o entrada</button>
                     <button type="button" onClick={startClose} className={primary}>Cerrar caja</button>
                 </div>}
@@ -524,6 +579,10 @@ export default function CashRegister() {
                                 <input id="close-delivered-to" type="text" maxLength={120} autoComplete="off" value={deliveredTo} onChange={(e) => setDeliveredTo(e.target.value)} placeholder="Ej: Dueño, depósito al banco" className={field} />
                             </div>
                         )}
+                        {closeShort && settings && (
+                            <ReasonBox id="close-reason" warning={closingWarning(Number(floatLeft) || 0, floatTarget)}
+                                value={shortReason} onChange={setShortReason} placeholder="Ej: Se pagó al proveedor en efectivo y no alcanzó" />
+                        )}
                         {withdrawn === null && <p role="alert" className="text-sm text-bos-danger">El fondo más el apartado no pueden ser más que lo contado.</p>}
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                         <div className="grid grid-cols-2 gap-3">
@@ -533,6 +592,13 @@ export default function CashRegister() {
                     </div>
                 </Dialog>
             )}
+            {movementPin && (
+                <PinConfirm title={`Registrar ${MOVEMENT_TYPES.find((t) => t.id === movementType)?.label.toLowerCase() ?? 'movimiento'}`}
+                    fixedComment={movementConcept.trim()} confirmLabel="Registrar con PIN"
+                    summary={<p><strong className="tabular-nums">{money(Number(movementAmount) || 0)}</strong> en efectivo</p>}
+                    onClose={() => setMovementPin(false)} onConfirm={({ pin }) => postMovement(pin)} />
+            )}
+            {settingsDialog}
         </div>
     );
 }
