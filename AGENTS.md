@@ -1,6 +1,7 @@
 # BarberOS (Gallo 4:20) — instrucciones para agentes
 
 Antes de modificar el código, lee estos documentos en este orden:
+0. `docs/implementation/FASE_4.md` — **estado actual, lista de trabajo vigente, reglas y procedimientos** (empieza aquí)
 1. `docs/product/PRD.md`
 2. `docs/product/BUSINESS_RULES.md`
 3. `docs/implementation/ROADMAP.md`

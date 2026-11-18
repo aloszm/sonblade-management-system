@@ -1,6 +1,6 @@
 # BarberOS — Plan de implementación
 
-> **Para retomar el trabajo:** la lista vigente es [`FASE_3.md`](./FASE_3.md). El cierre de las fases anteriores está en [`FASE_2.md`](./FASE_2.md).
+> **Para retomar el trabajo:** la lista vigente es [`FASE_4.md`](./FASE_4.md) (18 nov 2026: producción publicada, arranque, seguridad y mejoras). Historial: [`FASE_3.md`](./FASE_3.md) y [`FASE_2.md`](./FASE_2.md). Las secciones de abajo conservan las decisiones del negocio; los "pendientes" de aquí ya están reordenados en `FASE_4.md`.
 
 ## Estado y pendientes al 15 de noviembre de 2026 (rama `feat/v2-integration`)
 

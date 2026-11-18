@@ -1,5 +1,7 @@
 # BarberOS — Fase 3: parte visual, agenda en bloques de 30 minutos, Cuadre con acciones y semana simulada
 
+> **La Fase 3 quedó cerrada el 17 de noviembre de 2026.** Lo que no se terminó pasó a [`FASE_4.md`](./FASE_4.md), que es la lista de trabajo vigente.
+
 **Fecha del plan:** 15 de noviembre de 2026.
 **Cómo usarlo:** si el dueño escribe "fase 3", este documento es la lista de trabajo. Léelo completo, después `AGENTS.md` y las decisiones del negocio en `ROADMAP.md`. La Fase 2 está cerrada; su detalle quedó en `FASE_2.md`.
 
