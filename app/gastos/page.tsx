@@ -152,7 +152,7 @@ export default function GastosPage() {
 
                     <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
+                            <table className="bos-stack w-full text-left text-sm">
                                 <thead className="text-bos-muted">
                                     <tr>
                                         <th className={th}>Fecha</th>
@@ -163,28 +163,28 @@ export default function GastosPage() {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-4" role="status" aria-busy="true">
+                                        <tr className="border-t border-bos-border"><td colSpan={4} data-label="" className="p-4" role="status" aria-busy="true">
                                             <span className="sr-only">Cargando gastos…</span>
                                             <div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
                                         </td></tr>
                                     ) : loadError ? (
-                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-4">
+                                        <tr className="border-t border-bos-border"><td colSpan={4} data-label="" className="p-4">
                                             <ErrorState title="No se pudieron cargar los gastos" message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchGastos} />
                                         </td></tr>
                                     ) : filteredGastos.length === 0 ? (
-                                        <tr className="border-t border-bos-border"><td colSpan={4}><EmptyState title="No hay gastos registrados" /></td></tr>
+                                        <tr className="border-t border-bos-border"><td colSpan={4} data-label=""><EmptyState title="No hay gastos registrados" /></td></tr>
                                     ) : filteredGastos.map((gasto) => (
                                         <tr key={gasto.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
-                                            <td className="px-4 py-3 text-bos-muted whitespace-nowrap">
+                                            <td data-label="" className="px-4 py-3 text-bos-muted whitespace-nowrap max-md:order-first">
                                                 {formatDate(gasto.created_at)}
                                             </td>
-                                            <td className="px-4 py-3 font-semibold">{gasto.description}</td>
-                                            <td className="px-4 py-3">
+                                            <td data-label="" className="px-4 py-3 font-semibold max-md:order-first">{gasto.description}</td>
+                                            <td data-label="Método" className="px-4 py-3">
                                                 <span className="text-xs font-medium text-bos-muted border border-bos-border px-2.5 py-0.5 rounded-full">
                                                     {METHOD_LABELS[gasto.payment_method] ?? gasto.payment_method}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-right font-semibold tabular-nums text-bos-danger whitespace-nowrap">
+                                            <td data-label="Monto" className="px-4 py-3 text-right font-semibold tabular-nums text-bos-danger whitespace-nowrap max-md:order-first max-md:text-lg">
                                                 -{formatMoney(Number(gasto.amount), { cents: true })}
                                             </td>
                                         </tr>

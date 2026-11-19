@@ -23,6 +23,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store' })
@@ -49,6 +51,32 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Menú de usuario: al abrir, el foco pasa al primer elemento; Escape lo cierra y devuelve el foco al botón;
+  // Tab y Mayús+Tab dan la vuelta dentro del menú.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const items = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>('a[href], button') ?? []);
+    items()[0]?.focus();
+    const trigger = triggerRef.current;
+    const panel = panelRef.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); setMenuOpen(false); return; }
+      if (e.key !== 'Tab' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      const list = items();
+      if (list.length === 0) return;
+      const index = list.indexOf(document.activeElement as HTMLElement);
+      const back = e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey);
+      e.preventDefault();
+      list[(index + (back ? -1 : 1) + list.length) % list.length].focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      // Si el foco quedó dentro del menú (Escape, o una opción que lo cierra), vuelve al botón.
+      if (!document.activeElement || document.activeElement === document.body || panel?.contains(document.activeElement)) trigger?.focus();
+    };
+  }, [menuOpen]);
 
   // "Cerrar sesión" pide confirmación en un diálogo propio (no window.confirm).
   const handleLogout = () => { setMenuOpen(false); setConfirmLogout(true); };
@@ -78,6 +106,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
         <div className="relative ml-1" ref={menuRef}>
           <button 
+            ref={triggerRef}
             onClick={() => setMenuOpen(!menuOpen)}
             aria-haspopup="menu" aria-expanded={menuOpen}
             className="flex items-center gap-2 rounded-xl group min-h-11"
@@ -92,17 +121,18 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-52 bg-bos-surface border border-bos-control rounded-xl shadow-lg shadow-black/20 py-1 z-50">
+            <div ref={panelRef} role="menu" aria-label="Cuenta" className="absolute right-0 mt-2 w-52 bg-bos-surface border border-bos-control rounded-xl shadow-lg shadow-black/20 py-1 z-50">
               <div className="px-4 py-3 border-b border-bos-border">
                  <p className="text-sm font-semibold text-bos-text">{userName || 'Usuario'}</p>
                  <p className="text-xs text-bos-muted">{userRole}</p>
               </div>
 
-              <Link href="/mi-cuenta" onClick={() => setMenuOpen(false)}
+              <Link href="/mi-cuenta" role="menuitem" onClick={() => setMenuOpen(false)}
                 className="w-full flex items-center gap-2 px-4 min-h-11 text-sm text-bos-text hover:bg-bos-raised transition-colors">
                 <KeyRound className="h-4 w-4" /> {mustChangePin ? 'Mi cuenta · elegir PIN' : 'Mi cuenta · cambiar PIN'}
               </Link>
               <button 
+                role="menuitem"
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-4 min-h-11 text-sm text-bos-danger hover:bg-bos-raised transition-colors text-left"
               >

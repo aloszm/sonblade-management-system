@@ -110,6 +110,11 @@
   outline-offset: 2px;
 }
 
+/* iOS hace zoom al enfocar un campo con letra menor a 16px: en celular, los campos nunca bajan de 16px. */
+@media (max-width: 767px) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']), select, textarea { font-size: max(16px, 1em); }
+}
+
 /* Versión de práctica: la franja fija reserva su alto arriba de todo (también lo usa AppShell). */
 html[data-app-mode='practice'] { --bos-banner-h: 2.5rem }
 @media (min-width: 640px) { html[data-app-mode='practice'] { --bos-banner-h: 2rem } }
@@ -150,7 +155,8 @@ html[data-app-mode='practice'] :is(.min-h-screen, .min-h-dvh) { min-height: calc
 @media (max-width: 767px) {
     table.bos-stack, .bos-stack tbody, .bos-stack tr, .bos-stack td { display: block; width: 100%; }
     .bos-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-    .bos-stack tr { padding: 0.75rem 1rem; }
+    .bos-stack tr { display: flex; flex-direction: column; padding: 0.75rem 1rem; }
+    /* Lo más importante (folio, total) sube con `max-md:order-first`; el resto conserva el orden de la tabla. */
     .bos-stack td {
         display: flex; align-items: center; justify-content: space-between; gap: 1rem;
         padding: 0.375rem 0 !important; text-align: right !important; white-space: normal !important; min-width: 0;

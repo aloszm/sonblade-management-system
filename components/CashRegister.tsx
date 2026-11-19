@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, Settings2, TriangleAlert, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, Settings2, TriangleAlert } from 'lucide-react';
 import PinConfirm from '@/components/ui/PinConfirm';
+import Modal from '@/components/ui/Modal';
 import CashSettingsEditor from '@/components/CashSettingsEditor';
 import { REASON_MAX, closingNeedsReason, closingWarning, openingNeedsReason, openingWarning, reasonProblem } from '@/lib/cash/reasons';
 import type { CashMovement, CashSession } from '@/types';
@@ -49,19 +49,8 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-    // En un portal: dentro del contenido animado (transform) el "fixed" quedaba recortado por el menú de abajo.
-    return createPortal(
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
-            <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-xl border border-bos-border bg-bos-surface p-6 text-bos-text">
-                <div className="flex items-center justify-between gap-3 mb-5">
-                    <h2 className="font-display text-xl font-semibold">{title}</h2>
-                    <button type="button" aria-label="Cerrar" onClick={onClose} className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><X className="h-5 w-5" /></button>
-                </div>
-                {children}
-            </div>
-        </div>,
-        document.body,
-    );
+    // Modal base: portal, Escape, foco atrapado y devuelto al botón que lo abrió.
+    return <Modal title={title} onClose={onClose}>{children}</Modal>;
 }
 
 /** Aviso + motivo obligatorio (apertura distinta o cierre con menos del fondo). */
@@ -87,7 +76,7 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
         <section aria-labelledby="past-closings" className="space-y-3">
             <h2 id="past-closings" className={label}>Cierres anteriores</h2>
             <div className={`${card} overflow-x-auto`}>
-                <table className="w-full min-w-[640px] text-[15px]">
+                <table className="bos-stack w-full text-[15px]">
                     <thead>
                         <tr className="text-left text-[13px] text-bos-muted">
                             <th className="px-4 py-3 font-semibold">Día</th>
@@ -102,15 +91,15 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
                     <tbody>
                         {sessions.map((s) => (
                             <tr key={s.id} className="border-t border-bos-border tabular-nums">
-                                <td className="px-4 py-3 first-letter:uppercase">{day(s.closed_at)}</td>
-                                <td className="px-4 py-3 text-right">{money(s.total_sales)}</td>
-                                <td className="px-4 py-3 text-right">{value(s.physical_count)}</td>
-                                <td className={`px-4 py-3 text-right font-semibold ${s.difference === 0 ? 'text-bos-success' : 'text-bos-danger'}`}>
+                                <td data-label="" className="px-4 py-3 font-semibold first-letter:uppercase max-md:order-first">{day(s.closed_at)}</td>
+                                <td data-label="Vendido" className="px-4 py-3 text-right">{money(s.total_sales)}</td>
+                                <td data-label="Contado" className="px-4 py-3 text-right">{value(s.physical_count)}</td>
+                                <td data-label="Diferencia" className={`px-4 py-3 text-right font-semibold max-md:order-first ${s.difference === 0 ? 'text-bos-success' : 'text-bos-danger'}`}>
                                     {s.difference === null ? '—' : s.difference === 0 ? 'Cuadra' : `${s.difference > 0 ? '+' : '−'}${money(Math.abs(s.difference))}`}
                                 </td>
-                                <td className="px-4 py-3 text-right">{value(s.float_left)}</td>
-                                <td className="px-4 py-3 text-right">{value(s.reserve_amount)}</td>
-                                <td className="px-4 py-3 text-right">
+                                <td data-label="Fondo" className="px-4 py-3 text-right">{value(s.float_left)}</td>
+                                <td data-label={reserveLabel} className="px-4 py-3 text-right">{value(s.reserve_amount)}</td>
+                                <td data-label="Retiro" className="px-4 py-3 text-right">
                                     {value(s.withdrawn_amount)}
                                     {s.withdrawal_delivered_to && <span className="block text-xs text-bos-muted">a {s.withdrawal_delivered_to}</span>}
                                 </td>

@@ -3,12 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { KeyRound, LogOut, MoreHorizontal, X } from 'lucide-react';
+import { KeyRound, LogOut, MoreHorizontal } from 'lucide-react';
 import { ACCOUNT_ITEM, moreSections, quickItems } from '@/lib/nav';
 import { useNavUser } from '@/hooks/useNavUser';
 import LogoutDialog from '@/components/LogoutDialog';
+import Modal from '@/components/ui/Modal';
 
-const tabClass = (active: boolean) => `flex flex-col items-center justify-center gap-1 w-full h-full min-w-0 transition-colors ${active ? 'text-bos-accent-text' : 'text-bos-muted hover:text-bos-text'}`;
+const tabClass = (active: boolean) => `flex flex-col items-center justify-center gap-1 w-full h-full min-h-11 min-w-0 transition-colors ${active ? 'text-bos-accent-text' : 'text-bos-muted hover:text-bos-text'}`;
 
 const MobileNav = () => {
     const pathname = usePathname();
@@ -16,14 +17,8 @@ const MobileNav = () => {
     const user = useNavUser();
     const [moreOpen, setMoreOpen] = React.useState(false);
 
-    // La hoja se cierra al cambiar de pantalla y con Escape.
+    // La hoja se cierra al cambiar de pantalla; Escape, foco atrapado y foco devuelto los da el Modal base.
     React.useEffect(() => { setMoreOpen(false); }, [pathname]);
-    React.useEffect(() => {
-        if (!moreOpen) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
-        document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
-    }, [moreOpen]);
 
     // "Salir" pide la misma confirmación que en el menú lateral y el encabezado.
     const [confirmLogout, setConfirmLogout] = React.useState(false);
@@ -39,7 +34,7 @@ const MobileNav = () => {
 
     return (
         <>
-            <nav aria-label="Principal" className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-bos-surface border-t border-bos-border flex items-center justify-around px-1 z-50">
+            <nav aria-label="Principal" className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-bos-surface border-t border-bos-border flex items-center justify-around px-1 z-50">
                 {mustChangePin ? (
                     <Link href={ACCOUNT_ITEM.href} aria-current={isActive(ACCOUNT_ITEM.href) ? 'page' : undefined} className={tabClass(isActive(ACCOUNT_ITEM.href))}>
                         <KeyRound aria-hidden="true" className="h-5 w-5" />
@@ -68,48 +63,39 @@ const MobileNav = () => {
             </nav>
 
             {moreOpen && (
-                <div className="md:hidden fixed inset-0 z-[60]">
-                    <button type="button" aria-label="Cerrar" tabIndex={-1} onClick={() => setMoreOpen(false)} className="absolute inset-0 bg-black/50" />
-                    <div role="dialog" aria-modal="true" aria-label="Más" className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-bos-border bg-bos-surface px-4 pt-3 pb-6">
-                        <div className="flex items-center justify-between pb-2">
-                            <p className="font-display text-lg font-semibold text-bos-text">Más</p>
-                            <button type="button" onClick={() => setMoreOpen(false)} aria-label="Cerrar" className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised">
-                                <X aria-hidden="true" className="h-5 w-5" />
-                            </button>
+                <Modal title="Más" onClose={() => setMoreOpen(false)}>
+                    {sections.map((section, i) => (
+                        <div key={section.title ?? i} className="mb-2">
+                            {section.title && <p className="px-3 pb-1 pt-2 text-xs font-medium text-bos-muted">{section.title}</p>}
+                            <ul>
+                                {section.items.map((item) => {
+                                    const active = isActive(item.href);
+                                    return (
+                                        <li key={item.href}>
+                                            <Link href={item.href} aria-current={active ? 'page' : undefined}
+                                                className={`flex items-center gap-3 min-h-11 px-3 rounded-lg text-sm ${active ? 'bg-bos-accent-soft text-bos-text font-semibold' : 'text-bos-text font-medium hover:bg-bos-raised'}`}>
+                                                <item.icon aria-hidden="true" className="h-4 w-4 shrink-0 text-bos-muted" />
+                                                {item.label}
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
                         </div>
-                        {sections.map((section, i) => (
-                            <div key={section.title ?? i} className="mb-2">
-                                {section.title && <p className="px-3 pb-1 pt-2 text-xs font-medium text-bos-muted">{section.title}</p>}
-                                <ul>
-                                    {section.items.map((item) => {
-                                        const active = isActive(item.href);
-                                        return (
-                                            <li key={item.href}>
-                                                <Link href={item.href} aria-current={active ? 'page' : undefined}
-                                                    className={`flex items-center gap-3 min-h-11 px-3 rounded-lg text-sm ${active ? 'bg-bos-accent-soft text-bos-text font-semibold' : 'text-bos-text font-medium hover:bg-bos-raised'}`}>
-                                                    <item.icon aria-hidden="true" className="h-4 w-4 shrink-0 text-bos-muted" />
-                                                    {item.label}
-                                                </Link>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        ))}
-                        <ul className="border-t border-bos-border pt-2">
-                            <li>
-                                <Link href={ACCOUNT_ITEM.href} className="flex items-center gap-3 min-h-11 px-3 rounded-lg text-sm font-medium text-bos-text hover:bg-bos-raised">
-                                    <KeyRound aria-hidden="true" className="h-4 w-4 shrink-0 text-bos-muted" />{ACCOUNT_ITEM.label}
-                                </Link>
-                            </li>
-                            <li>
-                                <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 min-h-11 px-3 rounded-lg text-sm font-medium text-bos-danger hover:bg-bos-raised text-left">
-                                    <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />Salir
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+                    ))}
+                    <ul className="border-t border-bos-border pt-2">
+                        <li>
+                            <Link href={ACCOUNT_ITEM.href} className="flex items-center gap-3 min-h-11 px-3 rounded-lg text-sm font-medium text-bos-text hover:bg-bos-raised">
+                                <KeyRound aria-hidden="true" className="h-4 w-4 shrink-0 text-bos-muted" />{ACCOUNT_ITEM.label}
+                            </Link>
+                        </li>
+                        <li>
+                            <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 min-h-11 px-3 rounded-lg text-sm font-medium text-bos-danger hover:bg-bos-raised text-left">
+                                <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />Salir
+                            </button>
+                        </li>
+                    </ul>
+                </Modal>
             )}
             {confirmLogout && <LogoutDialog onCancel={() => setConfirmLogout(false)} onLoggedOut={finishLogout} />}
         </>

@@ -20,8 +20,6 @@ const THEME_SCRIPT = `try{var t=localStorage.getItem('barberos-theme');document.
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
     themeColor: '#0A0A0B',
 };
 

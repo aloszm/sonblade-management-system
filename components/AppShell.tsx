@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import { MotionConfig, motion } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import MobileNav from '@/components/MobileNav';
@@ -14,13 +14,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // El cajón se cierra al cambiar de pantalla.
     useEffect(() => { setIsSidebarOpen(false); }, [pathname]);
 
+    // En celular el cajón cerrado queda inerte (sin foco ni lector de pantalla); en escritorio el menú siempre está a la vista.
+    const [isDesktop, setIsDesktop] = useState(false);
+    useEffect(() => {
+        if (typeof window.matchMedia !== 'function') return;
+        const query = window.matchMedia('(min-width: 768px)');
+        const sync = () => setIsDesktop(query.matches);
+        sync();
+        query.addEventListener('change', sync);
+        return () => query.removeEventListener('change', sync);
+    }, []);
+    const drawerHidden = !isDesktop && !isSidebarOpen;
+
     // Páginas públicas (clientes sin cuenta): sin menú ni encabezado internos.
     const isPublic = pathname === '/login' || pathname === '/onboarding'
         || pathname === '/privacidad' || pathname === '/reservar' || pathname.startsWith('/reservar/');
     if (isPublic) return <>{children}</>;
 
     return (
-        <div className="flex h-[calc(100vh-var(--bos-banner-h,0px))] overflow-hidden bg-bos-bg flex-col md:flex-row print:block print:h-auto print:overflow-visible">
+        <MotionConfig reducedMotion="user">
+        <div className="flex h-[calc(100dvh-var(--bos-banner-h,0px))] overflow-hidden bg-bos-bg flex-col md:flex-row print:block print:h-auto print:overflow-visible">
             {/* Mobile Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
@@ -29,31 +42,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 />
             )}
 
-            <div className={`print:hidden fixed bottom-0 top-[var(--bos-banner-h,0px)] left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out`}>
+            <div inert={drawerHidden} aria-hidden={drawerHidden || undefined} className={`print:hidden fixed bottom-0 top-[var(--bos-banner-h,0px)] left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out motion-reduce:transition-none`}>
                 <Sidebar isOpen={true} />
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible">
                 <div className="print:hidden"><Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} /></div>
 
-                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 relative bg-bos-bg text-bos-text print:overflow-visible print:bg-white print:p-0">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={pathname}
-                            initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                            exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
-                            transition={{ duration: 0.25, ease: 'easeOut' }}
-                            className="h-full"
-                        >
-                            {children}
-                        </motion.div>
-                    </AnimatePresence>
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8 relative bg-bos-bg text-bos-text print:overflow-visible print:bg-white print:p-0">
+                    {/* Entrada muy breve, sin esperar la salida de la pantalla anterior y sin desenfoque. */}
+                    <motion.div
+                        key={pathname}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.12, ease: 'easeOut' }}
+                        className="h-full"
+                    >
+                        {children}
+                    </motion.div>
                 </main>
 
                 <div className="print:hidden"><MobileNav /></div>
             </div>
         </div>
+        </MotionConfig>
     );
 }
 

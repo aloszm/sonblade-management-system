@@ -45,7 +45,7 @@ function ReasonForm({ label, submitLabel, placeholder, onSubmit, onCancel }: {
             <label htmlFor={id} className="block text-sm font-semibold">{label}</label>
             <textarea id={id} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={300} required autoFocus
                 placeholder={placeholder} aria-invalid={!!error} aria-describedby={error ? `${id}-error` : undefined}
-                className="w-full rounded-lg border border-bos-control bg-bos-surface px-3 py-2 text-sm text-bos-text placeholder:text-bos-muted" />
+                className="w-full rounded-lg border border-bos-control bg-bos-surface px-3 py-2 text-base text-bos-text placeholder:text-bos-muted" />
             {error && <p id={`${id}-error`} role="alert" className="text-sm text-bos-danger">{error}</p>}
             <div className="flex flex-wrap gap-2">
                 <button type="submit" disabled={busy} className={btnPrimary}>

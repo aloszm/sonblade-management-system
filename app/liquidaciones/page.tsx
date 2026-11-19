@@ -151,7 +151,7 @@ export default function LiquidacionesPage() {
                         <div className="p-4"><ErrorState title="No se pudieron cargar las liquidaciones" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={() => loadWeek(periodStart)} /></div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
+                            <table className="bos-stack w-full text-left text-sm">
                                 <thead className="text-bos-muted">
                                     <tr>
                                         <th className={th}>Persona</th>
@@ -164,16 +164,16 @@ export default function LiquidacionesPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {week?.rows.length === 0 && <tr className="border-t border-bos-border"><td colSpan={7} className="p-6 text-center text-bos-muted">No hay barberos activos.</td></tr>}
+                                    {week?.rows.length === 0 && <tr className="border-t border-bos-border"><td colSpan={7} data-label="" className="p-6 text-center text-bos-muted">No hay barberos activos.</td></tr>}
                                     {week?.rows.map((r) => (
                                         <tr key={r.employee_id} className="border-t border-bos-border hover:bg-bos-raised">
-                                            <td className="px-4 py-3 font-semibold">{r.name}</td>
-                                            <td className="px-4 py-3 text-center text-bos-muted tabular-nums">{r.entry_count}</td>
-                                            <td className="px-4 py-3 text-right tabular-nums">{money(r.gross_commission)}</td>
-                                            <td className={`px-4 py-3 text-right tabular-nums ${r.deductions > 0 ? 'text-bos-danger' : 'text-bos-muted'}`}>{r.deductions > 0 ? `− ${money(r.deductions)}` : '—'}</td>
-                                            <td className={`px-4 py-3 text-right tabular-nums ${Number(r.tips) > 0 ? 'text-bos-success' : 'text-bos-muted'}`}>{Number(r.tips) > 0 ? `+ ${money(Number(r.tips))}` : '—'}</td>
-                                            <td className="px-4 py-3 text-right font-display font-semibold tabular-nums">{money(r.total_amount)}</td>
-                                            <td className="px-4 py-2 whitespace-nowrap">{statusCell(r)}</td>
+                                            <td data-label="" className="px-4 py-3 font-semibold">{r.name}</td>
+                                            <td data-label="Servicios" className="px-4 py-3 text-center text-bos-muted tabular-nums">{r.entry_count}</td>
+                                            <td data-label="Comisión" className="px-4 py-3 text-right tabular-nums">{money(r.gross_commission)}</td>
+                                            <td data-label="Ajustes" className={`px-4 py-3 text-right tabular-nums ${r.deductions > 0 ? 'text-bos-danger' : 'text-bos-muted'}`}>{r.deductions > 0 ? `− ${money(r.deductions)}` : '—'}</td>
+                                            <td data-label="Propinas" className={`px-4 py-3 text-right tabular-nums ${Number(r.tips) > 0 ? 'text-bos-success' : 'text-bos-muted'}`}>{Number(r.tips) > 0 ? `+ ${money(Number(r.tips))}` : '—'}</td>
+                                            <td data-label="A pagar" className="px-4 py-3 text-right font-display font-semibold tabular-nums max-md:order-first max-md:text-lg">{money(r.total_amount)}</td>
+                                            <td data-label="" className="px-4 py-2 md:whitespace-nowrap">{statusCell(r)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -186,7 +186,7 @@ export default function LiquidacionesPage() {
             <section className={card}>
                 <div className="p-4 border-b border-bos-border"><h2 className="font-display font-semibold">{role === 'admin' ? 'Recibos emitidos' : 'Recibos'}</h2></div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="bos-stack w-full text-left text-sm">
                         <thead className="text-bos-muted">
                             <tr>
                                 <th className={th}>Folio</th>
@@ -198,15 +198,15 @@ export default function LiquidacionesPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {history.length === 0 && <tr className="border-t border-bos-border"><td colSpan={6} className="p-6 text-center text-bos-muted">Todavía no hay recibos.</td></tr>}
+                            {history.length === 0 && <tr className="border-t border-bos-border"><td colSpan={6} data-label="" className="p-6 text-center text-bos-muted">Todavía no hay recibos.</td></tr>}
                             {history.map((h) => (
                                 <tr key={h.id} className="border-t border-bos-border hover:bg-bos-raised">
-                                    <td className="px-4 py-3 font-semibold tabular-nums whitespace-nowrap">{h.receipt_number}</td>
-                                    {role === 'admin' && <td className="px-4 py-3">{h.employee_name}</td>}
-                                    <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{weekLabel(h.period_start)}</td>
-                                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(h.total_amount)}</td>
-                                    <td className="px-4 py-3 text-right text-bos-muted whitespace-nowrap">{h.paid_at ? formatDateTime(h.paid_at) : '—'}</td>
-                                    <td className="px-4 py-2 text-center">
+                                    <td data-label="" className="px-4 py-3 font-semibold tabular-nums whitespace-nowrap">{h.receipt_number}</td>
+                                    {role === 'admin' && <td data-label="Persona" className="px-4 py-3">{h.employee_name}</td>}
+                                    <td data-label="Semana" className="px-4 py-3 text-bos-muted md:whitespace-nowrap">{weekLabel(h.period_start)}</td>
+                                    <td data-label="Total" className="px-4 py-3 text-right font-semibold tabular-nums max-md:order-first max-md:text-lg">{money(h.total_amount)}</td>
+                                    <td data-label="Pagado" className="px-4 py-3 text-right text-bos-muted md:whitespace-nowrap">{h.paid_at ? formatDateTime(h.paid_at) : '—'}</td>
+                                    <td data-label="" className="px-4 py-2 text-center">
                                         <Link href={`/liquidaciones/${h.id}`} className="inline-flex items-center gap-1.5 min-h-11 px-2 text-sm font-semibold text-bos-text hover:underline">
                                             <Receipt className="h-4 w-4" /> Ver
                                         </Link>

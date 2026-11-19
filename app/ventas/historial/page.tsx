@@ -29,7 +29,7 @@ function PaymentBadge({ sale }: { sale: Sale }) {
     }
 
     const methodLabel = sale.payment_method === 'cash' ? 'Efectivo' : sale.payment_method === 'card' ? 'Tarjeta' : sale.payment_method === 'transfer' ? 'Transferencia' : sale.payment_method;
-    return <span className={pill}>{methodLabel} ${Number(sale.total).toFixed(0)}</span>;
+    return <span className={pill}>{methodLabel} {formatMoney(Number(sale.total))}</span>;
 }
 
 type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
@@ -247,7 +247,7 @@ export default function SalesHistoryPage() {
             {/* Tabla */}
             <div className="rounded-xl border border-bos-border bg-bos-surface overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="bos-stack w-full text-left text-sm">
                         <thead className="text-bos-muted">
                             <tr>
                                 <th className={th}>Folio</th>
@@ -264,24 +264,24 @@ export default function SalesHistoryPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr className="border-t border-bos-border"><td colSpan={10} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={10} data-label="" className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
                             ) : page.length === 0 ? (
-                                <tr className="border-t border-bos-border"><td colSpan={10} className="p-8 text-center text-bos-muted">Sin resultados para {periodLabel}</td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={10} data-label="" className="p-8 text-center text-bos-muted">Sin resultados para {periodLabel}</td></tr>
                             ) : page.map(sale => {
                                 const srvs = sale.items?.filter(i => i.item_type === 'service').map(i => i.item_name).join(', ') || '—';
                                 const prds = sale.items?.filter(i => i.item_type === 'product').map(i => `${i.item_name}${(i.quantity || 1) > 1 ? ` x${i.quantity}` : ''}`).join(', ') || '—';
                                 return (
                                     <tr key={sale.id} className="border-t border-bos-border hover:bg-bos-raised">
-                                        <td className="px-4 py-3 font-medium whitespace-nowrap tabular-nums" data-testid="sale-folio">{sale.folio || '—'}</td>
-                                        <td className="px-4 py-3 font-medium whitespace-nowrap">{formatDate(sale.created_at)}</td>
-                                        <td className="px-4 py-3 text-bos-muted whitespace-nowrap">{formatTime(sale.created_at)}</td>
-                                        <td className="px-4 py-3 font-medium">{sale.barber?.name || '—'}</td>
-                                        <td className="px-4 py-3">{srvs}</td>
-                                        <td className="px-4 py-3 text-bos-muted">{prds}</td>
-                                        <td className="px-4 py-3 text-right tabular-nums">{formatMoney(Number(sale.tip || 0), { cents: true })}</td>
-                                        <td className="px-4 py-3"><PaymentBadge sale={sale} /></td>
-                                        <td className={`px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${sale.status === 'refunded' ? 'line-through text-bos-muted' : ''}`}>{formatMoney(Number(sale.total), { cents: true })}{sale.status === 'refunded' && <span className="ml-2 text-xs no-underline text-bos-danger font-semibold align-middle inline-block">Anulada</span>}</td>
-                                        <td className="px-4 py-1 text-center whitespace-nowrap">
+                                        <td className="px-4 py-3 font-medium whitespace-nowrap tabular-nums max-md:order-first" data-label="" data-testid="sale-folio">{sale.folio || '—'}</td>
+                                        <td data-label="Fecha" className="px-4 py-3 font-medium whitespace-nowrap max-md:order-first">{formatDate(sale.created_at)}</td>
+                                        <td data-label="Hora" className="px-4 py-3 text-bos-muted whitespace-nowrap">{formatTime(sale.created_at)}</td>
+                                        <td data-label="Barbero" className="px-4 py-3 font-medium max-md:order-first">{sale.barber?.name || '—'}</td>
+                                        <td data-label="Servicio" className="px-4 py-3">{srvs}</td>
+                                        <td data-label="Producto" className="px-4 py-3 text-bos-muted">{prds}</td>
+                                        <td data-label="Propina" className="px-4 py-3 text-right tabular-nums">{formatMoney(Number(sale.tip || 0), { cents: true })}</td>
+                                        <td data-label="Método de pago" className="px-4 py-3"><PaymentBadge sale={sale} /></td>
+                                        <td data-label="Total" className={`px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap max-md:order-first max-md:text-lg ${sale.status === 'refunded' ? 'line-through text-bos-muted' : ''}`}>{formatMoney(Number(sale.total), { cents: true })}{sale.status === 'refunded' && <span className="ml-2 text-xs no-underline text-bos-danger font-semibold align-middle inline-block">Anulada</span>}</td>
+                                        <td data-label="" className="px-4 py-1 text-center whitespace-nowrap">
                                             <Link href={`/ticket/${sale.id}`} aria-label="Ver ticket" title="Ver ticket" className={iconBtn}>
                                                 <FileText className="h-4 w-4" />
                                             </Link>

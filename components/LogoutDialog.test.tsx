@@ -25,7 +25,7 @@ describe('Salir pide confirmación en los tres menús (sin window.confirm)', () 
         mockApi();
         render(<Header toggleSidebar={() => undefined} />);
         fireEvent.click(await screen.findByRole('button', { name: /Dani Soto/ }));
-        fireEvent.click(screen.getByRole('button', { name: /Cerrar sesión/ }));
+        fireEvent.click(screen.getByRole('menuitem', { name: /Cerrar sesión/ }));
         const dialog = await screen.findByRole('dialog', { name: 'Cerrar sesión' });
         fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
         expect(screen.queryByRole('dialog')).toBeNull();
