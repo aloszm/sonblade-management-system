@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { canSeeClientPhones } from '@/lib/auth/privacy';
 import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { toAppointmentView, type AppointmentRow } from '@/lib/appointments/appointments-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -26,7 +27,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
             .eq('business_id', context.businessId).eq('branch_id', context.branchId).eq('id', id.data).maybeSingle();
         if (error) throw error;
         if (!data) throw new AuthorizationError('Cita no encontrada.', 404);
-        return Response.json(toAppointmentView(data as unknown as AppointmentRow), { headers: NO_STORE });
+        // Defensa extra: si algún día se abre esta ruta a más puestos, el barbero seguiría sin recibir el teléfono.
+        const view = toAppointmentView(data as unknown as AppointmentRow);
+        return Response.json(canSeeClientPhones(context.role) ? view : { ...view, customer_phone: null }, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);
     }

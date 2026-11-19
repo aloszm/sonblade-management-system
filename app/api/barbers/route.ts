@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { canSeeStaffPhones } from '@/lib/auth/privacy';
 import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
         if (request.nextUrl.searchParams.get('scope') !== 'team') query = query.eq('is_barber', true);
         const { data, error } = await query;
         if (error) throw error;
-        return NextResponse.json((data ?? []).map((row) => ({ id: row.id, name: row.display_name, phone: row.phone, status: row.is_active ? 'active' : 'inactive', hasAccount: Boolean(row.user_id), canAuthorizeDiscounts: row.can_authorize_discounts, isBarber: row.is_barber })), { headers: { 'Cache-Control': 'no-store' } });
+        const showPhones = canSeeStaffPhones(context.role);
+        return NextResponse.json((data ?? []).map((row) => ({ id: row.id, name: row.display_name, phone: showPhones ? row.phone : null, status: row.is_active ? 'active' : 'inactive', hasAccount: Boolean(row.user_id), canAuthorizeDiscounts: row.can_authorize_discounts, isBarber: row.is_barber })), { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) { return authErrorResponse(error); }
 }
 

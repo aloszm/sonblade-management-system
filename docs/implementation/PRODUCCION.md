@@ -28,3 +28,48 @@ No es una variable de Vercel. Se genera dentro de cada base (`private.app_secret
 - Plan gratuito de Supabase: se pausa tras ~7 días con poca actividad; respaldos limitados. Recomendado: Pro.
 - Vercel Hobby: registros de errores solo 1 hora; licencia para uso no comercial. Recomendado: Pro.
 - Ver la lista completa de seguridad en `FASE_4.md`, sección 3.2.
+
+## Vigilancia y respaldo (GitHub Actions)
+
+Archivo: `.github/workflows/keepalive-backup.yml`. Se ve y se ejecuta a mano en GitHub, pestaña **Actions** > "Vigilancia y respaldo" > **Run workflow**. Si falta algo de lo siguiente, el trabajo se salta y deja un aviso amarillo; no falla.
+
+### Qué debe crear el dueño en GitHub
+
+Entra al repositorio > **Settings** > **Secrets and variables** > **Actions**.
+
+| Dónde | Nombre | Qué poner |
+|---|---|---|
+| Pestaña **Variables** | `PROD_URL` | La dirección de producción, sin diagonal al final (la de la tabla de arriba). No es secreta. |
+| Pestaña **Secrets** | `PROD_DB_URL` | Cadena de conexión de la base de producción. En Supabase: proyecto `gallo420-prod` > **Connect** > **Session pooler** (puerto 5432). Usa esa y no la "Direct connection": GitHub no tiene IPv6 y la directa no conecta. Sustituye `[YOUR-PASSWORD]` por la contraseña de la base. |
+| Pestaña **Secrets** | `BACKUP_PASSPHRASE` | Una frase larga que inventes (más de 20 caracteres). **Guárdala también en tu gestor de contraseñas**: sin ella el respaldo no se puede abrir y no hay forma de recuperarla. |
+
+Nunca pegues estos valores en el chat, en el repositorio ni en un documento.
+
+### Qué hace
+
+- **Todos los días**: visita `PROD_URL/api/health`. Si no responde 200, el trabajo falla y GitHub te manda un correo. Como esa ruta consulta la base, también evita que Supabase gratuito la pause por inactividad. `/api/health` responde 503 con una causa escrita si falta la llave del servidor o es de otro proyecto (el caso del 17 nov). La pantalla **Configuración > Ver el estado del sistema** (solo dueño) muestra lo mismo con más detalle.
+- **Cada domingo**: respalda con `pg_dump` los esquemas `public`, `private`, `auth` y `supabase_migrations`, lo comprime, lo cifra con `BACKUP_PASSPHRASE` (gpg, AES-256) y lo sube como artefacto `respaldo-gallo420` que **se conserva 90 días**.
+
+Limitación: el respaldo no incluye archivos de Storage (hoy no hay) ni los esquemas internos de Supabase. En el plan gratuito, descarga un respaldo a tu computadora de vez en cuando; el artefacto vive en GitHub, no en otro lugar independiente.
+
+### Cómo restaurar un respaldo (paso a paso)
+
+Necesitas una computadora con Windows (WSL), Mac o Linux y, si no sabes hacerlo, a alguien de confianza que te acompañe. **Restaurar sobre producción reemplaza datos: haz primero la prueba en una base vacía.**
+
+1. En GitHub: **Actions** > abre la ejecución semanal que quieras > al final, sección **Artifacts** > descarga `respaldo-gallo420` (es un `.zip`; descomprímelo y obtendrás `gallo420-AAAA-MM-DD.sql.gz.gpg`).
+2. Instala `gpg` y `psql` si no los tienes (Mac: `brew install gnupg libpq`; Ubuntu: `sudo apt install gnupg postgresql-client`).
+3. Descifra (te pedirá la frase `BACKUP_PASSPHRASE`):
+   `gpg --output respaldo.sql.gz --decrypt gallo420-AAAA-MM-DD.sql.gz.gpg`
+4. Descomprime: `gunzip respaldo.sql.gz` (queda `respaldo.sql`).
+5. Crea un proyecto de Supabase **nuevo y vacío** (o usa uno de pruebas) y copia su cadena de conexión (Session pooler).
+6. Carga el respaldo:
+   `psql "CADENA_DE_CONEXION" --single-transaction -v ON_ERROR_STOP=1 -f respaldo.sql`
+   Si aparecen avisos de que algo "ya existe" (esquemas propios de Supabase), pide ayuda antes de continuar: no los ignores a ciegas.
+7. Comprueba: `psql "CADENA_DE_CONEXION" -c "select count(*) from public.sales;"` debe dar un número parecido al de producción ese día.
+8. Si la base nueva sustituye a producción, hay que cambiar en Vercel la URL, la llave publicable y `SUPABASE_SECRET_KEY` por las del proyecto nuevo (las tres del mismo proyecto) y volver a desplegar. Revisa `/api/health`.
+9. Borra de tu computadora `respaldo.sql` y el descifrado al terminar: contiene datos de clientes.
+
+### Pendientes de esta sección
+
+- El flujo no se ha ejecutado nunca en GitHub; la primera vez hazlo con **Run workflow** y confirma el aviso o el artefacto.
+- "Última migración" en la pantalla de estado sale de los archivos incluidos en el despliegue, no de la base (el historial vive en un esquema que la API no expone); si no viajan con el despliegue, muestra "No disponible".

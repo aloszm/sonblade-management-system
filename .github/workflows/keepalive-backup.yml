@@ -1,0 +1,101 @@
+# Mantenimiento de producción (ver docs/implementation/PRODUCCION.md, sección "Vigilancia y respaldo").
+#  - Diario: visita /api/health. Si no contesta 200, el trabajo falla y GitHub avisa por correo.
+#    Como la ruta consulta la base, también evita que Supabase (plan gratuito) la pause por inactividad.
+#  - Semanal: respaldo cifrado de la base como artefacto con 90 días de retención.
+# Si faltan la variable o los secretos, el trabajo se salta con un aviso; no falla.
+name: Vigilancia y respaldo
+
+on:
+  schedule:
+    - cron: '17 11 * * *'   # todos los días (UTC)
+    - cron: '43 8 * * 0'    # domingos (UTC)
+  workflow_dispatch:
+    inputs:
+      tarea:
+        description: 'Qué ejecutar a mano'
+        type: choice
+        default: ambas
+        options: [ambas, salud, respaldo]
+
+permissions:
+  contents: read
+
+jobs:
+  salud:
+    name: Visita diaria a /api/health
+    if: github.event_name == 'workflow_dispatch' && inputs.tarea != 'respaldo' || github.event.schedule == '17 11 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PROD_URL: ${{ vars.PROD_URL }}
+    steps:
+      - name: Comprobar que producción responde
+        run: |
+          if [ -z "$PROD_URL" ]; then
+            echo "::warning title=Falta PROD_URL::No se hizo la visita porque no existe la variable PROD_URL en GitHub (Settings > Secrets and variables > Actions > Variables)."
+            exit 0
+          fi
+          url="${PROD_URL%/}/api/health"
+          code=$(curl --silent --show-error --output /tmp/health.json --write-out '%{http_code}' --max-time 30 --retry 2 --retry-delay 10 --retry-all-errors "$url" || true)
+          echo "Respuesta: HTTP ${code:-sin respuesta}"
+          # Solo el cuerpo de /api/health: es público y no lleva secretos.
+          cat /tmp/health.json 2>/dev/null || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error title=Producción no está sana::/api/health respondió ${code:-sin respuesta}. Revisa el cuerpo de la respuesta arriba."
+            exit 1
+          fi
+
+  respaldo:
+    name: Respaldo semanal cifrado
+    if: github.event_name == 'workflow_dispatch' && inputs.tarea != 'salud' || github.event.schedule == '43 8 * * 0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Comprobar que existen los secretos
+        id: secretos
+        run: |
+          if [ -z "$PROD_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::warning title=Respaldo omitido::Faltan los secretos PROD_DB_URL y/o BACKUP_PASSPHRASE en GitHub. No se hizo ningún respaldo."
+            echo "listo=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "listo=si" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Instalar pg_dump 17
+        if: steps.secretos.outputs.listo == 'si'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Respaldar y cifrar
+        if: steps.secretos.outputs.listo == 'si'
+        run: |
+          set -euo pipefail
+          umask 077
+          fecha=$(date -u +%Y-%m-%d)
+          # Esquemas de la aplicación (public, private y el historial de migraciones). Las cuentas de acceso (auth)
+          # se incluyen para poder reconstruir el sistema completo; no se vuelcan los esquemas internos de Supabase.
+          pg_dump "$PROD_DB_URL" --no-owner --no-privileges \
+            --schema=public --schema=private --schema=auth --schema=supabase_migrations \
+            | gzip -9 > respaldo.sql.gz
+          test -s respaldo.sql.gz
+          gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+            --passphrase-file <(printf '%s' "$BACKUP_PASSPHRASE") \
+            --output "gallo420-${fecha}.sql.gz.gpg" respaldo.sql.gz
+          rm -f respaldo.sql.gz
+          ls -l gallo420-*.gpg
+
+      - name: Subir respaldo cifrado
+        if: steps.secretos.outputs.listo == 'si'
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-gallo420
+          path: gallo420-*.sql.gz.gpg
+          retention-days: 90
+          if-no-files-found: error

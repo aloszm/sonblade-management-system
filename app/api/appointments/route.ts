@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { canSeeClientPhones } from '@/lib/auth/privacy';
 import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { toAppointmentView, type AppointmentRow } from '@/lib/appointments/appointments-view';
 import { bookingSlotError } from '@/lib/appointments/calendar-grid';
@@ -47,7 +48,11 @@ export async function GET(request: NextRequest) {
         const { data, error } = await query;
         if (error) throw error;
         // source (aditivo): 'appointment' | 'walk_in' | 'online' (reservada por el cliente en la página pública).
-        return NextResponse.json(((data ?? []) as unknown as AppointmentRow[]).map((row) => ({ ...toAppointmentView(row), source: row.source })), { headers: NO_STORE });
+        // El barbero no recibe el teléfono del cliente (se quita aquí, en el servidor).
+        const showPhones = canSeeClientPhones(context.role);
+        return NextResponse.json(((data ?? []) as unknown as AppointmentRow[]).map((row) => ({
+            ...toAppointmentView(row), customer_phone: showPhones ? row.customer_phone : null, source: row.source,
+        })), { headers: NO_STORE });
     } catch (error) { return authErrorResponse(error); }
 }
 
