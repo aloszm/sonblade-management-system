@@ -2,9 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
-import { Plus, Search, Loader2, Edit2, Check, X } from 'lucide-react';
+import { Plus, Search, Edit2, Check, X } from 'lucide-react';
 import { CATEGORY_LABELS, DEFAULT_CATEGORY, DURATION_OPTIONS, SERVICE_CATEGORIES, categoryOf, formatDuration, groupServices, isServiceCategory, type ServiceCategory } from '@/lib/services/categories';
 import { formatMoney } from '@/lib/utils/money';
+import Button from '@/components/ui/Button';
+import ErrorState from '@/components/ui/ErrorState';
+import Skeleton from '@/components/ui/Skeleton';
+import EmptyState from '@/components/ui/EmptyState';
+import { useToast } from '@/components/ui/Toast';
+import { HttpError, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 
 interface Service {
     id: string;
@@ -31,6 +37,12 @@ export default function ServicesPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formError, setFormError] = useState('');
     const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
+    // Fallo al cargar el catálogo (distinto de "no hay servicios").
+    const [loadError, setLoadError] = useState<unknown>(null);
+    // Guardado en curso: evita duplicar con doble clic.
+    const [saving, setSaving] = useState(false);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+    const toast = useToast();
 
     useEffect(() => {
         fetchServices();
@@ -38,21 +50,22 @@ export default function ServicesPage() {
 
     const fetchServices = async () => {
         setLoading(true);
+        setLoadError(null);
         try {
-            const res = await fetch('/api/services');
-            if (res.ok) {
-                const data = await res.json();
-                setServices(Array.isArray(data) ? data : []);
-            }
+            const data = await readJson<unknown>(await fetch('/api/services'));
+            setServices(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error('Error fetching services:', e);
+            setLoadError(e);
         } finally {
             setLoading(false);
         }
     };
 
     const handleSave = async (id?: string) => {
+        if (saving) return;
         setFormError('');
+        setSaving(true);
         try {
             const url = id ? `/api/services/${id}` : '/api/services';
             const method = id ? 'PUT' : 'POST';
@@ -68,17 +81,23 @@ export default function ServicesPage() {
                 setIsAdding(false);
                 setEditingId(null);
                 setFormData(EMPTY_FORM);
+                toast.success('Servicio guardado.');
             } else {
                 const body = await res.json().catch(() => null);
-                setFormError(body?.error || 'No se pudo guardar el servicio');
+                setFormError(toUserMessage(new HttpError(res.status, body?.error), 'No se pudo guardar el servicio.'));
             }
         } catch (e) {
             console.error('Error saving service:', e);
+            setFormError(toUserMessage(e));
+        } finally {
+            setSaving(false);
         }
     };
 
     const handleToggleStatus = async (service: Service) => {
+        if (togglingId) return;
         setFormError('');
+        setTogglingId(service.id);
         try {
             const res = await fetch(`/api/services/${service.id}`, {
                 method: 'PUT',
@@ -86,9 +105,15 @@ export default function ServicesPage() {
                 body: JSON.stringify({ ...service, is_active: !service.is_active }),
             });
             if (res.ok) fetchServices();
-            else setFormError((await res.json().catch(() => null))?.error || 'No se pudo cambiar el estado');
+            else {
+                const body = await res.json().catch(() => null);
+                setFormError(toUserMessage(new HttpError(res.status, body?.error), 'No se pudo cambiar el estado.'));
+            }
         } catch (e) {
             console.error('Error toggling service status:', e);
+            setFormError(toUserMessage(e));
+        } finally {
+            setTogglingId(null);
         }
     };
 
@@ -127,12 +152,9 @@ export default function ServicesPage() {
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Servicios</h1>
                     <p className="text-bos-muted text-sm mt-1">Administra los servicios ofrecidos en la barbería</p>
                 </div>
-                {!readOnly && <button
-                    onClick={() => { setIsAdding(true); setFormError(''); setFormData(EMPTY_FORM); }}
-                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong transition-colors"
-                >
+                {!readOnly && <Button onClick={() => { setIsAdding(true); setFormError(''); setFormData(EMPTY_FORM); }}>
                     <Plus className="h-4 w-4" /> Nuevo servicio
-                </button>}
+                </Button>}
             </header>
             <ReadOnlyNotice readOnly={readOnly} />
 
@@ -194,7 +216,7 @@ export default function ServicesPage() {
                                     <td data-label="" className="p-3 text-right">
                                         <div className="flex justify-end gap-1">
                                             <button onClick={() => setIsAdding(false)} aria-label="Cancelar" className={iconBtn}><X className="h-4 w-4" /></button>
-                                            <button onClick={() => handleSave()} aria-label="Guardar servicio" className="h-11 w-11 inline-flex items-center justify-center rounded-xl bg-bos-accent text-bos-on-accent"><Check className="h-4 w-4" /></button>
+                                            <Button onClick={() => handleSave()} loading={saving} aria-label="Guardar servicio" size="sm" className="h-11 w-11 !min-h-0 !px-0"><Check className="h-4 w-4" /></Button>
                                         </div>
                                     </td>
                                 </tr>
@@ -202,14 +224,17 @@ export default function ServicesPage() {
 
                             {loading ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={7} className="p-10 text-center text-bos-muted">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                                        Cargando servicios...
+                                    <td colSpan={7} className="p-4" role="status" aria-busy="true">
+                                        <span className="sr-only">Cargando servicios…</span>
+                                        <div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-11 w-full" />)}</div>
                                     </td>
                                 </tr>
                             ) : groups.length === 0 ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={7} className="p-10 text-center text-bos-muted">No se encontraron servicios</td>
+                                    <td colSpan={7}>
+                                        {loadError ? <ErrorState message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchServices} className="m-4" />
+                                            : <EmptyState title="No se encontraron servicios" description={searchTerm ? 'Prueba con otro nombre.' : undefined} />}
+                                    </td>
                                 </tr>
                             ) : groups.map(group => (
                                 <React.Fragment key={group.category}>
@@ -264,7 +289,7 @@ export default function ServicesPage() {
                                     </td>
                                     <td data-label="Estado" className="px-4 py-2 text-center">
                                         <button
-                                            disabled={readOnly}
+                                            disabled={readOnly || togglingId === service.id}
                                             onClick={() => handleToggleStatus(service)}
                                             aria-label={`${service.name}: ${service.is_active ? 'Activo' : 'Inactivo'}. Cambiar estado`}
                                             className={`min-h-11 px-4 rounded-full text-xs font-semibold ${service.is_active
@@ -280,7 +305,7 @@ export default function ServicesPage() {
                                             {editingId === service.id ? (
                                                 <>
                                                     <button onClick={() => setEditingId(null)} aria-label="Cancelar" className={iconBtn}><X className="h-4 w-4" /></button>
-                                                    <button onClick={() => handleSave(service.id)} aria-label="Guardar cambios" className="h-11 w-11 inline-flex items-center justify-center rounded-xl text-bos-success hover:bg-bos-raised"><Check className="h-4 w-4" /></button>
+                                                    <Button variant="ghost" onClick={() => handleSave(service.id)} loading={saving} aria-label="Guardar cambios" size="sm" className="h-11 w-11 !min-h-0 !px-0 !text-bos-success"><Check className="h-4 w-4" /></Button>
                                                 </>
                                             ) : readOnly ? null : (
                                                 <button

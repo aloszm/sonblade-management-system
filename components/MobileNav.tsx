@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { KeyRound, LogOut, MoreHorizontal, X } from 'lucide-react';
 import { ACCOUNT_ITEM, moreSections, quickItems } from '@/lib/nav';
 import { useNavUser } from '@/hooks/useNavUser';
+import LogoutDialog from '@/components/LogoutDialog';
 
 const tabClass = (active: boolean) => `flex flex-col items-center justify-center gap-1 w-full h-full min-w-0 transition-colors ${active ? 'text-bos-accent-text' : 'text-bos-muted hover:text-bos-text'}`;
 
@@ -24,11 +25,10 @@ const MobileNav = () => {
         return () => document.removeEventListener('keydown', onKey);
     }, [moreOpen]);
 
-    const handleLogout = async () => {
-        await fetch('/api/auth/login', { method: 'DELETE' });
-        router.push('/login');
-        router.refresh();
-    };
+    // "Salir" pide la misma confirmación que en el menú lateral y el encabezado.
+    const [confirmLogout, setConfirmLogout] = React.useState(false);
+    const handleLogout = () => { setMoreOpen(false); setConfirmLogout(true); };
+    const finishLogout = () => { router.push('/login'); router.refresh(); };
 
     // Hasta saber quién es, no se muestra ningún acceso. Con PIN temporal: solo Mi cuenta y Salir.
     const mustChangePin = Boolean(user?.mustChangePin);
@@ -111,6 +111,7 @@ const MobileNav = () => {
                     </div>
                 </div>
             )}
+            {confirmLogout && <LogoutDialog onCancel={() => setConfirmLogout(false)} onLoggedOut={finishLogout} />}
         </>
     );
 };

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, ChevronDown, Plus, LogOut, KeyRound } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { PAGE_TITLES } from '@/lib/nav';
+import LogoutDialog from '@/components/LogoutDialog';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -21,6 +22,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const [canBook, setCanBook] = useState(false);
   const [mustChangePin, setMustChangePin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,11 +50,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
-    if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return;
-    await fetch('/api/auth/login', { method: 'DELETE' });
-    window.location.href = '/login';
-  };
+  // "Cerrar sesión" pide confirmación en un diálogo propio (no window.confirm).
+  const handleLogout = () => { setMenuOpen(false); setConfirmLogout(true); };
 
   // Initials for avatar
   const initials = userName ? userName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '?';
@@ -113,6 +112,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           )}
         </div>
       </div>
+      {confirmLogout && <LogoutDialog onCancel={() => setConfirmLogout(false)} />}
     </header>
   );
 };

@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import { weekLabel } from '@/lib/settlements/week';
 import BrandLogo from '@/components/BrandLogo';
+import ErrorState from '@/components/ui/ErrorState';
+import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 
 type Receipt = {
     receipt_number: string;
@@ -28,20 +30,21 @@ const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta
 export default function ReciboPage() {
     const { id } = useParams<{ id: string }>();
     const [receipt, setReceipt] = useState<Receipt | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<unknown>(null);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch(`/api/settlements/${id}/receipt`, { cache: 'no-store' });
-                const body = await res.json().catch(() => null);
-                if (!res.ok) throw new Error(body?.error ?? 'No se pudo cargar el recibo.');
-                setReceipt(body as Receipt);
-            } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
-        })();
+    const load = useCallback(async () => {
+        setError(null);
+        try {
+            const res = await fetch(`/api/settlements/${id}/receipt`, { cache: 'no-store' });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) throw new HttpError(res.status, body?.error);
+            setReceipt(body as Receipt);
+        } catch (e) { console.error(e); setError(e); }
     }, [id]);
 
-    if (error) return <div className="max-w-2xl mx-auto rounded-xl border border-bos-border bg-bos-surface p-8 text-bos-danger" role="alert">{error}</div>;
+    useEffect(() => { load(); }, [load]);
+
+    if (error) return <div className="max-w-2xl mx-auto"><ErrorState title="No se pudo cargar el recibo" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={load} /></div>;
     if (!receipt) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>;
 
     const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: receipt.business.currency }).format(n);

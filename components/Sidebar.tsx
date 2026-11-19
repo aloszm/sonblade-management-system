@@ -8,6 +8,7 @@ import { ACCOUNT_ITEM, menuSections } from '@/lib/nav';
 import { useNavUser } from '@/hooks/useNavUser';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
+import LogoutDialog from '@/components/LogoutDialog';
 
 interface SidebarProps { isOpen: boolean }
 
@@ -15,11 +16,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     const pathname = usePathname();
     const user = useNavUser();
 
-    const handleLogout = async () => {
-        if (!window.confirm('¿Cerrar sesión?')) return;
-        await fetch('/api/auth/login', { method: 'DELETE' });
-        window.location.href = '/login';
-    };
+    const [confirmLogout, setConfirmLogout] = React.useState(false);
+    const handleLogout = () => setConfirmLogout(true);
 
     if (!isOpen) return null;
 
@@ -88,6 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                     </button>
                 </div>
             </div>
+            {confirmLogout && <LogoutDialog onCancel={() => setConfirmLogout(false)} />}
         </aside>
     );
 };

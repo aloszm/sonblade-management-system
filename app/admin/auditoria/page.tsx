@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { AuditLog } from '@/types';
 import { BUSINESS_TIME_ZONE, formatDateTime, zonedDayStartIso } from '@/lib/utils/dates';
 import { addDays } from '@/lib/settlements/week';
 import DateRangePicker from '@/components/ui/DateRangePicker';
+import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
+import Skeleton from '@/components/ui/Skeleton';
+import { isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 
 const ACTION_LABELS: Record<string, string> = {
     initial_owner_bootstrap: 'Alta del negocio',
@@ -51,6 +55,7 @@ function actionLabel(action: string): string {
 export default function AuditoriaPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<unknown>(null);
     const [roleFilter, setRoleFilter] = useState('all');
     const [actionFilter, setActionFilter] = useState('all');
     const [dateFrom, setDateFrom] = useState('');
@@ -58,6 +63,7 @@ export default function AuditoriaPage() {
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const params = new URLSearchParams();
             if (roleFilter !== 'all') params.set('role', roleFilter);
@@ -66,9 +72,8 @@ export default function AuditoriaPage() {
             if (dateTo) params.set('to', zonedDayStartIso(addDays(dateTo, 1), BUSINESS_TIME_ZONE));
             params.set('limit', '200');
 
-            const res = await fetch(`/api/audit?${params.toString()}`);
-            if (res.ok) setLogs(await res.json());
-        } catch (e) { console.error(e); }
+            setLogs(await readJson<AuditLog[]>(await fetch(`/api/audit?${params.toString()}`)));
+        } catch (e) { console.error(e); setLoadError(e); }
         finally { setLoading(false); }
     }, [roleFilter, actionFilter, dateFrom, dateTo]);
 
@@ -125,9 +130,11 @@ export default function AuditoriaPage() {
             {/* Celular: una tarjeta por registro */}
             <ul className="md:hidden space-y-3" aria-label="Registros">
                 {loading ? (
-                    <li className="rounded-xl border border-bos-border bg-bos-surface p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></li>
+                    <li role="status" aria-busy="true" className="space-y-3"><span className="sr-only">Cargando registros…</span>{[0, 1, 2].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}</li>
+                ) : loadError ? (
+                    <li><ErrorState title="No se pudo cargar la bitácora" message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchLogs} /></li>
                 ) : logs.length === 0 ? (
-                    <li className="rounded-xl border border-bos-border bg-bos-surface p-6 text-center text-bos-muted text-sm">Sin registros</li>
+                    <li className="rounded-xl border border-bos-border bg-bos-surface"><EmptyState title="Sin registros" /></li>
                 ) : logs.map(log => (
                     <li key={log.id} className="rounded-xl border border-bos-border bg-bos-surface p-4 space-y-2">
                         <div className="flex items-start justify-between gap-3">
@@ -162,9 +169,11 @@ export default function AuditoriaPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr className="border-t border-bos-border"><td colSpan={6} className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={6} className="p-4" role="status" aria-busy="true"><span className="sr-only">Cargando registros…</span><div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div></td></tr>
+                            ) : loadError ? (
+                                <tr className="border-t border-bos-border"><td colSpan={6} className="p-4"><ErrorState title="No se pudo cargar la bitácora" message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchLogs} /></td></tr>
                             ) : logs.length === 0 ? (
-                                <tr className="border-t border-bos-border"><td colSpan={6} className="p-8 text-center text-bos-muted">Sin registros de auditoría</td></tr>
+                                <tr className="border-t border-bos-border"><td colSpan={6}><EmptyState title="Sin registros de auditoría" /></td></tr>
                             ) : logs.map(log => (
                                 <tr key={log.id} className="border-t border-bos-border hover:bg-bos-raised align-top">
                                     <td className="px-4 py-3 text-bos-muted text-xs whitespace-nowrap tabular-nums">

@@ -8,6 +8,8 @@ import Modal from '@/components/ui/Modal';
 import { addDays, weekLabel } from '@/lib/settlements/week';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDateTime } from '@/lib/utils/dates';
+import ErrorState from '@/components/ui/ErrorState';
+import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 
 type Row = {
     employee_id: string; name: string; gross_commission: number; deductions: number; tips: number; total_amount: number;
@@ -26,7 +28,7 @@ const cents = (n: number) => Math.round(n * 100);
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, { ...init, cache: 'no-store', headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) } });
     const body = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(body?.detail ? `${body.error} (${body.detail})` : body?.error ?? 'No se pudo completar la operación.');
+    if (!res.ok) throw new HttpError(res.status, body?.error);
     return body as T;
 }
 
@@ -39,7 +41,7 @@ export default function LiquidacionesPage() {
     const [week, setWeek] = useState<Week | null>(null);
     const [history, setHistory] = useState<HistoryRow[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<unknown>(null);
     const [paying, setPaying] = useState<Row | null>(null);
     const [cash, setCash] = useState('');
     const [transfer, setTransfer] = useState('');
@@ -56,7 +58,7 @@ export default function LiquidacionesPage() {
         try {
             const data = await api<Week>(`/api/settlements${start ? `?period_start=${start}` : ''}`);
             setWeek(data); setPeriodStart(data.period_start);
-        } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+        } catch (e) { console.error(e); setError(e); }
         finally { setLoading(false); }
     }, []);
 
@@ -67,7 +69,7 @@ export default function LiquidacionesPage() {
                 setRole(me.user.role);
                 setReadOnly(Boolean(me.user.readOnly));
                 if (me.user.role === 'admin') await loadWeek(null); else setLoading(false);
-            } catch { setLoading(false); setError('No se pudo identificar tu sesión.'); }
+            } catch (e) { setLoading(false); setError(e); }
             loadHistory();
         })();
     }, [loadHistory, loadWeek]);
@@ -95,7 +97,7 @@ export default function LiquidacionesPage() {
                 body: JSON.stringify({ employee_id: paying.employee_id, period_start: week.period_start, payments }),
             });
             router.push(`/liquidaciones/${result.settlement_id}`);
-        } catch (e) { setFormError(e instanceof Error ? e.message : 'No se pudo registrar el pago.'); }
+        } catch (e) { setFormError(toUserMessage(e, 'No se pudo registrar el pago.')); }
         finally { setSaving(false); }
     };
 
@@ -146,7 +148,7 @@ export default function LiquidacionesPage() {
                     {loading ? (
                         <div className="p-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-bos-muted" /></div>
                     ) : error ? (
-                        <div className="p-6 text-bos-danger" role="alert">{error}</div>
+                        <div className="p-4"><ErrorState title="No se pudieron cargar las liquidaciones" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={() => loadWeek(periodStart)} /></div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm">

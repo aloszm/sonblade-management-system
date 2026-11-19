@@ -4,6 +4,8 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
+const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+
 interface ModalProps {
     title: string;
     subtitle?: string;
@@ -32,7 +34,29 @@ export default function Modal({ title, subtitle, onClose, children, size = 'md',
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         requestAnimationFrame(() => panel.current?.focus());
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') { closeRef.current(); return; }
+            if (e.key !== 'Tab') return;
+            // Foco atrapado: Tab y Mayús+Tab dan la vuelta dentro de la ventana (aria-modal no lo hace solo).
+            const box = panel.current;
+            if (!box) return;
+            const items = Array.from(box.querySelectorAll<HTMLElement>(FOCUSABLE))
+                .filter((el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true');
+            if (items.length === 0) { e.preventDefault(); box.focus(); return; }
+            const first = items[0];
+            const last = items[items.length - 1];
+            const active = document.activeElement as HTMLElement | null;
+            if (!active || !box.contains(active) || active === box) {
+                e.preventDefault();
+                (e.shiftKey ? last : first).focus();
+            } else if (e.shiftKey && active === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && active === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
         document.addEventListener('keydown', onKey);
         return () => {
             document.removeEventListener('keydown', onKey);

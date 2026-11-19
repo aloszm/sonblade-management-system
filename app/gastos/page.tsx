@@ -2,10 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
-import { Plus, Search, Loader2, Info } from 'lucide-react';
+import { Plus, Search, Info } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDate } from '@/lib/utils/dates';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
+import Field, { FIELD_CLASS } from '@/components/ui/Field';
+import Skeleton from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+import { HttpError, MSG_OFFLINE, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 
 interface Gasto {
     id: string;
@@ -20,6 +28,9 @@ export default function GastosPage() {
     const readOnly = useReadOnly();
     const [gastos, setGastos] = useState<Gasto[]>([]);
     const [loading, setLoading] = useState(true);
+    // Fallo al cargar: se distingue de "no hay gastos".
+    const [loadError, setLoadError] = useState<unknown>(null);
+    const toast = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [newGasto, setNewGasto] = useState({ description: '', amount: '', payment_method: 'cash' });
@@ -32,14 +43,12 @@ export default function GastosPage() {
 
     const fetchGastos = async () => {
         setLoading(true);
+        setLoadError(null);
         try {
-            const res = await fetch('/api/cash/movements?type=expense');
-            if (res.ok) {
-                const data = await res.json();
-                setGastos(data);
-            }
+            setGastos(await readJson<Gasto[]>(await fetch('/api/cash/movements?type=expense')));
         } catch (e) {
             console.error(e);
+            setLoadError(e);
         } finally {
             setLoading(false);
         }
@@ -72,13 +81,14 @@ export default function GastosPage() {
                 setShowAddModal(false);
                 setNewGasto({ description: '', amount: '', payment_method: 'cash' });
                 fetchGastos();
+                toast.success('Gasto registrado.');
             } else {
                 const body = await res.json().catch(() => null);
-                setFormError(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo registrar el gasto');
+                setFormError(toUserMessage(new HttpError(res.status, body?.error), 'No se pudo registrar el gasto.'));
             }
         } catch (e) {
             console.error(e);
-            setFormError('No se pudo registrar el gasto');
+            setFormError(isOfflineError(e) ? MSG_OFFLINE : 'No se pudo registrar el gasto.');
         } finally {
             setIsSubmitting(false);
         }
@@ -90,8 +100,7 @@ export default function GastosPage() {
         g.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
-    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const field = FIELD_CLASS;
     const th = 'px-4 py-3 text-[13px] font-medium';
 
     return (
@@ -101,24 +110,21 @@ export default function GastosPage() {
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Gastos</h1>
                     <p className="text-bos-muted text-sm mt-1">Control de egresos y compras de la barbería</p>
                 </div>
-                {!readOnly && <button
-                    onClick={() => { setFormError(''); setShowAddModal(true); }}
-                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong transition-opacity"
-                >
+                {!readOnly && <Button onClick={() => { setFormError(''); setShowAddModal(true); }}>
                     <Plus className="h-4 w-4" /> Registrar gasto
-                </button>}
+                </Button>}
             </header>
             <ReadOnlyNotice readOnly={readOnly} />
 
             {/* Explicación para recepción */}
-            <section aria-labelledby="gasto-vs-retiro" className="rounded-xl border border-bos-border bg-bos-surface p-5">
+            <Card as="section" aria-labelledby="gasto-vs-retiro" className="!p-5">
                 <h2 id="gasto-vs-retiro" className="flex items-center gap-2 font-display font-semibold"><Info className="h-4 w-4 text-bos-muted" /> ¿Gasto, retiro o entrada?</h2>
                 <ul className="mt-3 space-y-2 text-sm text-bos-muted leading-relaxed">
                     <li><strong className="text-bos-text">Gasto:</strong> sale dinero de la caja para pagar algo del negocio (agua, insumos, una reparación). Baja la utilidad.</li>
                     <li><strong className="text-bos-text">Retiro</strong> (en Caja): el dinero solo cambia de lugar, por ejemplo al banco o a la caja fuerte. No baja la utilidad.</li>
                     <li><strong className="text-bos-text">Entrada:</strong> metes efectivo a la caja, por ejemplo para dar cambio.</li>
                 </ul>
-            </section>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-1">
@@ -157,9 +163,16 @@ export default function GastosPage() {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" /></td></tr>
+                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-4" role="status" aria-busy="true">
+                                            <span className="sr-only">Cargando gastos…</span>
+                                            <div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                                        </td></tr>
+                                    ) : loadError ? (
+                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-4">
+                                            <ErrorState title="No se pudieron cargar los gastos" message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchGastos} />
+                                        </td></tr>
                                     ) : filteredGastos.length === 0 ? (
-                                        <tr className="border-t border-bos-border"><td colSpan={4} className="p-10 text-center text-bos-muted">No hay gastos registrados</td></tr>
+                                        <tr className="border-t border-bos-border"><td colSpan={4}><EmptyState title="No hay gastos registrados" /></td></tr>
                                     ) : filteredGastos.map((gasto) => (
                                         <tr key={gasto.id} className="border-t border-bos-border hover:bg-bos-raised transition-colors">
                                             <td className="px-4 py-3 text-bos-muted whitespace-nowrap">
@@ -186,64 +199,46 @@ export default function GastosPage() {
             {showAddModal && (
                 <Modal title="Registrar nuevo gasto" subtitle="Completa los datos del egreso" onClose={() => setShowAddModal(false)}>
                     <form onSubmit={handleAddGasto} className="space-y-4">
-                        <div>
-                            <label htmlFor="gasto-description" className={label}>Descripción</label>
-                            <input
-                                id="gasto-description"
-                                required
-                                type="text"
-                                value={newGasto.description}
-                                onChange={e => setNewGasto({ ...newGasto, description: e.target.value })}
-                                placeholder="Ej: Pago de luz local"
-                                className={field}
-                            />
-                        </div>
+                        <Field
+                            id="gasto-description"
+                            label="Descripción"
+                            required
+                            type="text"
+                            value={newGasto.description}
+                            onChange={e => setNewGasto({ ...newGasto, description: e.target.value })}
+                            placeholder="Ej: Pago de luz local"
+                        />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="gasto-amount" className={label}>Monto ($)</label>
-                                <input
-                                    id="gasto-amount"
-                                    required
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.01"
-                                    value={newGasto.amount}
-                                    onChange={e => setNewGasto({ ...newGasto, amount: e.target.value })}
-                                    placeholder="0.00"
-                                    className={`${field} font-semibold`}
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="gasto-method" className={label}>Método</label>
-                                <select
-                                    id="gasto-method"
-                                    value={newGasto.payment_method}
-                                    onChange={e => setNewGasto({ ...newGasto, payment_method: e.target.value })}
-                                    className={field}
-                                >
-                                    <option value="cash">Efectivo</option>
-                                    <option value="card">Tarjeta</option>
-                                    <option value="transfer">Transferencia</option>
-                                </select>
-                            </div>
+                            <Field
+                                id="gasto-amount"
+                                label="Monto ($)"
+                                required
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                value={newGasto.amount}
+                                onChange={e => setNewGasto({ ...newGasto, amount: e.target.value })}
+                                placeholder="0.00"
+                                className="font-semibold"
+                            />
+                            <Field id="gasto-method" label="Método">
+                                {(c) => (
+                                    <select
+                                        {...c}
+                                        value={newGasto.payment_method}
+                                        onChange={e => setNewGasto({ ...newGasto, payment_method: e.target.value })}
+                                    >
+                                        <option value="cash">Efectivo</option>
+                                        <option value="card">Tarjeta</option>
+                                        <option value="transfer">Transferencia</option>
+                                    </select>
+                                )}
+                            </Field>
                         </div>
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                         <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setShowAddModal(false)}
-                                className="flex-1 min-h-[52px] px-5 border border-bos-border rounded-xl text-bos-text font-semibold hover:bg-bos-raised"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="flex-1 min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong disabled:opacity-60 flex items-center justify-center gap-2"
-                            >
-                                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                                Confirmar
-                            </button>
+                            <Button variant="secondary" onClick={() => setShowAddModal(false)} className="flex-1">Cancelar</Button>
+                            <Button type="submit" loading={isSubmitting} className="flex-1">Confirmar</Button>
                         </div>
                     </form>
                 </Modal>

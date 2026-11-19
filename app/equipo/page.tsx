@@ -8,6 +8,12 @@ import { roleTitle } from '@/lib/auth/roles';
 import { suggestLoginName } from '@/lib/auth/login-id';
 import type { BusinessRole } from '@/lib/auth/context';
 import Modal from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import ErrorState from '@/components/ui/ErrorState';
+import Skeleton from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+import { HttpError, MSG_OFFLINE, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 import BarberScheduleModal from '@/components/BarberScheduleModal';
 import type { Barber } from '@/types';
 
@@ -21,6 +27,12 @@ type Account = { userId: string; loginName: string | null; role: BusinessRole; i
 type AccessData = { accounts: Account[]; assignableRoles: BusinessRole[]; adminKeyConfigured: boolean };
 type NewAccess = { employeeId: string | null; fullName: string; loginName: string; role: BusinessRole };
 
+/** Mensaje de una llamada que no devolvió `ok`: sin respuesta = sin conexión; si no, el texto del servidor si está en español. */
+function failMessage(res: Response | null | undefined, body: { error?: unknown } | null | undefined, fallback: string): string {
+    if (!res) return MSG_OFFLINE;
+    return toUserMessage(new HttpError(res.status, typeof body?.error === 'string' ? body.error : undefined), fallback);
+}
+
 /**
  * Accesos a la app (usuario + PIN). Dueño y gerencia crean accesos, restablecen PIN y los
  * desactivan; gerencia solo con barberos y recepción (la base lo vuelve a revisar).
@@ -33,10 +45,19 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
     const [formError, setFormError] = useState('');
     const [busy, setBusy] = useState(false);
     const [issued, setIssued] = useState<{ name: string; loginName: string; pin: string } | null>(null);
+    const [loadErr, setLoadErr] = useState<unknown>(null);
+    // Confirmación pendiente (reemplaza a window.confirm).
+    const [confirm, setConfirm] = useState<{ kind: 'reset' | 'deactivate'; account: Account } | null>(null);
+    const [confirming, setConfirming] = useState(false);
 
     const load = async () => {
-        const res = await fetch('/api/accounts', { cache: 'no-store' }).catch(() => null);
-        if (res?.ok) setData(await res.json()); else setError('No se pudieron cargar los accesos.');
+        try {
+            setData(await readJson<AccessData>(await fetch('/api/accounts', { cache: 'no-store' })));
+            setLoadErr(null);
+        } catch (e) {
+            console.error('Error al cargar los accesos', e);
+            setLoadErr(e);
+        }
     };
     useEffect(() => { load(); }, []);
 
@@ -54,30 +75,42 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
         const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }).catch(() => null);
         const body = await res?.json().catch(() => null);
         setBusy(false);
-        if (!res?.ok) { setFormError(body?.error ?? 'No se pudo crear el acceso.'); return; }
+        if (!res?.ok) { setFormError(failMessage(res, body, 'No se pudo crear el acceso.')); return; }
         setForm(null);
         setIssued({ name: form.fullName, loginName: body.loginName, pin: body.temporaryPin });
         load(); onChanged();
     };
     const resetPin = async (account: Account) => {
-        if (!window.confirm(`¿Restablecer el PIN de ${account.name}? Su PIN actual dejará de funcionar.`)) return;
         setError('');
         const res = await fetch(`/api/accounts/${account.userId}/reset-pin`, { method: 'POST' }).catch(() => null);
         const body = await res?.json().catch(() => null);
-        if (!res?.ok) { setError(body?.error ?? 'No se pudo restablecer el PIN.'); return; }
+        if (!res?.ok) { setError(failMessage(res, body, 'No se pudo restablecer el PIN.')); return; }
         setIssued({ name: account.name, loginName: body.loginName ?? account.loginName ?? '', pin: body.temporaryPin });
         load();
     };
     const setActive = async (account: Account, active: boolean) => {
-        if (!active && !window.confirm(`¿Desactivar el acceso de ${account.name}? Ya no podrá entrar a la app.`)) return;
         setError('');
         const res = await fetch(`/api/accounts/${account.userId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active }) }).catch(() => null);
         const body = await res?.json().catch(() => null);
-        if (!res?.ok) setError(body?.error ?? 'No se pudo cambiar el acceso.');
+        if (!res?.ok) setError(failMessage(res, body, 'No se pudo cambiar el acceso.'));
         load();
     };
+    const runConfirmed = async () => {
+        if (!confirm) return;
+        setConfirming(true);
+        try {
+            if (confirm.kind === 'reset') await resetPin(confirm.account);
+            else await setActive(confirm.account, false);
+        } finally {
+            setConfirming(false);
+            setConfirm(null);
+        }
+    };
 
-    if (!data) return error ? <p role="alert" className="text-sm text-bos-danger">{error}</p> : null;
+    if (!data) {
+        if (loadErr) return <ErrorState title="No se pudieron cargar los accesos" message={toUserMessage(loadErr)} offline={isOfflineError(loadErr)} onRetry={load} />;
+        return <div role="status" aria-busy="true"><span className="sr-only">Cargando accesos…</span><Skeleton className="h-24 w-full rounded-xl" /></div>;
+    }
     const canCreate = !readOnly && data.assignableRoles.length > 0;
     const withoutAccess = barbers.filter((b) => !(b as { hasAccount?: boolean }).hasAccount && b.status === 'active');
     const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
@@ -91,7 +124,7 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
                     <h2 id="access-title" className="font-display text-2xl font-semibold tracking-tight">Accesos a la app</h2>
                     <p className="text-sm text-bos-muted mt-1">Cada persona entra desde su celular con su usuario y un PIN de 6 números.</p>
                 </div>
-                {canCreate && <button onClick={() => openCreate(null)} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold inline-flex items-center justify-center gap-2 hover:bg-bos-accent-strong"><ShieldCheck className="w-4 h-4" />Crear acceso</button>}
+                {canCreate && <Button onClick={() => openCreate(null)}><ShieldCheck className="w-4 h-4" />Crear acceso</Button>}
             </div>
             {canCreate && !data.adminKeyConfigured && (
                 <p role="status" className="rounded-xl border border-bos-border bg-bos-raised p-4 text-sm text-bos-text">
@@ -113,9 +146,9 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
                         </div>
                         {!readOnly && account.canManage && (
                             <div className="flex flex-wrap gap-2">
-                                {account.isActive && <button onClick={() => resetPin(account)} className={`${btn} text-bos-text`}><KeyRound className="w-4 h-4" />Restablecer PIN</button>}
+                                {account.isActive && <button onClick={() => setConfirm({ kind: 'reset', account })} className={`${btn} text-bos-text`}><KeyRound className="w-4 h-4" />Restablecer PIN</button>}
                                 {account.isActive
-                                    ? <button onClick={() => setActive(account, false)} className={`${btn} text-bos-danger`}><UserX className="w-4 h-4" />Desactivar acceso</button>
+                                    ? <button onClick={() => setConfirm({ kind: 'deactivate', account })} className={`${btn} text-bos-danger`}><UserX className="w-4 h-4" />Desactivar acceso</button>
                                     : <button onClick={() => setActive(account, true)} className={`${btn} text-bos-success`}><UserCheck className="w-4 h-4" />Reactivar</button>}
                             </div>
                         )}
@@ -155,8 +188,8 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
                         <p className="text-xs text-bos-muted bg-bos-bg border border-bos-border rounded-xl p-3">Se genera un PIN temporal que verás una sola vez para dictárselo. Al entrar, la persona elige su propio PIN.</p>
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                         <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                            <button type="button" onClick={() => setForm(null)} className="min-h-[52px] px-5 border border-bos-border rounded-xl text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
-                            <button type="submit" disabled={busy} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong disabled:opacity-60">Crear acceso</button>
+                            <Button variant="secondary" onClick={() => setForm(null)}>Cancelar</Button>
+                            <Button type="submit" loading={busy}>Crear acceso</Button>
                         </div>
                     </form>
                 </Modal>
@@ -169,9 +202,23 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
                         <p className="text-sm text-bos-text">Usuario <strong>{issued.loginName}</strong></p>
                         <p className="font-display text-5xl font-semibold tracking-[0.3em] tabular-nums text-bos-text">{issued.pin}</p>
                         <p className="text-xs text-bos-muted">Al entrar, la app le pedirá cambiarlo por uno propio.</p>
-                        <button onClick={() => setIssued(null)} className="w-full min-h-[52px] rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong">Ya se lo di</button>
+                        <Button fullWidth onClick={() => setIssued(null)}>Ya se lo di</Button>
                     </div>
                 </Modal>
+            )}
+
+            {confirm && (
+                <ConfirmDialog
+                    title={confirm.kind === 'reset' ? 'Restablecer PIN' : 'Desactivar acceso'}
+                    message={confirm.kind === 'reset'
+                        ? `¿Restablecer el PIN de ${confirm.account.name}? Su PIN actual dejará de funcionar.`
+                        : `¿Desactivar el acceso de ${confirm.account.name}? Ya no podrá entrar a la app.`}
+                    confirmLabel={confirm.kind === 'reset' ? 'Restablecer PIN' : 'Desactivar acceso'}
+                    variant={confirm.kind === 'deactivate' ? 'danger' : 'primary'}
+                    loading={confirming}
+                    onConfirm={runConfirmed}
+                    onCancel={() => setConfirm(null)}
+                />
             )}
         </section>
     );
@@ -183,6 +230,10 @@ export default function TeamPage() {
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [liveStats, setLiveStats] = useState<BarberLive[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<unknown>(null);
+    const [saving, setSaving] = useState(false);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+    const toast = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formError, setFormError] = useState('');
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
@@ -193,9 +244,9 @@ export default function TeamPage() {
     const fetchBarbers = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/barbers?include_inactive=1&scope=team');
-            if (res.ok) setBarbers(await res.json());
-        } catch (error) { console.error('Failed to fetch barbers', error); }
+            setLoadError(null);
+            setBarbers(await readJson<Barber[]>(await fetch('/api/barbers?include_inactive=1&scope=team')));
+        } catch (error) { console.error('Failed to fetch barbers', error); setLoadError(error); }
         finally { setLoading(false); }
     };
 
@@ -218,25 +269,35 @@ export default function TeamPage() {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (saving) return;
         setFormError('');
+        setSaving(true);
         try {
             const method = editingBarber ? 'PATCH' : 'POST';
             const url = editingBarber ? `/api/barbers/${editingBarber.id}` : '/api/barbers';
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status, can_authorize_discounts: formData.canAuthorizeDiscounts } : { is_barber: formData.isBarber }) }) });
-            if (res.ok) { setIsModalOpen(false); fetchBarbers(); fetchLiveStats(); }
+            if (res.ok) { setIsModalOpen(false); fetchBarbers(); fetchLiveStats(); toast.success('Cambios guardados.'); }
             else {
                 const body = await res.json().catch(() => null);
-                setFormError(body?.error || 'Error al guardar');
+                setFormError(toUserMessage(new HttpError(res.status, body?.error), 'No se pudo guardar.'));
             }
-        } catch (error) { console.error(error); }
+        } catch (error) { console.error(error); setFormError(toUserMessage(error)); }
+        finally { setSaving(false); }
     };
 
     const toggleStatus = async (barber: Barber) => {
+        if (togglingId) return;
         const newStatus = barber.status === 'active' ? 'inactive' : 'active';
+        setTogglingId(barber.id);
         try {
-            await fetch(`/api/barbers/${barber.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
-            fetchBarbers();
-        } catch (error) { console.error(error); }
+            const res = await fetch(`/api/barbers/${barber.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
+            if (res.ok) fetchBarbers();
+            else {
+                const body = await res.json().catch(() => null);
+                toast.error(toUserMessage(new HttpError(res.status, body?.error), 'No se pudo cambiar el estado.'));
+            }
+        } catch (error) { console.error(error); toast.error(toUserMessage(error)); }
+        finally { setTogglingId(null); }
     };
 
     const openModal = (barber?: Barber) => {
@@ -252,7 +313,19 @@ export default function TeamPage() {
     };
 
 
-    if (loading) return <div className="flex justify-center items-center h-full min-h-[400px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bos-muted"></div></div>;
+    if (loading) return (
+        <div role="status" aria-busy="true" className="max-w-6xl mx-auto space-y-6">
+            <span className="sr-only">Cargando equipo…</span>
+            <Skeleton className="h-9 w-40" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2].map(i => <Skeleton key={i} className="h-44 rounded-xl" />)}</div>
+        </div>
+    );
+    if (loadError && barbers.length === 0) return (
+        <div className="max-w-6xl mx-auto space-y-6">
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Equipo</h1>
+            <ErrorState message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={() => { fetchBarbers(); fetchLiveStats(); }} />
+        </div>
+    );
 
     const field = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted outline-none focus:border-bos-accent';
     const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
@@ -267,9 +340,9 @@ export default function TeamPage() {
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => { fetchBarbers(); fetchLiveStats(); }} aria-label="Actualizar" title="Actualizar" className="h-[52px] w-[52px] inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><RefreshCw className="h-4 w-4" /></button>
-                    {!readOnly && <button onClick={() => openModal()} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold flex items-center justify-center gap-2 hover:bg-bos-accent-strong">
+                    {!readOnly && <Button onClick={() => openModal()}>
                         <Plus className="w-4 h-4" />Agregar persona
-                    </button>}
+                    </Button>}
                 </div>
             </header>
             <ReadOnlyNotice readOnly={readOnly} />
@@ -326,7 +399,7 @@ export default function TeamPage() {
                                         <KeyRound className="w-4 h-4" /> Crear acceso
                                     </button>
                                 )}
-                                <button onClick={() => toggleStatus(barber)} className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border transition-colors hover:bg-bos-raised ${active ? 'text-bos-danger' : 'text-bos-success'}`}>
+                                <button onClick={() => toggleStatus(barber)} disabled={togglingId === barber.id} aria-busy={togglingId === barber.id || undefined} className={`flex-1 min-h-11 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border transition-colors hover:bg-bos-raised ${active ? 'text-bos-danger' : 'text-bos-success'}`}>
                                     {active ? <><UserX className="w-4 h-4" /> Desactivar</> : <><UserCheck className="w-4 h-4" /> Activar</>}
                                 </button>
                             </div>}
@@ -382,10 +455,10 @@ export default function TeamPage() {
                         </p>
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
                         <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                            <button type="button" onClick={() => setIsModalOpen(false)} className="min-h-[52px] px-5 border border-bos-border rounded-xl text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
-                            <button type="submit" className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong">
+                            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+                            <Button type="submit" loading={saving}>
                                 {editingBarber ? 'Guardar cambios' : 'Agregar'}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 </Modal>

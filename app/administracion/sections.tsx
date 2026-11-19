@@ -5,6 +5,7 @@ import { ArrowDownRight, ArrowUpRight, Banknote, CreditCard, Landmark, Minus, Tr
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { BarberRow, Delta, ProfitReport } from '@/lib/admin/profit';
 import { formatMoney } from '@/lib/utils/money';
+import Skeleton from '@/components/ui/Skeleton';
 
 // Piezas de presentación del tablero de Finanzas. Reciben el reporte ya calculado; no calculan dinero propio
 // salvo proporciones para dibujar barras. Solo colores del sistema (bos-*).
@@ -466,13 +467,12 @@ export function Notices({ data }: { data: ProfitReport }) {
 // ---------- Estados ----------
 
 export function DashboardSkeleton() {
-    const block = 'rounded-xl bg-bos-raised motion-safe:animate-pulse';
     return (
         <div role="status" aria-label="Cargando finanzas" className="space-y-4">
-            <div className={`${block} h-44`} />
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className={`${block} h-28`} />)}</div>
-            <div className={`${block} h-72`} />
-            <div className="grid gap-4 md:grid-cols-2"><div className={`${block} h-48`} /><div className={`${block} h-48`} /></div>
+            <Skeleton className="rounded-xl h-44" />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="rounded-xl h-28" />)}</div>
+            <Skeleton className="rounded-xl h-72" />
+            <div className="grid gap-4 md:grid-cols-2"><Skeleton className="rounded-xl h-48" /><Skeleton className="rounded-xl h-48" /></div>
         </div>
     );
 }

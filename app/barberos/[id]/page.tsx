@@ -6,6 +6,9 @@ import Link from 'next/link';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDate, formatTime } from '@/lib/utils/dates';
+import ErrorState from '@/components/ui/ErrorState';
+import Skeleton from '@/components/ui/Skeleton';
+import { isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 
 interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; serviceCommission: number; productCommission: number; }
 interface Movement { id: string; date: string; services: string; products: string; payment_method: string; cash_amount: number; card_amount: number; transfer_amount: number; tip: number; total: number; commission: number; }
@@ -31,30 +34,40 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
     const [period, setPeriod] = useState('week');
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
     const [loading, setLoading] = useState(true);
-
-
+    const [loadError, setLoadError] = useState<unknown>(null);
 
     const fetchStats = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             let url = `/api/barbers/${id}/stats?period=${period}`;
             if (dateRange.from && dateRange.to) url = `/api/barbers/${id}/stats?from=${dateRange.from}&to=${dateRange.to}`;
-            const res = await fetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                setBarber(data.barber);
-                setKpis(data.kpis);
-                setMovements(data.movements);
-                setServiceBreakdown(data.serviceBreakdown || []);
-            }
-        } catch (e) { console.error(e); }
+            const data = await readJson<{ barber: typeof barber; kpis: Kpis; movements: Movement[]; serviceBreakdown?: ServiceBreak[] }>(await fetch(url));
+            setBarber(data.barber);
+            setKpis(data.kpis);
+            setMovements(data.movements);
+            setServiceBreakdown(data.serviceBreakdown || []);
+        } catch (e) { console.error(e); setLoadError(e); }
         finally { setLoading(false); }
     }, [id, period, dateRange]);
 
     useEffect(() => { fetchStats(); }, [fetchStats]);
 
 
-    if (loading && !barber) return <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>;
+    if (loading && !barber) return (
+        <div role="status" aria-busy="true" className="max-w-5xl mx-auto space-y-6">
+            <span className="sr-only">Cargando perfil…</span>
+            <Skeleton className="h-14 w-64" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+            <Skeleton className="h-64 rounded-xl" />
+        </div>
+    );
+    if (loadError && !barber) return (
+        <div className="max-w-5xl mx-auto space-y-6">
+            <Link href="/equipo" aria-label="Volver al equipo" className="h-11 w-11 inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><ArrowLeft className="h-5 w-5" /></Link>
+            <ErrorState title="No se pudo cargar el perfil" message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchStats} />
+        </div>
+    );
 
     const svcTotal = serviceBreakdown.reduce((s, b) => s + b.revenue, 0);
     const card = 'rounded-xl border border-bos-border bg-bos-surface';
@@ -92,6 +105,9 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                     <DateRangePicker aria-label="Periodo" shortcuts={false} value={dateRange} onChange={(r) => setDateRange(r)} className={`${dateField} flex-1 min-w-0 sm:min-w-64`} />
                 </div>
             </div>
+
+            {/* Fallo al actualizar cuando ya hay datos en pantalla */}
+            {loadError != null && <ErrorState title="No se pudo actualizar" message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchStats} />}
 
             {/* Cifras */}
             {kpis && (

@@ -1,3 +1,4 @@
+import Skeleton from '@/components/ui/Skeleton';
 import React from 'react';
 import { RotateCw } from 'lucide-react';
 import { formatDate, formatTime } from '@/lib/utils/dates';
@@ -21,9 +22,7 @@ export const dayOf = (iso: string, timeZone: string) => formatDate(iso, timeZone
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** Esqueleto: bloque que late mientras llegan los datos (quieto si la persona pide menos movimiento). */
-export function Skeleton({ className = '' }: { className?: string }) {
-    return <div aria-hidden="true" className={`rounded-lg bg-bos-raised motion-safe:animate-pulse ${className}`} />;
-}
+export { Skeleton };
 
 export function SectionSkeleton({ title, rows = 3 }: { title: string; rows?: number }) {
     return (

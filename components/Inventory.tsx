@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
-import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, Loader2, Edit2, Trash2 } from 'lucide-react';
+import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, Edit2, Trash2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import PinConfirm from '@/components/ui/PinConfirm';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -11,6 +11,11 @@ import { downloadCsv } from '@/lib/utils/csv';
 import { localDateKey } from '@/lib/utils/dates';
 import DatePicker from '@/components/ui/DatePicker';
 import { formatMoney } from '@/lib/utils/money';
+import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import ErrorState from '@/components/ui/ErrorState';
+import Skeleton from '@/components/ui/Skeleton';
+import { HttpError, MSG_OFFLINE, readJson, toUserMessage } from '@/lib/utils/errors';
 
 const Inventory: React.FC = () => {
     // Cuenta de consulta: ve existencias y exporta, sin agregar, editar ni dar de baja.
@@ -22,6 +27,9 @@ const Inventory: React.FC = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState('');
     const [listError, setListError] = useState('');
+    // Baja de producto pendiente de confirmar (reemplaza a window.confirm).
+    const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+    const [deleting, setDeleting] = useState(false);
     // Entradas, salidas y mínimo: se confirman con PIN y comentario (dueño y gerencia).
     const [stockPin, setStockPin] = useState(false);
 
@@ -31,17 +39,16 @@ const Inventory: React.FC = () => {
     });
 
     // Fetch data from API routes
-    const fetchProducts = async () => {
-        const res = await fetch('/api/products');
-        if (!res.ok) throw new Error('Error al cargar productos');
-        return res.json();
+    // El error que llega a la pantalla ya es un mensaje en español (nunca "Failed to fetch").
+    const load = async <T,>(url: string, fallback: string): Promise<T> => {
+        try {
+            return await readJson<T>(await fetch(url));
+        } catch (e) {
+            throw new Error(toUserMessage(e, fallback));
+        }
     };
-
-    const fetchStats = async () => {
-        const res = await fetch('/api/products/stats');
-        if (!res.ok) throw new Error('Error al cargar métricas');
-        return res.json();
-    };
+    const fetchProducts = () => load<Product[]>('/api/products', 'No se pudieron cargar los productos.');
+    const fetchStats = () => load<{ total: number; lowStock: number; outOfStock: number; totalValue: number }>('/api/products/stats', 'No se pudieron cargar las métricas.');
 
     const { data: products, loading, error, refetch } = useSupabase<Product[]>(fetchProducts);
     const { data: stats, refetch: refetchStats } = useSupabase<{ total: number; lowStock: number; outOfStock: number; totalValue: number }>(fetchStats);
@@ -58,14 +65,20 @@ const Inventory: React.FC = () => {
     const saveProduct = async (confirm?: { pin: string; comment: string }) => {
         const url = editingId ? `/api/products/${editingId}` : '/api/products';
         const method = editingId ? 'PATCH' : 'POST';
-        const res = await fetch(url, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(confirm ? { ...form, ...confirm } : form)
-        });
+        let res: Response;
+        try {
+            res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(confirm ? { ...form, ...confirm } : form)
+            });
+        } catch (e) {
+            throw new Error(toUserMessage(e));
+        }
         if (!res.ok) {
             const body = await res.json().catch(() => null);
-            throw new Error(body?.error ? (body.detail && !body.pin_error ? `${body.error} (${body.detail})` : body.error) : 'Error al guardar producto');
+            const text = body?.error ? (body.detail && !body.pin_error ? `${body.error} (${body.detail})` : body.error) : undefined;
+            throw new Error(toUserMessage(new HttpError(res.status, text), 'No se pudo guardar el producto.'));
         }
         setStockPin(false);
         setModalOpen(false);
@@ -84,7 +97,7 @@ const Inventory: React.FC = () => {
             await saveProduct();
         } catch (err) {
             console.error('Error saving product:', err);
-            setSaveError(err instanceof Error ? err.message : 'Error al guardar producto');
+            setSaveError(toUserMessage(err, 'No se pudo guardar el producto.'));
         } finally {
             setSaving(false);
         }
@@ -107,17 +120,20 @@ const Inventory: React.FC = () => {
         setModalOpen(true);
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`¿Dar de baja el producto "${name}"?\nYa no aparecerá para vender; su historial se conserva.`)) return;
+    const handleDelete = async ({ id }: { id: string; name: string }) => {
         setListError('');
+        setDeleting(true);
         try {
             const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Error deleting product');
+            if (!res.ok) throw new HttpError(res.status);
             refetch();
             refetchStats();
         } catch (e) {
             console.error(e);
-            setListError('No se pudo dar de baja el producto');
+            setListError(toUserMessage(e, 'No se pudo dar de baja el producto.'));
+        } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
         }
     };
 
@@ -216,17 +232,14 @@ const Inventory: React.FC = () => {
 
             {/* Cargando / error */}
             {loading && (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-bos-muted" />
-                    <span className="ml-3 text-bos-muted">Cargando inventario...</span>
+                <div role="status" aria-busy="true" className="space-y-3 py-4">
+                    <span className="sr-only">Cargando inventario…</span>
+                    {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
                 </div>
             )}
 
             {error && (
-                <div role="alert" className={`${card} p-6 text-center`}>
-                    <p className="text-bos-danger font-medium">Error: {error}</p>
-                    <button onClick={refetch} className="mt-2 min-h-11 px-4 text-sm font-semibold text-bos-text underline">Reintentar</button>
-                </div>
+                <ErrorState title="No se pudo cargar el inventario" message={error} offline={error === MSG_OFFLINE} onRetry={refetch} />
             )}
 
             {/* Tabla */}
@@ -308,7 +321,7 @@ const Inventory: React.FC = () => {
                                                     <button onClick={() => handleEditClick(p)} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text hover:bg-bos-raised rounded-xl transition-colors" title="Editar / Ajustar Stock" aria-label={`Editar ${p.name}`}>
                                                         <Edit2 className="h-4 w-4" />
                                                     </button>
-                                                    <button onClick={() => handleDelete(p.id, p.name)} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-danger hover:bg-bos-raised rounded-xl transition-colors" title="Dar de baja" aria-label={`Dar de baja ${p.name}`}>
+                                                    <button onClick={() => setDeleteTarget({ id: p.id, name: p.name })} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-danger hover:bg-bos-raised rounded-xl transition-colors" title="Dar de baja" aria-label={`Dar de baja ${p.name}`}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>
                                                 </div>}
@@ -400,19 +413,25 @@ const Inventory: React.FC = () => {
                         </section>
                         {saveError && <p role="alert" className="text-sm text-bos-danger">{saveError}</p>}
                         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                            <button type="button" onClick={() => setModalOpen(false)} className="min-h-[52px] px-5 border border-bos-border rounded-xl text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
-                            <button
-                                type="button"
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="min-h-[52px] px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:bg-bos-accent-strong flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                                {saving ? 'Guardando...' : 'Guardar producto'}
-                            </button>
+                            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                            <Button onClick={handleSave} loading={saving} loadingText="Guardando...">
+                                <CheckCircle className="h-4 w-4" />
+                                Guardar producto
+                            </Button>
                         </div>
                     </form>
                 </Modal>
+            )}
+            {deleteTarget && (
+                <ConfirmDialog
+                    title="Dar de baja producto"
+                    message={<><p>¿Dar de baja el producto «{deleteTarget.name}»?</p><p className="mt-2 text-bos-muted">Ya no aparecerá para vender; su historial se conserva.</p></>}
+                    confirmLabel="Dar de baja"
+                    variant="danger"
+                    loading={deleting}
+                    onConfirm={() => handleDelete(deleteTarget)}
+                    onCancel={() => setDeleteTarget(null)}
+                />
             )}
             {stockPin && editingProduct && (
                 <PinConfirm title="Confirmar cambio de inventario" onClose={() => setStockPin(false)} onConfirm={saveProduct}

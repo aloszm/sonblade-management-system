@@ -1,5 +1,6 @@
 'use client';
 
+import Skeleton from '@/components/ui/Skeleton';
 import React, { useEffect, useRef } from 'react';
 import { AlertCircle, ArrowLeft, Phone } from 'lucide-react';
 import BrandLogo from '@/components/BrandLogo';
@@ -92,9 +93,7 @@ export function InfoNote({ children }: { children: React.ReactNode }) {
     return <div role="status" className="rounded-xl border border-bos-border bg-bos-surface p-3 text-sm text-bos-muted">{children}</div>;
 }
 
-export function Skeleton({ className = '' }: { className?: string }) {
-    return <div aria-hidden="true" className={`animate-pulse rounded-xl bg-bos-raised ${className}`} />;
-}
+export { Skeleton };
 
 /** Opción de una lista de selección única: radio real (flechas y espacio funcionan) con tarjeta. */
 export function RadioCard({ name, value, checked, onChange, children, className = '' }: {

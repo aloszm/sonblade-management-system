@@ -1,16 +1,25 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Loader2, Star, Clock, FileText, Pencil } from 'lucide-react';
+import { Plus, Search, Star, Clock, FileText, Pencil } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import type { Client } from '@/types';
 import { formatDate, formatDateTime } from '@/lib/utils/dates';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
+import Field, { FIELD_CLASS } from '@/components/ui/Field';
+import Skeleton from '@/components/ui/Skeleton';
+import { HttpError, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 
 const EMPTY_FORM = { name: '', phone: '', email: '' };
 
 export default function ClientsPage() {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
+    // Fallo al cargar la cartera: se muestra aparte de "no hay clientes".
+    const [loadError, setLoadError] = useState<unknown>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -38,11 +47,11 @@ export default function ClientsPage() {
     const fetchClients = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/clients');
-            if (!res.ok) throw new Error('Error al obtener clientes');
-            setClients(await res.json());
+            setLoadError(null);
+            setClients(await readJson<Client[]>(await fetch('/api/clients')));
         } catch (e) {
             console.error(e);
+            setLoadError(e);
         } finally {
             setLoading(false);
         }
@@ -90,7 +99,7 @@ export default function ClientsPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body),
                 });
-                if (!res.ok) throw new Error((await res.json()).error || 'Error al actualizar');
+                if (!res.ok) throw new HttpError(res.status, (await res.json().catch(() => null))?.error);
             } else {
                 // Create mode — POST
                 const res = await fetch('/api/clients', {
@@ -98,12 +107,12 @@ export default function ClientsPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: formData.name, phone: formData.phone, email: formData.email }),
                 });
-                if (!res.ok) throw new Error((await res.json()).error || 'Error al crear cliente');
+                if (!res.ok) throw new HttpError(res.status, (await res.json().catch(() => null))?.error);
             }
             await fetchClients();
             closeModal();
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Error desconocido');
+            setError(toUserMessage(err, editingClient ? 'No se pudo actualizar el cliente.' : 'No se pudo crear el cliente.'));
         } finally {
             setIsSubmitting(false);
         }
@@ -116,8 +125,7 @@ export default function ClientsPage() {
         (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    const input = 'w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
-    const label = 'block text-[13px] font-medium text-bos-muted mb-1.5';
+    const input = FIELD_CLASS;
     const th = 'px-4 py-3 text-[13px] font-medium';
 
     return (
@@ -127,28 +135,25 @@ export default function ClientsPage() {
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Clientes</h1>
                     <p className="text-bos-muted text-sm mt-1">Gestión de clientes y sistema de fidelización</p>
                 </div>
-                {!readOnly && <button
-                    onClick={openCreate}
-                    className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong flex items-center justify-center gap-2"
-                >
+                {!readOnly && <Button onClick={openCreate}>
                     <Plus className="h-4 w-4" /> Registrar cliente
-                </button>}
+                </Button>}
             </header>
 
             {/* Resumen */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-xl border border-bos-border bg-bos-surface p-5">
+                <Card className="!p-5">
                     <p className="text-[13px] font-medium text-bos-muted">Total de clientes</p>
                     <p className="mt-1 font-display text-3xl font-semibold tabular-nums">{clients.length}</p>
-                </div>
-                <div className="rounded-xl border border-bos-border bg-bos-surface p-5">
+                </Card>
+                <Card className="!p-5">
                     <p className="text-[13px] font-medium text-bos-muted">Clientes con visitas</p>
                     <p className="mt-1 font-display text-3xl font-semibold tabular-nums">{clients.filter(c => (c.visits ?? 0) > 0).length}</p>
-                </div>
-                <div className="rounded-xl border border-bos-border bg-bos-surface p-5">
+                </Card>
+                <Card className="!p-5">
                     <p className="text-[13px] font-medium text-bos-muted">Puntos emitidos</p>
                     <p className="mt-1 font-display text-3xl font-semibold tabular-nums">{clients.reduce((acc, c) => acc + (c.points ?? 0), 0)}</p>
-                </div>
+                </Card>
             </div>
 
             {/* Búsqueda */}
@@ -180,14 +185,21 @@ export default function ClientsPage() {
                         <tbody>
                             {loading ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={canEdit ? 5 : 4} className="p-8 text-center">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-bos-muted" />
+                                    <td colSpan={canEdit ? 5 : 4} className="p-4" role="status" aria-busy="true">
+                                        <span className="sr-only">Cargando clientes…</span>
+                                        <div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+                                    </td>
+                                </tr>
+                            ) : loadError ? (
+                                <tr className="border-t border-bos-border">
+                                    <td colSpan={canEdit ? 5 : 4} className="p-4">
+                                        <ErrorState title="No se pudieron cargar los clientes" message={toUserMessage(loadError)} offline={isOfflineError(loadError)} onRetry={fetchClients} />
                                     </td>
                                 </tr>
                             ) : filteredClients.length === 0 ? (
                                 <tr className="border-t border-bos-border">
-                                    <td colSpan={canEdit ? 5 : 4} className="p-8 text-center text-bos-muted">
-                                        {searchQuery ? 'No se encontraron clientes coincidiendo con tu búsqueda' : 'No hay clientes registrados en el sistema'}
+                                    <td colSpan={canEdit ? 5 : 4}>
+                                        <EmptyState title={searchQuery ? 'No se encontraron clientes con tu búsqueda' : 'Todavía no hay clientes registrados'} />
                                     </td>
                                 </tr>
                             ) : filteredClients.map(c => (
@@ -254,61 +266,42 @@ export default function ClientsPage() {
                     {error && <p role="alert" className="mb-4 p-3 rounded-xl border border-bos-border bg-bos-bg text-bos-danger text-sm font-medium">{error}</p>}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label htmlFor="client-name" className={label}>Nombre completo <span className="text-bos-danger">*</span></label>
-                            <input
-                                id="client-name"
-                                type="text"
-                                required
-                                value={formData.name}
-                                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                className={input}
-                                placeholder="Ej. Juan Pérez"
-                            />
-                        </div>
+                        <Field
+                            id="client-name"
+                            label="Nombre completo *"
+                            type="text"
+                            required
+                            value={formData.name}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="Ej. Juan Pérez"
+                        />
 
-                        <div>
-                            <label htmlFor="client-phone" className={label}>Teléfono (WhatsApp) <span className="text-bos-danger">*</span></label>
-                            <input
-                                id="client-phone"
-                                type="tel"
-                                required
-                                value={formData.phone}
-                                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                className={input}
-                                placeholder="10 dígitos"
-                                minLength={10}
-                                maxLength={15}
-                            />
-                        </div>
+                        <Field
+                            id="client-phone"
+                            label="Teléfono (WhatsApp) *"
+                            type="tel"
+                            required
+                            value={formData.phone}
+                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                            placeholder="10 dígitos"
+                            minLength={10}
+                            maxLength={15}
+                        />
 
-                        <div>
-                            <label htmlFor="client-email" className={label}>Correo electrónico (opcional)</label>
-                            <input
-                                id="client-email"
-                                type="email"
-                                value={formData.email}
-                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                className={input}
-                                placeholder="juan@ejemplo.com"
-                            />
-                        </div>
+                        <Field
+                            id="client-email"
+                            label="Correo electrónico (opcional)"
+                            type="email"
+                            value={formData.email}
+                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="juan@ejemplo.com"
+                        />
 
                         <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3">
-                            <button
-                                type="button"
-                                onClick={closeModal}
-                                className="flex-1 min-h-[52px] px-5 border border-bos-border text-bos-text font-semibold rounded-xl hover:bg-bos-raised transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="flex-1 min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold hover:bg-bos-accent-strong disabled:opacity-70 flex items-center justify-center gap-2"
-                            >
-                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingClient ? 'Guardar cambios' : 'Guardar cliente'}
-                            </button>
+                            <Button variant="secondary" onClick={closeModal} className="flex-1">Cancelar</Button>
+                            <Button type="submit" loading={isSubmitting} className="flex-1">
+                                {editingClient ? 'Guardar cambios' : 'Guardar cliente'}
+                            </Button>
                         </div>
                     </form>
                 </Modal>
