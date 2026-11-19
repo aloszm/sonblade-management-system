@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { Download, Trash2, Loader2, ChevronLeft, ChevronRight, FileText, X, RefreshCw, Plus } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import PinConfirm from '@/components/ui/PinConfirm';
 import Link from 'next/link';
 import type { Barber, Service, Product, Sale } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
@@ -65,6 +66,8 @@ export default function SalesHistoryPage() {
     const [reverseReason, setReverseReason] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [deleteError, setDeleteError] = useState('');
+    // Anular se confirma con el PIN de quien anula: primero el motivo, después el PIN.
+    const [pinForSale, setPinForSale] = useState<string | null>(null);
 
     // Filters
     const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('today');
@@ -139,25 +142,32 @@ export default function SalesHistoryPage() {
         handlePeriodChange('today');
     };
 
-    const handleDelete = async (id: string) => {
-        setDeletingId(id);
+    // Con el motivo escrito se pide el PIN; si el servidor lo rechaza, la ventana del PIN muestra el
+    // mensaje (lanza un Error) y se queda abierta.
+    const askPinToReverse = (id: string) => {
         setDeleteError('');
+        setShowDeleteConfirm(null);
+        setPinForSale(id);
+    };
+    const handleDelete = async (id: string, pin: string) => {
+        setDeletingId(id);
         try {
-            const res = await fetch(`/api/sales/${id}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: reverseReason }),
-            });
-            const body = await res.json().catch(() => null);
-            if (res.ok) {
-                setSales(prev => prev.map(s => s.id === id ? { ...s, status: 'refunded' } : s));
-                setShowDeleteConfirm(null);
-                setReverseReason('');
-            } else {
-                setDeleteError(body?.detail ? `${body.error} (${body.detail})` : body?.error || 'No se pudo anular la venta');
+            let res: Response;
+            try {
+                res = await fetch(`/api/sales/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reverseReason.trim(), pin }),
+                });
+            } catch {
+                throw new Error('No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.');
             }
-        } catch (e: unknown) { setDeleteError(e instanceof Error ? e.message : 'Error'); }
-        finally { setDeletingId(null); }
+            const body = await res.json().catch(() => null) as { error?: string } | null;
+            if (!res.ok) throw new Error(body?.error || 'No se pudo anular la venta.');
+            setSales(prev => prev.map(s => s.id === id ? { ...s, status: 'refunded' } : s));
+            setPinForSale(null);
+            setReverseReason('');
+        } finally { setDeletingId(null); }
     };
 
     const exportCSV = () => {
@@ -307,13 +317,25 @@ export default function SalesHistoryPage() {
                     {deleteError && <p role="alert" className="mt-3 text-sm text-bos-danger">{deleteError}</p>}
                     <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                         <button onClick={() => { setShowDeleteConfirm(null); setReverseReason(''); }} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
-                        <button onClick={() => handleDelete(showDeleteConfirm)} disabled={deletingId !== null || reverseReason.trim().length < 3}
+                        <button onClick={() => askPinToReverse(showDeleteConfirm)} disabled={deletingId !== null || reverseReason.trim().length < 3}
                             className="min-h-[52px] px-5 rounded-xl border border-bos-danger text-bos-danger font-bold hover:bg-bos-raised disabled:opacity-50 flex items-center justify-center gap-2">
                             {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                             Anular venta
                         </button>
                     </div>
                 </Modal>
+            )}
+
+            {pinForSale && (
+                <PinConfirm
+                    title="Anular venta"
+                    subtitle="Confirma la anulación con tu PIN. Queda en la bitácora."
+                    summary={<p>Se devuelve el dinero a la caja abierta y las existencias. La venta no se borra.</p>}
+                    fixedComment={reverseReason.trim()}
+                    confirmLabel="Anular con PIN"
+                    onConfirm={({ pin }) => handleDelete(pinForSale, pin)}
+                    onClose={() => { setPinForSale(null); setReverseReason(''); }}
+                />
             )}
 
             {/* Crear venta manual */}

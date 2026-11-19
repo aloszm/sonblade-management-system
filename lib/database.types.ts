@@ -495,13 +495,13 @@ export type Database = {
           business_id: string
           closed_at: string | null
           closed_by: string | null
+          closing_note: string | null
           counted_breakdown: Json | null
           counted_cash: number | null
           difference_amount: number | null
           expected_cash: number | null
           float_left: number | null
           id: string
-          closing_note: string | null
           notes: string | null
           opened_at: string
           opened_by: string
@@ -518,19 +518,19 @@ export type Database = {
           business_id: string
           closed_at?: string | null
           closed_by?: string | null
+          closing_note?: string | null
           counted_breakdown?: Json | null
           counted_cash?: number | null
           difference_amount?: number | null
           expected_cash?: number | null
           float_left?: number | null
           id?: string
-          closing_note?: string | null
           notes?: string | null
-          opening_note?: string | null
           opened_at?: string
           opened_by: string
           opening_cash?: number
           opening_expected?: number | null
+          opening_note?: string | null
           reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
           withdrawal_delivered_to?: string | null
@@ -541,19 +541,19 @@ export type Database = {
           business_id?: string
           closed_at?: string | null
           closed_by?: string | null
+          closing_note?: string | null
           counted_breakdown?: Json | null
           counted_cash?: number | null
           difference_amount?: number | null
           expected_cash?: number | null
           float_left?: number | null
           id?: string
-          closing_note?: string | null
           notes?: string | null
-          opening_note?: string | null
           opened_at?: string
           opened_by?: string
           opening_cash?: number
           opening_expected?: number | null
+          opening_note?: string | null
           reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
           withdrawal_delivered_to?: string | null
@@ -1254,6 +1254,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          accepts_online_booking: boolean
           business_id: string
           can_authorize_discounts: boolean
           created_at: string
@@ -1266,6 +1267,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          accepts_online_booking?: boolean
           business_id: string
           can_authorize_discounts?: boolean
           created_at?: string
@@ -1278,6 +1280,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          accepts_online_booking?: boolean
           business_id?: string
           can_authorize_discounts?: boolean
           created_at?: string
@@ -2018,6 +2021,7 @@ export type Database = {
       }
       services: {
         Row: {
+          bookable_online: boolean
           business_id: string
           category: string
           created_at: string
@@ -2032,6 +2036,7 @@ export type Database = {
           variable_price: boolean
         }
         Insert: {
+          bookable_online?: boolean
           business_id: string
           category?: string
           created_at?: string
@@ -2046,6 +2051,7 @@ export type Database = {
           variable_price?: boolean
         }
         Update: {
+          bookable_online?: boolean
           business_id?: string
           category?: string
           created_at?: string
@@ -2120,10 +2126,68 @@ export type Database = {
         }
         Returns: Json
       }
+      adjust_inventory_stock_confirmed: {
+        Args: {
+          p_branch_id: string
+          p_comment: string
+          p_product_id: string
+          p_quantity_delta: number
+        }
+        Returns: Json
+      }
       agenda_reconciliation: {
         Args: { p_branch_id: string; p_from: string; p_to: string }
         Returns: Json
       }
+      assert_can_manage_account: {
+        Args: {
+          p_actor_user_id: string
+          p_business_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      booking_availability: {
+        Args: {
+          p_barber_id: string
+          p_client: string
+          p_date: string
+          p_service_id: string
+          p_slug: string
+        }
+        Returns: Json
+      }
+      booking_cancel: {
+        Args: { p_slug: string; p_token: string }
+        Returns: Json
+      }
+      booking_config: { Args: { p_slug: string }; Returns: Json }
+      booking_create: {
+        Args: {
+          p_accept_privacy: boolean
+          p_barber_id: string
+          p_client: string
+          p_date: string
+          p_name: string
+          p_phone: string
+          p_service_id: string
+          p_slug: string
+          p_time: string
+        }
+        Returns: Json
+      }
+      booking_days: {
+        Args: {
+          p_barber_id: string
+          p_client: string
+          p_from: string
+          p_service_id: string
+          p_slug: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      booking_get: { Args: { p_slug: string; p_token: string }; Returns: Json }
       bootstrap_first_owner: {
         Args: {
           p_branch_name: string
@@ -2216,6 +2280,7 @@ export type Database = {
           p_appointment_id?: string
           p_branch_id: string
           p_client_id?: string
+          p_discount_approval_id?: string
           p_discount_authorized_by?: string
           p_discount_reason?: string
           p_idempotency_key: string
@@ -2265,6 +2330,15 @@ export type Database = {
         Args: { p_settlement_id: string }
         Returns: Json
       }
+      issue_discount_approval: {
+        Args: {
+          p_branch_id: string
+          p_max_amount: number
+          p_reason: string
+          p_requested_by: string
+        }
+        Returns: Json
+      }
       list_audit_log: {
         Args: {
           p_action?: string
@@ -2282,10 +2356,9 @@ export type Database = {
       }
       login_attempt_check: { Args: { p_login_id: string }; Returns: number }
       login_attempt_failed: { Args: { p_login_id: string }; Returns: number }
-      login_attempt_succeeded: { Args: { p_login_id: string }; Returns: undefined }
-      assert_can_manage_account: {
-        Args: { p_actor_user_id: string; p_business_id: string; p_user_id: string }
-        Returns: Json
+      login_attempt_succeeded: {
+        Args: { p_login_id: string }
+        Returns: undefined
       }
       mark_pin_reset: {
         Args: {
@@ -2297,48 +2370,14 @@ export type Database = {
       }
       my_account_status: { Args: never; Returns: Json }
       open_cash_session: {
-        Args: { p_branch_id: string; p_opening_cash: number; p_opening_reason?: string }
+        Args: {
+          p_branch_id: string
+          p_opening_cash: number
+          p_opening_reason?: string
+        }
         Returns: Json
       }
       pin_changed: { Args: never; Returns: boolean }
-      record_cash_movement_confirmed: {
-        Args: {
-          p_amount: number
-          p_cash_session_id: string
-          p_description: string
-          p_method: Database["public"]["Enums"]["payment_method"]
-          p_movement_type: Database["public"]["Enums"]["cash_movement_type"]
-        }
-        Returns: Json
-      }
-      set_cash_settings_confirmed: {
-        Args: {
-          p_branch_id: string
-          p_comment: string
-          p_float_target: number
-          p_reserve_amount: number
-          p_reserve_label: string
-        }
-        Returns: Json
-      }
-      adjust_inventory_stock_confirmed: {
-        Args: {
-          p_branch_id: string
-          p_comment: string
-          p_product_id: string
-          p_quantity_delta: number
-        }
-        Returns: Json
-      }
-      set_inventory_minimum_confirmed: {
-        Args: {
-          p_branch_id: string
-          p_comment: string
-          p_minimum_quantity: number
-          p_product_id: string
-        }
-        Returns: Json
-      }
       preview_commission_settlement: {
         Args: {
           p_branch_id: string
@@ -2361,6 +2400,16 @@ export type Database = {
         Returns: Json
       }
       record_cash_movement: {
+        Args: {
+          p_amount: number
+          p_cash_session_id: string
+          p_description: string
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_movement_type: Database["public"]["Enums"]["cash_movement_type"]
+        }
+        Returns: Json
+      }
+      record_cash_movement_confirmed: {
         Args: {
           p_amount: number
           p_cash_session_id: string
@@ -2393,6 +2442,10 @@ export type Database = {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
       }
+      reverse_sale_confirmed: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
+      }
       review_commission_adjustment: {
         Args: { p_adjustment_id: string; p_approve: boolean; p_note: string }
         Returns: Json
@@ -2406,17 +2459,24 @@ export type Database = {
         }
         Returns: Json
       }
+      server_pin_pepper: { Args: never; Returns: string }
       set_account_active: {
         Args: { p_active: boolean; p_business_id: string; p_user_id: string }
-        Returns: Json
-      }
-      set_employee_discount_permission: {
-        Args: { p_allowed: boolean; p_employee_id: string }
         Returns: Json
       }
       set_cash_settings: {
         Args: {
           p_branch_id: string
+          p_float_target: number
+          p_reserve_amount: number
+          p_reserve_label: string
+        }
+        Returns: Json
+      }
+      set_cash_settings_confirmed: {
+        Args: {
+          p_branch_id: string
+          p_comment: string
           p_float_target: number
           p_reserve_amount: number
           p_reserve_label: string
@@ -2431,6 +2491,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_employee_discount_permission: {
+        Args: { p_allowed: boolean; p_employee_id: string }
+        Returns: Json
+      }
       set_employee_schedule: {
         Args: { p_days: Json; p_employee_id: string }
         Returns: Json
@@ -2438,6 +2502,15 @@ export type Database = {
       set_inventory_minimum: {
         Args: {
           p_branch_id: string
+          p_minimum_quantity: number
+          p_product_id: string
+        }
+        Returns: Json
+      }
+      set_inventory_minimum_confirmed: {
+        Args: {
+          p_branch_id: string
+          p_comment: string
           p_minimum_quantity: number
           p_product_id: string
         }

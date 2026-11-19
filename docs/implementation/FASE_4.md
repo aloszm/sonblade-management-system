@@ -179,7 +179,7 @@ La versión 2 **está publicada en producción**, con la base de producción car
 | S2 | **Rotar el secreto JWT heredado de producción y pasar a llaves de firma JWT** | Dueño, con ayuda | Supabase `gallo420-prod` → Project Settings → JWT Keys → migrar a "JWT signing keys" y revocar el secreto heredado. Después, cerrar sesión de todos (se vuelve a entrar con PIN) | El 18 nov una consulta de configuración devolvió ese secreto dentro de la sesión de trabajo. No se compartió fuera, pero la práctica correcta es rotarlo. Con él se pueden fabricar sesiones válidas |
 | S3 | Quitar `graphql_public` de los esquemas expuestos | Dueño o agente con API | Supabase → Data API → Exposed schemas → solo `public` | No se usa GraphQL; menos superficie |
 | S4 | Borrar `ADMIN_PIN`, `ADMIN_USER`, `JWT_SECRET` de Vercel | Dueño | Settings → Environment Variables | Restos de la v1; Vercel marca `JWT_SECRET` como "readable-secret" |
-| S5 | Cerrar las funciones viejas sin PIN para gerencia: `adjust_inventory_stock`, `set_inventory_minimum`, `record_cash_movement` | **Opus** | Migración que, para el puesto `admin`, exija pasar por las versiones `_confirmed`. Dueño y recepción siguen igual | Hoy Sonia podría saltarse el PIN llamando a la API vieja directamente |
+| S5 | ✅ (19 nov, en desarrollo; falta replicar a producción) Cerrar las funciones viejas sin PIN para gerencia: `adjust_inventory_stock`, `set_inventory_minimum`, `record_cash_movement`, `set_cash_settings` | **Opus** | Migración `20261119175000_s5_close_legacy_admin_shortcuts`: para el puesto `admin` rechazan con 42501; deben pasar por las `_confirmed`. Dueño y recepción siguen igual. Prueba `supabase/tests/s5_legacy_closed.test.sql` | Sonia ya no puede saltarse el PIN llamando a la API vieja directamente |
 | S6 | Bajar los límites por IP de inicio de sesión | Dueño | Supabase → Authentication → Rate Limits | Freno extra contra quien adivine PIN (ya existe bloqueo por usuario) |
 | S7 | Protección contra contraseñas filtradas | — | Solo en plan Pro | Las contraseñas son HMAC de 64 caracteres; aporta poco aquí. Baja prioridad |
 | S8 | `/api/barbers` entrega el teléfono de los empleados a cualquier puesto | **Sonnet** | Limitar el campo a dueño y gerencia | Privacidad del personal |
@@ -238,7 +238,7 @@ Criterio: `difference_amount` explicado; ningún error 500 en Vercel. · Modelo:
 
 | # | Qué | Notas | Modelo |
 |---|---|---|---|
-| 4.8 | **Descuento confirmado con PIN** de quien autoriza | Reusar `runWithPin` y `PinConfirm`, ya existen y están probados | Opus |
+| 4.8 | ✅ (19 nov, desarrollo) **Descuento confirmado con PIN** de quien autoriza, y anulación con PIN | Ver "B2" al final de esta sección | Opus |
 | 4.9 | Categoría en gastos (hoy todos "General") | Lista fija editable por el dueño | Sonnet |
 | 4.10 | Formulario de cita con selector de servicio (llena la duración sola) | `app/citas/**` | Sonnet |
 | 4.11 | Cuadre → "Ir a la agenda" con fecha y barbero; ligar venta a cita; "no llegó" | `app/cuadre/**`, la agenda debe aceptar parámetros en la dirección | Sonnet |
@@ -253,6 +253,37 @@ Criterio: `difference_amount` explicado; ningún error 500 en Vercel. · Modelo:
 2. **Prueba de humo automática después de cada publicación**: una ruta `/api/health` ya existe; agregar un chequeo que confirme que la llave secreta funciona (sin exponerla) y que avise si responde 503. Habría detectado el problema del 17 de noviembre en segundos.
 3. **Página "Estado del sistema" solo para el dueño**: versión publicada, última migración, si la llave está configurada, si las reservas están encendidas.
 4. **Cerrar todas las rutas "viejas" sin confirmación** una vez que la app nueva lleve una semana estable (S5 y similares).
+
+### B2 — Descuento y anulación con PIN (19 nov; en desarrollo, falta replicar a producción)
+
+Migración `20261119180000_discount_and_reversal_with_pin` · prueba `supabase/tests/discount_and_reversal_with_pin.test.sql`.
+
+- **Descuento:** quien autoriza escribe su PIN en la caja. `POST /api/sales` (con `discount_pin`) abre con ese PIN una sesión aparte (`runWithPin`) y, como esa persona, llama `public.issue_discount_approval` → fila en `private.discount_approvals` (autorizador, quien cobra, sucursal, monto máximo = descuento del carrito, motivo, caduca en 5 min, un solo uso; exige `consume_pin_proof`). Luego la venta se registra con la sesión de quien cobra: `confirm_sale(..., p_discount_approval_id)` consume la autorización **en la misma transacción**, valida sucursal, cajero, caducidad, uso único y que el descuento no pase del máximo, y guarda como `discount_authorized_by` al autorizador de la autorización (no lo que mande la caja). Bitácora: `pin_confirmed_action` (`discount_approved`) y `discount_approval_used`.
+- **Decisión del agente (provisional, confirmar con el dueño):** si quien cobra ya puede autorizar descuentos (dueño, gerencia o empleado con permiso), **también escribe su propio PIN** (queda firmado). Recepción/caja con permiso sigue sin poder autorizarse a sí misma (regla vigente de `20261117165259`, sin cambio).
+- **Anulación:** `DELETE /api/sales/[id]` exige `pin`; anula `public.reverse_sale_confirmed` (misma prueba `consume_pin_proof` que las `_confirmed`) y deja `pin_confirmed_action` (`sale_reversed`) con el motivo.
+- **Compatibilidad (§5.2 paso 7):** en esta migración `p_discount_authorized_by` suelto y `public.reverse_sale` siguen funcionando, para que la app publicada no se rompa mientras se despliega la nueva.
+
+**Fase 2 de B2 — escrita, SIN APLICAR.** Aplicar (con la receta 5.2) solo cuando la app nueva lleve publicada en producción:
+
+```sql
+-- <versión>_close_loose_discount_and_reverse_sale.sql
+-- 1) Un descuento solo entra con autorización firmada con PIN.
+create or replace function private.confirm_sale_with_approval_impl(p_branch_id uuid, p_idempotency_key text, p_items jsonb, p_payments jsonb,
+  p_client_id uuid default null, p_notes text default null, p_discount_reason text default null, p_tips jsonb default '[]'::jsonb,
+  p_discount_authorized_by uuid default null, p_appointment_id uuid default null, p_discount_approval_id uuid default null)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+begin
+  if p_discount_approval_id is null and exists (select 1 from jsonb_array_elements(case when jsonb_typeof(p_items) = 'array' then p_items else '[]'::jsonb end) i
+                                                  where coalesce((i ->> 'discount_amount')::numeric, 0) > 0) then
+    raise exception 'El descuento se autoriza con el PIN de quien lo aprueba. Actualiza la app.' using errcode = '42501';
+  end if;
+  -- ...resto idéntico al cuerpo vigente (obtenerlo con pg_get_functiondef antes de escribir la migración)...
+end;
+$function$;
+-- 2) La anulación sin PIN deja de estar disponible por la API.
+revoke execute on function public.reverse_sale(uuid, text) from authenticated;
+```
 
 ---
 

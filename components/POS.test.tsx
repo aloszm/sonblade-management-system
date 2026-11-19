@@ -9,7 +9,7 @@ const SERVICES = [
     { id: 'sv2', name: 'Greca', price: 0, duration_minutes: 45, is_active: true, variable_price: true },
 ];
 
-interface Mock { services?: unknown; products?: unknown; cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesBodies: unknown[] }
+interface Mock { services?: unknown; products?: unknown; cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesSeq?: { status: number; body: unknown }[]; authorizers?: unknown; salesBodies: unknown[] }
 
 function mockApi(opts: Partial<Mock> = {}) {
     const state: Mock = { cash: { id: 'x' }, salesBodies: [], ...opts };
@@ -21,10 +21,10 @@ function mockApi(opts: Partial<Mock> = {}) {
         if (url.includes('/api/barbers?scope=team')) return json(BARBERS);
         if (url.includes('/api/barbers')) return json(BARBERS);
         if (url.includes('/api/services')) return json(state.services ?? SERVICES);
-        if (url.includes('/api/discount-authorizers')) return json({ authorizers: [], current_user_id: 'u1' });
+        if (url.includes('/api/discount-authorizers')) return json({ authorizers: state.authorizers ?? [], current_user_id: 'u1' });
         if (url.includes('/api/sales')) {
             state.salesBodies.push(JSON.parse(String(init?.body)));
-            const r = state.sales ?? { status: 200, body: { sale_id: 's1' } };
+            const r = state.salesSeq?.shift() ?? state.sales ?? { status: 200, body: { sale_id: 's1' } };
             return json(r.body, r.status);
         }
         if (url.includes('/api/products')) return json(state.products ?? []);
@@ -236,5 +236,61 @@ describe('cobro: servicios agrupados por categoría', () => {
         render(<POS />);
         await addService('Bigote');
         expect(screen.getByRole('button', { name: /^Bigote/ })).toHaveAttribute('aria-pressed', 'true');
+    });
+});
+
+describe('cobro: descuento con PIN de quien autoriza', () => {
+    const withDiscount = async () => {
+        render(<POS />);
+        fireEvent.click(await screen.findByRole('button', { name: /Deya/ }));
+        await addService('Corte');
+        fireEvent.click(screen.getByRole('button', { name: 'Aplicar descuento' }));
+        fireEvent.change(screen.getByLabelText('Descuento para Corte'), { target: { value: '30' } });
+        fireEvent.change(screen.getByLabelText('Motivo del descuento'), { target: { value: 'Cliente frecuente' } });
+        fireEvent.change(screen.getByLabelText('Quién autoriza el descuento'), { target: { value: 'u-alonso' } });
+        const cobrar = screen.getByRole('button', { name: 'Cobrar $170' });
+        await waitFor(() => expect(cobrar).toBeEnabled());
+        fireEvent.click(cobrar);
+        return within(await screen.findByTestId('pin-confirm'));
+    };
+
+    it('pide el PIN de quien autoriza antes de enviar y manda la venta con ese PIN', async () => {
+        const api = mockApi({ authorizers: [{ user_id: 'u-alonso', name: 'Alonso' }] });
+        const dialog = await withDiscount();
+        expect(api.salesBodies).toHaveLength(0);
+        expect(dialog.getByText('Alonso confirma el descuento con su PIN. Queda en la bitácora.')).toBeInTheDocument();
+        const pin = dialog.getByLabelText('PIN de Alonso (6 números)');
+        expect(pin).toHaveAttribute('type', 'password');
+        fireEvent.change(pin, { target: { value: '482913' } });
+        fireEvent.click(dialog.getByRole('button', { name: /Autorizar y cobrar/ }));
+        await waitFor(() => expect(api.salesBodies).toHaveLength(1));
+        expect(api.salesBodies[0]).toMatchObject({ discount_reason: 'Cliente frecuente', discount_authorized_by: 'u-alonso', discount_pin: '482913' });
+        await waitFor(() => expect(screen.queryByTestId('pin-confirm')).not.toBeInTheDocument());
+    });
+
+    it('si el PIN es incorrecto la ventana se queda abierta con el mensaje y se puede reintentar', async () => {
+        const api = mockApi({
+            authorizers: [{ user_id: 'u-alonso', name: 'Alonso' }],
+            salesSeq: [{ status: 400, body: { error: 'El PIN de quien autoriza no es correcto.', pin_error: true } }, { status: 201, body: { sale_id: 's9' } }],
+        });
+        const dialog = await withDiscount();
+        fireEvent.change(dialog.getByLabelText('PIN de Alonso (6 números)'), { target: { value: '000001' } });
+        fireEvent.click(dialog.getByRole('button', { name: /Autorizar y cobrar/ }));
+        expect(await dialog.findByRole('alert')).toHaveTextContent('El PIN de quien autoriza no es correcto.');
+        expect(dialog.getByLabelText('PIN de Alonso (6 números)')).toHaveValue('');
+        fireEvent.change(dialog.getByLabelText('PIN de Alonso (6 números)'), { target: { value: '482913' } });
+        fireEvent.click(dialog.getByRole('button', { name: /Autorizar y cobrar/ }));
+        await waitFor(() => expect(api.salesBodies).toHaveLength(2));
+        await waitFor(() => expect(screen.queryByTestId('pin-confirm')).not.toBeInTheDocument());
+        // Misma venta: el reintento conserva la clave de idempotencia.
+        expect((api.salesBodies[0] as { idempotency_key: string }).idempotency_key).toBe((api.salesBodies[1] as { idempotency_key: string }).idempotency_key);
+    });
+
+    it('cancelar la ventana no registra la venta', async () => {
+        const api = mockApi({ authorizers: [{ user_id: 'u-alonso', name: 'Alonso' }] });
+        const dialog = await withDiscount();
+        fireEvent.click(dialog.getByRole('button', { name: 'Cancelar' }));
+        await waitFor(() => expect(screen.queryByTestId('pin-confirm')).not.toBeInTheDocument());
+        expect(api.salesBodies).toHaveLength(0);
     });
 });

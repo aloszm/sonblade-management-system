@@ -37,6 +37,9 @@ export interface DiscountAuthorizer { user_id: string; name: string }
 
 export interface LastSale { id: string | null; saleTotal: number; tip: number; total: number; barberName: string | null }
 
+/** Rechazo del PIN de quien autoriza: la ventana del PIN se queda abierta y muestra el mensaje. */
+export class DiscountPinError extends Error {}
+
 const cents = (value: number) => Math.round(value * 100);
 const lineList = (item: CartItem) => item.price * item.quantity;
 const lineDiscount = (item: CartItem) => Math.min(Math.max(item.discount ?? 0, 0), lineList(item));
@@ -70,6 +73,8 @@ export function usePOS() {
     const [discountReason, setDiscountReason] = useState('');
     const [discountAuthorizer, setDiscountAuthorizer] = useState('');
     const [authorizers, setAuthorizers] = useState<DiscountAuthorizer[]>([]);
+    // Con descuento, el cobro espera el PIN de quien autoriza (ventana PinConfirm).
+    const [discountPinOpen, setDiscountPinOpen] = useState(false);
     // Quién vendió los productos: gana su comisión. Puede ser un barbero o alguien de recepción.
     const [sellers, setSellers] = useState<{ id: string; name: string }[]>([]);
     const [productSellerChoice, setProductSellerChoice] = useState('');
@@ -342,7 +347,12 @@ export function usePOS() {
 
     const fail = (field: PosErrorField, message: string) => setError({ field, message });
 
-    const handleSubmit = async () => {
+    /**
+     * Cobra. Con descuento, la primera llamada (sin PIN) solo valida y abre la ventana del PIN de quien
+     * autoriza; la venta se envía con ese PIN. Si el servidor rechaza el PIN lanza DiscountPinError
+     * para que la ventana muestre el mensaje y se quede abierta.
+     */
+    const submit = async (discountPin?: string) => {
         if (submitting || !canCharge) return;
         if (cart.length === 0) return fail('cart', 'Agrega al menos un servicio o producto.');
         const badPrice = cart.find(invalidFreePrice);
@@ -364,6 +374,7 @@ export function usePOS() {
             if (serviceSplit.second === servicePayment) return fail('split', 'Elige dos formas de pago distintas para dividir.');
         }
         setError(null);
+        if (discountTotal > 0 && !discountPin) { setDiscountPinOpen(true); return; }
 
         setSubmitting(true);
         try {
@@ -387,20 +398,23 @@ export function usePOS() {
                         ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber?.id, discount_amount: lineDiscount(item), ...(item.variable_price ? { unit_price: item.price } : {}) }
                         : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [productSeller], discount_amount: lineDiscount(item) }),
                     payments,
-                    ...(discountTotal > 0 ? { discount_reason: discountReason.trim(), discount_authorized_by: discountAuthorizer } : {}),
+                    ...(discountTotal > 0 ? { discount_reason: discountReason.trim(), discount_authorized_by: discountAuthorizer, discount_pin: discountPin } : {}),
                     tips: tip > 0 && selectedBarber ? [{ employee_id: selectedBarber.id, amount: tip, method: tipPayment }] : [],
                     appointment_id: appointment?.id ?? null,
                 }),
             });
 
             if (!res.ok) {
-                const errData = await res.json().catch(() => null) as { error?: string } | null;
+                const errData = await res.json().catch(() => null) as { error?: string; pin_error?: boolean; needs_pin?: boolean } | null;
                 const message = errData?.error || 'No se pudo registrar la venta. Intenta de nuevo.';
+                if (discountPin && (errData?.pin_error || errData?.needs_pin)) throw new DiscountPinError(message);
+                setDiscountPinOpen(false);
                 if (res.status === 409 && /caja/i.test(message)) setCashStatus('closed');
                 setError({ field: 'server', message });
                 return;
             }
 
+            setDiscountPinOpen(false);
             const saved = await res.json().catch(() => null) as { sale_id?: string } | null;
             setLastSaleId(saved?.sale_id ?? null);
             idempotencyKey.current = null;
@@ -420,12 +434,18 @@ export function usePOS() {
             setShowSuccess(true);
             refreshCash();
         } catch (err) {
+            if (err instanceof DiscountPinError) throw err;
             console.error('Error creating sale:', err);
+            setDiscountPinOpen(false);
             setError({ field: 'server', message: 'No se pudo registrar la venta. Revisa tu conexión e intenta de nuevo.' });
         } finally {
             setSubmitting(false);
         }
     };
+
+    const handleSubmit = () => { void submit(); };
+    const confirmDiscountPin = (pin: string) => submit(pin);
+    const cancelDiscountPin = () => setDiscountPinOpen(false);
 
     const startNewSale = () => { setShowSuccess(false); setLastSale(null); };
     const setItemQuantity = (id: string, quantity: number) => {
@@ -453,14 +473,14 @@ export function usePOS() {
             services: services ?? [], products: products ?? [],
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
-            discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller,
+            discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, discountPinOpen, userId,
             appointment, appointmentError
         },
         actions: {
             setSelectedBarber: chooseBarber, setSelectedClient, setServicePayment: chooseServicePayment, setTipPayment: chooseTipPayment, setProductPayment: chooseProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
             setCart, setItemDiscount, setItemPrice, setDiscountReason: changeDiscountReason, setDiscountAuthorizer: changeDiscountAuthorizer, setProductSellerChoice: chooseSeller, startNewSale, setItemQuantity, setServiceSplit: changeSplit,
-            clearAppointment, refreshCash
+            clearAppointment, refreshCash, confirmDiscountPin, cancelDiscountPin
         }
     };
 }

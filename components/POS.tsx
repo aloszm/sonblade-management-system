@@ -8,6 +8,7 @@ import { useCountUp } from '@/hooks/useCountUp';
 import { groupServices, isTestName, formatDuration, type ServiceCategory } from '@/lib/services/categories';
 import { formatMoney } from '@/lib/utils/money';
 import { formatTime } from '@/lib/utils/dates';
+import PinConfirm from '@/components/ui/PinConfirm';
 
 const money = (n: number) => formatMoney(n);
 const METHODS: { id: PaymentType; label: string }[] = [
@@ -60,13 +61,17 @@ export default function POS() {
         clientSearch, submitting, showSuccess, lastSale, loadingBarbers, loadingServices,
         visibleBarbers, filteredClients, services, products, serviceItems, productItems, subtotal, total,
         discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, appointment, appointmentError,
+        discountPinOpen, userId,
         error, cashStatus, canCharge,
     } = state;
     const {
         setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment, setTip, setTipPayment,
         setClientSearch, addService, addProduct, removeFromCart, handleSubmit,
         setItemDiscount, setItemPrice, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setServiceSplit, clearAppointment,
+        confirmDiscountPin, cancelDiscountPin,
     } = actions;
+    const authorizerName = authorizers.find((a) => a.user_id === discountAuthorizer)?.name ?? 'quien autoriza';
+    const authorizerIsMe = Boolean(userId) && discountAuthorizer === userId;
 
     const [catalogFilter, setCatalogFilter] = React.useState('');
     const [category, setCategory] = React.useState<'all' | ServiceCategory>('all');
@@ -468,6 +473,18 @@ export default function POS() {
                     </>
                 )}
             </aside>
+            {discountPinOpen && (
+                <PinConfirm
+                    title="Autorizar descuento"
+                    subtitle={authorizerIsMe ? 'Confirma el descuento con tu PIN. Queda en la bitácora.' : `${authorizerName} confirma el descuento con su PIN. Queda en la bitácora.`}
+                    summary={<p>Descuento de <strong>{money(discountTotal)}</strong> · total a cobrar {money(total)}</p>}
+                    fixedComment={discountReason.trim()}
+                    pinLabel={authorizerIsMe ? 'Tu PIN (6 números)' : `PIN de ${authorizerName} (6 números)`}
+                    confirmLabel="Autorizar y cobrar"
+                    onConfirm={({ pin }) => confirmDiscountPin(pin)}
+                    onClose={cancelDiscountPin}
+                />
+            )}
         </div>
     );
 }

@@ -18,6 +18,10 @@ export interface PinConfirmProps {
     commentLabel?: string;
     commentPlaceholder?: string;
     confirmLabel?: string;
+    /** Texto bajo el título. Por omisión: "Se confirma con tu PIN y queda en la bitácora." */
+    subtitle?: string;
+    /** Etiqueta del campo del PIN; p. ej. "PIN de Alonso (6 números)" cuando autoriza otra persona. */
+    pinLabel?: string;
     /** Hace el cambio en el servidor; si falla, lanza un Error con el mensaje para la persona. */
     onConfirm: (input: { pin: string; comment: string }) => Promise<void>;
     onClose: () => void;
@@ -28,7 +32,7 @@ export interface PinConfirmProps {
  * gerencia). El PIN va enmascarado, nunca se guarda en el navegador y se borra si falla. El
  * servidor lo verifica y hace el cambio en la misma petición.
  */
-export default function PinConfirm({ title, summary, fixedComment, commentLabel = 'Comentario: ¿por qué haces este cambio?', commentPlaceholder = 'Ej: Llegó el pedido del proveedor', confirmLabel = 'Confirmar con PIN', onConfirm, onClose }: PinConfirmProps) {
+export default function PinConfirm({ title, summary, fixedComment, commentLabel = 'Comentario: ¿por qué haces este cambio?', commentPlaceholder = 'Ej: Llegó el pedido del proveedor', confirmLabel = 'Confirmar con PIN', subtitle = 'Se confirma con tu PIN y queda en la bitácora.', pinLabel = 'Tu PIN (6 números)', onConfirm, onClose }: PinConfirmProps) {
     const pinId = useId();
     const commentId = useId();
     const errorId = useId();
@@ -47,7 +51,7 @@ export default function PinConfirm({ title, summary, fixedComment, commentLabel 
             const problem = reasonProblem(finalComment, 'un comentario');
             if (problem) { setError(problem); return; }
         }
-        if (!/^\d{6}$/.test(pin)) { setError('Escribe tu PIN de 6 números.'); return; }
+        if (!/^\d{6}$/.test(pin)) { setError(pinLabel.startsWith('Tu PIN') ? 'Escribe tu PIN de 6 números.' : 'Escribe el PIN de 6 números.'); return; }
         setBusy(true);
         try {
             await onConfirm({ pin, comment: finalComment });
@@ -61,7 +65,7 @@ export default function PinConfirm({ title, summary, fixedComment, commentLabel 
 
     const field = 'w-full px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     return (
-        <Modal title={title} subtitle="Se confirma con tu PIN y queda en la bitácora." onClose={busy ? () => undefined : onClose} testId="pin-confirm">
+        <Modal title={title} subtitle={subtitle} onClose={busy ? () => undefined : onClose} testId="pin-confirm">
             <form onSubmit={submit} className="space-y-5" noValidate>
                 {summary && <div className="rounded-xl bg-bos-raised px-4 py-3 text-[15px]">{summary}</div>}
                 {fixedComment !== undefined ? (
@@ -75,7 +79,7 @@ export default function PinConfirm({ title, summary, fixedComment, commentLabel 
                     </div>
                 )}
                 <div className="space-y-2">
-                    <label htmlFor={pinId} className="text-[13px] font-medium text-bos-muted">Tu PIN (6 números)</label>
+                    <label htmlFor={pinId} className="text-[13px] font-medium text-bos-muted">{pinLabel}</label>
                     <div className="relative">
                         <KeyRound aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-bos-muted" />
                         <input id={pinId} type="password" inputMode="numeric" autoComplete="off" pattern="\d{6}" maxLength={6} required

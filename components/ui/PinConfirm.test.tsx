@@ -29,4 +29,17 @@ describe('PinConfirm', () => {
         expect(onConfirm).toHaveBeenCalledWith({ pin: '482913', comment: 'Depósito al banco' });
         expect(pin).toHaveValue('');
     });
+    it('cuando autoriza otra persona nombra su PIN y su leyenda', async () => {
+        const onConfirm = vi.fn(async () => undefined);
+        render(<PinConfirm title="Autorizar descuento" subtitle="Alonso confirma el descuento con su PIN. Queda en la bitácora."
+            pinLabel="PIN de Alonso (6 números)" fixedComment="Cliente frecuente" onClose={() => undefined} onConfirm={onConfirm} />);
+        expect(screen.getByText('Alonso confirma el descuento con su PIN. Queda en la bitácora.')).toBeInTheDocument();
+        expect(screen.queryByLabelText(/Tu PIN/)).toBeNull();
+        const pin = await screen.findByLabelText('PIN de Alonso (6 números)');
+        fireEvent.click(screen.getByRole('button', { name: /Confirmar con PIN/ }));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Escribe el PIN de 6 números.');
+        fireEvent.change(pin, { target: { value: '482913' } });
+        fireEvent.click(screen.getByRole('button', { name: /Confirmar con PIN/ }));
+        await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({ pin: '482913', comment: 'Cliente frecuente' }));
+    });
 });

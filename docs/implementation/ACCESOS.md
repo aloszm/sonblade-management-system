@@ -124,6 +124,12 @@ persona). Para producción, con la llave configurada, el dueño crea cada acceso
   - Gastos, retiros y entradas manuales hechos por gerencia: PIN; el concepto es el comentario
     (`record_cash_movement_confirmed`). Dueño y recepción siguen como antes.
   - Comisiones, puestos, horarios y accesos: sin cambios (comisiones solo el dueño).
-- **Pendiente tras publicar la app nueva:** las funciones antiguas `adjust_inventory_stock`, `set_inventory_minimum`
-  y `record_cash_movement` todavía aceptan a gerencia sin PIN (para no romper la versión publicada mientras se
-  despliega). Cuando la nueva esté en producción conviene cerrarlas para gerencia.
+- **Atajos cerrados (S5, migración `20261119175000_s5_close_legacy_admin_shortcuts`):** las funciones antiguas
+  `adjust_inventory_stock`, `set_inventory_minimum`, `record_cash_movement` y `set_cash_settings` rechazan a gerencia
+  (`admin`) con 42501 ("Como gerencia, … se confirma con tu PIN y un comentario."). Dueño, recepción y caja siguen igual.
+  Prueba: `supabase/tests/s5_legacy_closed.test.sql`.
+- **Descuentos** (migración `20261119180000`): quien autoriza escribe **su** PIN en la caja ("PIN de Alonso"). La venta
+  queda a nombre de quien cobra y el descuento a nombre de quien puso el PIN (autorización de un solo uso, 5 minutos,
+  hasta el monto del descuento). Si quien cobra puede autorizar, escribe su propio PIN.
+- **Anular una venta** (dueño y gerencia): motivo + PIN de quien anula (`reverse_sale_confirmed`).
+- Detalle, compatibilidad y la migración pendiente que cierra los caminos viejos: `FASE_4.md`, sección "B2".

@@ -5,6 +5,8 @@ import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { toSaleView, type SaleRow } from '@/lib/sales/sales-view';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { pinErrorResponse } from '@/lib/auth/pin-confirm';
+import { DISCOUNT_PIN_REQUIRED, discountTotalOf, issueDiscountApproval } from '@/lib/sales/discount-approval';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,8 +15,10 @@ const SaleSchema = z.object({
     client_id: z.string().uuid().nullable().optional(),
     notes: z.string().max(1000).optional(),
     discount_reason: z.string().trim().max(300).optional(),
-    // Quién autorizó el descuento (id de usuario). Si no llega, es quien cobra.
+    // Quién autoriza el descuento (id de usuario). Si no llega, es quien cobra.
     discount_authorized_by: z.string().uuid().nullable().optional(),
+    // PIN de quien autoriza el descuento: obligatorio si hay descuento. Nunca se guarda.
+    discount_pin: z.string().max(16).optional(),
     // Cita que se está cobrando (queda ligada y completada). Sin cita, la base registra el servicio en la agenda.
     appointment_id: z.string().uuid().nullable().optional(),
     // Propinas: son del barbero, no forman parte del total de la venta.
@@ -98,6 +102,27 @@ export async function POST(request: NextRequest) {
         const context = await requireAuthContext(FRONT_DESK_ROLES);
         const parsed = SaleSchema.safeParse(await request.json());
         if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400 });
+        const discount = discountTotalOf(parsed.data.items);
+        let approvalId: string | null = null;
+        if (discount > 0) {
+            // El descuento se firma con el PIN de quien autoriza (B2): primero la autorización de un
+            // solo uso, como esa persona; después la venta, a nombre de quien cobra.
+            const reason = (parsed.data.discount_reason ?? '').trim();
+            if (reason.length < 3) return Response.json({ error: 'Escribe el motivo del descuento.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+            if (!parsed.data.discount_pin) {
+                return Response.json({ error: DISCOUNT_PIN_REQUIRED, needs_pin: true }, { status: 428, headers: { 'Cache-Control': 'no-store' } });
+            }
+            const approval = await issueDiscountApproval({
+                cashier: { userId: context.userId, email: context.email },
+                authorizerUserId: parsed.data.discount_authorized_by ?? context.userId,
+                pin: parsed.data.discount_pin,
+                branchId: context.branchId,
+                maxAmount: discount,
+                reason,
+            });
+            if (!approval.ok) return pinErrorResponse(approval);
+            approvalId = approval.value;
+        }
         const supabase = await createSupabaseServerClient();
         const { data, error } = await supabase.rpc('confirm_sale', {
             p_branch_id: context.branchId,
@@ -108,7 +133,9 @@ export async function POST(request: NextRequest) {
             p_notes: parsed.data.notes ?? null,
             p_discount_reason: parsed.data.discount_reason || null,
             p_tips: parsed.data.tips ?? [],
-            p_discount_authorized_by: parsed.data.discount_authorized_by ?? null,
+            // El autorizador sale de la autorización firmada con PIN, no de lo que mande la caja.
+            p_discount_authorized_by: null,
+            p_discount_approval_id: approvalId,
             p_appointment_id: parsed.data.appointment_id ?? null,
         } as never);
         if (error) throw error;

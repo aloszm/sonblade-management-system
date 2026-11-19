@@ -4,10 +4,15 @@ import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib
 import { FRONT_DESK_READ_ROLES } from '@/lib/auth/roles';
 import { toTicket, type TicketSaleRow } from '@/lib/sales/ticket';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 
 export const dynamic = 'force-dynamic';
 
-const ReasonSchema = z.object({ reason: z.string().trim().min(3, 'Escribe el motivo de la anulación.').max(500) });
+const ReasonSchema = z.object({
+    reason: z.string().trim().min(3, 'Escribe el motivo de la anulación.').max(500),
+    // Anular se confirma con el PIN de quien anula (B2). Nunca se guarda.
+    pin: z.string().max(16).optional(),
+});
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -52,21 +57,30 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 /**
  * Anula una venta (RB-13: las ventas no se borran). La función de la base devuelve el dinero a la
  * caja abierta, regresa las existencias, revierte las comisiones y deja la huella en la auditoría.
- * Solo dueño y administrador.
+ * Solo dueño y administrador, siempre con su PIN: el servidor lo verifica en esta misma petición y la
+ * anulación la hace reverse_sale_confirmed con la sesión recién abierta (la base exige esa sesión
+ * reciente y de un solo uso). Queda en la bitácora como pin_confirmed_action con el motivo.
  */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(['owner', 'admin']);
         const id = z.string().uuid().safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Venta no encontrada.', 404);
         const body = ReasonSchema.safeParse(await request.json().catch(() => null));
         if (!body.success) {
             return Response.json({ error: body.error.issues[0]?.message ?? 'Escribe el motivo de la anulación.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
         }
-        const supabase = await createSupabaseServerClient();
-        const { data, error } = await supabase.rpc('reverse_sale', { p_sale_id: id.data, p_reason: body.data.reason } as never);
-        if (error) throw error;
-        return Response.json(data, { headers: { 'Cache-Control': 'no-store' } });
+        if (!body.data.pin) {
+            return Response.json({ error: 'Confirma con tu PIN para anular la venta.', needs_pin: true }, { status: 428, headers: { 'Cache-Control': 'no-store' } });
+        }
+        const reason = body.data.reason;
+        const outcome = await runWithPin(context, body.data.pin, async (client) => {
+            const { data, error } = await client.rpc('reverse_sale_confirmed', { p_sale_id: id.data, p_reason: reason });
+            if (error) throw error;
+            return data;
+        });
+        if (!outcome.ok) return pinErrorResponse(outcome);
+        return Response.json(outcome.value, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
         return authErrorResponse(error);
     }

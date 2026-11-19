@@ -87,8 +87,12 @@ test.describe('cobro', () => {
         const noReason = await page.request.post('/api/sales', { data: sale({}) });
         expect(noReason.status()).toBe(400);
 
-        // Un usuario que no existe en el negocio no puede figurar como quien autoriza.
-        const stranger = await page.request.post('/api/sales', { data: sale({ discount_reason: 'Prueba', discount_authorized_by: crypto.randomUUID() }) });
-        expect(stranger.status()).toBe(403);
+        // El descuento se confirma con el PIN de quien autoriza: sin PIN no se registra.
+        const noPin = await page.request.post('/api/sales', { data: sale({ discount_reason: 'Prueba', discount_authorized_by: crypto.randomUUID() }) });
+        expect(noPin.status()).toBe(428);
+
+        // Un usuario que no existe en el negocio no puede figurar como quien autoriza (ni se intenta su PIN).
+        const stranger = await page.request.post('/api/sales', { data: sale({ discount_reason: 'Prueba', discount_authorized_by: crypto.randomUUID(), discount_pin: '135790' }) });
+        expect(stranger.status()).toBe(400);
     });
 });
