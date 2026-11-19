@@ -295,6 +295,21 @@ Decisión del dueño: recepción (y caja) suma existencias cuando llega mercanc�
 - **Pendiente:** el enlace "Inventario" del menú sigue siendo solo de gerencia (`lib/nav.ts`, `roles: ['admin']`); falta agregar `'recepcion'`. Mientras, recepción entra escribiendo `/inventario`.
 - **Pendiente (base):** la política de lectura de `products` sigue permitiendo que recepción lea `cost_price` llamando directo a la base; ocultarlo del todo requiere una vista o permisos por columna.
 
+### B4 — Título visible por persona (19 nov; en desarrollo, falta replicar a producción)
+
+Decisión del dueño: Sonia (puesto `admin`, además barbera) se lee "Gerente Barbera". El sistema no guarda género, así que el título es un texto libre por persona.
+
+- Migración `20261119200000_employee_display_title` · prueba `supabase/tests/employee_display_title.test.sql` (16 casos).
+- `employees.display_title text` nula por omisión; restricción: recortada, 2 a 40 letras, sin saltos de línea ni caracteres de control. **No concede ni quita permisos.**
+- Mismo patrón que `can_authorize_discounts`: la columna NO se concede para `update`/`insert` directo a `authenticated` (gerencia sigue editando nombre y teléfono con su política); se cambia solo con `public.set_employee_display_title(p_employee_id, p_title)` (vacío o null la quita), que exige la cuenta principal (`owner`). Bitácora: `audit_row_change` de `employees`.
+- App: `personTitle({ role, displayTitle })` en `lib/auth/roles.ts` (y `sessionTitle` para la respuesta de `/api/auth/me`, que ahora trae `display_title`). Se usa en menú lateral, encabezado, Mi cuenta y Equipo (tarjetas y Accesos). En Equipo → Editar, solo la cuenta principal ve "Título visible (opcional)". `PATCH /api/barbers/[id]` acepta `display_title` (403 si no es la cuenta principal).
+- Cuentas sin fila de empleado (Alonso, Lucía) no tienen título propio: etiqueta por omisión.
+- **Dato (no va en la migración):** en desarrollo ya se cargó "Gerente Barbera" para Sonia. En producción, después de replicar la migración:
+  ```sql
+  update public.employees e set display_title = 'Gerente Barbera', updated_at = now()
+    from auth.users u where e.user_id = u.id and u.email = 'sonia@gallo-420.barberos.invalid';
+  ```
+
 ---
 
 ## 5. Procedimientos paso a paso (recetas)

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { KeyRound, LogOut } from 'lucide-react';
 import { ACCOUNT_ITEM, menuSections } from '@/lib/nav';
 import { useNavUser } from '@/hooks/useNavUser';
+import { sessionTitle } from '@/lib/auth/roles';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 import LogoutDialog from '@/components/LogoutDialog';
@@ -78,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                     </span>
                     <span className="min-w-0 flex-1 leading-tight">
                         <span className="block truncate text-sm font-medium">{user?.name ?? ''}</span>
-                        <span className="block text-xs text-bos-muted">{user?.title ?? ''}</span>
+                        <span className="block text-xs text-bos-muted">{sessionTitle(user)}</span>
                     </span>
                     <button type="button" onClick={handleLogout} aria-label="Cerrar sesión" title="Cerrar sesión"
                         className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-bos-muted hover:text-bos-text hover:bg-bos-raised transition-colors">

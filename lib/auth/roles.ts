@@ -69,6 +69,30 @@ export function roleTitle(role: BusinessRole): string {
     return ROLE_TITLES[role] ?? ROLE_TITLES.barber;
 }
 
+/** Largo permitido del título visible (igual que la restricción de la base). */
+export const DISPLAY_TITLE_MIN = 2;
+export const DISPLAY_TITLE_MAX = 40;
+
+/**
+ * Cómo se lee el puesto de UNA persona: su título visible (`employees.display_title`, p. ej.
+ * "Gerente Barbera") si lo tiene; si no, la etiqueta del puesto. Solo texto: no cambia permisos.
+ * Las cuentas sin fila de empleado (dueño, consulta) no tienen título propio.
+ */
+export function personTitle({ role, displayTitle }: { role: BusinessRole; displayTitle?: string | null }): string {
+    const custom = typeof displayTitle === 'string' ? displayTitle.trim() : '';
+    return custom.length >= DISPLAY_TITLE_MIN ? custom : roleTitle(role);
+}
+
+/**
+ * Título de la sesión que entrega /api/auth/me (menú, encabezado, Mi cuenta). Usa personTitle con el
+ * puesto interno y el título visible; si la respuesta no trae el puesto, usa el `title` ya calculado.
+ */
+export function sessionTitle(user: { businessRole?: BusinessRole | null; display_title?: string | null; title?: string | null } | null | undefined): string {
+    if (!user) return '';
+    if (user.businessRole) return personTitle({ role: user.businessRole, displayTitle: user.display_title });
+    return user.title ?? '';
+}
+
 /** Texto de una opción de puesto en un selector: distingue `owner` de `admin`, que se leen igual. */
 export function roleOptionLabel(role: BusinessRole): string {
     return isPrimaryAccount(role) ? `${roleTitle(role)} (${PRIMARY_ACCOUNT_LABEL})` : roleTitle(role);

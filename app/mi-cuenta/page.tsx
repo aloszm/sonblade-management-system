@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KeyRound, Loader2 } from 'lucide-react';
 import { PIN_PROBLEM_MESSAGES, checkNewPin } from '@/lib/auth/pin';
+import { sessionTitle } from '@/lib/auth/roles';
 
 type Me = { name: string; title: string; loginName: string | null; mustChangePin: boolean };
 
@@ -30,7 +31,7 @@ export default function MyAccountPage() {
 
     useEffect(() => {
         fetch('/api/auth/me', { cache: 'no-store' }).then((r) => r.json()).then((data) => {
-            if (data?.authenticated) setMe({ name: data.user.name, title: data.user.title, loginName: data.user.loginName ?? null, mustChangePin: Boolean(data.user.mustChangePin) });
+            if (data?.authenticated) setMe({ name: data.user.name, title: sessionTitle(data.user), loginName: data.user.loginName ?? null, mustChangePin: Boolean(data.user.mustChangePin) });
         }).catch(() => undefined);
     }, []);
 

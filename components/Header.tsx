@@ -7,12 +7,11 @@ import { Menu, ChevronDown, Plus, LogOut, KeyRound } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { PAGE_TITLES } from '@/lib/nav';
 import LogoutDialog from '@/components/LogoutDialog';
+import { sessionTitle } from '@/lib/auth/roles';
 
 interface HeaderProps {
   toggleSidebar: () => void;
 }
-
-const ROLE_LABELS: Record<string, string> = { admin: 'Administración', recepcion: 'Recepción', barber: 'Barbero' };
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const pathname = usePathname();
@@ -34,7 +33,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           setCanBook((data.user.role === 'admin' || data.user.role === 'recepcion') && !data.user.readOnly && !data.user.mustChangePin);
           setMustChangePin(Boolean(data.user.mustChangePin));
           setUserName(data.user.name);
-          setUserRole(data.user.title ?? data.user.role);
+          // Título de la persona (título visible o etiqueta del puesto), el mismo que en el menú.
+          setUserRole(sessionTitle(data.user));
         }
       })
       .catch(console.error);
@@ -95,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             <div className="absolute right-0 mt-2 w-52 bg-bos-surface border border-bos-control rounded-xl shadow-lg shadow-black/20 py-1 z-50">
               <div className="px-4 py-3 border-b border-bos-border">
                  <p className="text-sm font-semibold text-bos-text">{userName || 'Usuario'}</p>
-                 <p className="text-xs text-bos-muted">{ROLE_LABELS[userRole] ?? userRole}</p>
+                 <p className="text-xs text-bos-muted">{userRole}</p>
               </div>
 
               <Link href="/mi-cuenta" onClick={() => setMenuOpen(false)}

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         // Administración puede pedir también a los inactivos (para reactivarlos); el resto solo ve activos.
         const includeInactive = request.nextUrl.searchParams.get('include_inactive') === '1' && MANAGEMENT_READ_ROLES.includes(context.role);
         let query = (await createSupabaseServerClient()).from('employees')
-            .select('id, display_name, phone, is_active, is_barber, user_id, can_authorize_discounts')
+            .select('id, display_name, display_title, phone, is_active, is_barber, user_id, can_authorize_discounts')
             .eq('business_id', context.businessId).order('display_name');
         if (!includeInactive) query = query.eq('is_active', true);
         // Por omisión solo barberos (a quienes se asignan servicios y citas); scope=team incluye a recepción.
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         const { data, error } = await query;
         if (error) throw error;
         const showPhones = canSeeStaffPhones(context.role);
-        return NextResponse.json((data ?? []).map((row) => ({ id: row.id, name: row.display_name, phone: showPhones ? row.phone : null, status: row.is_active ? 'active' : 'inactive', hasAccount: Boolean(row.user_id), canAuthorizeDiscounts: row.can_authorize_discounts, isBarber: row.is_barber })), { headers: { 'Cache-Control': 'no-store' } });
+        return NextResponse.json((data ?? []).map((row) => ({ id: row.id, name: row.display_name, phone: showPhones ? row.phone : null, status: row.is_active ? 'active' : 'inactive', hasAccount: Boolean(row.user_id), canAuthorizeDiscounts: row.can_authorize_discounts, isBarber: row.is_barber, displayTitle: row.display_title ?? null })), { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) { return authErrorResponse(error); }
 }
 

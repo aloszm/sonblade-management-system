@@ -4,11 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
 import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck } from 'lucide-react';
-import { PRIMARY_ACCOUNT_BADGE, isPrimaryAccount, roleOptionLabel, roleTitle } from '@/lib/auth/roles';
+import { DISPLAY_TITLE_MAX, PRIMARY_ACCOUNT_BADGE, isPrimaryAccount, personTitle, roleOptionLabel } from '@/lib/auth/roles';
 import { suggestLoginName } from '@/lib/auth/login-id';
 import type { BusinessRole } from '@/lib/auth/context';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import Field from '@/components/ui/Field';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
@@ -23,7 +24,14 @@ interface BarberLive {
 }
 
 
-type Account = { userId: string; loginName: string | null; role: BusinessRole; isActive: boolean; mustChangePin: boolean; employeeId: string | null; name: string; isSelf: boolean; canManage: boolean };
+type Account = { userId: string; loginName: string | null; role: BusinessRole; isActive: boolean; mustChangePin: boolean; employeeId: string | null; displayTitle?: string | null; name: string; isSelf: boolean; canManage: boolean };
+/** Campos extra que /api/barbers entrega además de `Barber`. */
+type TeamMember = Barber & { isBarber?: boolean; displayTitle?: string | null };
+
+/** Cómo se lee una persona del equipo en su tarjeta: su título visible o Barbero/Recepción. */
+function memberTitle(member: TeamMember): string {
+    return personTitle({ role: member.isBarber === false ? 'receptionist' : 'barber', displayTitle: member.displayTitle });
+}
 type AccessData = { accounts: Account[]; assignableRoles: BusinessRole[]; adminKeyConfigured: boolean };
 type NewAccess = { employeeId: string | null; fullName: string; loginName: string; role: BusinessRole };
 
@@ -139,7 +147,7 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
                             <p className="font-semibold text-bos-text truncate">{account.name}{account.isSelf && <span className="text-bos-muted font-normal"> (tú)</span>}{isPrimaryAccount(account.role) && <span data-testid="primary-account-badge" className="ml-2 inline-block rounded-full border border-bos-border bg-bos-raised px-2 py-0.5 align-middle text-[11px] font-medium text-bos-muted">{PRIMARY_ACCOUNT_BADGE}</span>}</p>
                             <p className="text-sm text-bos-muted">
                                 {account.loginName ? <>usuario <strong className="text-bos-text">{account.loginName}</strong> · </> : 'sin usuario · '}
-                                {roleTitle(account.role)}
+                                {personTitle({ role: account.role, displayTitle: account.displayTitle })}
                                 {!account.isActive && <span className="text-bos-danger"> · desactivado</span>}
                                 {account.isActive && account.mustChangePin && <span> · debe cambiar su PIN</span>}
                             </p>
@@ -227,6 +235,8 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
 export default function TeamPage() {
     // Cuenta de consulta: ve al equipo y su rendimiento sin agregar, editar, cambiar horario ni desactivar.
     const readOnly = useReadOnly();
+    // Solo la cuenta principal ve y cambia el título visible (la base lo vuelve a exigir).
+    const [isOwner, setIsOwner] = useState(false);
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [liveStats, setLiveStats] = useState<BarberLive[]>([]);
     const [loading, setLoading] = useState(true);
@@ -239,7 +249,7 @@ export default function TeamPage() {
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
     const [scheduleFor, setScheduleFor] = useState<Barber | null>(null);
     const [accessFor, setAccessFor] = useState<Barber | null>(null);
-    const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true });
+    const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true, displayTitle: '' });
 
     const fetchBarbers = async () => {
         try {
@@ -261,6 +271,14 @@ export default function TeamPage() {
     };
 
     useEffect(() => {
+        let alive = true;
+        fetch('/api/auth/me', { cache: 'no-store' }).then((r) => r.json())
+            .then((data) => { if (alive) setIsOwner(Boolean(data?.authenticated && data.user?.businessRole === 'owner')); })
+            .catch(() => undefined);
+        return () => { alive = false; };
+    }, []);
+
+    useEffect(() => {
         fetchBarbers();
         fetchLiveStats();
         const interval = setInterval(fetchLiveStats, 30000);
@@ -275,7 +293,7 @@ export default function TeamPage() {
         try {
             const method = editingBarber ? 'PATCH' : 'POST';
             const url = editingBarber ? `/api/barbers/${editingBarber.id}` : '/api/barbers';
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status, can_authorize_discounts: formData.canAuthorizeDiscounts } : { is_barber: formData.isBarber }) }) });
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formData.name, phone: formData.phone || null, ...(editingBarber ? { status: formData.status, can_authorize_discounts: formData.canAuthorizeDiscounts, ...(isOwner ? { display_title: formData.displayTitle.trim() || null } : {}) } : { is_barber: formData.isBarber }) }) });
             if (res.ok) { setIsModalOpen(false); fetchBarbers(); fetchLiveStats(); toast.success('Cambios guardados.'); }
             else {
                 const body = await res.json().catch(() => null);
@@ -304,10 +322,10 @@ export default function TeamPage() {
         setFormError('');
         if (barber) {
             setEditingBarber(barber);
-            setFormData({ name: barber.name, phone: (barber as { phone?: string | null }).phone ?? '', status: barber.status === 'active' ? 'active' : 'inactive', canAuthorizeDiscounts: Boolean((barber as { canAuthorizeDiscounts?: boolean }).canAuthorizeDiscounts), isBarber: (barber as { isBarber?: boolean }).isBarber !== false });
+            setFormData({ name: barber.name, phone: (barber as { phone?: string | null }).phone ?? '', status: barber.status === 'active' ? 'active' : 'inactive', canAuthorizeDiscounts: Boolean((barber as { canAuthorizeDiscounts?: boolean }).canAuthorizeDiscounts), isBarber: (barber as { isBarber?: boolean }).isBarber !== false, displayTitle: (barber as TeamMember).displayTitle ?? '' });
         } else {
             setEditingBarber(null);
-            setFormData({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true });
+            setFormData({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true, displayTitle: '' });
         }
         setIsModalOpen(true);
     };
@@ -364,8 +382,8 @@ export default function TeamPage() {
                                             <span className={`${pill} ${active ? 'bg-bos-success-soft text-bos-success' : 'bg-bos-raised text-bos-muted border border-bos-border'}`}>
                                                 {active ? 'Activo' : 'Inactivo'}
                                             </span>
-                                            <span className={`${pill} bg-bos-raised text-bos-muted`}>
-                                                {(barber as { isBarber?: boolean }).isBarber === false ? 'Recepción' : 'Barbero'}
+                                            <span data-testid="member-title" className={`${pill} bg-bos-raised text-bos-muted`}>
+                                                {memberTitle(barber)}
                                             </span>
                                         </div>
                                     </div>
@@ -441,6 +459,11 @@ export default function TeamPage() {
                                     <option value="inactive">Inactivo (no aparece para vender)</option>
                                 </select>
                             </div>
+                        )}
+                        {editingBarber && isOwner && (
+                            <Field label="Título visible (opcional)" hint="Solo cambia cómo se lee el puesto; no cambia permisos. Ejemplo: Gerente Barbera."
+                                value={formData.displayTitle} maxLength={DISPLAY_TITLE_MAX} placeholder={memberTitle({ ...editingBarber, displayTitle: null })}
+                                onChange={e => setFormData({ ...formData, displayTitle: e.target.value.replace(/[\r\n]/g, ' ') })} />
                         )}
                         {editingBarber && (
                             <label className="flex items-start gap-3 text-sm text-bos-text bg-bos-bg border border-bos-border rounded-xl p-3 cursor-pointer">

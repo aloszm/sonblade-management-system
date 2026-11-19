@@ -6,7 +6,7 @@ vi.mock('@/lib/auth/context', () => ({
     requireAuthContext: async () => ({ userId: 'u1', businessId: 'b1', branchId: 'br1', role }),
     authErrorResponse: () => Response.json({ error: 'x' }, { status: 500 }),
 }));
-const ROWS = [{ id: 'e1', display_name: 'Barbero Uno', phone: '5559876543', is_active: true, is_barber: true, user_id: null, can_authorize_discounts: false }];
+const ROWS = [{ id: 'e1', display_name: 'Barbero Uno', display_title: null, phone: '5559876543', is_active: true, is_barber: true, user_id: null, can_authorize_discounts: false }];
 vi.mock('@/lib/supabase/server', () => {
     const chain: Record<string, unknown> = {};
     for (const name of ['select', 'eq', 'order']) chain[name] = () => chain;

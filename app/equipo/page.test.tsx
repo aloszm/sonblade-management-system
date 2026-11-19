@@ -41,6 +41,61 @@ describe('Equipo: puestos visibles', () => {
     });
 });
 
+describe('Equipo: título visible', () => {
+    function stubTitle(businessRole: 'owner' | 'admin') {
+        const calls: { url: string; method: string; body?: string }[] = [];
+        vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+            const u = String(url);
+            calls.push({ url: u, method: init?.method ?? 'GET', body: typeof init?.body === 'string' ? init.body : undefined });
+            if (u.includes('/api/auth/me')) return { ok: true, json: async () => ({ authenticated: true, user: { role: 'admin', businessRole } }) };
+            if (u.includes('/api/barbers?')) return { ok: true, json: async () => [{ id: 'b2', name: 'Sonia', status: 'active', isBarber: true, hasAccount: true, displayTitle: 'Gerente Barbera' }] };
+            if (u.includes('/api/accounts')) return { ok: true, json: async () => ({ ...TEAM, accounts: TEAM.accounts.map((a) => (a.userId === 'u2' ? { ...a, displayTitle: 'Gerente Barbera' } : a)) }) };
+            if (u.includes('/api/admin/summary')) return { ok: true, json: async () => ({ barberSummaries: [] }) };
+            return { ok: true, json: async () => ({}) };
+        }));
+        return calls;
+    }
+
+    it('Sonia se lee "Gerente Barbera" en su tarjeta y en Accesos; Alonso sigue "Gerente"', async () => {
+        stubTitle('admin');
+        render(<TeamPage />);
+        expect(await screen.findByTestId('member-title')).toHaveTextContent('Gerente Barbera');
+        const sonia = (await screen.findByText('sonia')).closest('li')!;
+        expect(sonia).toHaveTextContent('Gerente Barbera');
+        const alonso = screen.getByText('alonso').closest('li')!;
+        expect(alonso).toHaveTextContent('Gerente');
+        expect(alonso).not.toHaveTextContent('Barbera');
+    });
+
+    it('la cuenta principal ve el campo y lo envía al guardar', async () => {
+        const calls = stubTitle('owner');
+        render(<TeamPage />);
+        await screen.findByTestId('member-title');
+        await waitFor(() => expect(calls.some((c) => c.url.includes('/api/auth/me'))).toBe(true));
+        fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+        const input = await screen.findByLabelText('Título visible (opcional)');
+        expect(input).toHaveValue('Gerente Barbera');
+        expect(screen.getByText(/Solo cambia cómo se lee el puesto; no cambia permisos/)).toBeInTheDocument();
+        fireEvent.change(input, { target: { value: 'Gerente y Barbera' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+        await waitFor(() => expect(calls.some((c) => c.method === 'PATCH' && c.url.includes('/api/barbers/b2'))).toBe(true));
+        const sent = JSON.parse(calls.find((c) => c.method === 'PATCH')!.body!);
+        expect(sent.display_title).toBe('Gerente y Barbera');
+    });
+
+    it('gerencia no ve el campo ni envía el título', async () => {
+        const calls = stubTitle('admin');
+        render(<TeamPage />);
+        await screen.findByTestId('member-title');
+        fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+        await screen.findByRole('dialog', { name: 'Editar persona' });
+        expect(screen.queryByLabelText('Título visible (opcional)')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+        await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true));
+        expect(JSON.parse(calls.find((c) => c.method === 'PATCH')!.body!)).not.toHaveProperty('display_title');
+    });
+});
+
 describe('Equipo: errores, doble envío y confirmaciones', () => {
     it('si no carga el equipo muestra el error de conexión con Reintentar', async () => {
         stub({ barbersFail: true });

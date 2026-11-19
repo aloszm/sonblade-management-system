@@ -62,6 +62,25 @@ describe('Menú lateral', () => {
         expect(screen.getAllByRole('link').filter((l) => l.closest('nav'))).toHaveLength(1);
     });
 
+    it('con título visible muestra "Gerente Barbera" sin cambiar el menú de gerencia', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => ({ json: async () => ({ authenticated: true, user: {
+            id: 'e1', name: 'Sonia', role: 'admin', isOwner: false, businessRole: 'admin', title: 'Gerente Barbera', display_title: 'Gerente Barbera',
+        } }) })));
+        render(<Sidebar isOpen={true} />);
+        expect(await screen.findByText('Gerente Barbera')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Panel' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Configuración' })).not.toBeInTheDocument();
+    });
+
+    it('sin título visible muestra la etiqueta del puesto', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => ({ json: async () => ({ authenticated: true, user: {
+            id: 'u1', name: 'Alonso', role: 'admin', isOwner: true, businessRole: 'owner', title: 'Gerente', display_title: null,
+        } }) })));
+        render(<Sidebar isOpen={true} />);
+        expect(await screen.findByText('Gerente')).toBeInTheDocument();
+        expect(screen.queryByText('Gerente Barbera')).not.toBeInTheDocument();
+    });
+
     it('no renderiza nada cuando está cerrado', () => {
         const { container } = render(<Sidebar isOpen={false} />);
         expect(container.innerHTML).toBe('');

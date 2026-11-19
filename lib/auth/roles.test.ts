@@ -3,8 +3,28 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES, MANAGEMENT_READ_ROLES, MANAGEMENT_ROLES, READ_ONLY_ROLES,
-    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canWrite, isPrimaryAccount, isReadOnlyRole, readerRole, roleLabel, roleOptionLabel, roleTitle, screenRole,
+    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canWrite, isPrimaryAccount, isReadOnlyRole, personTitle, readerRole, roleLabel, roleOptionLabel, roleTitle, screenRole, sessionTitle,
 } from './roles';
+
+describe('personTitle: título visible por persona', () => {
+    it('usa el título visible cuando existe (solo texto, el puesto interno no cambia)', () => {
+        expect(personTitle({ role: 'admin', displayTitle: 'Gerente Barbera' })).toBe('Gerente Barbera');
+        expect(personTitle({ role: 'barber', displayTitle: '  Barbera  ' })).toBe('Barbera');
+    });
+    it('sin título (nulo, vacío o de una letra) usa la etiqueta del puesto', () => {
+        expect(personTitle({ role: 'admin' })).toBe('Gerente');
+        expect(personTitle({ role: 'admin', displayTitle: null })).toBe('Gerente');
+        expect(personTitle({ role: 'owner', displayTitle: '   ' })).toBe('Gerente');
+        expect(personTitle({ role: 'viewer', displayTitle: 'X' })).toBe('Consulta');
+        expect(personTitle({ role: 'receptionist', displayTitle: undefined })).toBe('Recepción');
+    });
+    it('sessionTitle usa el puesto y el título de /api/auth/me, o el title ya calculado', () => {
+        expect(sessionTitle({ businessRole: 'admin', display_title: 'Gerente Barbera', title: 'Gerente' })).toBe('Gerente Barbera');
+        expect(sessionTitle({ businessRole: 'owner', display_title: null })).toBe('Gerente');
+        expect(sessionTitle({ title: 'Recepción' })).toBe('Recepción');
+        expect(sessionTitle(null)).toBe('');
+    });
+});
 
 describe('reglas de puestos', () => {
     it('la consulta lee lo de gerencia y lo de mostrador', () => {

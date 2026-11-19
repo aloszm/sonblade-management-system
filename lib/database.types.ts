@@ -1259,6 +1259,7 @@ export type Database = {
           can_authorize_discounts: boolean
           created_at: string
           display_name: string
+          display_title: string | null
           id: string
           is_active: boolean
           is_barber: boolean
@@ -1272,6 +1273,7 @@ export type Database = {
           can_authorize_discounts?: boolean
           created_at?: string
           display_name: string
+          display_title?: string | null
           id?: string
           is_active?: boolean
           is_barber?: boolean
@@ -1285,6 +1287,7 @@ export type Database = {
           can_authorize_discounts?: boolean
           created_at?: string
           display_name?: string
+          display_title?: string | null
           id?: string
           is_active?: boolean
           is_barber?: boolean
@@ -2502,6 +2505,10 @@ export type Database = {
       }
       set_employee_discount_permission: {
         Args: { p_allowed: boolean; p_employee_id: string }
+        Returns: Json
+      }
+      set_employee_display_title: {
+        Args: { p_employee_id: string; p_title: string }
         Returns: Json
       }
       set_employee_schedule: {

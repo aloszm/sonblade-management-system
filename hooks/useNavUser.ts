@@ -2,8 +2,10 @@
 
 import React from 'react';
 import type { NavUser } from '@/lib/nav';
+import type { BusinessRole } from '@/lib/auth/context';
 
-export type SessionUser = NavUser & { name: string; id: string; title?: string };
+/** Lo que /api/auth/me entrega para menús. `display_title`: título visible propio (p. ej. "Gerente Barbera"), o null. */
+export type SessionUser = NavUser & { name: string; id: string; title?: string; businessRole?: BusinessRole; display_title?: string | null };
 
 /** Quién es la sesión (para menús). null hasta saberlo o si no hay sesión. */
 export function useNavUser(): SessionUser | null {

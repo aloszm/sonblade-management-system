@@ -19,14 +19,14 @@ export async function GET() {
         const supabase = await createSupabaseServerClient();
         const [{ data: members, error }, { data: employees }] = await Promise.all([
             supabase.from('business_memberships').select('user_id, role, is_active, login_name, must_change_pin').eq('business_id', context.businessId).order('created_at'),
-            supabase.from('employees').select('id, user_id, display_name').eq('business_id', context.businessId),
+            supabase.from('employees').select('id, user_id, display_name, display_title').eq('business_id', context.businessId),
         ]);
         if (error) throw error;
         const accounts = (members ?? []).map((m) => {
             const employee = (employees ?? []).find((e) => e.user_id === m.user_id);
             return {
                 userId: m.user_id, loginName: m.login_name, role: m.role, isActive: m.is_active, mustChangePin: m.must_change_pin,
-                employeeId: employee?.id ?? null, name: employee?.display_name ?? (m.user_id === context.userId ? context.displayName : m.login_name ?? 'Sin nombre'),
+                employeeId: employee?.id ?? null, displayTitle: employee?.display_title ?? null, name: employee?.display_name ?? (m.user_id === context.userId ? context.displayName : m.login_name ?? 'Sin nombre'),
                 isSelf: m.user_id === context.userId, canManage: m.user_id !== context.userId && canManageAccount(context.role, m.role),
             };
         });
