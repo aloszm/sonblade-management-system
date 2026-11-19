@@ -5,6 +5,7 @@ import { bookingApi } from '@/lib/booking-ui/api';
 import type { BookingError } from '@/lib/booking-ui/errors';
 import { formatWait } from '@/lib/booking-ui/errors';
 import { validateName, validatePhone } from '@/lib/booking-ui/validation';
+import { PRIVACY_NOTICE_VERSION, PRIVACY_SIMPLIFIED } from '@/lib/booking-ui/privacy';
 import type { BookingConfig, BookingService, BookingSummary } from '@/lib/booking-ui/types';
 import BookingCard from './BookingCard';
 import type { Selection } from './WhenStep';
@@ -91,13 +92,25 @@ export default function DetailsStep({ config, service, sel, onBack, onDone, onSl
                     <label htmlFor="bk-phone" className="mb-1 block text-sm font-medium text-bos-text">Tu teléfono (10 dígitos)</label>
                     <input id="bk-phone" name="tel" type="tel" inputMode="tel" autoComplete="tel-national" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20}
                         aria-invalid={!!errors.phone} aria-describedby={errors.phone ? 'bk-phone-err' : 'bk-phone-hint'} className={input(errors.phone)} placeholder="55 1234 5678" />
-                    <p id="bk-phone-hint" className="mt-1 text-xs text-bos-muted">Solo lo usamos para confirmar o cancelar tu cita.</p>
+                    <p id="bk-phone-hint" className="mt-1 text-xs text-bos-muted">Solo lo usamos para gestionar tu cita (confirmación y recordatorio por WhatsApp).</p>
                     {fieldErr('bk-phone-err', errors.phone)}
                 </div>
 
                 {/* Campo trampa: las personas no lo ven ni lo llenan; los robots sí. */}
                 <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
                     <label>Sitio web<input type="text" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} /></label>
+                </div>
+
+                <div data-testid="privacy-summary" className="rounded-xl border border-bos-border bg-bos-surface p-3 text-sm text-bos-text">
+                    <p>Al reservar aceptas el <a href={config.privacy.url} target="_blank" rel="noopener noreferrer" className="font-medium text-bos-accent-text underline underline-offset-2">aviso de privacidad</a>: usaremos tu nombre y teléfono solo para gestionar tu cita. No usamos tus datos para publicidad.</p>
+                    <details className="mt-2">
+                        <summary className="min-h-11 cursor-pointer py-2 text-bos-accent-text">Ver resumen del aviso (versión {PRIVACY_NOTICE_VERSION})</summary>
+                        <dl className="space-y-2 pb-1 text-xs text-bos-muted">
+                            {PRIVACY_SIMPLIFIED.map((r) => (
+                                <div key={r.label}><dt className="font-semibold text-bos-text">{r.label}</dt><dd>{r.text}</dd></div>
+                            ))}
+                        </dl>
+                    </details>
                 </div>
 
                 <div>

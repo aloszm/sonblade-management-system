@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
+import Link from 'next/link';
 import BrandLogo from '@/components/BrandLogo';
 import { PRACTICE_LOGIN_NOTE, isPracticeMode } from '@/lib/app-mode';
 
@@ -69,7 +70,7 @@ export default function LoginPage() {
 
     const input = 'w-full h-14 px-4 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     return (
-        <main className="min-h-screen flex items-center justify-center bg-bos-bg text-bos-text px-4 py-8">
+        <main className="min-h-screen flex flex-col items-center justify-center bg-bos-bg text-bos-text px-4 py-8">
             <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-bos-border bg-bos-surface p-6 sm:p-8">
                 <div className="mb-8 flex flex-col items-center text-center">
                     <h1 className="sr-only">{CLIENT_NAME} · {CLIENT_TAGLINE}</h1>
@@ -92,6 +93,7 @@ export default function LoginPage() {
                 <p className="mt-5 text-center text-[13px] text-bos-muted">¿Olvidaste tu PIN? Pídele a gerencia que lo restablezca.</p>
                 {isPracticeMode() && <p data-testid="practice-login-note" className="mt-3 text-center text-[13px] font-semibold text-bos-text">{PRACTICE_LOGIN_NOTE}</p>}
             </form>
+            <Link href="/privacidad" className="mt-4 inline-flex min-h-11 items-center text-[13px] text-bos-muted underline underline-offset-2">Aviso de privacidad</Link>
         </main>
     );
 }

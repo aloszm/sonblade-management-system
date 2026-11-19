@@ -92,6 +92,6 @@ describe('errores', () => {
 
 describe('aviso de privacidad', () => {
     it('no deja campos por completar a la vista', () => {
-        for (const s of PRIVACY_SECTIONS) expect(`${s.title} ${s.body}`).not.toMatch(/POR COMPLETAR|\[|\]/);
+        for (const s of PRIVACY_SECTIONS) expect(`${s.title} ${s.paragraphs.join(' ')} ${(s.items ?? []).join(' ')}`).not.toMatch(/POR COMPLETAR|\[|\]/);
     });
 });

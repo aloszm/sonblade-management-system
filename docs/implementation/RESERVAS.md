@@ -4,7 +4,7 @@ El cliente elige servicio, barbero (o "cualquiera") y hora desde el celular, dej
 de privacidad y recibe un enlace para ver o cancelar su reserva. La cita aparece en la agenda interna con
 `source = 'online'`.
 
-Responsable de los datos: **Barbería Gallo 420**, contacto **barberia.gallo420@gmail.com** (aviso en `/privacidad`).
+Responsable de los datos: **Gallo 4:20 Barber Shop**, contacto **barberia.gallo420@gmail.com** (aviso integral v1.0 en `/privacidad`; texto fuente en `docs/legal/aviso-de-privacidad.md`). Al encender las reservas, fijar `settings.booking.privacy_version` en `1.0` para que la versión guardada coincida con la publicada.
 
 ## Cómo funciona
 
