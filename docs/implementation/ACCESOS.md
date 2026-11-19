@@ -37,9 +37,9 @@ Cada quien puede cambiar su PIN; si lo olvida, gerencia se lo restablece.
 | Variable | Para qué | Sin ella |
 | --- | --- | --- |
 | `SUPABASE_SECRET_KEY` (o `SUPABASE_SERVICE_ROLE_KEY`) | Bloqueo por intentos (solo el servidor lo consulta y escribe), crear acceso, restablecer PIN, reservas en línea | **Nadie puede entrar**: el inicio de sesión responde 503 "El acceso no está configurado en el servidor." (falla cerrado, nunca entra sin bloqueo). Tampoco funcionan Mi cuenta, crear acceso, restablecer PIN ni las reservas en línea. |
-| `PIN_PEPPER` | Secreto con el que se deriva la contraseña guardada en Supabase a partir del PIN | Igual: 503 en inicio de sesión, cambio de PIN, alta y restablecimiento. |
+| `PIN_PEPPER` (ya no aplica) | **No se usa desde el 17 nov**: el pepper vive dentro de cada base (ver `PRODUCCION.md`). No la agregues en Vercel. | — |
 
-Ambas solo en el servidor (nunca con `NEXT_PUBLIC_`), marcadas **Sensitive** en Vercel.
+La llave secreta solo en el servidor (nunca con `NEXT_PUBLIC_`), marcada **Sensitive** en Vercel.
 
 ### La contraseña en Supabase ya no es el PIN
 
@@ -82,7 +82,7 @@ contraseña); la única puerta es `/api/auth/login`, que sí bloquea.
      producción con la de producción, vista previa con la de desarrollo).
    - **Nunca** con el prefijo `NEXT_PUBLIC_`: eso la mandaría al navegador.
 4. Vuelve a desplegar (Deployments → Redeploy) para que tome la variable.
-5. Agrega igual `PIN_PEPPER` (Sensitive, solo servidor): `openssl rand -hex 32`, uno distinto por entorno.
+5. **No agregues `PIN_PEPPER`.** Desde el 17 nov el pepper vive en la base; una variable extra en Vercel no coincidiría y ningún PIN funcionaría.
 6. Prueba: inicia sesión y, en Equipo → Accesos a la app, *Restablecer PIN* a una cuenta de prueba.
 
 ## Primer arranque en producción

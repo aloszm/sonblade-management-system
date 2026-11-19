@@ -1,6 +1,6 @@
 # BarberOS — Fase 4: arranque en producción, estabilidad y mejoras
 
-**Fecha:** 18 de noviembre de 2026.
+**Fecha:** 19 de noviembre de 2026 (noche).
 **Estado:** las Fases 1, 2 y 3 están cerradas. Este documento es **la única lista de trabajo vigente**.
 **Para quién:** cualquier persona o modelo (Opus, Sonnet o Haiku) que retome el proyecto, o que deba auditar lo hecho.
 
@@ -44,25 +44,27 @@ Cada tarea de la sección 4 dice qué modelo conviene. Haiku puede hacer todas l
 
 ---
 
-## 1. Estado al 18 de noviembre de 2026 (verificado, no de memoria)
+## 1. Estado al 19 de noviembre de 2026, noche (verificado, no de memoria)
 
 ### 1.1 En una frase
 
-La versión 2 **está publicada en producción**, con la base de producción cargada con los datos reales, pero **nadie puede iniciar sesión todavía** porque falta un paso del dueño en Vercel (sección 3, paso 1).
+La versión 2 **está publicada en producción**, con la base de producción cargada con los datos reales. **El dueño (`alonso`) ya inició sesión el 19 de noviembre y cambió su PIN.** Las otras 6 cuentas siguen con PIN temporal, así que todavía no entra el resto del equipo. Hay además un **entorno de práctica** (sección 2.1) para ensayar sin dinero real.
 
-### 1.2 Verificado el 18 de noviembre con consultas reales
+### 1.2 Verificado el 19 de noviembre (lo marcado "al 18 nov" es de la revisión anterior)
 
 | Qué | Valor | Cómo se verificó |
 |---|---|---|
-| Base `gallo420-prod` | 1 negocio, 15 servicios activos, 4 productos, 7 cuentas, **0 ventas, 0 cajas** | Consulta SQL por la API de Supabase |
-| Cuentas con PIN temporal pendiente de cambiar | 7 de 7 | `business_memberships.must_change_pin` |
-| Migraciones | 65 en producción y 65 en desarrollo; la última en ambas es `20261117180507_cash_reasons_and_pin_confirmation` | `supabase_migrations.schema_migrations` |
-| Registro público en Supabase Auth | Apagado (`disable_signup = true`) | API de configuración de Auth |
-| Protección contra contraseñas filtradas | Apagada (requiere plan Pro) | Ídem |
-| Esquemas expuestos por la API | `public, graphql_public` (debería ser solo `public`, ver 3.2) | API de PostgREST |
-| Última publicación de producción | `3de14f5` en `main`, estado READY | Vercel |
+| Base `gallo420-prod` | 1 negocio, 15 servicios activos, 4 productos, 7 cuentas, **0 ventas reales** (0 cajas al 18 nov) | Consulta SQL por la API de Supabase |
+| Cuentas con PIN temporal pendiente de cambiar | 6 de 7 (`alonso` ya cambió el suyo el 19 nov) | `business_memberships.must_change_pin` |
+| Migraciones | 69 en producción y 69 en desarrollo; la última en ambas es `20261119200000_employee_display_title` | `supabase_migrations.schema_migrations` (consulta del 19 nov) |
+| Inicio de sesión del dueño | `alonso` entró el 19 nov y cambió su PIN | Dato del dueño, 19 nov |
+| Respaldo semanal y visita diaria en GitHub | Primera ejecución correcta el 19 nov, a la tercera vez (artefacto `respaldo-gallo420`) | GitHub Actions |
+| Registro público en Supabase Auth | Apagado (`disable_signup = true`) (al 18 nov) | API de configuración de Auth |
+| Protección contra contraseñas filtradas | Apagada (requiere plan Pro) (al 18 nov) | Ídem |
+| Esquemas expuestos por la API | `public, graphql_public` (debería ser solo `public`, ver 3.2) (al 18 nov) | API de PostgREST |
+| Última publicación de producción | `b1b89f3` en `main`, estado READY; `/api/health` responde `ok: true` en producción y en práctica (verificado el 19 nov, 20:28 UTC) | Vercel |
 | Pruebas automáticas | 500 de 500 pasan; tipos, lint y compilación sin errores | Ejecutadas el 17 de noviembre |
-| Variable `SUPABASE_SECRET_KEY` de Production | **Todavía es la llave de desarrollo** → el inicio de sesión responde 503 | Registro de errores de Vercel del 17 nov: `[login] falta SUPABASE_SECRET_KEY o PIN_PEPPER en el servidor` |
+| Variable `SUPABASE_SECRET_KEY` de Production | **Ya es la de `gallo420-prod`** (la cambió el dueño el 19 nov); el inicio de sesión del dueño funciona | Cambio del dueño, 19 nov |
 
 ### 1.3 Qué funciona (en código, en las dos bases)
 
@@ -75,13 +77,35 @@ La versión 2 **está publicada en producción**, con la base de producción car
 - Finanzas (utilidad real), Reportes (14 secciones, PDF y Excel), Cuadre con acciones, Ranking (cortes, ingreso, productos).
 - "Mi semana" del barbero, "Barberos hoy" para recepción, Lucía en modo consulta (solo lectura).
 - Usuario + PIN de 6 dígitos (sin correos reales), bloqueo por intentos, cambio de PIN obligatorio la primera vez.
-- Reservas en línea: **programadas pero apagadas** en producción (`booking.enabled = false`) hasta revisar el aviso de privacidad.
+- Reservas en línea: **encendidas en práctica** (`/reservar` del entorno de práctica) y **apagadas en producción** (`booking.enabled = false`) por decisión del dueño; ver `RESERVAS.md`.
+- **Nuevo (18–19 nov):** componentes base de interfaz, errores visibles con botón de reintento y confirmaciones propias (en vez de ventanas del navegador).
+- **Nuevo (19 nov):** modo práctica: franja "MODO PRÁCTICA", pestaña con "PRÁCTICA ·", marca "PRÁCTICA — SIN VALOR" en tickets (ver `PRODUCCION.md`).
+- **Nuevo (19 nov):** descuento confirmado con el PIN de quien autoriza, y anulación de venta con PIN y motivo (B2).
+- **Nuevo (19 nov):** recepción registra entradas de inventario con comentario y su PIN (`receive_inventory_stock`, tope de 500 por entrada; no ve costos) (B3).
+- **Nuevo (19 nov):** "Título visible" por persona (`employees.display_title`). Solo la cuenta principal lo cambia. Sonia = "Gerente Barbera". En pantalla, el puesto `owner` se lee "Gerente" con la insignia "Cuenta principal" (B4).
+- **Nuevo (19 nov):** los teléfonos de empleados se filtran en el servidor según el puesto (`lib/auth/privacy.ts`, S8).
+- **Nuevo (19 nov):** `/api/health` prueba la llave secreta; pantalla **Configuración → Estado del sistema** (solo dueño). Respaldo semanal y visita diaria en GitHub.
+- **Nuevo (19 nov):** aviso de privacidad v1.0 publicado en `/privacidad` (D6).
 
 ### 1.4 Qué NO se ha verificado nunca (honestidad)
 
-- **Nadie ha usado la versión 2 con sesión iniciada en producción.** Todo lo de arriba se probó con pruebas unitarias, pruebas SQL revertidas y capturas con datos simulados.
-- La confirmación con PIN contra Supabase Auth real (el código y la base están probados por separado; el flujo completo no).
-- Las pruebas de navegador (e2e): no hay una base de pruebas que se pueda reiniciar ni cuentas de prueba con PIN conocido.
+- **Solo el dueño ha entrado a la versión 2** (19 nov). El resto del equipo aún no ha iniciado sesión en producción. Las funciones nuevas (descuento y anulación con PIN, entradas de inventario, título visible, aviso de privacidad) **no se han probado en un navegador con sesión real**; se probaron con pruebas unitarias, pruebas SQL revertidas y capturas con datos simulados.
+- La confirmación con PIN contra Supabase Auth real: el código y la base están probados por separado; el flujo completo, incluido el descuento con un PIN real, no.
+- Las pruebas de navegador (e2e): no hay una base de pruebas que se pueda reiniciar ni cuentas de prueba con PIN conocido (4.3).
+- **La restauración de un respaldo nunca se ha probado.** El respaldo existe (artefacto `respaldo-gallo420`), pero nadie lo ha cargado en una base vacía (`PRODUCCION.md`, "Cómo restaurar un respaldo").
+- **El aviso de privacidad no fue cotejado contra el texto oficial de la ley ni revisado por un abogado** (ver `docs/legal/aviso-de-privacidad-notas.md`).
+
+### 1.5 Decisiones del dueño (19 de noviembre de 2026)
+
+- **Pago al equipo:** adelantos y préstamos, descuentos y bonos por metas. **No hay sueldo fijo.**
+- **WhatsApp:** con un clic desde recepción. **Sin API de Meta.**
+- **Gastos:** se pagan del apartado (en efectivo, o por transferencia o tarjeta). **No salen de la caja del día.**
+- **Planes:** seguir en planes gratuitos por ahora (ver O1 y O2 en la sección 3.3).
+- **Lucía** conserva acceso de consulta (solo lectura).
+- **Responsable del aviso de privacidad:** "Gallo 4:20 Barber Shop".
+- **Teléfono del cliente:** se usa solo para gestionar su cita.
+- **Entorno de práctica:** usa la base de desarrollo (`sonblade-dev`) con datos simulados.
+- **Recepción:** solo registra entradas de inventario (B3); no resta, no corrige a la baja y no ve costos.
 
 ---
 
@@ -94,9 +118,12 @@ La versión 2 **está publicada en producción**, con la base de producción car
 | Código | GitHub `aloszm/sonblade-management-system` | — |
 | Producción (rama) | `main` → Vercel la publica sola en cada push | — |
 | Vista previa (rama) | `feat/v2-integration` → Vercel Preview, conectada a la base de desarrollo | — |
-| Rama de trabajo de las sesiones de Claude | `claude/gallant-euler-yuh7gb` (hoy idéntica a `main`) | — |
+| Ramas de trabajo de las sesiones de Claude | `claude/gallant-euler-yuh7gb`; `claude/festive-albattani-6m7edx` (documentación del 19 nov) | — |
 | Aplicación (Vercel) | Proyecto `sonblade-management-system`, equipo `alonsoszm-3123's projects`, plan Hobby | `prj_ivBoRBfvlLMg6fxdpXbtFlVgchBe`, `team_R9bIMN71wbutgyORbCTp2SrY` |
-| Dirección de producción | https://sonblade-management-system-alonsoszm-3123s-projects.vercel.app | Pública (la protección de Vercel quedó solo para Preview) |
+| Dirección de producción | https://barbergallo420.site (`www.barbergallo420.site` redirige ahí). La dirección larga de Vercel sigue funcionando: https://sonblade-management-system-alonsoszm-3123s-projects.vercel.app | Pública (la protección de Vercel quedó solo para Preview) |
+| Dominio | `barbergallo420.site`, registrado en Hostinger. DNS en Hostinger: registro A `@` → 216.198.79.1; CNAME `www` y CNAME `practica` hacia los destinos que muestra el panel de Vercel del proyecto (no hace falta copiarlos). Certificado HTTPS emitido por Vercel | — |
+| Dirección de práctica | https://practica.barbergallo420.site (también https://gallo420-practica.vercel.app) | Ver 2.2b |
+| Proyecto de práctica (Vercel) | `gallo420-practica`, id `prj_m3q1KwDJMXmq2Q5jLdV343VnmaoW`; conectado a `sonblade-dev`, `NEXT_PUBLIC_APP_MODE=practice`; se publica desde `main` | — |
 | Base de producción | Supabase `gallo420-prod`, us-east-1, plan gratuito | ref `hwvebwrtuyreraugjinl` |
 | Base de desarrollo | Supabase `sonblade-dev` | ref `zkvikttnpjwzfsygkdot` |
 | Base de la versión 1 | Supabase `sonblade_mvp`, **pausada**; nadie la usa | No tocar sin permiso del dueño |
@@ -107,12 +134,25 @@ La versión 2 **está publicada en producción**, con la base de producción car
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | URL de `gallo420-prod` ✅ | URL de `sonblade-dev` ✅ | pública |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | publicable de `gallo420-prod` ✅ | publicable de `sonblade-dev` ✅ | pública |
-| `SUPABASE_SECRET_KEY` | **❌ hoy tiene la de desarrollo; debe ser la de `gallo420-prod`** | secreta de `sonblade-dev` ✅ | Sensitive |
+| `SUPABASE_SECRET_KEY` | ✅ la de `gallo420-prod` (cambiada el 19 nov) | secreta de `sonblade-dev` ✅ | Sensitive |
 | `PIN_PEPPER` | **NO debe existir** (el pepper vive en cada base) | NO debe existir | — |
 | `ADMIN_PIN`, `ADMIN_USER`, `JWT_SECRET` | Restos de la versión 1: **borrar** (ver 3.2) | Restos: borrar | — |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` (globales) | ya no aplican a Production | Restos de la v1 en Preview y Development: borrar cuando la v1 se elimine | — |
 
 > Recordatorio técnico: Vercel lee las variables **al publicar**. Después de cambiar una variable hay que hacer **Redeploy**; si no, la publicación vieja sigue con el valor viejo.
+
+### 2.2b Variables del proyecto de práctica (`gallo420-practica`)
+
+Un proyecto de Vercel aparte, con sus propias variables. Las tres de Supabase deben ser de `sonblade-dev`. Detalle y advertencia: `PRODUCCION.md`, "Entorno de práctica".
+
+| Variable | Valor |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | la de `sonblade-dev` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | la publicable de `sonblade-dev` |
+| `SUPABASE_SECRET_KEY` | la secreta de `sonblade-dev` (Sensitive) |
+| `NEXT_PUBLIC_APP_MODE` | `practice` |
+
+Nunca debe apuntar a `gallo420-prod`. `NEXT_PUBLIC_APP_MODE` se incrusta al compilar: si cambia, hay que volver a desplegar.
 
 ### 2.3 Archivos clave del código
 
@@ -127,17 +167,21 @@ La versión 2 **está publicada en producción**, con la base de producción car
 | Dinero y fechas | `lib/utils/money.ts`, `lib/utils/dates.ts` (zona horaria del negocio) |
 | Clientes de Supabase | `lib/supabase/server.ts` (con sesión), `lib/supabase/admin.ts` (llave secreta, solo servidor) |
 | Tipos de la base | `lib/database.types.ts` (regenerar cuando cambie la base) |
-| Migraciones | `supabase/migrations/` (65 archivos) |
+| Migraciones | `supabase/migrations/` (69 archivos) |
 | Pruebas SQL | `supabase/tests/*.test.sql` |
 | Scripts | `scripts/replay-migrations.py` (copiar migraciones de una base a otra), `scripts/prod-bootstrap.sql` (arranque de producción; ya se usó; se niega a correr dos veces), `scripts/emergency-reset-pin.sql` (restablecer un PIN desde la base), `scripts/simulate-week.mjs` (semana simulada, solo desarrollo) |
 | Revisión automática | `.github/workflows/ci.yml` (tipos, lint, pruebas, compilación en cada push a `main` y `feat/v2-integration`) |
+| Aviso de privacidad | `app/privacidad/page.tsx`, `docs/legal/aviso-de-privacidad.md` (texto), `docs/legal/aviso-de-privacidad-notas.md` (notas para el abogado) |
+| Salud y estado del sistema | `app/api/health/route.ts`, `app/api/system-status/route.ts`, `app/configuracion/estado/page.tsx`; respaldo y visita diaria en `.github/workflows/keepalive-backup.yml` |
+| Teléfonos del personal | `lib/auth/privacy.ts` |
+| Componentes base de interfaz | `components/ui/` (botones, campos, selectores de fecha y hora, confirmaciones, errores con reintento) |
 
 ### 2.4 Personas y cuentas (sin PIN)
 
 | Usuario | Persona | Puesto en el sistema | Notas |
 |---|---|---|---|
-| `alonso` | Alonso | Dueño (`owner`) | Único que cambia comisiones, puestos, horarios y accesos |
-| `sonia` | Sonia | Gerente (`admin`) y barbera | Opera la sucursal; caja e inventario con PIN + comentario |
+| `alonso` | Alonso | Dueño (`owner`) | Único que cambia comisiones, puestos, horarios y accesos. Entró el 19 nov y cambió su PIN |
+| `sonia` | Sonia | Gerente (`admin`) y barbera | Título visible: "Gerente Barbera". Opera la sucursal; caja e inventario con PIN + comentario |
 | `lucia` | Lucía | Consulta (`viewer`) | Ve lo mismo que Sonia, no edita nada |
 | `deya` | Deya | Barbera | — |
 | `dani` | Dani | Barbero | — |
@@ -153,7 +197,7 @@ La versión 2 **está publicada en producción**, con la base de producción car
 
 ### 3.1 Bloqueantes (sin esto nadie entra)
 
-**Paso 1 — Llave secreta de producción (lo hace el dueño, 2 minutos).**
+**Paso 1 — ✅ HECHO (19 nov) — Llave secreta de producción (lo hizo el dueño).**
 
 1. supabase.com → proyecto **gallo420-prod** → Project Settings → API Keys → Secret keys → copiar la `default` (empieza con `sb_secret_`).
 2. vercel.com → proyecto **sonblade-management-system** → Settings → Environment Variables → `SUPABASE_SECRET_KEY` que dice **Production** → ⋯ → Edit → pegar → Save.
@@ -161,7 +205,7 @@ La versión 2 **está publicada en producción**, con la base de producción car
 
 **Cómo verificar (agente):** en Vercel, la variable `SUPABASE_SECRET_KEY` de Production debe tener `updatedAt` posterior al 17 nov 2026 17:00 UTC. Después, abrir la dirección de producción y entrar con un usuario: si responde "Usuario o PIN incorrectos" con un PIN equivocado (y no "El sistema no está listo"), la llave ya funciona. Los registros de Vercel (plan Hobby) solo guardan **1 hora**: `get_runtime_logs` con `since: "30m"`.
 
-**Paso 2 — Primera entrada del dueño.** Alonso entra con su PIN temporal, elige uno nuevo y revisa: Inicio, Caja, Inventario, Equipo. Si algo falla, anotar pantalla y hora exacta.
+**Paso 2 — ✅ HECHO (19 nov) — Primera entrada del dueño.** Alonso entró con su PIN temporal y eligió uno nuevo. Pendiente: revisar Inicio, Caja, Inventario y Equipo; si algo falla, anotar pantalla y hora exacta.
 
 **Paso 3 — Existencias iniciales.** Inventario → cada producto → cantidad real (pide PIN y comentario, p. ej. "Inventario inicial"). Sin existencias no se pueden vender productos.
 
@@ -179,10 +223,10 @@ La versión 2 **está publicada en producción**, con la base de producción car
 | S2 | **Rotar el secreto JWT heredado de producción y pasar a llaves de firma JWT** | Dueño, con ayuda | Supabase `gallo420-prod` → Project Settings → JWT Keys → migrar a "JWT signing keys" y revocar el secreto heredado. Después, cerrar sesión de todos (se vuelve a entrar con PIN) | El 18 nov una consulta de configuración devolvió ese secreto dentro de la sesión de trabajo. No se compartió fuera, pero la práctica correcta es rotarlo. Con él se pueden fabricar sesiones válidas |
 | S3 | Quitar `graphql_public` de los esquemas expuestos | Dueño o agente con API | Supabase → Data API → Exposed schemas → solo `public` | No se usa GraphQL; menos superficie |
 | S4 | Borrar `ADMIN_PIN`, `ADMIN_USER`, `JWT_SECRET` de Vercel | Dueño | Settings → Environment Variables | Restos de la v1; Vercel marca `JWT_SECRET` como "readable-secret" |
-| S5 | ✅ (19 nov, en desarrollo; falta replicar a producción) Cerrar las funciones viejas sin PIN para gerencia: `adjust_inventory_stock`, `set_inventory_minimum`, `record_cash_movement`, `set_cash_settings` | **Opus** | Migración `20261119175000_s5_close_legacy_admin_shortcuts`: para el puesto `admin` rechazan con 42501; deben pasar por las `_confirmed`. Dueño y recepción siguen igual. Prueba `supabase/tests/s5_legacy_closed.test.sql` | Sonia ya no puede saltarse el PIN llamando a la API vieja directamente |
+| S5 | ✅ HECHO (19 nov, en desarrollo y producción) Cerrar las funciones viejas sin PIN para gerencia: `adjust_inventory_stock`, `set_inventory_minimum`, `record_cash_movement`, `set_cash_settings` | **Opus** | Migración `20261119175000_s5_close_legacy_admin_shortcuts`: para el puesto `admin` rechazan con 42501; deben pasar por las `_confirmed`. Dueño y recepción siguen igual. Prueba `supabase/tests/s5_legacy_closed.test.sql` | Sonia ya no puede saltarse el PIN llamando a la API vieja directamente |
 | S6 | Bajar los límites por IP de inicio de sesión | Dueño | Supabase → Authentication → Rate Limits | Freno extra contra quien adivine PIN (ya existe bloqueo por usuario) |
 | S7 | Protección contra contraseñas filtradas | — | Solo en plan Pro | Las contraseñas son HMAC de 64 caracteres; aporta poco aquí. Baja prioridad |
-| S8 | `/api/barbers` entrega el teléfono de los empleados a cualquier puesto | **Sonnet** | Limitar el campo a dueño y gerencia | Privacidad del personal |
+| S8 | ✅ HECHO (19 nov): `/api/barbers` filtra en el servidor el teléfono de los empleados según el puesto (`lib/auth/privacy.ts`). Antes lo entregaba a cualquier puesto | **Sonnet** | Limitar el campo a dueño y gerencia | Privacidad del personal |
 
 ### 3.3 Operación (decisiones de dinero del dueño)
 
@@ -216,9 +260,11 @@ Criterio: `difference_amount` explicado; ningún error 500 en Vercel. · Modelo:
 
 **4.4 Regenerar `lib/database.types.ts`.** · Falta `team_ranking` y conviene confirmar las funciones `_confirmed`. · Cómo: herramienta `generate_typescript_types` del MCP de Supabase sobre `sonblade-dev`, reemplazar el archivo, correr `npx tsc --noEmit`. · Criterio: tipos sin errores y sin `as unknown as` nuevos. · Modelo: **Haiku**.
 
-**4.5 S5 de la sección 3.2** (cerrar funciones viejas para gerencia). · Modelo: Opus.
+**4.5 ✅ HECHO (19 nov, en desarrollo y producción): S5 de la sección 3.2** (cerrar funciones viejas para gerencia). · Modelo: Opus.
 
 **4.6 Monitoreo de errores.** · Por qué: Vercel Hobby borra los registros en 1 hora. · Opción: Sentry (plan gratuito) o un "log drain". · Criterio: un error de servidor queda visible al día siguiente. · Modelo: Sonnet.
+
+**Estado (19 nov): parcial.** Hecho: `/api/health` prueba la llave (la visita GitHub cada día) y la pantalla Configuración → Estado del sistema. **Falta:** Sentry no se instaló; un error de servidor de hoy sigue sin quedar visible mañana (Vercel Hobby guarda los registros 1 hora).
 
 **4.7 Cita abierta duplicada** cuando recepción cobra sin abrir la cita desde la agenda (pendiente desde la Fase 2). · Modelo: Opus.
 
@@ -231,14 +277,14 @@ Criterio: `difference_amount` explicado; ningún error 500 en Vercel. · Modelo:
 | D3 | Botón "Eliminar cliente" no funciona (405) | Quitar el botón; en su lugar "Desactivar" | Haiku (quitar) / Sonnet (desactivar) |
 | D4 | ¿El dueño también debe poner PIN al mover inventario? Hoy sí | Mantener: deja todo firmado | Haiku si se quita |
 | D5 | Duraciones decididas por agentes: ritual de barba 60, facial 60, mascarilla 30, grecas 30 | Confirmar | Haiku (datos) |
-| D6 | Aviso de privacidad: 21 campos `[POR COMPLETAR]` en `docs/legal/aviso-de-privacidad.md` | Necesario antes de encender reservas en línea; revisión de un abogado | Dueño |
+| D6 | ✅ Aviso de privacidad v1.0 publicado en `/privacidad` (19 nov); ya no quedan campos `[POR COMPLETAR]`. Riesgos aceptados descritos en `docs/legal/aviso-de-privacidad-notas.md`. **Pendiente:** revisión de un abogado y cotejo con el texto oficial de la ley; hace falta antes de encender reservas en producción | Revisión de abogado: dueño | Dueño |
 | D7 | Tres decisiones contables de agentes (final de `FASE_2.md`) | Confirmar | — |
 
 ### P3 — Funciones nuevas (cuando lo anterior esté estable)
 
 | # | Qué | Notas | Modelo |
 |---|---|---|---|
-| 4.8 | ✅ (19 nov, desarrollo) **Descuento confirmado con PIN** de quien autoriza, y anulación con PIN | Ver "B2" al final de esta sección | Opus |
+| 4.8 | ✅ (19 nov, en desarrollo y producción) **Descuento confirmado con PIN** de quien autoriza, y anulación con PIN | Ver "B2" al final de esta sección | Opus |
 | 4.9 | Categoría en gastos (hoy todos "General") | Lista fija editable por el dueño | Sonnet |
 | 4.10 | Formulario de cita con selector de servicio (llena la duración sola) | `app/citas/**` | Sonnet |
 | 4.11 | Cuadre → "Ir a la agenda" con fecha y barbero; ligar venta a cita; "no llegó" | `app/cuadre/**`, la agenda debe aceptar parámetros en la dirección | Sonnet |
@@ -247,14 +293,27 @@ Criterio: `difference_amount` explicado; ningún error 500 en Vercel. · Modelo:
 | 4.14 | Apartados tipo sobres, historial por cliente, familiares, puntos, metas de comisión, "barbero confirma y recepción cobra" | Pendientes de las Fases 2 y 3 | Opus/Sonnet |
 | 4.15 | Panel con filtro por barbero usa `business_metrics` (no resta costo de producto) | Cambiar la función para que use la misma lógica que Finanzas | Opus |
 
+### Lo que sigue: Entrega 2
+
+Lista pendiente, sin orden acordado:
+
+1. Utilidad única (4.15).
+2. Cita duplicada (4.7).
+3. Clientes con historial y ficha.
+4. Citas con selector de servicio y reprogramación (4.10 y 4.11).
+5. Accesibilidad y vistas para celular.
+6. Base de pruebas para navegador (4.3).
+7. Semana simulada en práctica. **Bloqueada** hasta que (a) el dueño cierre la caja abierta del 16 de noviembre en práctica y (b) el equipo tenga PIN de práctica.
+8. Segunda migración pendiente de B2 (cierra el descuento sin autorización y `reverse_sale` sin PIN). Ya está descrita en "Fase 2 de B2"; no se duplica aquí.
+
 ### Mejoras que el agente recomienda (opinión técnica, no pedidas)
 
 1. **Pasar a planes de pago** (O1, O2) antes que cualquier función nueva: hoy el riesgo más grande no es el código, es perder datos o que la base se pause.
-2. **Prueba de humo automática después de cada publicación**: una ruta `/api/health` ya existe; agregar un chequeo que confirme que la llave secreta funciona (sin exponerla) y que avise si responde 503. Habría detectado el problema del 17 de noviembre en segundos.
-3. **Página "Estado del sistema" solo para el dueño**: versión publicada, última migración, si la llave está configurada, si las reservas están encendidas.
+2. **Prueba de humo automática después de cada publicación**: una ruta `/api/health` ya existe; agregar un chequeo que confirme que la llave secreta funciona (sin exponerla) y que avise si responde 503. Habría detectado el problema del 17 de noviembre en segundos. **Hecho en parte (19 nov):** `/api/health` prueba la llave y GitHub la visita cada día; falta correrla después de cada publicación.
+3. ✅ **Página "Estado del sistema" solo para el dueño** (hecha el 19 nov): versión publicada, última migración, si la llave está configurada, si las reservas están encendidas.
 4. **Cerrar todas las rutas "viejas" sin confirmación** una vez que la app nueva lleve una semana estable (S5 y similares).
 
-### B2 — Descuento y anulación con PIN (19 nov; en desarrollo, falta replicar a producción)
+### B2 — Descuento y anulación con PIN (19 nov; en desarrollo y producción)
 
 Migración `20261119180000_discount_and_reversal_with_pin` · prueba `supabase/tests/discount_and_reversal_with_pin.test.sql`.
 
@@ -285,17 +344,17 @@ $function$;
 revoke execute on function public.reverse_sale(uuid, text) from authenticated;
 ```
 
-### B3 — Recepción registra entradas de inventario (19 nov; en desarrollo, falta replicar a producción)
+### B3 — Recepción registra entradas de inventario (19 nov; en desarrollo y producción)
 
 Decisión del dueño: recepción (y caja) suma existencias cuando llega mercancía, con comentario y **su propio PIN**. No resta, no corrige a la baja ni cambia mínimos, costos o precios (sigue siendo de gerencia con PIN y del dueño).
 
 - Migración `20261119193000_receive_inventory_stock` · prueba `supabase/tests/receive_inventory_stock.test.sql` (25 casos).
 - `public.receive_inventory_stock(p_branch_id, p_product_id, p_quantity, p_comment)`: `security definer`, `search_path = ''`; cantidad de 1 a **500** por entrada (tope contra errores de dedo; si llega más, varias entradas), comentario de 3 a 300 letras, `private.consume_pin_proof()`, puestos owner/admin/cashier/receptionist del negocio y con acceso a la sucursal. Movimiento `purchase` (ningún reporte filtra por tipo; la app lo muestra como "Entrada de mercancía"), bitácora `inventory_received` + `pin_confirmed_action`.
 - App: `POST /api/products/[id]/receive` (`runWithPin`), botón "Registrar entrada" en `components/Inventory.tsx`; recepción no ve costo, editar, dar de baja ni agregar. `GET /api/products` ya no manda el costo a recepción, caja ni barberos. `middleware.ts` deja entrar a recepción y caja a `/inventario`.
-- **Pendiente:** el enlace "Inventario" del menú sigue siendo solo de gerencia (`lib/nav.ts`, `roles: ['admin']`); falta agregar `'recepcion'`. Mientras, recepción entra escribiendo `/inventario`.
+- **Resuelto (19 nov):** el enlace "Inventario" del menú ya incluye a recepción (`lib/nav.ts`). Antes había que escribir `/inventario`.
 - **Pendiente (base):** la política de lectura de `products` sigue permitiendo que recepción lea `cost_price` llamando directo a la base; ocultarlo del todo requiere una vista o permisos por columna.
 
-### B4 — Título visible por persona (19 nov; en desarrollo, falta replicar a producción)
+### B4 — Título visible por persona (19 nov; en desarrollo y producción)
 
 Decisión del dueño: Sonia (puesto `admin`, además barbera) se lee "Gerente Barbera". El sistema no guarda género, así que el título es un texto libre por persona.
 
@@ -304,7 +363,7 @@ Decisión del dueño: Sonia (puesto `admin`, además barbera) se lee "Gerente Ba
 - Mismo patrón que `can_authorize_discounts`: la columna NO se concede para `update`/`insert` directo a `authenticated` (gerencia sigue editando nombre y teléfono con su política); se cambia solo con `public.set_employee_display_title(p_employee_id, p_title)` (vacío o null la quita), que exige la cuenta principal (`owner`). Bitácora: `audit_row_change` de `employees`.
 - App: `personTitle({ role, displayTitle })` en `lib/auth/roles.ts` (y `sessionTitle` para la respuesta de `/api/auth/me`, que ahora trae `display_title`). Se usa en menú lateral, encabezado, Mi cuenta y Equipo (tarjetas y Accesos). En Equipo → Editar, solo la cuenta principal ve "Título visible (opcional)". `PATCH /api/barbers/[id]` acepta `display_title` (403 si no es la cuenta principal).
 - Cuentas sin fila de empleado (Alonso, Lucía) no tienen título propio: etiqueta por omisión.
-- **Dato (no va en la migración):** en desarrollo ya se cargó "Gerente Barbera" para Sonia. En producción, después de replicar la migración:
+- **Dato (no va en la migración):** en desarrollo ya se cargó "Gerente Barbera" para Sonia. En producción también se cargó el 19 nov (1 fila actualizada, verificado). La sentencia usada fue:
   ```sql
   update public.employees e set display_title = 'Gerente Barbera', updated_at = now()
     from auth.users u where e.user_id = u.id and u.email = 'sonia@gallo-420.barberos.invalid';
@@ -404,7 +463,8 @@ Anotar aquí cada problema real: fecha, quién, pantalla, qué pasó, estado.
 
 | Fecha | Quién | Qué pasó | Causa | Estado |
 |---|---|---|---|---|
-| 17 nov 2026 | Dueño | "Sin conexión o el servidor no respondió" al entrar | `SUPABASE_SECRET_KEY` de Production era la de desarrollo; el mensaje culpaba al internet | Mensaje corregido (`9bd989b`); la llave está pendiente (3.1, paso 1) |
+| 17 nov 2026 | Dueño | "Sin conexión o el servidor no respondió" al entrar | `SUPABASE_SECRET_KEY` de Production era la de desarrollo; el mensaje culpaba al internet | Resuelto el 19 nov: el dueño cambió la llave (3.1, paso 1). El mensaje ya se corrigió (`9bd989b`) |
+| 19 nov 2026 | Sistema (GitHub Actions) | La tarea de respaldo falló dos veces antes de funcionar a la tercera | Causa no investigada. Si vuelve a fallar, revisar los registros de la ejecución | Funciona (artefacto `respaldo-gallo420`); vigilar |
 
 ---
 
@@ -416,10 +476,11 @@ Anotar aquí cada problema real: fecha, quién, pantalla, qué pasó, estado.
 | 2 | Folios cortos, costo por venta, Finanzas, reporte de 14 secciones, productos reales | `FASE_2.md` |
 | 3 | Cobro agrupado, agenda de 30 min, Cuadre con acciones, semana simulada, ranking, "Mi semana", "Barberos hoy", selectores de fecha | `FASE_3.md` |
 | 17 nov | Auditoría de seguridad y correcciones (bloqueo, roles, PIN con HMAC, sesiones, descuentos, reservas, caja); usuario + PIN; Lucía en consulta; base de producción creada y cargada; v2 publicada en `main`; caja con motivo y PIN de gerencia | `ACCESOS.md`, `PRODUCCION.md`, este archivo |
+| 18–19 nov | Llave de producción cambiada y primera entrada del dueño; respaldo y visita diaria en GitHub; `/api/health` y Estado del sistema; descuento y anulación con PIN; entradas de inventario en recepción; título visible; aviso de privacidad v1.0; modo práctica; componentes base de interfaz; teléfonos filtrados (S5 y S8) | Este archivo, `PRODUCCION.md`, `RESERVAS.md` |
 
 ## 9. Preguntas abiertas para el dueño (resumen)
 
-1. ¿Ya cambiaste la llave secreta de Production? (3.1, paso 1)
+1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).
 2. ¿Pasamos a Supabase Pro y Vercel Pro? (O1, O2)
 3. Decisiones D1 a D7 de la sección 4.
 4. Existencias iniciales de los cuatro productos.

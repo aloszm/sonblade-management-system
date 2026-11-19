@@ -1,23 +1,25 @@
 # BarberOS — Producción de Gallo 4:20
 
-Estado al 18 de noviembre de 2026. **La lista de trabajo y los pasos que faltan están en [`FASE_4.md`](./FASE_4.md)**; este archivo solo describe cómo está armada la producción.
+Estado al 19 de noviembre de 2026 (noche). **La lista de trabajo y los pasos que faltan están en [`FASE_4.md`](./FASE_4.md)**; este archivo solo describe cómo está armada la producción.
 
 ## Dónde vive cada cosa
 
 | Qué | Dónde |
 |---|---|
 | Aplicación | Vercel, proyecto `sonblade-management-system`; **producción publica la rama `main`** (versión 2 desde el 17 nov) |
-| Dirección | https://sonblade-management-system-alonsoszm-3123s-projects.vercel.app (pública; la protección de Vercel solo aplica a Preview) |
+| Dirección | https://barbergallo420.site (`www.barbergallo420.site` redirige ahí). La dirección larga de Vercel sigue funcionando: https://sonblade-management-system-alonsoszm-3123s-projects.vercel.app (pública; la protección de Vercel solo aplica a Preview) |
+| Dominio | `barbergallo420.site`, registrado en Hostinger. DNS en Hostinger: registro A `@` → 216.198.79.1, CNAME `www` y CNAME `practica` hacia los destinos que muestra el panel de Vercel del proyecto. Certificado HTTPS emitido por Vercel |
+| Práctica | https://practica.barbergallo420.site (también https://gallo420-practica.vercel.app). Proyecto `gallo420-practica`, base `sonblade-dev`; ver "Entorno de práctica" abajo |
 | Base de producción | Supabase `gallo420-prod` (ref `hwvebwrtuyreraugjinl`), us-east-1, plan gratuito |
-| Base de desarrollo | Supabase `sonblade-dev` (ref `zkvikttnpjwzfsygkdot`), conectada a Preview de `feat/v2-integration` |
+| Base de desarrollo | Supabase `sonblade-dev` (ref `zkvikttnpjwzfsygkdot`), conectada a Preview de `feat/v2-integration` y al proyecto de práctica |
 | Versión 1 | Supabase `sonblade_mvp`, pausada; nadie la usa |
 
 ## Cómo se cargó (17 nov 2026)
 
-1. Estructura: todas las migraciones de desarrollo replicadas con `scripts/replay-migrations.py` (misma versión, nombre y md5). Hoy: 65 en ambas, última `20261117180507_cash_reasons_and_pin_confirmation`.
+1. Estructura: todas las migraciones de desarrollo replicadas con `scripts/replay-migrations.py` (misma versión, nombre y md5). Al 17 nov: 65 en ambas, última `20261117180507_cash_reasons_and_pin_confirmation`. Hoy (19 nov): 69 en ambas, última `20261119200000_employee_display_title`.
 2. Datos: `scripts/prod-bootstrap.sql` (negocio, sucursal, horario, 15 servicios, 4 productos con existencias en 0, comisiones 50 % y 20 %, fondo $500, apartado $600 "Renta y gastos", 7 cuentas con PIN temporal). El script no contiene PIN (se sustituyen al ejecutarlo) y se niega a correr si ya hay un negocio.
 3. Auth: registro público apagado. Contraseña mínima 6 (las reales son HMAC de 64 caracteres).
-4. Vercel Production: URL y llave publicable de `gallo420-prod`. **`SUPABASE_SECRET_KEY` sigue siendo la de desarrollo: pendiente del dueño** (`FASE_4.md`, 3.1).
+4. Vercel Production: URL y llave publicable de `gallo420-prod`. **`SUPABASE_SECRET_KEY` ya es la de `gallo420-prod`** (la cambió el dueño el 19 nov; `FASE_4.md`, 3.1).
 
 ## El pepper del PIN
 
@@ -71,7 +73,8 @@ Necesitas una computadora con Windows (WSL), Mac o Linux y, si no sabes hacerlo,
 
 ### Pendientes de esta sección
 
-- El flujo no se ha ejecutado nunca en GitHub; la primera vez hazlo con **Run workflow** y confirma el aviso o el artefacto.
+- El respaldo ya funcionó el 19 nov (artefacto `respaldo-gallo420`), a la tercera ejecución: las dos anteriores fallaron y la causa no se investigó. Si vuelve a fallar, revisar los registros de la ejecución en GitHub Actions.
+- La restauración **nunca se ha probado**. Hazla primero en una base vacía (paso a paso arriba).
 - "Última migración" en la pantalla de estado sale de los archivos incluidos en el despliegue, no de la base (el historial vive en un esquema que la API no expone); si no viajan con el despliegue, muestra "No disponible".
 
 ## Entorno de práctica
@@ -81,6 +84,8 @@ Necesitas una computadora con Windows (WSL), Mac o Linux y, si no sabes hacerlo,
 **Qué se ve distinto cuando está activo.** Una franja fija arriba en todas las pantallas (incluidas `/login` y `/reservar`) con "MODO PRÁCTICA — nada de lo que hagas aquí es real"; la pestaña empieza con "PRÁCTICA · "; el login avisa que se usa el PIN de práctica; los tickets y recibos impresos llevan "PRÁCTICA — SIN VALOR" (rótulo y marca de agua); y `/api/health` y **Configuración > Ver el estado del sistema** informan el modo (`practice` o `production`). Sin la variable, la app es producción normal y no cambia nada.
 
 **Base que usa.** `sonblade-dev` (datos simulados). Nunca la base de producción.
+
+**Dónde está.** https://practica.barbergallo420.site (también https://gallo420-practica.vercel.app). Proyecto de Vercel `gallo420-practica` (id `prj_m3q1KwDJMXmq2Q5jLdV343VnmaoW`), se publica desde `main`. Aquí las reservas en línea sí están encendidas (`/reservar`).
 
 **Variables de su proyecto de Vercel** (un proyecto aparte del de producción: cada proyecto lleva sus propias variables):
 

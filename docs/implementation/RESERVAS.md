@@ -6,6 +6,8 @@ de privacidad y recibe un enlace para ver o cancelar su reserva. La cita aparece
 
 Responsable de los datos: **Gallo 4:20 Barber Shop**, contacto **barberia.gallo420@gmail.com** (aviso integral v1.0 en `/privacidad`; texto fuente en `docs/legal/aviso-de-privacidad.md`). Al encender las reservas, fijar `settings.booking.privacy_version` en `1.0` para que la versión guardada coincida con la publicada.
 
+**Dónde se ve hoy:** en práctica (https://practica.barbergallo420.site/reservar) las reservas están **encendidas**, para ensayar. En producción (https://barbergallo420.site/reservar) siguen **apagadas** por decisión del dueño. Recomendación: encenderlas en producción después de que la cita guarde el servicio (ver `FASE_4.md`, 4.10); hoy la cita solo guarda el nombre del servicio en las notas.
+
 ## Cómo funciona
 
 ```
@@ -50,7 +52,7 @@ En `businesses.settings.booking` (la base usa estos valores por omisión si falt
 
 | Clave | Valor | Significado |
 |---|---|---|
-| `enabled` | `false` | Interruptor general (ver abajo). |
+| `enabled` | `false` en producción; `true` en práctica | Interruptor general (ver abajo). |
 | `lead_minutes` | 60 | Anticipación mínima para reservar. |
 | `max_days_ahead` | 30 | Hasta cuántos días adelante (de hoy a hoy + 30). |
 | `cancel_hours` | 2 | El cliente puede cancelar hasta 2 h antes. |
@@ -71,11 +73,11 @@ hora de la barbería.
 
 ## Encender / apagar
 
-Por omisión **apagado**. El dueño lo enciende cuando el aviso de privacidad esté revisado. Apagado: `config` responde
+Por omisión **apagado**. El dueño lo enciende en producción cuando el aviso de privacidad esté revisado por un abogado (hoy está publicado como v1.0, sin revisión; ver `FASE_4.md`, D6 y 1.4). Apagado: `config` responde
 `200 { "enabled": false }` y las demás rutas `403`.
 
 ```sql
--- Encender (en desarrollo ya está encendido):
+-- Encender (en práctica, que usa `sonblade-dev`, ya está encendido):
 update public.businesses set settings = jsonb_set(settings, '{booking,enabled}', 'true'), updated_at = now()
 where slug = 'gallo-420';
 -- Apagar:

@@ -30,3 +30,6 @@ Antes de modificar el código, lee estos documentos en este orden:
 
 ## Regla de oro
 La fuente de verdad funcional está en `docs/product/`. Si el código contradice los requisitos aprobados, señala el conflicto antes de cambiar políticas de negocio.
+
+## Direcciones
+Producción: https://barbergallo420.site · Práctica: https://practica.barbergallo420.site. Nunca ejecutar pruebas ni simulaciones contra producción; para ensayar existe el entorno de práctica.
