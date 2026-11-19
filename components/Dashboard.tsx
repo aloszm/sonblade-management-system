@@ -129,6 +129,8 @@ export default function Dashboard() {
         if (id !== 'custom' && today) setRange(presetRange(id, today));
     };
 
+    // La API dice qué es `net`: utilidad (negocio completo) o aporte (con filtro por barbero, sin gastos generales).
+    const netKind = data?.kpis.net_kind;
     const fromFinance = !barber && finance !== null;
     const k: Kpis | undefined = data && fromFinance && finance
         ? { ...data.kpis, revenue: finance.revenue.total, commissions: finance.commissions.total, tips: finance.tips.total, expenses: finance.expenses.total, net: finance.profit }
@@ -232,7 +234,11 @@ export default function Dashboard() {
                         <BigStat title="Ingresos" hint="Total cobrado en el periodo." value={money(k.revenue)} current={k.revenue} previous={p.revenue} testId="kpi-revenue" accent />
                         <BigStat title="Cortes" hint="Solo servicios de corte, sin productos." value={String(k.cuts)} current={k.cuts} previous={p.cuts} testId="kpi-cuts" />
                         <BigStat title="Ticket promedio" hint="Ingresos entre número de ventas." value={money(k.avg_ticket)} current={k.avg_ticket} previous={p.avg_ticket} testId="kpi-ticket" />
-                        {barber ? (
+                        {netKind === 'contribution' ? (
+                            <BigStat title="Aporte" hint="Ventas del barbero − sus comisiones − costo de sus productos. No incluye gastos generales." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
+                        ) : netKind === 'profit' ? (
+                            <BigStat title="Utilidad" hint="Ingresos − comisiones − costo de producto − gastos." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
+                        ) : barber ? (
                             <BigStat title="Comisión generada" hint="Lo que ganó por sus servicios." value={money(k.commissions)} current={k.commissions} previous={p.commissions} testId="kpi-net" />
                         ) : (
                             <BigStat title="Utilidad" hint="Lo que queda tras comisiones, producto y gastos." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />

@@ -23,10 +23,10 @@ const finance = {
     comparison: { hasBase: true, revenue: { previous: 2000 }, profit: { previous: 1200 }, commissions: { previous: 800 }, tips: { previous: 0 }, expenses: { previous: 100 } },
 };
 
-function mockApi(profit: unknown = finance) {
+function mockApi(profit: unknown = finance, netKind?: 'profit' | 'contribution') {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
         if (url.startsWith('/api/admin/profit')) return { ok: profit !== null, json: async () => profit };
-        return { ok: true, json: async () => (url.startsWith('/api/metrics') ? metrics : [{ id: 'b1', name: 'Deya' }]) };
+        return { ok: true, json: async () => (url.startsWith('/api/metrics') ? (netKind ? { ...metrics, kpis: { ...kpis, net_kind: netKind }, previous: { ...previous, net_kind: netKind } } : metrics) : [{ id: 'b1', name: 'Deya' }]) };
     }));
 }
 
@@ -83,5 +83,22 @@ describe('Panel del dueño', () => {
         render(<Dashboard />);
         expect(await screen.findByTestId('kpi-net')).toHaveTextContent('$1,500');
         expect(screen.getByTestId('profit-note')).toHaveTextContent('puede no coincidir con Finanzas');
+    });
+
+    it('con net_kind "contribution" rotula "Aporte" con su ayuda', async () => {
+        mockApi(null, 'contribution');
+        render(<Dashboard />);
+        const stat = (await screen.findByTestId('kpi-net')).parentElement as HTMLElement;
+        expect(stat).toHaveTextContent('Aporte');
+        expect(stat).toHaveTextContent('Ventas del barbero − sus comisiones − costo de sus productos. No incluye gastos generales.');
+        expect(stat).not.toHaveTextContent('Utilidad');
+    });
+
+    it('con net_kind "profit" rotula "Utilidad" con su ayuda', async () => {
+        mockApi(finance, 'profit');
+        render(<Dashboard />);
+        const stat = (await screen.findByTestId('kpi-net')).parentElement as HTMLElement;
+        expect(stat).toHaveTextContent('Utilidad');
+        expect(stat).toHaveTextContent('Ingresos − comisiones − costo de producto − gastos.');
     });
 });

@@ -2,30 +2,25 @@
 // Database types matching the Supabase schema
 // ==============================================
 
+/** Cliente tal como lo devuelve /api/clients (con su resumen). */
 export interface Client {
     id: string;
-    client_number: string;
-    pin?: string;
     name: string;
+    full_name?: string;
     phone: string | null;
     email: string | null;
-    points: number;
-    visits: number;
-    last_visit_at: string | null;
-
-    // Detailed Profile (Added in V9)
-    hair_type?: string | null;
-    preferred_cut?: string | null;
-    style_notes?: string | null;
-    internal_notes?: string | null;
-    favorite_barber_id?: string | null;
-
-    // Timestamps
+    notes?: string | null;
+    preferences?: string | null;
+    is_active?: boolean;
     created_at: string;
-    updated_at: string;
-
-    // Joined
-    favorite_barber?: Barber;
+    updated_at?: string;
+    visits?: number;
+    last_visit_at?: string | null;
+    /** null para el barbero (no ve importes). */
+    total_spent?: number | null;
+    no_shows?: number;
+    next_appointment_at?: string | null;
+    next_appointment_id?: string | null;
 }
 
 export interface Barber {

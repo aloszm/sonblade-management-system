@@ -253,8 +253,7 @@ export function usePOS() {
         const term = clientSearch.toLowerCase();
         return clients.filter(c =>
             c.name.toLowerCase().includes(term) ||
-            (c.phone && c.phone.includes(term)) ||
-            (c.client_number && c.client_number.toLowerCase().includes(term))
+            (c.phone && c.phone.includes(term))
         ).slice(0, 5); // display up to 5 matches
     }, [clients, clientSearch]);
 
