@@ -9,7 +9,7 @@ const SERVICES = [
     { id: 'sv2', name: 'Greca', price: 0, duration_minutes: 45, is_active: true, variable_price: true },
 ];
 
-interface Mock { services?: unknown; products?: unknown; cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesSeq?: { status: number; body: unknown }[]; authorizers?: unknown; salesBodies: unknown[] }
+interface Mock { services?: unknown; products?: unknown; cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesSeq?: { status: number; body: unknown }[]; authorizers?: unknown; openAppointments?: unknown; salesBodies: unknown[] }
 
 function mockApi(opts: Partial<Mock> = {}) {
     const state: Mock = { cash: { id: 'x' }, salesBodies: [], ...opts };
@@ -28,6 +28,7 @@ function mockApi(opts: Partial<Mock> = {}) {
             return json(r.body, r.status);
         }
         if (url.includes('/api/products')) return json(state.products ?? []);
+        if (url.includes('/api/appointments?abiertas=1')) return json(state.openAppointments ?? []);
         return json([]);
     }));
     return state;
@@ -292,5 +293,53 @@ describe('cobro: descuento con PIN de quien autoriza', () => {
         fireEvent.click(dialog.getByRole('button', { name: 'Cancelar' }));
         await waitFor(() => expect(screen.queryByTestId('pin-confirm')).not.toBeInTheDocument());
         expect(api.salesBodies).toHaveLength(0);
+    });
+});
+
+describe('cobro: citas abiertas del barbero (B3)', () => {
+    const APT = {
+        id: 'a1', client_id: null, barber_id: 'b1', client_name: 'Luis', customer_phone: null, barber: { id: 'b1', name: 'Deya' },
+        scheduled_at: '2026-11-20T19:00:00Z', end_at: '2026-11-20T19:30:00Z', duration_minutes: 30, status: 'checked_in',
+        notes: null, created_at: '2026-11-20T10:00:00Z', walk_in: false, sale: null,
+    };
+
+    it('al elegir barbero ofrece su cita y, al elegirla, la venta queda ligada a ella', async () => {
+        const api = mockApi({ openAppointments: [APT] });
+        render(<POS />);
+        await addService('Corte');
+        fireEvent.click(await screen.findByRole('button', { name: /Deya/ }));
+        const box = await screen.findByTestId('pos-open-appointments');
+        expect(box).toHaveTextContent('Deya tiene una cita abierta hoy.');
+        fireEvent.click(within(box).getByRole('button', { name: /^Es la cita de Luis a las/ }));
+        expect(await screen.findByTestId('pos-appointment')).toHaveTextContent('Cobrando la cita de Luis');
+        expect(screen.queryByTestId('pos-open-appointments')).not.toBeInTheDocument();
+        const cobrar = await screen.findByRole('button', { name: 'Cobrar $200' });
+        await waitFor(() => expect(cobrar).toBeEnabled());
+        fireEvent.click(cobrar);
+        await waitFor(() => expect(api.salesBodies).toHaveLength(1));
+        expect(api.salesBodies[0]).toMatchObject({ appointment_id: 'a1' });
+    });
+
+    it('"Es sin cita" quita el aviso y cobra sin cita', async () => {
+        const api = mockApi({ openAppointments: [APT] });
+        render(<POS />);
+        await addService('Corte');
+        fireEvent.click(await screen.findByRole('button', { name: /Deya/ }));
+        const box = await screen.findByTestId('pos-open-appointments');
+        fireEvent.click(within(box).getByRole('button', { name: 'Es sin cita' }));
+        expect(screen.queryByTestId('pos-open-appointments')).not.toBeInTheDocument();
+        const cobrar = await screen.findByRole('button', { name: 'Cobrar $200' });
+        await waitFor(() => expect(cobrar).toBeEnabled());
+        fireEvent.click(cobrar);
+        await waitFor(() => expect(api.salesBodies).toHaveLength(1));
+        expect(api.salesBodies[0]).toMatchObject({ appointment_id: null });
+    });
+
+    it('sin citas abiertas no muestra nada', async () => {
+        mockApi({ openAppointments: [] });
+        render(<POS />);
+        fireEvent.click(await screen.findByRole('button', { name: /Deya/ }));
+        await waitFor(() => expect(screen.getByRole('button', { name: /Deya/ })).toHaveAttribute('aria-pressed', 'true'));
+        expect(screen.queryByTestId('pos-open-appointments')).not.toBeInTheDocument();
     });
 });

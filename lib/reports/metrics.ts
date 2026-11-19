@@ -4,6 +4,15 @@ import { addDays } from '@/lib/settlements/week';
 export type Kpis = {
     revenue: number; cuts: number; products: number; tickets: number; clients: number;
     tips: number; commissions: number; expenses: number; avg_ticket: number; net: number;
+    /**
+     * B4 (20261119210000): costo de producto vendido y qué es `net`.
+     * 'profit' = utilidad (ventas − comisiones − costo de producto − gastos por incurred_at), igual que Finanzas.
+     * 'contribution' = con filtro por persona: aporte (sus ventas − comisiones de esas ventas − costo de sus productos),
+     * sin gastos generales. Rotularlo "Aporte", no "Utilidad". Faltan si la base es anterior.
+     */
+    product_cost?: number;
+    net_kind?: 'profit' | 'contribution';
+    units_without_cost?: number | null;
 };
 export type Metrics = {
     range: { from: string; to: string; days: number; timezone: string; previous_from: string; previous_to: string };

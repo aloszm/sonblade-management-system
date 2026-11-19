@@ -26,8 +26,9 @@ export async function GET() {
     try {
         const context = await requireAuthContext();
         const supabase = await createSupabaseServerClient();
-        const products = await loadProducts(supabase, context.businessId, context.branchId);
-        if (MANAGEMENT_READ_ROLES.includes(context.role)) return Response.json(products, { headers: NO_STORE });
+        const management = MANAGEMENT_READ_ROLES.includes(context.role);
+        const products = await loadProducts(supabase, context.businessId, context.branchId, { withCost: management });
+        if (management) return Response.json(products, { headers: NO_STORE });
         const withoutCost = products.map((p) => {
             const rest: Partial<typeof p> = { ...p };
             delete rest.cost;
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
             p_minimum_quantity: parsed.data.min_stock ?? 0,
         } as never);
         if (error) throw error;
-        const created = (await loadProducts(supabase, context.businessId, context.branchId)).find((p) => p.sku === parsed.data.sku);
+        const created = (await loadProducts(supabase, context.businessId, context.branchId, { withCost: true })).find((p) => p.sku === parsed.data.sku);
         return Response.json(created ?? null, { status: 201, headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);

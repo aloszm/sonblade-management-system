@@ -7,7 +7,8 @@ export type ProductRow = {
     sku: string | null;
     description: string | null;
     sale_price: number | string;
-    cost_price: number | string | null;
+    /** Solo con `withCost` (dueño, gerencia, consulta): sale de public.product_costs, no de la tabla. */
+    cost_price?: number | string | null;
     created_at: string;
     updated_at: string;
 };
@@ -56,19 +57,28 @@ export function summarizeProducts(products: Product[]) {
     };
 }
 
-export async function loadProducts(supabase: SupabaseClient, businessId: string, branchId: string): Promise<Product[]> {
-    const [{ data: products, error }, { data: inventory, error: inventoryError }] = await Promise.all([
+/**
+ * Catálogo con existencias. El costo ya no se pide a la tabla (C1, 20261119212000): con `withCost` se lee de
+ * public.product_costs, que solo responde a dueño, gerencia y consulta. Sin `withCost`, cost queda en 0.
+ */
+export async function loadProducts(supabase: SupabaseClient, businessId: string, branchId: string,
+    options: { withCost?: boolean } = {}): Promise<Product[]> {
+    const [{ data: products, error }, { data: inventory, error: inventoryError }, costs] = await Promise.all([
         supabase.from('products')
-            .select('id, name, sku, description, sale_price, cost_price, created_at, updated_at')
+            .select('id, name, sku, description, sale_price, created_at, updated_at')
             .eq('business_id', businessId).eq('is_active', true).order('name').limit(1000),
         supabase.from('branch_inventory')
             .select('product_id, quantity_on_hand, minimum_quantity')
             .eq('business_id', businessId).eq('branch_id', branchId).limit(1000),
+        options.withCost ? supabase.rpc('product_costs', { p_branch_id: branchId }) : Promise.resolve({ data: [], error: null }),
     ]);
     if (error) throw error;
     if (inventoryError) throw inventoryError;
+    if (costs.error) throw costs.error;
+    const costByProduct = new Map<string, number | string | null>();
+    for (const row of (costs.data ?? []) as { product_id: string; cost_price: number | string | null }[]) costByProduct.set(row.product_id, row.cost_price);
 
     const byProduct = new Map<string, InventoryRow>();
     for (const row of (inventory ?? []) as unknown as InventoryRow[]) byProduct.set(row.product_id, row);
-    return ((products ?? []) as unknown as ProductRow[]).map((p) => toProductView(p, byProduct.get(p.id)));
+    return ((products ?? []) as unknown as ProductRow[]).map((p) => toProductView({ ...p, cost_price: costByProduct.get(p.id) ?? null }, byProduct.get(p.id)));
 }

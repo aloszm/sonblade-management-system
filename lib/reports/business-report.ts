@@ -14,9 +14,23 @@ export type BarberRow = {
     service_breakdown: { name: string; count: number; revenue: number }[];
 };
 
+/**
+ * Bloque de dinero que arma private.profit_kpis (misma función que Finanzas):
+ * net = revenue − commissions − product_cost − expenses (gastos por incurred_at).
+ * net_kind 'contribution' (filtro por persona) = aporte, sin gastos generales; no es "utilidad".
+ */
+export type ProfitKpis = {
+    revenue: number; commissions: number; product_cost: number; expenses: number; net: number;
+    net_kind: 'profit' | 'contribution'; units_without_cost: number | null; sales_commissions?: number;
+};
+
 export type BusinessReport = {
     window: { start: string; end: string; timezone: string };
-    kpis: { total_revenue: number; total_sales: number; avg_ticket: number; total_commissions: number; expenses: number; cuts: number } | null;
+    kpis: {
+        total_revenue: number; total_sales: number; avg_ticket: number; total_commissions: number; expenses: number; cuts: number;
+        /** B4 (20261119210000): dinero con la misma regla que Finanzas. Falta si la base es anterior. */
+        profit?: ProfitKpis;
+    } | null;
     payment_breakdown: { cash: number; card: number; transfer: number; other: number };
     barbers: BarberRow[];
     service_breakdown: { name: string; count: number; revenue: number }[];
@@ -51,19 +65,33 @@ export function effectiveRate(serviceCommission: number, serviceRevenue: number)
     return serviceRevenue > 0 ? Math.round((serviceCommission / serviceRevenue) * 100) : 0;
 }
 
-/** Forma que espera el panel de administrador (/admin, /reportes, /equipo). */
-export function toAdminSummary(report: BusinessReport) {
-    const kpis = report.kpis;
+/** Dinero del resumen: del bloque `profit` (B4) o, con una base anterior, de los totales sueltos. */
+export function adminMoney(kpis: BusinessReport['kpis']) {
+    const p = kpis?.profit;
+    if (p) {
+        return { revenue: round2(p.revenue), commissions: round2(p.commissions), productCost: round2(p.product_cost), expenses: round2(p.expenses), net: round2(p.net) };
+    }
     const revenue = kpis?.total_revenue ?? 0;
     const commissions = kpis?.total_commissions ?? 0;
     const expenses = kpis?.expenses ?? 0;
+    return { revenue, commissions: round2(commissions), productCost: 0, expenses: round2(expenses), net: round2(revenue - commissions - expenses) };
+}
+
+/** Forma que espera el panel de administrador (/admin, /reportes, /equipo). */
+export function toAdminSummary(report: BusinessReport) {
+    const kpis = report.kpis;
+    // B4: la utilidad sale del bloque `profit` de la base (misma regla que Finanzas: ventas − comisiones
+    // − costo de producto − gastos por incurred_at). Si la base aún no lo trae, se calcula con lo que hay.
+    const money = adminMoney(kpis);
     return {
         kpis: {
-            totalRevenue: revenue,
+            totalRevenue: money.revenue,
             totalTips: 0, // las propinas todavía no existen en el modelo nuevo
             avgTicket: kpis?.avg_ticket ?? 0,
-            totalCommissions: round2(commissions),
-            netProfit: round2(revenue - commissions - expenses),
+            totalCommissions: money.commissions,
+            totalProductCost: money.productCost,
+            totalExpenses: money.expenses,
+            netProfit: money.net,
             totalSales: kpis?.total_sales ?? 0,
         },
         paymentBreakdown: {

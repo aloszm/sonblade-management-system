@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });
         }
         const supabase = await createSupabaseServerClient();
-        const current = (await loadProducts(supabase, context.businessId, context.branchId)).find((p) => p.id === id.data);
+        const current = (await loadProducts(supabase, context.businessId, context.branchId, { withCost: true })).find((p) => p.id === id.data);
         if (!current) throw new AuthorizationError('Producto no encontrado.', 404);
         const v = parsed.data;
         const stockChanges = v.stock !== undefined && v.stock !== current.stock;
@@ -86,7 +86,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             if (error) throw error;
         }
 
-        const updated = (await loadProducts(supabase, context.businessId, context.branchId)).find((p) => p.id === id.data);
+        const updated = (await loadProducts(supabase, context.businessId, context.branchId, { withCost: true })).find((p) => p.id === id.data);
         return Response.json(updated ?? null, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);

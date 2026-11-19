@@ -5,6 +5,8 @@ export type Audience = 'interno' | 'contador';
 export type FullKpis = {
     revenue: number; cuts: number; products: number; tickets: number; tips: number; commissions: number;
     expenses: number; avg_ticket: number; net: number;
+    /** B4 (20261119210000): costo de producto; con él, net = utilidad igual que Finanzas. Falta en reportes anteriores. */
+    product_cost?: number; net_kind?: 'profit' | 'contribution'; units_without_cost?: number | null;
     discounts_total: number; discounts_count: number; reversals_total: number; reversals_count: number;
 };
 

@@ -9,6 +9,8 @@ import { groupServices, isTestName, formatDuration, type ServiceCategory } from 
 import { formatMoney } from '@/lib/utils/money';
 import { formatTime } from '@/lib/utils/dates';
 import PinConfirm from '@/components/ui/PinConfirm';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
 
 const money = (n: number) => formatMoney(n);
 const METHODS: { id: PaymentType; label: string }[] = [
@@ -60,7 +62,7 @@ export default function POS() {
         selectedBarber, selectedClient, servicePayment, serviceSplit, serviceTotal, productPayment, cart, tip, tipPayment,
         clientSearch, submitting, showSuccess, lastSale, loadingBarbers, loadingServices,
         visibleBarbers, filteredClients, services, products, serviceItems, productItems, subtotal, total,
-        discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, appointment, appointmentError,
+        discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, appointment, appointmentError, appointmentSuggestions,
         discountPinOpen, userId,
         error, cashStatus, canCharge,
     } = state;
@@ -68,7 +70,7 @@ export default function POS() {
         setSelectedBarber, setSelectedClient, setServicePayment, setProductPayment, setTip, setTipPayment,
         setClientSearch, addService, addProduct, removeFromCart, handleSubmit,
         setItemDiscount, setItemPrice, setItemQuantity, setDiscountReason, setDiscountAuthorizer, setProductSellerChoice, startNewSale, setServiceSplit, clearAppointment,
-        confirmDiscountPin, cancelDiscountPin,
+        confirmDiscountPin, cancelDiscountPin, chooseSuggestedAppointment, dismissSuggestions,
     } = actions;
     const authorizerName = authorizers.find((a) => a.user_id === discountAuthorizer)?.name ?? 'quien autoriza';
     const authorizerIsMe = Boolean(userId) && discountAuthorizer === userId;
@@ -200,6 +202,22 @@ export default function POS() {
                         </div>
                     )}
                     <InlineError error={error} field="barber" />
+                    {selectedBarber && appointmentSuggestions.length > 0 && (
+                        <Card as="div" data-testid="pos-open-appointments" role="group" aria-labelledby="pos-open-appointments-title" className="space-y-3">
+                            <p id="pos-open-appointments-title" className="text-sm">
+                                <span className="font-semibold">{selectedBarber.name} tiene {appointmentSuggestions.length === 1 ? 'una cita abierta' : 'citas abiertas'} hoy.</span>
+                                <span className="block text-bos-muted">Si cobras una de ellas, elígela para que no se duplique en la agenda.</span>
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {appointmentSuggestions.map((apt) => (
+                                    <Button key={apt.id} variant="secondary" size="sm" onClick={() => chooseSuggestedAppointment(apt)}>
+                                        Es la cita de {apt.client_name} a las {formatTime(apt.scheduled_at)}
+                                    </Button>
+                                ))}
+                                <Button variant="ghost" size="sm" onClick={dismissSuggestions}>Es sin cita</Button>
+                            </div>
+                        </Card>
+                    )}
                 </section>
 
                 <section aria-labelledby="pos-client" className="space-y-3">

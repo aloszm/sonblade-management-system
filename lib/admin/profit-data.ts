@@ -36,6 +36,19 @@ async function fetchBySaleIds<T>(ids: string[], build: (chunk: string[]) => Quer
     return rows;
 }
 
+/** Nombre y costo de los productos vendidos: nombre de la tabla, costo de public.product_costs (gerencia). */
+async function loadProductCosts(supabase: SupabaseClient, businessId: string, branchId: string, productIds: string[]): Promise<ProductCostRow[]> {
+    if (productIds.length === 0) return [];
+    const [names, costs] = await Promise.all([
+        fetchBySaleIds<{ id: string; name: string }>(productIds, (chunk) => supabase.from('products')
+            .select('id, name').eq('business_id', businessId).in('id', chunk).order('id')),
+        supabase.rpc('product_costs', { p_branch_id: branchId }),
+    ]);
+    if (costs.error) throw costs.error;
+    const costById = new Map(((costs.data ?? []) as { product_id: string; cost_price: number | string | null }[]).map((c) => [c.product_id, c.cost_price]));
+    return names.map((p) => ({ id: p.id, name: p.name, cost_price: costById.get(p.id) ?? null }));
+}
+
 async function loadStatement(
     supabase: SupabaseClient,
     scope: { businessId: string; branchId: string },
@@ -74,8 +87,8 @@ async function loadStatement(
     ]);
 
     const productIds = [...new Set(items.map((i) => i.product_id).filter((id): id is string => !!id))];
-    const products = await fetchBySaleIds<ProductCostRow>(productIds, (chunk) => supabase.from('products')
-        .select('id, name, cost_price').eq('business_id', businessId).in('id', chunk).order('id'));
+    // El costo se lee con public.product_costs (C1): la columna products.cost_price se cerrará a la API.
+    const products = await loadProductCosts(supabase, businessId, branchId, productIds);
 
     return computeProfit({ sales, items, commissions, tips, payments, products, expenses, employees, period: { ...period, timezone } });
 }

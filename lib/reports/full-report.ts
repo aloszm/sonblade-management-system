@@ -342,7 +342,9 @@ export function executiveParagraph(report: FullReport): string {
     } else {
         parts.push(`Se generaron ${money(k.commissions)} en comisiones y se registraron ${money(k.expenses)} en gastos; las propinas fueron ${money(k.tips)} y no cuentan como ingreso del negocio.`);
         const profitWord = k.net >= 0 ? 'utilidad' : 'pérdida';
-        parts.push(`La ${profitWord} (ingresos menos comisiones y gastos) fue de ${money(Math.abs(k.net))}; todavía no descuenta el costo de los productos.`);
+        parts.push(k.product_cost !== undefined
+            ? `La ${profitWord} (ingresos menos comisiones, costo de los productos y gastos) fue de ${money(Math.abs(k.net))}.`
+            : `La ${profitWord} (ingresos menos comisiones y gastos) fue de ${money(Math.abs(k.net))}; todavía no descuenta el costo de los productos.`);
     }
     const extras: string[] = [];
     if (k.discounts_count > 0) extras.push(`se otorgaron ${k.discounts_count} ${k.discounts_count === 1 ? 'descuento' : 'descuentos'} por ${money(k.discounts_total)}`);
@@ -389,7 +391,9 @@ function kpiItems(k: FullKpis, p: FullKpis, financial?: FullReport['financial'])
         { label: 'Propinas', value: k.tips, previous: p.tips, format: 'money', note: 'No son ingreso del negocio.' },
         { label: 'Comisiones', value: k.commissions, previous: p.commissions, format: 'money', invert: true },
         { label: 'Gastos', value: k.expenses, previous: p.expenses, format: 'money', invert: true },
-        { label: 'Utilidad', value: k.net, previous: p.net, format: 'money', note: 'Ingresos − comisiones − gastos. Aún no descuenta el costo de los productos.' },
+        { label: 'Utilidad', value: k.net, previous: p.net, format: 'money', note: k.product_cost !== undefined
+            ? 'Ingresos − comisiones − costo de producto − gastos.'
+            : 'Ingresos − comisiones − gastos. Aún no descuenta el costo de los productos.' },
         { label: 'Descuentos', value: k.discounts_total, previous: p.discounts_total, format: 'money', invert: true },
         { label: 'Ventas anuladas', value: k.reversals_total, previous: p.reversals_total, format: 'money', invert: true },
     ];

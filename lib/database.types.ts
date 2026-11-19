@@ -23,7 +23,9 @@ export type Database = {
           duration_snapshot_minutes: number
           employee_id: string | null
           id: string
+          position: number
           price_snapshot: number
+          removed_at: string | null
           service_id: string
         }
         Insert: {
@@ -34,7 +36,9 @@ export type Database = {
           duration_snapshot_minutes: number
           employee_id?: string | null
           id?: string
+          position?: number
           price_snapshot: number
+          removed_at?: string | null
           service_id: string
         }
         Update: {
@@ -45,7 +49,9 @@ export type Database = {
           duration_snapshot_minutes?: number
           employee_id?: string | null
           id?: string
+          position?: number
           price_snapshot?: number
+          removed_at?: string | null
           service_id?: string
         }
         Relationships: [
@@ -580,9 +586,11 @@ export type Database = {
         Row: {
           business_id: string
           created_at: string
+          created_by: string | null
           email: string | null
           full_name: string
           id: string
+          is_active: boolean
           notes: string | null
           phone: string | null
           preferences: string | null
@@ -591,9 +599,11 @@ export type Database = {
         Insert: {
           business_id: string
           created_at?: string
+          created_by?: string | null
           email?: string | null
           full_name: string
           id?: string
+          is_active?: boolean
           notes?: string | null
           phone?: string | null
           preferences?: string | null
@@ -602,9 +612,11 @@ export type Database = {
         Update: {
           business_id?: string
           created_at?: string
+          created_by?: string | null
           email?: string | null
           full_name?: string
           id?: string
+          is_active?: boolean
           notes?: string | null
           phone?: string | null
           preferences?: string | null
@@ -2266,6 +2278,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      client_history: { Args: { p_client_id: string }; Returns: Json }
+      client_summaries: {
+        Args: { p_branch_id: string; p_client_ids?: string[] }
+        Returns: {
+          client_id: string
+          last_visit_at: string
+          next_appointment_at: string
+          next_appointment_id: string
+          no_shows: number
+          total_spent: number
+          visits: number
+        }[]
+      }
       close_cash_session: {
         Args: {
           p_breakdown?: Json
@@ -2390,6 +2415,13 @@ export type Database = {
         }
         Returns: Json
       }
+      product_costs: {
+        Args: { p_branch_id: string }
+        Returns: {
+          cost_price: number
+          product_id: string
+        }[]
+      }
       provision_account: {
         Args: {
           p_actor_user_id: string
@@ -2468,6 +2500,22 @@ export type Database = {
           p_decision: string
           p_issue_key: string
           p_reason: string
+        }
+        Returns: Json
+      }
+      save_appointment: {
+        Args: {
+          p_appointment_id?: string
+          p_barber_id?: string
+          p_branch_id: string
+          p_client_id?: string
+          p_customer_name?: string
+          p_customer_phone?: string
+          p_duration_minutes?: number
+          p_idempotency_key?: string
+          p_notes?: string
+          p_service_ids?: string[]
+          p_start?: string
         }
         Returns: Json
       }

@@ -118,6 +118,34 @@ export function usePOS() {
         }
     }, [appointment, barbers, clients]);
 
+    // B3: al elegir barbero sin venir de una cita, se ofrecen sus citas abiertas de hoy para no duplicarlas.
+    const [openAppointments, setOpenAppointments] = useState<Appointment[]>([]);
+    const [walkInFor, setWalkInFor] = useState<string | null>(null);
+    const barberId = selectedBarber?.id ?? null;
+    useEffect(() => {
+        setOpenAppointments([]);
+        if (!barberId || appointment) return;
+        let cancelled = false;
+        fetch(`/api/appointments?abiertas=1&barbero=${encodeURIComponent(barberId)}`, { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : []))
+            .then((rows) => { if (!cancelled && Array.isArray(rows)) setOpenAppointments(rows as Appointment[]); })
+            .catch(() => { /* la sugerencia es opcional: sin ella se cobra igual */ });
+        return () => { cancelled = true; };
+    }, [barberId, appointment]);
+    const appointmentSuggestions = !appointment && barberId && walkInFor !== barberId ? openAppointments : [];
+
+    /** "Es la cita de …": la venta queda ligada a esa cita, igual que si se abriera desde la agenda. */
+    const chooseSuggestedAppointment = (apt: Appointment) => {
+        setAppointment(apt);
+        setAppointmentError('');
+        if (apt.client_id && clients) {
+            const client = clients.find((c) => c.id === apt.client_id);
+            if (client) setSelectedClient(client);
+        }
+    };
+    /** "Es sin cita": no se vuelve a preguntar por este barbero en esta venta. */
+    const dismissSuggestions = () => setWalkInFor(barberId);
+
     const clearAppointment = () => {
         setAppointment(null);
         setAppointmentError('');
@@ -427,6 +455,7 @@ export function usePOS() {
             setProductPayment('cash');
             setDiscountReason('');
             setProductSellerChoice('');
+            setWalkInFor(null);
             if (appointment) clearAppointment();
             setLastSaleTotal(total);
             setLastSale({ id: saved?.sale_id ?? null, saleTotal, tip: selectedBarber ? tip : 0, total: selectedBarber ? total : saleTotal, barberName: selectedBarber?.name ?? null });
@@ -474,13 +503,13 @@ export function usePOS() {
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
             discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, discountPinOpen, userId,
-            appointment, appointmentError
+            appointment, appointmentError, appointmentSuggestions
         },
         actions: {
             setSelectedBarber: chooseBarber, setSelectedClient, setServicePayment: chooseServicePayment, setTipPayment: chooseTipPayment, setProductPayment: chooseProductPayment, setTip,
             setClientSearch, setServiceSearch, setProductSearch, setBarberSearch, addService, addProduct, removeFromCart, handleSubmit,
             setCart, setItemDiscount, setItemPrice, setDiscountReason: changeDiscountReason, setDiscountAuthorizer: changeDiscountAuthorizer, setProductSellerChoice: chooseSeller, startNewSale, setItemQuantity, setServiceSplit: changeSplit,
-            clearAppointment, refreshCash, confirmDiscountPin, cancelDiscountPin
+            clearAppointment, refreshCash, confirmDiscountPin, cancelDiscountPin, chooseSuggestedAppointment, dismissSuggestions
         }
     };
 }

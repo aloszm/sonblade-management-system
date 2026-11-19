@@ -79,7 +79,29 @@ export interface AppointmentRow {
     employees?: { id: string; display_name: string } | null;
     source?: string | null;
     sales?: { id: string; status: string; total_amount: number | string }[] | null;
+    appointment_items?: AppointmentItemRow[] | null;
 }
+
+export interface AppointmentItemRow {
+    id: string;
+    service_id: string;
+    price_snapshot: number | string;
+    duration_snapshot_minutes: number;
+    position?: number | null;
+    removed_at?: string | null;
+    services?: { name: string } | null;
+}
+
+/** Servicio guardado en la cita (C2): precio y duración del momento en que se agendó. */
+export interface AppointmentServiceView {
+    service_id: string;
+    name: string;
+    price: number;
+    duration_minutes: number;
+}
+
+/** Columnas que piden las rutas de citas (con sus servicios vigentes). */
+export const APPOINTMENT_COLUMNS = 'id, client_id, assigned_employee_id, customer_name, customer_phone, scheduled_start_at, scheduled_end_at, status, notes, created_at, source, clients(id, full_name), employees(id, display_name), sales(id, status, total_amount), appointment_items(id, service_id, price_snapshot, duration_snapshot_minutes, position, removed_at, services(name))';
 
 export interface AppointmentView {
     id: string;
@@ -98,6 +120,8 @@ export interface AppointmentView {
     walk_in: boolean;
     /** Venta vigente ligada (la cita ya se cobró), o null. */
     sale: { id: string; total: number } | null;
+    /** Servicios vigentes de la cita en el orden en que se eligieron (vacío en citas anteriores a C2). */
+    services: AppointmentServiceView[];
 }
 
 export function toAppointmentView(row: AppointmentRow): AppointmentView {
@@ -120,7 +144,14 @@ export function toAppointmentView(row: AppointmentRow): AppointmentView {
         created_at: row.created_at,
         walk_in: row.source === 'walk_in',
         sale: chargedSale(row.sales),
+        services: currentServices(row.appointment_items),
     };
+}
+
+function currentServices(items: AppointmentRow['appointment_items']): AppointmentServiceView[] {
+    return (items ?? []).filter((i) => !i.removed_at)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .map((i) => ({ service_id: i.service_id, name: i.services?.name ?? '', price: Number(i.price_snapshot), duration_minutes: i.duration_snapshot_minutes }));
 }
 
 function chargedSale(sales: AppointmentRow['sales']): AppointmentView['sale'] {
