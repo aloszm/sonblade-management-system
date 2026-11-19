@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
-import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, Edit2, Trash2 } from 'lucide-react';
+import { Package, Download, Plus, Search, AlertTriangle, CheckCircle, Edit2, Trash2, PackagePlus } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import PinConfirm from '@/components/ui/PinConfirm';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -16,10 +16,20 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
 import { HttpError, MSG_OFFLINE, readJson, toUserMessage } from '@/lib/utils/errors';
+import Field from '@/components/ui/Field';
+import { useNavUser } from '@/hooks/useNavUser';
+import { RECEIVE_COMMENT_MAX, RECEIVE_MAX, receiveCommentProblem, receiveQuantityProblem } from '@/lib/inventory/receive';
 
 const Inventory: React.FC = () => {
     // Cuenta de consulta: ve existencias y exporta, sin agregar, editar ni dar de baja.
     const readOnly = useReadOnly();
+    // Quién es: recepción y caja solo registran ENTRADAS (con su PIN); no ven costos ni editan productos.
+    // Mientras se sabe, no se muestran los controles de gerencia (la API los rechazaría igual).
+    const me = useNavUser();
+    const frontDesk = me?.role === 'recepcion';
+    const writer = Boolean(me) && !readOnly && !me?.readOnly;
+    const canManage = writer && me?.role === 'admin';
+    const canReceive = writer && (frontDesk || me?.role === 'admin');
     const [modalOpen, setModalOpen] = useState(false);
     const [filter, setFilter] = useState<'all' | 'low'>('all');
     const [search, setSearch] = useState('');
@@ -32,6 +42,13 @@ const Inventory: React.FC = () => {
     const [deleting, setDeleting] = useState(false);
     // Entradas, salidas y mínimo: se confirman con PIN y comentario (dueño y gerencia).
     const [stockPin, setStockPin] = useState(false);
+    // Entrada de mercancía: cantidad y comentario, después el PIN de quien la registra.
+    const [receiveTarget, setReceiveTarget] = useState<Product | null>(null);
+    const [receiveQty, setReceiveQty] = useState('');
+    const [receiveComment, setReceiveComment] = useState('');
+    const [receiveErrors, setReceiveErrors] = useState<{ quantity?: string; comment?: string }>({});
+    const [receivePin, setReceivePin] = useState(false);
+    const [notice, setNotice] = useState('');
 
     // Form state for new product
     const [form, setForm] = useState<CreateProduct & { entry_date?: string; exit_date?: string }>({
@@ -137,6 +154,44 @@ const Inventory: React.FC = () => {
         }
     };
 
+    const openReceive = (p: Product) => {
+        setReceiveTarget(p);
+        setReceiveQty('');
+        setReceiveComment('');
+        setReceiveErrors({});
+        setReceivePin(false);
+        setNotice('');
+    };
+    const closeReceive = () => { setReceiveTarget(null); setReceivePin(false); };
+    const receiveQuantity = receiveQty.trim() === '' ? NaN : Number(receiveQty);
+
+    const continueReceive = () => {
+        const errors = { quantity: receiveQuantityProblem(receiveQuantity) ?? undefined, comment: receiveCommentProblem(receiveComment) ?? undefined };
+        setReceiveErrors(errors);
+        if (errors.quantity || errors.comment) return;
+        setReceivePin(true);
+    };
+
+    const submitReceive = async ({ pin }: { pin: string; comment: string }) => {
+        if (!receiveTarget) return;
+        let res: Response;
+        try {
+            res = await fetch(`/api/products/${receiveTarget.id}/receive`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: receiveQuantity, comment: receiveComment.trim(), pin }),
+            });
+        } catch (e) {
+            throw new Error(toUserMessage(e));
+        }
+        const body = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(toUserMessage(new HttpError(res.status, body?.error), 'No se pudo registrar la entrada.'));
+        setNotice(`Entrada registrada: ${receiveQuantity} de ${receiveTarget.name}. Ahora hay ${body?.stock ?? receiveTarget.stock + receiveQuantity}.`);
+        closeReceive();
+        refetch();
+        refetchStats();
+    };
+
     const getStockPercentage = (p: Product) => {
         const max = Math.max(p.stock, p.min_stock * 4, 20);
         return Math.min(100, Math.round((p.stock / max) * 100));
@@ -162,18 +217,24 @@ const Inventory: React.FC = () => {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Inventario</h1>
-                    <p className="text-sm text-bos-muted mt-1">Gestión general de productos y stock</p>
+                    <p className="text-sm text-bos-muted mt-1">{frontDesk ? 'Existencias y entradas de mercancía' : 'Gestión general de productos y stock'}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button onClick={() => {
                         const label: Record<Product['status'], string> = { ok: 'Normal', low: 'Bajo', critical: 'Crítico', empty: 'Agotado' };
-                        downloadCsv(`inventario_${localDateKey(new Date())}.csv`,
+                        const file = `inventario_${localDateKey(new Date())}.csv`;
+                        if (frontDesk) {
+                            downloadCsv(file, ['SKU', 'Producto', 'Categoría', 'Existencias', 'Mínimo', 'Precio', 'Estado'],
+                                (products || []).map(p => [p.sku, p.name, p.category, p.stock, p.min_stock, p.price, label[p.status]]));
+                            return;
+                        }
+                        downloadCsv(file,
                             ['SKU', 'Producto', 'Categoría', 'Existencias', 'Mínimo', 'Costo', 'Precio', 'Valor en inventario', 'Estado'],
                             (products || []).map(p => [p.sku, p.name, p.category, p.stock, p.min_stock, p.cost, p.price, p.price * p.stock, label[p.status]]));
                     }} className="min-h-[52px] flex items-center gap-2 px-5 border border-bos-border rounded-xl font-semibold text-bos-text hover:bg-bos-raised transition-colors">
                         <Download className="h-4 w-4" /> Exportar
                     </button>
-                    {!readOnly && <button onClick={() => {
+                    {canManage && <button onClick={() => {
                         setEditingId(null);
                         setSaveError('');
                         setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
@@ -186,6 +247,7 @@ const Inventory: React.FC = () => {
             <ReadOnlyNotice readOnly={readOnly} />
 
             {listError && <p role="alert" className={`${card} p-3 text-sm text-bos-danger`}>{listError}</p>}
+            {notice && <p role="status" className={`${card} p-3 text-sm text-bos-text`}>{notice}</p>}
 
             {/* Resumen */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -306,25 +368,32 @@ const Inventory: React.FC = () => {
                                             </td>
                                             <td data-label="Precios" className="px-5 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col">
-                                                    <div className="flex justify-between gap-4 text-sm">
+                                                    {!frontDesk && <div className="flex justify-between gap-4 text-sm mb-1">
                                                         <span className="text-bos-muted">Costo:</span>
                                                         <span className="font-medium tabular-nums">{formatMoney(p.cost, { cents: true })}</span>
-                                                    </div>
-                                                    <div className="flex justify-between gap-4 text-sm mt-1">
+                                                    </div>}
+                                                    <div className="flex justify-between gap-4 text-sm">
                                                         <span className="text-bos-muted">Venta:</span>
                                                         <span className="font-semibold tabular-nums">{formatMoney(p.price, { cents: true })}</span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td data-label="" className="px-5 py-2 text-right">
-                                                {!readOnly && <div className="flex justify-end gap-1">
+                                                <div className="flex justify-end items-center gap-1">
+                                                    {canReceive && (
+                                                        <Button variant="secondary" size="sm" onClick={() => openReceive(p)} aria-label={`Registrar entrada de ${p.name}`}>
+                                                            <PackagePlus aria-hidden="true" className="h-4 w-4" /> Registrar entrada
+                                                        </Button>
+                                                    )}
+                                                    {canManage && <>
                                                     <button onClick={() => handleEditClick(p)} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-text hover:bg-bos-raised rounded-xl transition-colors" title="Editar / Ajustar Stock" aria-label={`Editar ${p.name}`}>
                                                         <Edit2 className="h-4 w-4" />
                                                     </button>
                                                     <button onClick={() => setDeleteTarget({ id: p.id, name: p.name })} className="h-11 w-11 inline-flex items-center justify-center text-bos-muted hover:text-bos-danger hover:bg-bos-raised rounded-xl transition-colors" title="Dar de baja" aria-label={`Dar de baja ${p.name}`}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>
-                                                </div>}
+                                                    </>}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -432,6 +501,40 @@ const Inventory: React.FC = () => {
                     onConfirm={() => handleDelete(deleteTarget)}
                     onCancel={() => setDeleteTarget(null)}
                 />
+            )}
+            {receiveTarget && !receivePin && (
+                <Modal title="Registrar entrada" subtitle="Solo suma existencias. Se confirma con tu PIN." onClose={closeReceive} testId="receive-stock">
+                    <form className="space-y-5" noValidate onSubmit={(e) => { e.preventDefault(); continueReceive(); }}>
+                        <div className="rounded-xl bg-bos-raised px-4 py-3 text-[15px]">
+                            <p className="font-semibold">{receiveTarget.name}</p>
+                            <p className="text-bos-muted">Existencias actuales: <span className="tabular-nums text-bos-text">{receiveTarget.stock}</span></p>
+                        </div>
+                        <Field label="¿Cuántas piezas llegaron?" type="number" inputMode="numeric" min={1} max={RECEIVE_MAX} step={1}
+                            value={receiveQty} onChange={(e) => setReceiveQty(e.target.value)} error={receiveErrors.quantity}
+                            hint={`De 1 a ${RECEIVE_MAX} por entrada.`} />
+                        <Field label="Comentario" error={receiveErrors.comment} hint="Por ejemplo, de qué proveedor o pedido.">
+                            {(control) => (
+                                <textarea {...control} rows={3} maxLength={RECEIVE_COMMENT_MAX} value={receiveComment}
+                                    onChange={(e) => setReceiveComment(e.target.value)} placeholder="Ej: Llegó el pedido del proveedor"
+                                    className={`${control.className} h-auto min-h-[88px] py-2`} />
+                            )}
+                        </Field>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button variant="secondary" onClick={closeReceive}>Cancelar</Button>
+                            <Button type="submit">Continuar</Button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+            {receiveTarget && receivePin && (
+                <PinConfirm title="Confirmar entrada de mercancía" fixedComment={receiveComment.trim()} confirmLabel="Registrar con PIN"
+                    onClose={() => setReceivePin(false)} onConfirm={submitReceive}
+                    summary={(
+                        <div className="space-y-1">
+                            <p className="font-semibold">{receiveTarget.name}</p>
+                            <p>Entrada de {receiveQuantity} · existencias {receiveTarget.stock} → <strong>{receiveTarget.stock + receiveQuantity}</strong></p>
+                        </div>
+                    )} />
             )}
             {stockPin && editingProduct && (
                 <PinConfirm title="Confirmar cambio de inventario" onClose={() => setStockPin(false)} onConfirm={saveProduct}

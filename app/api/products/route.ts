@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
 import { loadProducts } from '@/lib/inventory/products-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -17,12 +18,22 @@ const CreateProductSchema = z.object({
     price: z.number().min(0).max(1_000_000),
 });
 
-/** Catálogo de productos con las existencias de la sucursal. */
+/**
+ * Catálogo de productos con las existencias de la sucursal. El costo solo lo reciben dueño, gerencia
+ * y consulta: recepción, caja y barberos ven nombre, existencias y precio de venta.
+ */
 export async function GET() {
     try {
         const context = await requireAuthContext();
         const supabase = await createSupabaseServerClient();
-        return Response.json(await loadProducts(supabase, context.businessId, context.branchId), { headers: NO_STORE });
+        const products = await loadProducts(supabase, context.businessId, context.branchId);
+        if (MANAGEMENT_READ_ROLES.includes(context.role)) return Response.json(products, { headers: NO_STORE });
+        const withoutCost = products.map((p) => {
+            const rest: Partial<typeof p> = { ...p };
+            delete rest.cost;
+            return rest;
+        });
+        return Response.json(withoutCost, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);
     }

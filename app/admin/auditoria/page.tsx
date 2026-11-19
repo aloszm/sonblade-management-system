@@ -23,6 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
     sale_payment_recorded: 'Abono a venta',
     sale_reversed: 'Venta anulada',
     inventory_adjusted: 'Ajuste de inventario',
+    inventory_received: 'Entrada de mercancía',
     inventory_minimum_changed: 'Cambio de mínimo de inventario',
     commission_settlement_paid: 'Pago de comisiones',
     commission_adjustment_approved: 'Ajuste de comisión aprobado',

@@ -61,7 +61,10 @@ export async function middleware(request: NextRequest) {
         }
 
         const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
-        if (adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin', 'viewer'].includes(membership.role)) {
+        // Recepción y caja entran a Inventario para registrar entradas de mercancía (decisión del dueño, 19 nov 2026).
+        const frontDeskInventory = (membership.role === 'receptionist' || membership.role === 'cashier')
+            && (pathname === '/inventario' || pathname.startsWith('/inventario/'));
+        if (!frontDeskInventory && adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin', 'viewer'].includes(membership.role)) {
             if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
             return NextResponse.redirect(new URL('/pos', request.url));
         }

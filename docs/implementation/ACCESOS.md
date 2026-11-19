@@ -121,6 +121,11 @@ persona). Para producción, con la llave configurada, el dueño crea cada acceso
     (`set_cash_settings_confirmed`). La tabla `branches` sigue siendo solo del dueño, igual que `set_cash_settings`.
   - Inventario (entradas, salidas y mínimo): dueño y gerencia, siempre con PIN + comentario
     (`adjust_inventory_stock_confirmed`, `set_inventory_minimum_confirmed`). Decisión: el dueño también pone PIN, por consistencia.
+  - **Entradas de mercancía (19 nov 2026):** recepción y caja (`receptionist`, `cashier`) también pueden **sumar**
+    existencias con su propio PIN y un comentario (3 a 300 letras), hasta 500 piezas por entrada
+    (`receive_inventory_stock`, `POST /api/products/[id]/receive`, botón "Registrar entrada" en Inventario). No restan,
+    no corrigen a la baja ni cambian mínimo, costo o precio. El movimiento queda como `purchase` ("Entrada de mercancía")
+    y en la bitácora como `pin_confirmed_action` (`inventory_received`). La API ya no envía el costo a recepción, caja ni barberos.
   - Gastos, retiros y entradas manuales hechos por gerencia: PIN; el concepto es el comentario
     (`record_cash_movement_confirmed`). Dueño y recepción siguen como antes.
   - Comisiones, puestos, horarios y accesos: sin cambios (comisiones solo el dueño).

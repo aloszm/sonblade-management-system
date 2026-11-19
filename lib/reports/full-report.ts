@@ -65,7 +65,7 @@ export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
     completed: 'Completada', cancelled: 'Cancelada', no_show: 'No llegó',
 };
 export const STOCK_MOVEMENT_LABELS: Record<string, string> = {
-    purchase: 'Compra', sale: 'Venta', adjustment: 'Ajuste', waste: 'Merma', return_in: 'Devolución (entra)', return_out: 'Devolución (sale)', initial: 'Inventario inicial',
+    purchase: 'Entrada de mercancía', sale: 'Venta', adjustment: 'Ajuste', waste: 'Merma', return_in: 'Devolución (entra)', return_out: 'Devolución (sale)', initial: 'Inventario inicial',
 };
 export const CASH_MOVEMENT_LABELS: Record<string, string> = { expense: 'Gasto', withdrawal: 'Retiro', deposit: 'Entrada', adjustment: 'Ajuste', refund: 'Reembolso' };
 
@@ -224,6 +224,7 @@ const ACTION_LABELS: Record<string, string> = {
     commission_defaults_changed: 'Cambio de las comisiones generales',
     commission_settlement_paid: 'Pago de comisiones',
     inventory_adjusted: 'Ajuste de inventario',
+    inventory_received: 'Entrada de mercancía',
     business_profile_updated: 'Cambio de datos del negocio',
     report_exported: 'Reporte emitido',
     product_created: 'Producto creado',
@@ -291,6 +292,9 @@ export function auditDetail(entry: AuditEntry): string {
         }
         case 'inventory_adjusted':
             text = join([has(after.quantity_delta) ? `Ajuste de ${plainNumber(Number(after.quantity_delta))}` : '', has(after.quantity_after) ? `quedaron ${plainNumber(Number(after.quantity_after))}` : '', has(after.notes) ? String(after.notes) : '']);
+            break;
+        case 'inventory_received':
+            text = join([has(after.quantity_delta) ? `Entrada de ${plainNumber(Number(after.quantity_delta))}` : '', has(after.quantity_after) ? `quedaron ${plainNumber(Number(after.quantity_after))}` : '', has(after.notes) ? String(after.notes) : '']);
             break;
         case 'sale_reversed':
             text = amount('Se devolvieron', after.refunded_amount) ? `${amount('Se devolvieron', after.refunded_amount)}.` : 'Venta anulada.';

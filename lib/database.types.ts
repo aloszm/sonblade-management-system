@@ -2399,6 +2399,15 @@ export type Database = {
         }
         Returns: Json
       }
+      receive_inventory_stock: {
+        Args: {
+          p_branch_id: string
+          p_comment: string
+          p_product_id: string
+          p_quantity: number
+        }
+        Returns: Json
+      }
       record_cash_movement: {
         Args: {
           p_amount: number

@@ -285,6 +285,16 @@ $function$;
 revoke execute on function public.reverse_sale(uuid, text) from authenticated;
 ```
 
+### B3 — Recepción registra entradas de inventario (19 nov; en desarrollo, falta replicar a producción)
+
+Decisión del dueño: recepción (y caja) suma existencias cuando llega mercancía, con comentario y **su propio PIN**. No resta, no corrige a la baja ni cambia mínimos, costos o precios (sigue siendo de gerencia con PIN y del dueño).
+
+- Migración `20261119193000_receive_inventory_stock` · prueba `supabase/tests/receive_inventory_stock.test.sql` (25 casos).
+- `public.receive_inventory_stock(p_branch_id, p_product_id, p_quantity, p_comment)`: `security definer`, `search_path = ''`; cantidad de 1 a **500** por entrada (tope contra errores de dedo; si llega más, varias entradas), comentario de 3 a 300 letras, `private.consume_pin_proof()`, puestos owner/admin/cashier/receptionist del negocio y con acceso a la sucursal. Movimiento `purchase` (ningún reporte filtra por tipo; la app lo muestra como "Entrada de mercancía"), bitácora `inventory_received` + `pin_confirmed_action`.
+- App: `POST /api/products/[id]/receive` (`runWithPin`), botón "Registrar entrada" en `components/Inventory.tsx`; recepción no ve costo, editar, dar de baja ni agregar. `GET /api/products` ya no manda el costo a recepción, caja ni barberos. `middleware.ts` deja entrar a recepción y caja a `/inventario`.
+- **Pendiente:** el enlace "Inventario" del menú sigue siendo solo de gerencia (`lib/nav.ts`, `roles: ['admin']`); falta agregar `'recepcion'`. Mientras, recepción entra escribiendo `/inventario`.
+- **Pendiente (base):** la política de lectura de `products` sigue permitiendo que recepción lea `cost_price` llamando directo a la base; ocultarlo del todo requiere una vista o permisos por columna.
+
 ---
 
 ## 5. Procedimientos paso a paso (recetas)

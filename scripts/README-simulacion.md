@@ -41,3 +41,21 @@ se recorre completo. Luego se vuelve a `origin`. No se deshabilita ningún trigg
 - La semana por omisión es la del 25 al 31 de octubre de 2026 porque las semanas del 1 al 7 y del 8 al 14 de
   noviembre ya tienen recibos pagados de algunos barberos (el pago semanal no se repite).
 - Los servicios y productos usados son los del catálogo real (no los "(prueba)").
+
+## Intento del 19 nov 2026 (semana del 15 al 21 de noviembre): NO se ejecutó con COMMIT
+
+- `--summary --week 2026-11-15`: bien. `--rehearsal --week 2026-11-15 --days 2,3` (martes 17 y miércoles 18): limpio
+  (31 ventas, 32 citas, 2 cajas sin diferencia, 0 desfases), pero **solo** quitando `must_change_pin` dentro del ensayo
+  revertido, como pide la receta de pruebas (FASE_4 §5.2). Con domingo y lunes el ensayo choca con citas existentes
+  (`appointments_no_barber_overlap`).
+- Por qué no se corrió con COMMIT:
+  1. **Caja abierta**: la del 16 de noviembre (la abrió Alonso a las 15:41). El SQL se niega a correr con una caja abierta,
+     y cerrarla (con qué conteo) le toca al dueño desde la app. Mientras siga abierta, ningún día se puede simular.
+  2. **PIN temporal**: en desarrollo las 8 cuentas tienen `must_change_pin = true`, y desde el 17 nov la base rechaza
+     cualquier operación de esas cuentas. Simular con COMMIT exigiría saltarse esa regla de seguridad; no se hizo.
+     Primero cada persona debe elegir su PIN (o el dueño decidir otra cosa).
+  3. **Domingo 15 y lunes 16 ya tienen datos** (51 y 3 ventas, 22 y 2 cajas, 26 y 8 citas): esos días no se simulan.
+- Cuando 1 y 2 se resuelvan: `--day 2` y `--day 3` con `--week 2026-11-15`, en orden. Ojo: la semana usa el recibo
+  `P2647-NN` y el pago semanal del sábado; ese día aún no ha pasado.
+- Cuando se aplique la fase 2 de B2 (FASE_4), el script deberá cambiar: hoy usa `p_discount_authorized_by` suelto y
+  `reverse_sale` sin PIN, que esa fase cierra.

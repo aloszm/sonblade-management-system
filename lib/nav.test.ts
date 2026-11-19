@@ -29,9 +29,9 @@ describe('menú por puesto', () => {
         expect(labels(menuItems(manager))).not.toContain('Configuración');
     });
 
-    it('recepción: Caja, Agenda, Barberos hoy, Clientes; Cobro y Pago semanal en Más', () => {
+    it('recepción: Caja, Agenda, Barberos hoy, Clientes; Cobro, Pago semanal e Inventario en Más', () => {
         expect(labels(quickItems(front))).toEqual(['Caja', 'Agenda', 'Barberos hoy', 'Clientes']);
-        expect(labels(moreSections(front).flatMap((s) => s.items))).toEqual(['Cobro', 'Pago semanal']);
+        expect(labels(moreSections(front).flatMap((s) => s.items))).toEqual(['Cobro', 'Pago semanal', 'Inventario']);
     });
 
     it('barbero: Mi semana, Agenda, Clientes, Pago semanal y nada más', () => {

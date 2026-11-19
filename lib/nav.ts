@@ -50,7 +50,7 @@ export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
             { href: '/cuadre', label: 'Cuadre', icon: Scale, roles: ['admin'] },
             { href: '/administracion', label: 'Finanzas', icon: PiggyBank, roles: ['admin'] },
             { href: '/gastos', label: 'Gastos', icon: TrendingDown, roles: ['admin'] },
-            { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin'] },
+            { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin', 'recepcion'] },
             { href: '/servicios', label: 'Servicios', icon: Scissors, roles: ['admin'] },
             { href: '/equipo', label: 'Equipo', icon: Users, roles: ['admin'] },
             { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['admin'] },
