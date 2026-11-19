@@ -10,12 +10,13 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('Menú lateral', () => {
     it('el dueño ve todo, incluida la configuración', async () => {
-        mockMe({ name: 'Alonso', role: 'admin', isOwner: true, title: 'Dueño' });
+        mockMe({ name: 'Alonso', role: 'admin', isOwner: true, title: 'Gerente' });
         render(<Sidebar isOpen={true} />);
         for (const label of ['Panel', 'Cobro', 'Caja', 'Agenda', 'Clientes', 'Pago semanal', 'Ventas', 'Inventario', 'Equipo', 'Bitácora', 'Configuración']) {
             expect(await screen.findByRole('link', { name: label })).toBeInTheDocument();
         }
-        expect(screen.getByText('Dueño')).toBeInTheDocument();
+        expect(screen.getByText('Gerente')).toBeInTheDocument();
+        expect(screen.queryByText('Dueño')).not.toBeInTheDocument();
     });
 
     it('la gerente no ve la configuración del negocio', async () => {

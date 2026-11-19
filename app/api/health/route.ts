@@ -1,3 +1,4 @@
+import { appMode } from '@/lib/app-mode';
 import { checkAdminKey, publicConfigPresent } from '@/lib/system/health';
 
 export const dynamic = 'force-dynamic';
@@ -12,13 +13,14 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 export async function GET() {
     if (!publicConfigPresent()) {
         return Response.json({
-            ok: false, publicConfig: false, adminKeyConfigured: false, adminKeyWorks: false,
+            ok: false, mode: appMode(), publicConfig: false, adminKeyConfigured: false, adminKeyWorks: false,
             cause: 'Falta la configuración pública de Supabase (dirección y llave publicable).',
         }, { status: 503, headers: NO_STORE });
     }
     const key = await checkAdminKey();
     return Response.json({
         ok: key.works,
+        mode: appMode(),
         publicConfig: true,
         adminKeyConfigured: key.configured,
         adminKeyWorks: key.works,

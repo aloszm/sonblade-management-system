@@ -30,6 +30,9 @@
   --bos-success-soft: #0F2417;
   --bos-danger: #F87171;
   --bos-danger-soft: #2A1213;
+  /* Aviso de la versión de práctica: texto #1A1200 sobre #FBBF24 = 11.1:1 (AA y AAA). */
+  --bos-warn: #FBBF24;
+  --bos-on-warn: #1A1200;
 }
 
 [data-theme='light'] {
@@ -50,6 +53,9 @@
   --bos-success-soft: #E3F4E9;
   --bos-danger: #B91C1C;
   --bos-danger-soft: #FBE9E9;
+  /* Mismo tono en claro (11.1:1): es una franja de color propio, no depende del fondo de la página. */
+  --bos-warn: #FBBF24;
+  --bos-on-warn: #1A1200;
 }
 
 @theme inline {
@@ -69,6 +75,8 @@
   --color-bos-success-soft: var(--bos-success-soft);
   --color-bos-danger: var(--bos-danger);
   --color-bos-danger-soft: var(--bos-danger-soft);
+  --color-bos-warn: var(--bos-warn);
+  --color-bos-on-warn: var(--bos-on-warn);
 }
 
 /* Movimiento: corto y solo en los momentos que importan (cobro realizado). */
@@ -101,6 +109,13 @@
   outline: 2px solid var(--bos-accent-text);
   outline-offset: 2px;
 }
+
+/* Versión de práctica: la franja fija reserva su alto arriba de todo (también lo usa AppShell). */
+html[data-app-mode='practice'] { --bos-banner-h: 2.5rem }
+@media (min-width: 640px) { html[data-app-mode='practice'] { --bos-banner-h: 2rem } }
+html[data-app-mode='practice'] body { padding-top: var(--bos-banner-h) }
+/* Las pantallas de alto completo descuentan la franja para no crear desplazamiento de más. */
+html[data-app-mode='practice'] :is(.min-h-screen, .min-h-dvh) { min-height: calc(100dvh - var(--bos-banner-h)) }
 
 /* Logo según el tema, sin depender de JavaScript. */
 .logo-light { display: none }

@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import type { AuditLog } from '@/types';
 import { BUSINESS_TIME_ZONE, formatDateTime, zonedDayStartIso } from '@/lib/utils/dates';
 import { addDays } from '@/lib/settlements/week';
+import { roleLabel } from '@/lib/auth/roles';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
@@ -31,11 +32,6 @@ const ACTION_LABELS: Record<string, string> = {
     cash_settings_changed: 'Cambio de fondo y apartado de caja',
 };
 
-const ROLE_LABELS: Record<string, string> = {
-    system: 'Sistema', owner: 'Dueño', admin: 'Gerencia', viewer: 'Consulta',
-    recepcion: 'Recepción', receptionist: 'Recepción', cashier: 'Recepción', barbero: 'Barbero', barber: 'Barbero',
-};
-const roleLabel = (role: string | null | undefined) => (role ? ROLE_LABELS[role] ?? role : '—');
 
 const TABLE_LABELS: Record<string, string> = {
     services: 'servicio', products: 'producto', clients: 'cliente', commission_rules: 'regla de comisión',
@@ -104,7 +100,7 @@ export default function AuditoriaPage() {
                         <label htmlFor="a-role" className={label}>Rol</label>
                         <select id="a-role" value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className={field}>
                             <option value="all">Todos</option>
-                            <option value="admin">Gerencia</option>
+                            <option value="admin">Gerente</option>
                             <option value="recepcion">Recepción</option>
                             <option value="barbero">Barbero</option>
                             <option value="system">Sistema</option>

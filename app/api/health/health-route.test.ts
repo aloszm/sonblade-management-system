@@ -22,7 +22,15 @@ describe('GET /api/health', () => {
         const res = await GET();
         expect(res.status).toBe(200);
         expect(res.headers.get('Cache-Control')).toBe('no-store');
-        expect(await res.json()).toEqual({ ok: true, publicConfig: true, adminKeyConfigured: true, adminKeyWorks: true });
+        expect(await res.json()).toEqual({ ok: true, mode: 'production', publicConfig: true, adminKeyConfigured: true, adminKeyWorks: true });
+    });
+    it('informa el modo: práctica con la variable, producción sin ella', async () => {
+        vi.stubEnv('NEXT_PUBLIC_APP_MODE', 'practice');
+        expect((await (await GET()).json()).mode).toBe('practice');
+        vi.stubEnv('NEXT_PUBLIC_APP_MODE', '');
+        expect((await (await GET()).json()).mode).toBe('production');
+        vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+        expect((await (await GET()).json()).mode).toBe('production');
     });
     it('sin la llave secreta: 503 con causa legible', async () => {
         configured = false;

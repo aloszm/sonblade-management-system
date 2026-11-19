@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
 import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck } from 'lucide-react';
-import { roleTitle } from '@/lib/auth/roles';
+import { PRIMARY_ACCOUNT_BADGE, isPrimaryAccount, roleOptionLabel, roleTitle } from '@/lib/auth/roles';
 import { suggestLoginName } from '@/lib/auth/login-id';
 import type { BusinessRole } from '@/lib/auth/context';
 import Modal from '@/components/ui/Modal';
@@ -136,7 +136,7 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
                 {data.accounts.map((account) => (
                     <li key={account.userId} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                         <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-bos-text truncate">{account.name}{account.isSelf && <span className="text-bos-muted font-normal"> (tú)</span>}</p>
+                            <p className="font-semibold text-bos-text truncate">{account.name}{account.isSelf && <span className="text-bos-muted font-normal"> (tú)</span>}{isPrimaryAccount(account.role) && <span data-testid="primary-account-badge" className="ml-2 inline-block rounded-full border border-bos-border bg-bos-raised px-2 py-0.5 align-middle text-[11px] font-medium text-bos-muted">{PRIMARY_ACCOUNT_BADGE}</span>}</p>
                             <p className="text-sm text-bos-muted">
                                 {account.loginName ? <>usuario <strong className="text-bos-text">{account.loginName}</strong> · </> : 'sin usuario · '}
                                 {roleTitle(account.role)}
@@ -182,7 +182,7 @@ function AccessPanel({ barbers, readOnly, createFor, onCreateHandled, onChanged 
                         <div>
                             <label htmlFor="acc-role" className={label}>Puesto</label>
                             <select id="acc-role" className={field} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as BusinessRole })}>
-                                {data.assignableRoles.map((role) => <option key={role} value={role}>{roleTitle(role)}</option>)}
+                                {data.assignableRoles.map((role) => <option key={role} value={role}>{roleOptionLabel(role)}</option>)}
                             </select>
                         </div>
                         <p className="text-xs text-bos-muted bg-bos-bg border border-bos-border rounded-xl p-3">Se genera un PIN temporal que verás una sola vez para dictárselo. Al entrar, la persona elige su propio PIN.</p>

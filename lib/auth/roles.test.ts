@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES, MANAGEMENT_READ_ROLES, MANAGEMENT_ROLES, READ_ONLY_ROLES,
-    canWrite, isReadOnlyRole, readerRole, roleTitle, screenRole,
+    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canWrite, isPrimaryAccount, isReadOnlyRole, readerRole, roleLabel, roleOptionLabel, roleTitle, screenRole,
 } from './roles';
 
 describe('reglas de puestos', () => {
@@ -33,10 +33,30 @@ describe('reglas de puestos', () => {
         expect(readerRole('owner')).toBe('owner');
     });
 
+    it('la cuenta principal se distingue por insignia y en los selectores, no por el nombre del puesto', () => {
+        expect(isPrimaryAccount('owner')).toBe(true);
+        expect(isPrimaryAccount('admin')).toBe(false);
+        expect(PRIMARY_ACCOUNT_BADGE).toBe('Cuenta principal');
+        expect(roleOptionLabel('owner')).toBe('Gerente (cuenta principal)');
+        expect(roleOptionLabel('admin')).toBe('Gerente');
+    });
+
+    it('roleLabel cubre puestos sueltos de la bitácora y los reportes, sin decir Dueño', () => {
+        expect(roleLabel('owner')).toBe('Gerente');
+        expect(roleLabel('admin')).toBe('Gerente');
+        expect(roleLabel('system')).toBe('Sistema');
+        expect(roleLabel('recepcion')).toBe('Recepción');
+        expect(roleLabel('barbero')).toBe('Barbero');
+        expect(roleLabel('viewer')).toBe('Consulta');
+        expect(roleLabel(null)).toBe('—');
+        expect(Object.values(ROLE_TITLES).join(' ')).not.toMatch(/Due[ñn]/);
+    });
+
     it('nombre visible y vista de pantalla', () => {
         expect(roleTitle('viewer')).toBe('Consulta');
         expect(roleTitle('admin')).toBe('Gerente');
-        expect(roleTitle('owner')).toBe('Dueño');
+        expect(roleTitle('owner')).toBe('Gerente');
+        expect(roleTitle('owner')).toBe(roleTitle('admin'));
         expect(roleTitle('receptionist')).toBe('Recepción');
         expect(roleTitle('barber')).toBe('Barbero');
         expect(screenRole('viewer')).toBe('admin');

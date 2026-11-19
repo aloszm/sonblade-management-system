@@ -22,7 +22,7 @@ const timeOf = (iso: string) => formatTime(iso);
 const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
 const MOVEMENT_TYPES = [
     { id: 'expense', label: 'Gasto', short: 'Pagas algo del negocio', example: 'Agua, basura, insumos, material de limpieza.', affects: true, effect: 'Baja la utilidad: es un costo del negocio.' },
-    { id: 'withdrawal', label: 'Retiro', short: 'El dinero cambia de lugar', example: 'Llevar efectivo al banco o a la caja fuerte, entregárselo al dueño, pagar comisiones en efectivo.', affects: false, effect: 'No baja la utilidad: el dinero sigue siendo del negocio, solo sale de la caja.' },
+    { id: 'withdrawal', label: 'Retiro', short: 'El dinero cambia de lugar', example: 'Llevar efectivo al banco o a la caja fuerte, entregárselo a la gerencia, pagar comisiones en efectivo.', affects: false, effect: 'No baja la utilidad: el dinero sigue siendo del negocio, solo sale de la caja.' },
     { id: 'deposit', label: 'Entrada', short: 'Metes efectivo a la caja', example: 'Cambio en billetes y monedas, fondo extra.', affects: false, effect: 'No sube la utilidad: no es una venta.' },
 ] as const;
 const TAG_STYLES: Record<NonNullable<CashMovement['tag']>, string> = {
@@ -576,7 +576,7 @@ export default function CashRegister() {
                         {withdrawn !== null && withdrawn > 0 && (
                             <div className="space-y-2">
                                 <label htmlFor="close-delivered-to" className={label}>¿A quién se entrega el retiro? (opcional)</label>
-                                <input id="close-delivered-to" type="text" maxLength={120} autoComplete="off" value={deliveredTo} onChange={(e) => setDeliveredTo(e.target.value)} placeholder="Ej: Dueño, depósito al banco" className={field} />
+                                <input id="close-delivered-to" type="text" maxLength={120} autoComplete="off" value={deliveredTo} onChange={(e) => setDeliveredTo(e.target.value)} placeholder="Ej: Gerente, depósito al banco" className={field} />
                             </div>
                         )}
                         {closeShort && settings && (

@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
 import Providers from '@/components/Providers';
+import PracticeBanner from '@/components/PracticeBanner';
+import { isPracticeMode, PRACTICE_TITLE_PREFIX, withPracticeTitle } from '@/lib/app-mode';
 import { APP_DESCRIPTION, APP_TITLE, CLIENT_NAME } from '@/lib/brand';
 
 const inter = Inter({
@@ -24,7 +26,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-    title: APP_TITLE,
+    // En práctica la pestaña lleva "PRÁCTICA · " también en las pantallas que ponen su propio título.
+    title: { default: withPracticeTitle(APP_TITLE), template: `${isPracticeMode() ? PRACTICE_TITLE_PREFIX : ''}%s` },
     description: APP_DESCRIPTION,
     manifest: '/manifest.json',
     icons: {
@@ -48,11 +51,12 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="es" data-theme="dark" suppressHydrationWarning>
+        <html lang="es" data-theme="dark" data-app-mode={isPracticeMode() ? 'practice' : undefined} suppressHydrationWarning>
             <head>
                 <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
             </head>
             <body className={`${inter.variable} font-sans bg-bos-bg text-bos-text antialiased`}>
+                <PracticeBanner />
                 <Providers>
                     <AppShell>{children}</AppShell>
                 </Providers>

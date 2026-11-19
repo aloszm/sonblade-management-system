@@ -2,6 +2,7 @@
 // tablas, gráficas) se construye una sola vez a partir del jsonb de la base y de él salen la vista
 // en pantalla, el PDF y el Excel, para que los tres digan exactamente lo mismo.
 import { addDays } from '@/lib/settlements/week';
+import { roleLabel } from '@/lib/auth/roles';
 import type { Audience, AuditEntry, CashSessionReport, FullKpis, FullReport } from './full-report-types';
 
 // ───────────────────────── Periodos ─────────────────────────
@@ -55,11 +56,10 @@ export const AUDIENCE_LABELS: Record<Audience, string> = {
     contador: 'Contador / externo',
 };
 export const AUDIENCE_NOTES: Record<Audience, string> = {
-    interno: 'Incluye nombres de clientes. Solo para el dueño y la gerencia.',
+    interno: 'Incluye nombres de clientes. Solo para la cuenta principal y la gerencia.',
     contador: 'Sin nombres ni teléfonos de clientes: solo totales y movimientos del negocio.',
 };
 export const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
-export const ROLE_LABELS: Record<string, string> = { owner: 'Dueño', admin: 'Gerencia', cashier: 'Recepción', receptionist: 'Recepción', barber: 'Barbero', viewer: 'Consulta' };
 export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
     scheduled: 'Programada', confirmed: 'Confirmada', checked_in: 'Ya llegó', in_progress: 'En servicio',
     completed: 'Completada', cancelled: 'Cancelada', no_show: 'No llegó',
@@ -579,7 +579,7 @@ function addFinancialSections(report: FullReport, fin: Financial, add: AddSectio
     const sessions = report.cash.sessions;
     const sumS = (pick: (s: CashSessionReport) => number | null) => round2(sessions.reduce((a, s) => a + Number(pick(s) ?? 0), 0));
     const moved: Cell[][] = [
-        ['Retiros de efectivo durante el turno (al banco, a la caja fuerte o al dueño)', sumS((s) => s.withdrawals)],
+        ['Retiros de efectivo durante el turno (al banco, a la caja fuerte o a la gerencia)', sumS((s) => s.withdrawals)],
         ['Efectivo retirado al cerrar la caja', sumS((s) => s.withdrawn_amount)],
         [`Efectivo apartado al cerrar${report.cash.reserve_label ? ` (${report.cash.reserve_label})` : ''}`, sumS((s) => s.reserve_amount)],
         ['Entradas de efectivo que no son ventas', sumS((s) => s.deposits)],
@@ -638,7 +638,7 @@ export function buildReportModel(report: FullReport, control: ReportControl = nu
                     ['Sucursal', report.cover.branch.name],
                     ['Periodo', `${periodLabel(from, to)} (${formatDay(from)} al ${formatDay(to)}, ${days} ${days === 1 ? 'día' : 'días'})`],
                     ['Audiencia', `${AUDIENCE_LABELS[report.audience]}. ${AUDIENCE_NOTES[report.audience]}`],
-                    ['Generado por', `${report.cover.generated_by.name}${report.cover.generated_by.role ? ` (${ROLE_LABELS[report.cover.generated_by.role] ?? report.cover.generated_by.role})` : ''}`],
+                    ['Generado por', `${report.cover.generated_by.name}${report.cover.generated_by.role ? ` (${roleLabel(report.cover.generated_by.role)})` : ''}`],
                     ['Fecha y hora de generación', `${formatDateTime(report.cover.generated_at, tz, true)} (${tz})`],
                     ['Folio', folio ?? 'Se asigna al descargar el archivo'],
                     ['Código de verificación', code ?? 'Se asigna al descargar el archivo'],
@@ -737,7 +737,7 @@ export function buildReportModel(report: FullReport, control: ReportControl = nu
                 kind: 'table', title: 'Gastos, retiros y entradas de efectivo', empty: 'No hubo gastos, retiros ni entradas de efectivo.',
                 columns: [T.text('Turno'), T.dt('Fecha y hora'), T.text('Tipo'), T.text('Concepto'), T.text('Método'), T.money('Monto'), T.text('Quién')], rows: manualRows,
             },
-            { kind: 'text', tone: 'note', text: '"Ventas cobradas" suma lo cobrado en todas las formas de pago. Un retiro mueve el dinero de lugar (banco, caja fuerte, dueño) y no es gasto; el pago de comisiones en efectivo también sale de la caja como retiro.' },
+            { kind: 'text', tone: 'note', text: '"Ventas cobradas" suma lo cobrado en todas las formas de pago. Un retiro mueve el dinero de lugar (banco, caja fuerte, gerencia) y no es gasto; el pago de comisiones en efectivo también sale de la caja como retiro.' },
         ]);
 
     // 5. Gastos
@@ -826,7 +826,7 @@ export function buildReportModel(report: FullReport, control: ReportControl = nu
             {
                 kind: 'table', empty: 'No hubo cambios sensibles en el periodo.',
                 columns: [T.dts('Fecha y hora'), T.text('Quién'), T.text('Puesto'), T.text('Qué pasó'), T.text('Detalle'), T.text('Motivo')],
-                rows: report.audit.map((a) => [a.at, a.actor, a.role ? (ROLE_LABELS[a.role] ?? a.role) : '', auditActionLabel(a.action), auditDetail(a), a.reason]),
+                rows: report.audit.map((a) => [a.at, a.actor, a.role ? roleLabel(a.role) : '', auditActionLabel(a.action), auditDetail(a), a.reason]),
             },
         ]);
 

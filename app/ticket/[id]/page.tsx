@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import type { Ticket } from '@/lib/sales/ticket';
 import { SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
+import PracticePrintMark from '@/components/PracticePrintMark';
 
 type TicketData = Ticket & {
     business: { name: string; currency: string; timezone: string };
@@ -47,6 +48,7 @@ export default function TicketPage() {
             </div>
 
             <article data-testid="ticket" className="tabular-nums bg-bos-surface text-bos-text rounded-xl border border-bos-border p-6 print:bg-white print:text-black print:border-0 print:rounded-none print:p-0">
+                <PracticePrintMark />
                 <header className="text-center border-b border-dashed border-bos-border pb-4">
                     <BrandLogo alt="" className="h-16 w-auto mx-auto mb-2 print:h-14" />
                     <h1 className="font-display text-xl font-semibold tracking-tight">{ticket.business.name}</h1>

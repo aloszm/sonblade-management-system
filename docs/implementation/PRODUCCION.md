@@ -73,3 +73,24 @@ Necesitas una computadora con Windows (WSL), Mac o Linux y, si no sabes hacerlo,
 
 - El flujo no se ha ejecutado nunca en GitHub; la primera vez hazlo con **Run workflow** y confirma el aviso o el artefacto.
 - "Última migración" en la pantalla de estado sale de los archivos incluidos en el despliegue, no de la base (el historial vive en un esquema que la API no expone); si no viajan con el despliegue, muestra "No disponible".
+
+## Entorno de práctica
+
+**Qué es.** Una segunda publicación de la misma app, hecha para que el equipo ensaye (cobrar, abrir y cerrar caja, liquidar, agendar) sin tocar dinero real. Usa el mismo código; lo único que cambia es a qué base se conecta y la variable `NEXT_PUBLIC_APP_MODE=practice`.
+
+**Qué se ve distinto cuando está activo.** Una franja fija arriba en todas las pantallas (incluidas `/login` y `/reservar`) con "MODO PRÁCTICA — nada de lo que hagas aquí es real"; la pestaña empieza con "PRÁCTICA · "; el login avisa que se usa el PIN de práctica; los tickets y recibos impresos llevan "PRÁCTICA — SIN VALOR" (rótulo y marca de agua); y `/api/health` y **Configuración > Ver el estado del sistema** informan el modo (`practice` o `production`). Sin la variable, la app es producción normal y no cambia nada.
+
+**Base que usa.** `sonblade-dev` (datos simulados). Nunca la base de producción.
+
+**Variables de su proyecto de Vercel** (un proyecto aparte del de producción: cada proyecto lleva sus propias variables):
+
+| Variable | Valor |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | la de `sonblade-dev` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | la llave publicable de `sonblade-dev` |
+| `SUPABASE_SECRET_KEY` | la llave secreta de `sonblade-dev` (variable sensible) |
+| `NEXT_PUBLIC_APP_MODE` | `practice` |
+
+Las tres de Supabase deben ser del mismo proyecto (`sonblade-dev`). Los PIN de práctica son los de las cuentas de esa base, distintos de los reales. `NEXT_PUBLIC_APP_MODE` se incrusta al compilar: si la cambias, vuelve a desplegar.
+
+**ADVERTENCIA: este proyecto jamás debe apuntar a producción.** Si alguna de las tres llaves de Supabase fuera la de producción, el equipo estaría ensayando sobre dinero y clientes reales con una franja que dice lo contrario. Antes de compartir la dirección de práctica, entra a **Configuración > Ver el estado del sistema** y comprueba que dice "Práctica". Y al revés: el proyecto de producción nunca lleva `NEXT_PUBLIC_APP_MODE=practice`.

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 
 type Status = {
+    mode?: 'practice' | 'production';
     commit: string | null;
     environment: string | null;
     lastMigration: string | null;
@@ -48,7 +49,7 @@ export default function SystemStatusPage() {
             <header>
                 <Link href="/configuracion" className="inline-flex min-h-11 items-center text-sm font-semibold text-bos-accent-text underline underline-offset-4">Volver a Configuración</Link>
                 <h1 className="font-display text-3xl font-semibold tracking-tight">Estado del sistema</h1>
-                <p className="text-bos-muted text-sm mt-1">Solo para el dueño. Sirve para comprobar que el sistema está bien conectado.</p>
+                <p className="text-bos-muted text-sm mt-1">Solo para la cuenta principal. Sirve para comprobar que el sistema está bien conectado.</p>
             </header>
 
             {error && (
@@ -62,6 +63,7 @@ export default function SystemStatusPage() {
             {status && (
                 <section className="rounded-xl border border-bos-border bg-bos-surface p-5 sm:p-6">
                     <dl className="divide-y divide-bos-border">
+                        <Row label="Modo de la publicación" value={status.mode === 'practice' ? 'Práctica (datos simulados, nada es real)' : 'Producción (datos reales)'} tone={status.mode === 'practice' ? 'bad' : undefined} />
                         <Row label="Versión publicada" value={status.commit ?? 'No disponible (no es un despliegue de Vercel)'} />
                         <Row label="Entorno" value={status.environment ? (ENVIRONMENTS[status.environment] ?? status.environment) : 'No disponible'} />
                         <Row label="Última migración de la base incluida en esta versión" value={status.lastMigration ?? 'No disponible'} />

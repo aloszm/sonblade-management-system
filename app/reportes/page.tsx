@@ -115,7 +115,7 @@ export default function ReportsPage() {
             <header className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Reportes</h1>
-                    <p className="text-sm text-bos-muted max-w-2xl">Un reporte completo del periodo para el dueño, la gerencia y el contador. Cada archivo lleva un folio y un código para comprobar que es auténtico.</p>
+                    <p className="text-sm text-bos-muted max-w-2xl">Un reporte completo del periodo para la cuenta principal, la gerencia y el contador. Cada archivo lleva un folio y un código para comprobar que es auténtico.</p>
                 </div>
                 <Link href="/reportes/verificar" className={`${secondary} min-h-[44px]`}>
                     <ShieldCheck aria-hidden="true" className="h-5 w-5" /> Verificar un reporte
@@ -158,7 +158,7 @@ export default function ReportsPage() {
                 {readOnly ? (
                     <ReadOnlyNotice readOnly>
                         Ves el reporte completo en la vista previa de abajo. No se descarga desde esta cuenta porque cada descarga emite un folio
-                        nuevo que queda guardado en el sistema y en la bitácora; pídele la descarga al dueño o a la gerente.
+                        nuevo que queda guardado en el sistema y en la bitácora; pídele la descarga a la gerencia.
                     </ReadOnlyNotice>
                 ) : (
                 <div className="flex flex-wrap items-center gap-3 pt-1">

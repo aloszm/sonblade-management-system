@@ -20,7 +20,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isPublic) return <>{children}</>;
 
     return (
-        <div className="flex h-screen overflow-hidden bg-bos-bg flex-col md:flex-row print:block print:h-auto print:overflow-visible">
+        <div className="flex h-[calc(100vh-var(--bos-banner-h,0px))] overflow-hidden bg-bos-bg flex-col md:flex-row print:block print:h-auto print:overflow-visible">
             {/* Mobile Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
@@ -29,7 +29,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 />
             )}
 
-            <div className={`print:hidden fixed inset-y-0 left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out`}>
+            <div className={`print:hidden fixed bottom-0 top-[var(--bos-banner-h,0px)] left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out`}>
                 <Sidebar isOpen={true} />
             </div>
 

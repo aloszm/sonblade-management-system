@@ -15,7 +15,7 @@ const WHY: Record<string, string> = {
     format: 'El folio debe verse así: REP-000001, y el código tiene al menos 16 letras y números (de la a a la f y del 0 al 9).',
     not_found: 'No hay ningún reporte con ese folio en tu negocio.',
     code_mismatch: 'El folio existe, pero el código no es el que se emitió con él. Revisa que lo escribiste completo o pide el archivo original.',
-    altered: 'El código coincide, pero el contenido guardado de este reporte ya no da el mismo resultado. Avisa al dueño: el registro fue alterado.',
+    altered: 'El código coincide, pero el contenido guardado de este reporte ya no da el mismo resultado. Avisa a la cuenta principal: el registro fue alterado.',
 };
 
 export default function VerifyReportPage() {

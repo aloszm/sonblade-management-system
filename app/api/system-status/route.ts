@@ -1,3 +1,4 @@
+import { appMode } from '@/lib/app-mode';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { checkAdminKey } from '@/lib/system/health';
@@ -18,6 +19,7 @@ export async function GET() {
         const settings = business.data?.settings as { booking?: { enabled?: unknown } } | null | undefined;
         const commit = process.env.VERCEL_GIT_COMMIT_SHA ?? null;
         return Response.json({
+            mode: appMode(),
             commit: commit ? commit.slice(0, 7) : null,
             environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? null,
             lastMigration: latestBundledMigration(),

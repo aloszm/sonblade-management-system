@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import { weekLabel } from '@/lib/settlements/week';
 import BrandLogo from '@/components/BrandLogo';
+import PracticePrintMark from '@/components/PracticePrintMark';
 import ErrorState from '@/components/ui/ErrorState';
 import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 
@@ -63,6 +64,7 @@ export default function ReciboPage() {
             </div>
 
             <article className="bg-bos-surface text-bos-text rounded-xl border border-bos-border p-5 sm:p-8 print:bg-white print:text-black print:border-0 print:p-0 print:rounded-none" data-testid="receipt">
+                <PracticePrintMark />
                 <header className="flex flex-wrap justify-between items-start gap-3 border-b-2 border-bos-text pb-4">
                     <div>
                         <BrandLogo alt="" className="h-16 w-auto mb-2 print:h-14" />

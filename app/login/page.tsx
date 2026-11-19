@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
+import { PRACTICE_LOGIN_NOTE, isPracticeMode } from '@/lib/app-mode';
 
 const OFFLINE = 'Sin conexión o el servidor no respondió. Revisa tu internet e inténtalo de nuevo.';
 
@@ -89,6 +90,7 @@ export default function LoginPage() {
                     {submitting ? <Loader2 aria-label="Iniciando sesión" className="h-5 w-5 animate-spin" /> : 'Iniciar sesión'}
                 </button>
                 <p className="mt-5 text-center text-[13px] text-bos-muted">¿Olvidaste tu PIN? Pídele a gerencia que lo restablezca.</p>
+                {isPracticeMode() && <p data-testid="practice-login-note" className="mt-3 text-center text-[13px] font-semibold text-bos-text">{PRACTICE_LOGIN_NOTE}</p>}
             </form>
         </main>
     );

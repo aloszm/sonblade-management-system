@@ -36,9 +36,13 @@ describe('GET /api/system-status', () => {
         const res = await GET();
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({
-            commit: 'abcdef1', environment: 'production', lastMigration: '20261117180507_cash_reasons_and_pin_confirmation',
+            mode: 'production', commit: 'abcdef1', environment: 'production', lastMigration: '20261117180507_cash_reasons_and_pin_confirmation',
             adminKey: { configured: true, works: true, cause: null }, onlineBookingEnabled: true,
         });
+    });
+    it('informa el modo práctica', async () => {
+        vi.stubEnv('NEXT_PUBLIC_APP_MODE', 'practice');
+        expect((await (await GET()).json()).mode).toBe('practice');
     });
     it('reservas apagadas si el ajuste no existe', async () => {
         settings = {};

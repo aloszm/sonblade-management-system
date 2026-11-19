@@ -42,7 +42,7 @@ export default function OnboardingPage() {
 
     if (needsBootstrap) return <main className="mx-auto min-h-screen max-w-2xl bg-bos-bg p-8 text-bos-text">
         <h1 className="font-display text-3xl font-semibold tracking-tight">Configura el primer acceso</h1>
-        <p className="mt-3 text-bos-muted">Para crear el propietario y la primera sucursal, ejecuta el bootstrap manual siguiendo <code>docs/implementation/OWNER_BOOTSTRAP.md</code>. Este sitio no ofrece un alta pública de propietarios.</p>
+        <p className="mt-3 text-bos-muted">Para crear la cuenta principal y la primera sucursal, ejecuta el bootstrap manual siguiendo <code>docs/implementation/OWNER_BOOTSTRAP.md</code>. Este sitio no ofrece un alta pública de cuentas principales.</p>
     </main>;
 
     return <main className="mx-auto min-h-screen max-w-2xl bg-bos-bg p-8 text-bos-text">

@@ -5,15 +5,20 @@ import TeamPage from './page';
 const BARBERS = [{ id: 'b1', name: 'Deya', status: 'active', isBarber: true, hasAccount: true }];
 const ACCOUNTS = { accounts: [{ userId: 'u9', loginName: 'deya', role: 'barber', isActive: true, mustChangePin: false, employeeId: 'b1', name: 'Deya', isSelf: false, canManage: true }], assignableRoles: ['barber'], adminKeyConfigured: true };
 
+const TEAM = { accounts: [
+    { userId: 'u1', loginName: 'alonso', role: 'owner', isActive: true, mustChangePin: false, employeeId: null, name: 'Alonso', isSelf: false, canManage: true },
+    { userId: 'u2', loginName: 'sonia', role: 'admin', isActive: true, mustChangePin: false, employeeId: 'b2', name: 'Sonia', isSelf: false, canManage: true },
+], assignableRoles: ['barber', 'admin', 'owner'], adminKeyConfigured: true };
+
 type Call = { url: string; method: string };
-function stub(opts: { barbersFail?: boolean } = {}) {
+function stub(opts: { barbersFail?: boolean; team?: boolean } = {}) {
     const calls: Call[] = [];
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
         const u = String(url);
         calls.push({ url: u, method: init?.method ?? 'GET' });
         if (u.includes('/api/auth/me')) return { ok: true, json: async () => ({ authenticated: true, user: { role: 'admin' } }) };
         if (u.includes('/api/barbers?')) { if (opts.barbersFail) throw new TypeError('Failed to fetch'); return { ok: true, json: async () => BARBERS }; }
-        if (u.includes('/api/accounts')) return { ok: true, json: async () => ACCOUNTS };
+        if (u.includes('/api/accounts')) return { ok: true, json: async () => (opts.team ? TEAM : ACCOUNTS) };
         if (u.includes('/api/admin/summary')) return { ok: true, json: async () => ({ barberSummaries: [] }) };
         return { ok: true, json: async () => ({}) };
     }));
@@ -21,6 +26,20 @@ function stub(opts: { barbersFail?: boolean } = {}) {
 }
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+describe('Equipo: puestos visibles', () => {
+    it('Alonso y Sonia se leen "Gerente"; solo Alonso lleva la insignia "Cuenta principal"; nadie dice Dueño', async () => {
+        stub({ team: true });
+        render(<TeamPage />);
+        const alonso = (await screen.findByText('Alonso')).closest('li')!;
+        const sonia = screen.getByText('Sonia').closest('li')!;
+        expect(alonso).toHaveTextContent('Gerente');
+        expect(within(alonso).getByTestId('primary-account-badge')).toHaveTextContent('Cuenta principal');
+        expect(sonia).toHaveTextContent('Gerente');
+        expect(within(sonia).queryByTestId('primary-account-badge')).toBeNull();
+        expect(document.body).not.toHaveTextContent(/Due[ñn][oa]/);
+    });
+});
 
 describe('Equipo: errores, doble envío y confirmaciones', () => {
     it('si no carga el equipo muestra el error de conexión con Reintentar', async () => {

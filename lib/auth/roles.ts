@@ -40,16 +40,47 @@ export function readerRole(role: BusinessRole): BusinessRole {
     return isReadOnlyRole(role) ? 'admin' : role;
 }
 
+/**
+ * Nombres visibles de los puestos: el ÚNICO lugar donde se traduce el puesto interno a texto.
+ * Por dentro `owner` conserva todos sus permisos, pero en pantalla se lee "Gerente" igual que `admin`;
+ * a quien es `owner` se le distingue con la insignia "Cuenta principal" (ver isPrimaryAccount).
+ */
+export const ROLE_TITLES: Record<BusinessRole, string> = {
+    owner: 'Gerente',
+    admin: 'Gerente',
+    viewer: 'Consulta',
+    receptionist: 'Recepción',
+    cashier: 'Recepción',
+    barber: 'Barbero',
+};
+
+/** Término de pantalla para la cuenta `owner` en mensajes de permiso: "Solo la cuenta principal puede cambiar comisiones". */
+export const PRIMARY_ACCOUNT_LABEL = 'cuenta principal';
+/** Insignia discreta que distingue a la cuenta principal en las listas del equipo. */
+export const PRIMARY_ACCOUNT_BADGE = 'Cuenta principal';
+
+/** Si la cuenta es la principal (`owner`): la que lleva la insignia. */
+export function isPrimaryAccount(role: BusinessRole | string | null | undefined): boolean {
+    return role === 'owner';
+}
+
 /** Nombre del puesto que se muestra a la persona. */
 export function roleTitle(role: BusinessRole): string {
-    switch (role) {
-        case 'owner': return 'Dueño';
-        case 'admin': return 'Gerente';
-        case 'viewer': return 'Consulta';
-        case 'receptionist':
-        case 'cashier': return 'Recepción';
-        default: return 'Barbero';
-    }
+    return ROLE_TITLES[role] ?? ROLE_TITLES.barber;
+}
+
+/** Texto de una opción de puesto en un selector: distingue `owner` de `admin`, que se leen igual. */
+export function roleOptionLabel(role: BusinessRole): string {
+    return isPrimaryAccount(role) ? `${roleTitle(role)} (${PRIMARY_ACCOUNT_LABEL})` : roleTitle(role);
+}
+
+/** Etiqueta para un puesto que llega como texto suelto (bitácora, reportes): cubre además 'system' y los nombres de pantalla. */
+export function roleLabel(role: string | null | undefined): string {
+    if (!role) return '—';
+    if (role === 'system') return 'Sistema';
+    if (role === 'recepcion') return ROLE_TITLES.receptionist;
+    if (role === 'barbero') return ROLE_TITLES.barber;
+    return (ROLE_TITLES as Record<string, string>)[role] ?? role;
 }
 
 /** Rol "de pantalla" que usan el menú y las pantallas: consulta ve la vista de gerencia. */
