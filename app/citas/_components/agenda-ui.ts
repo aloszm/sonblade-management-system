@@ -1,5 +1,7 @@
 import type { AppointmentStatus } from '@/types';
 import { formatMoney } from '@/lib/utils/money';
+import { formatClock } from '@/lib/appointments/calendar-grid';
+import { localDateKey } from '@/lib/utils/dates';
 
 // Un color discreto por barbero para distinguirlos en el calendario.
 // Al menos 3:1 sobre la superficie en modo claro y oscuro (WCAG 1.4.11). El color solo se usa en barras, puntos,
@@ -55,4 +57,20 @@ export function longDayTitle(key: string): string {
     const weekday = d.toLocaleDateString('es-MX', { weekday: 'long' });
     const month = d.toLocaleDateString('es-MX', { month: 'long' });
     return `${weekday.charAt(0).toLocaleUpperCase('es-MX')}${weekday.slice(1)} ${d.getDate()} de ${month}`;
+}
+
+/** Hora de un instante en el reloj del dispositivo: "3:30 p.m.". */
+export const timeOf = (iso: string) => { const d = new Date(iso); return formatClock(d.getHours() * 60 + d.getMinutes()); };
+/** Día 'YYYY-MM-DD' (reloj del dispositivo) de un instante. */
+export const dayOf = (iso: string) => localDateKey(new Date(iso));
+/** "lunes, 16 de noviembre" para el título de una ventana. */
+export const dayTitle = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+export const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+/** Título de una semana ('YYYY-MM-DD' de domingo a sábado): "16 – 22 de noviembre de 2026". */
+export function weekRangeTitle(weekKeys: string[]): string {
+    const first = new Date(`${weekKeys[0]}T12:00:00`);
+    const last = new Date(`${weekKeys[6]}T12:00:00`);
+    const lastText = last.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+    return first.getMonth() === last.getMonth() ? `${first.getDate()} – ${lastText}` : `${first.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })} – ${lastText}`;
 }

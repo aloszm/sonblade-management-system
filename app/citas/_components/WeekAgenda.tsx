@@ -8,6 +8,7 @@ import { appointmentSpan, formatRange } from '@/lib/appointments/calendar-grid';
 import { formatHour, minutesToHHMM, workingWindow, type ScheduleData } from '@/lib/appointments/hours';
 import type { TimeOffView } from '@/lib/appointments/time-off';
 import { NO_BARBER_COLOR, TINT_HOVER_PCT, WEEK_SHORT, money, tintOf } from './agenda-ui';
+import { servicesText } from '@/lib/appointments/booking';
 import { StatusDot } from './parts';
 
 interface WeekAgendaProps {
@@ -76,7 +77,7 @@ export default function WeekAgenda({ days, todayKey, byDay, schedule, offOnDay, 
                                                     className={`flex w-full min-w-0 items-start gap-2 rounded-lg border border-l-[4px] px-3 py-2 text-left transition-colors motion-reduce:transition-none ${a.walk_in ? 'border-dashed border-y-bos-control border-r-bos-control' : 'border-y-transparent border-r-transparent'} ${live ? 'bg-[var(--tint)] active:bg-[var(--tint-h)]' : 'bg-bos-surface'}`}>
                                                     <span className="min-w-0 flex-1">
                                                         <span className={`block truncate text-sm font-bold ${live ? 'text-bos-text' : 'text-bos-muted'} ${isActive(a.status) ? '' : 'line-through'}`}>{a.client_name}</span>
-                                                        <span className="block truncate text-xs tabular-nums text-bos-muted">{range}{a.notes ? ` · ${a.notes}` : ''}</span>
+                                                        <span className="block truncate text-xs tabular-nums text-bos-muted">{range}{servicesText(a) ? ` · ${servicesText(a)}` : ''}</span>
                                                         <span className="mt-0.5 block truncate text-xs text-bos-muted">{a.barber ? a.barber.name : 'Sin barbero asignado'}{a.sale ? ` · ${money(a.sale.total)}` : ''}</span>
                                                     </span>
                                                     <span className="mt-0.5 flex shrink-0 flex-col items-end gap-1">

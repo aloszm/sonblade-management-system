@@ -10,6 +10,7 @@ import {
 import { overlapMinutes, type TimeOffView } from '@/lib/appointments/time-off';
 import { workingWindow, type ScheduleData } from '@/lib/appointments/hours';
 import { NO_BARBER_COLOR, SLOT_PX, SUBTLE_BG, SUBTLE_BG_STRONG, TINT_HOVER_PCT, money, tintOf } from './agenda-ui';
+import { servicesText } from '@/lib/appointments/booking';
 import { Avatar, StatusChip, StatusDot } from './parts';
 
 export interface DayColumn { id: string | null; name: string }
@@ -241,7 +242,7 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
                                         return (
                                             <button key={a.id} type="button" data-testid="day-appointment"
                                                 onClick={() => onOpenAppointment(a)}
-                                                title={`${range12} · ${a.client_name}${a.notes ? ` · ${a.notes}` : ''}${a.barber ? ` · ${a.barber.name}` : ''} · ${state}`}
+                                                title={`${range12} · ${a.client_name}${servicesText(a) ? ` · ${servicesText(a)}` : ''}${a.barber ? ` · ${a.barber.name}` : ''} · ${state}`}
                                                 style={{
                                                     top: box.top + 2, height: box.height - 4, borderLeftColor: color,
                                                     left: `calc(${(lane / laneCount) * 100}% + 4px)`, width: `calc(${100 / laneCount}% - 8px)`,
@@ -253,7 +254,7 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
                                                     <span className={`min-w-0 flex-1 text-[13px] font-bold leading-[18px] ${tall ? 'line-clamp-2' : 'truncate'} ${isActive(a.status) && a.status !== 'no_show' ? 'text-bos-text' : 'text-bos-muted'} ${isActive(a.status) ? '' : 'line-through'}`}>{a.client_name}</span>
                                                     <StatusDot status={a.status} className="mt-1" />
                                                 </span>
-                                                <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{detail.showService && a.notes ? ` · ${a.notes}` : ''}</span>
+                                                <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{detail.showService && servicesText(a) ? ` · ${servicesText(a)}` : ''}</span>
                                                 {(detail.showService || a.walk_in) && (a.walk_in || a.status !== 'scheduled' || a.sale) && (
                                                     <span className="mt-0.5 flex flex-wrap items-center gap-1">
                                                         {a.status !== 'scheduled' && <StatusChip status={a.status} />}

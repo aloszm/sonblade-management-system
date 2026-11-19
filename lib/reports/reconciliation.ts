@@ -1,4 +1,5 @@
 // Cuadre agenda ↔ cobros ↔ comisiones ↔ recibos (public.agenda_reconciliation). La base calcula; aquí solo se interpreta.
+import { agendaHref } from '@/lib/appointments/agenda-url';
 
 export type IssueKind = 'llego_sin_cobro' | 'sin_cerrar' | 'completada_sin_cobro' | 'cobro_sin_agenda' | 'otro_barbero';
 export type IssueStatus = 'pendiente' | 'revisada';
@@ -119,21 +120,24 @@ export function issueGuide(issue: Pick<ReconciliationIssue, 'kind' | 'pre_agenda
     return issue.kind === 'cobro_sin_agenda' && issue.pre_agenda ? PRE_AGENDA_GUIDE : ISSUE_GUIDE[issue.kind];
 }
 
+type AgendaTarget = Partial<Pick<ReconciliationIssue, 'day' | 'employee_id'>>;
+const agendaLink = (issue: AgendaTarget): string => agendaHref({ fecha: issue.day, barbero: issue.employee_id });
+
 /**
- * La acción principal de cada diferencia. La agenda no acepta todavía fecha ni barbero en la dirección,
- * así que "Ir a la agenda" abre /citas tal cual.
+ * La acción principal de cada diferencia. "Ir a la agenda" abre /citas en el día y con el barbero de la diferencia
+ * (sin esos datos, /citas tal cual).
  */
-export function primaryAction(issue: Pick<ReconciliationIssue, 'kind' | 'appointment_id' | 'sale_id'>): IssueAction | null {
+export function primaryAction(issue: Pick<ReconciliationIssue, 'kind' | 'appointment_id' | 'sale_id'> & AgendaTarget): IssueAction | null {
     if (issue.kind === 'llego_sin_cobro' && issue.appointment_id) return { kind: 'cobrar', label: 'Cobrar la cita', href: `/pos?cita=${issue.appointment_id}` };
     if ((issue.kind === 'cobro_sin_agenda' || issue.kind === 'otro_barbero') && issue.sale_id) return { kind: 'ticket', label: 'Ver ticket', href: `/ticket/${issue.sale_id}` };
-    if (issue.appointment_id) return { kind: 'agenda', label: 'Ir a la agenda', href: '/citas' };
+    if (issue.appointment_id) return { kind: 'agenda', label: 'Ir a la agenda', href: agendaLink(issue) };
     if (issue.sale_id) return { kind: 'ticket', label: 'Ver ticket', href: `/ticket/${issue.sale_id}` };
     return null;
 }
 
 /** Acción extra: en "cobrada a otro barbero" también sirve ver la cita. */
-export function secondaryAction(issue: Pick<ReconciliationIssue, 'kind' | 'appointment_id'>): IssueAction | null {
-    if (issue.kind === 'otro_barbero' && issue.appointment_id) return { kind: 'agenda', label: 'Ir a la agenda', href: '/citas' };
+export function secondaryAction(issue: Pick<ReconciliationIssue, 'kind' | 'appointment_id'> & AgendaTarget): IssueAction | null {
+    if (issue.kind === 'otro_barbero' && issue.appointment_id) return { kind: 'agenda', label: 'Ir a la agenda', href: agendaLink(issue) };
     return null;
 }
 

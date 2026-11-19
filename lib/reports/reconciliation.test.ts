@@ -136,4 +136,12 @@ describe('textos y acciones por tipo', () => {
         expect(primaryAction({ kind: 'completada_sin_cobro', appointment_id: APPT, sale_id: null })?.kind).toBe('agenda');
         expect(primaryAction({ kind: 'sin_cerrar', appointment_id: null, sale_id: null })).toBeNull();
     });
+
+    it('"Ir a la agenda" abre el día y el barbero de la diferencia', () => {
+        const where = { day: '2026-11-15', employee_id: DEYA };
+        expect(primaryAction({ kind: 'sin_cerrar', appointment_id: APPT, sale_id: null, ...where })?.href).toBe(`/citas?fecha=2026-11-15&barbero=${DEYA}`);
+        expect(secondaryAction({ kind: 'otro_barbero', appointment_id: APPT, ...where })?.href).toBe(`/citas?fecha=2026-11-15&barbero=${DEYA}`);
+        // Sin barbero (cita sin asignar) solo lleva el día.
+        expect(primaryAction({ kind: 'sin_cerrar', appointment_id: APPT, sale_id: null, day: '2026-11-15', employee_id: null })?.href).toBe('/citas?fecha=2026-11-15');
+    });
 });

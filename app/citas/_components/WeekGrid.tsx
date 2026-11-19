@@ -10,6 +10,7 @@ import {
 import { workingWindow, type ScheduleData } from '@/lib/appointments/hours';
 import type { TimeOffView } from '@/lib/appointments/time-off';
 import { NO_BARBER_COLOR, SUBTLE_BG, SUBTLE_BG_STRONG, TINT_HOVER_PCT, WEEK_SHORT, WEEK_SLOT_PX, money, tintOf } from './agenda-ui';
+import { servicesText } from '@/lib/appointments/booking';
 import { StatusDot } from './parts';
 
 interface WeekGridProps {
@@ -138,7 +139,7 @@ export default function WeekGrid({ days, todayKey, nowMinutes, byDay, schedule, 
                                     const state = a.walk_in ? 'Sin cita' : STATUS_LABELS[a.status];
                                     return (
                                         <button key={a.id} type="button" data-testid="week-appointment" onClick={() => onOpenAppointment(a)}
-                                            title={`${range12} · ${a.client_name}${a.notes ? ` · ${a.notes}` : ''}${a.barber ? ` · ${a.barber.name}` : ''} · ${state}`}
+                                            title={`${range12} · ${a.client_name}${servicesText(a) ? ` · ${servicesText(a)}` : ''}${a.barber ? ` · ${a.barber.name}` : ''} · ${state}`}
                                             style={{
                                                 top: box.top + 1, height: box.height - 2, borderLeftColor: color,
                                                 left: `calc(${(lane / laneCount) * 100}% + 2px)`, width: `calc(${100 / laneCount}% - 4px)`,
@@ -150,7 +151,7 @@ export default function WeekGrid({ days, todayKey, nowMinutes, byDay, schedule, 
                                                 <StatusDot status={a.status} className="!h-2 !w-2" />
                                             </span>
                                             {slotsHigh >= 2 && <span className="block truncate text-xs leading-4 text-bos-muted">{range12}</span>}
-                                            {slotsHigh >= 3 && a.notes && <span className="block truncate text-xs leading-4 text-bos-muted">{a.notes}</span>}
+                                            {slotsHigh >= 3 && servicesText(a) && <span className="block truncate text-xs leading-4 text-bos-muted">{servicesText(a)}</span>}
                                             <span className="sr-only">{state}{a.sale ? `, ${money(a.sale.total)}` : ''}</span>
                                         </button>
                                     );
