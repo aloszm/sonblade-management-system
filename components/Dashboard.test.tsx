@@ -78,6 +78,25 @@ describe('Panel del dueño', () => {
         expect(screen.getByRole('link', { name: /Ver reportes/ })).toHaveAttribute('href', '/reportes');
     });
 
+    it('muestra "Sueldos" como concepto propio (y "Bonos" solo si hubo) y los pone en la fórmula de la utilidad', async () => {
+        mockApi({ ...finance, wages: { total: 960, days: 3 }, bonuses: { total: 300, count: 1 }, profit: 90 });
+        render(<Dashboard />);
+        expect(await screen.findByTestId('kpi-net')).toHaveTextContent('$90');
+        const note = screen.getByTestId('profit-note');
+        expect(note).toHaveTextContent('Utilidad = ingresos − comisiones − sueldos ($960) − bonos ($300) − costo de producto ($150) − gastos ($200)');
+        expect(screen.getByText('Sueldos')).toBeInTheDocument();
+        expect(screen.getByText('3 días de sueldo')).toBeInTheDocument();
+        expect(screen.getByText('Bonos')).toBeInTheDocument();
+    });
+
+    it('sin bonos la fórmula no los nombra', async () => {
+        mockApi({ ...finance, wages: { total: 960, days: 3 }, bonuses: { total: 0, count: 0 } });
+        render(<Dashboard />);
+        await screen.findByTestId('kpi-net');
+        expect(screen.getByTestId('profit-note')).not.toHaveTextContent('bonos');
+        expect(screen.queryByText('Bonos')).toBeNull();
+    });
+
     it('si Finanzas no responde, conserva las cifras de las métricas y lo avisa', async () => {
         mockApi(null);
         render(<Dashboard />);
@@ -99,6 +118,6 @@ describe('Panel del dueño', () => {
         render(<Dashboard />);
         const stat = (await screen.findByTestId('kpi-net')).parentElement as HTMLElement;
         expect(stat).toHaveTextContent('Utilidad');
-        expect(stat).toHaveTextContent('Ingresos − comisiones − costo de producto − gastos.');
+        expect(stat).toHaveTextContent('Ingresos − comisiones − sueldos − costo de producto − gastos.');
     });
 });

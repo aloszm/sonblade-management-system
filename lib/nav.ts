@@ -34,7 +34,8 @@ export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
         title: null,
         items: [
             { href: '/', label: 'Panel', icon: LayoutDashboard, roles: ['admin'] },
-            { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin'], writesOnly: true },
+            // Recepción también la tiene: ve SU semana (sueldo por día, comisiones de producto, descuentos). Ranking, cortes y clientes son del barbero.
+            { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin', 'recepcion'], writesOnly: true },
             { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'], writesOnly: true },
             { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
             { href: '/equipo-hoy', label: 'Barberos hoy', icon: Trophy, roles: ['admin', 'recepcion'] },

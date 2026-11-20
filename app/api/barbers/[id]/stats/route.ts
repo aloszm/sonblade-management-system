@@ -92,12 +92,12 @@ async function myWeek(db: Db, branchId: string, employeeId: string, rate: number
 
 /**
  * Cifras de un barbero: semana (corte sábado 8 pm) y hoy.
- * Dueño y administrador ven a cualquiera; un barbero solo a sí mismo: se valida aquí y además la base
+ * Dueño y administrador ven a cualquiera; un barbero (y recepción, que tiene su «Mi semana») solo a sí mismo: se valida aquí y además la base
  * solo le entrega sus propias filas.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext([...MANAGEMENT_READ_ROLES, 'barber']);
+        const context = await requireAuthContext([...MANAGEMENT_READ_ROLES, 'barber', 'receptionist', 'cashier']);
         const parsedId = IdSchema.safeParse((await params).id);
         if (!parsedId.success) throw new AuthorizationError('Barbero no encontrado', 404);
         const employeeId = parsedId.data;

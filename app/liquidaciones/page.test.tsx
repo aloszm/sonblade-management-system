@@ -92,6 +92,56 @@ describe('Pago semanal: desglose', () => {
     });
 });
 
+const WAGE = {
+    enabled: true, period_start: '2026-11-08', period_end: '2026-11-14', amount: 1600, paid_days: 5, worked_days: 5, absent_days: 0, extra_days: 0,
+    groups: [{ rate: 320, days: 5, amount: 1600 }], summary: '5 días × $320 = $1,600',
+    days: ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13'].map((date) => ({ date, status: 'worked', rate: 320, amount: 320 })),
+};
+
+describe('Pago semanal: sueldo por día', () => {
+    it('la fila trae la columna "Sueldo" y el desglose abre con el renglón "Sueldo: 5 días × $320 = $1,600" y su detalle día por día', async () => {
+        mount([{ ...BASE_ROW, employee_id: 'b9', name: 'Dago', gross_commission: 40, total_amount: 1640, wages: 1600, wage: WAGE }]);
+        fireEvent.click(await screen.findByRole('button', { name: 'Ver desglose de Dago' }));
+        expect(screen.getByTestId('row-wage')).toHaveTextContent('+ $1,600.00');
+        const bd = await screen.findByTestId('pay-breakdown');
+        const line = within(bd).getByTestId('line-wage');
+        expect(line).toHaveTextContent('Sueldo: 5 días × $320 = $1,600');
+        expect(line).toHaveTextContent('+ $1,600.00');
+        fireEvent.click(within(line).getByRole('button', { name: /Sueldo/ }));
+        expect(within(line).getByText('lun 9 nov · Trabajado')).toBeVisible();
+        expect(within(line).getByText('vie 13 nov · Trabajado')).toBeVisible();
+        expect(within(bd).getByTestId('breakdown-net')).toHaveTextContent('$1,640.00');
+    });
+
+    it('quien no tiene sueldo no ve renglón de sueldo y su columna dice "—"', async () => {
+        mount([BASE_ROW]);
+        fireEvent.click(await screen.findByRole('button', { name: 'Ver desglose de Deya' }));
+        expect(screen.getByTestId('row-wage')).toHaveTextContent('—');
+        expect(screen.queryByTestId('line-wage')).toBeNull();
+    });
+
+    it('con la semana en curso: la sección "Sueldo por día de la semana" trae las faltas y días extra de la API', async () => {
+        const calls = mount([BASE_ROW], undefined, (c) => (c.url.startsWith('/api/wages/week') ? { body: { period_start: '2026-11-08', period_end: '2026-11-14', today: '2026-11-20', can_edit: true, people: [] } } : undefined));
+        expect(await screen.findByText('Nadie tiene sueldo por día en esta semana')).toBeInTheDocument();
+        expect(calls.some((c) => c.url === '/api/wages/week?period_start=2026-11-08')).toBe(true);
+    });
+
+    it('se puede avanzar a la semana en curso (la que aún no cierra) pero no más allá', async () => {
+        const calls = mount([BASE_ROW], undefined, (c) => {
+            if (c.url.startsWith('/api/wages/week')) return { body: { period_start: '2026-11-08', period_end: '2026-11-14', today: '2026-11-20', can_edit: true, people: [] } };
+            // La semana en curso (15 al 21) no es la última cerrada.
+            if (c.url === '/api/settlements?period_start=2026-11-15') return { body: { ...week([{ ...BASE_ROW, reason: 'week_not_closed', can_settle: false }]), period_start: '2026-11-15', period_end: '2026-11-21', is_latest_closed: false } };
+            return undefined;
+        });
+        const next = await screen.findByRole('button', { name: 'Semana siguiente' });
+        await waitFor(() => expect(next).toBeEnabled());
+        fireEvent.click(next);
+        await waitFor(() => expect(calls.some((c) => c.url === '/api/settlements?period_start=2026-11-15')).toBe(true));
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Semana siguiente' })).toBeDisabled());
+        expect(await screen.findByText('Cierra el sábado a las 8:00 pm')).toBeInTheDocument();
+    });
+});
+
 describe('Pago semanal: movimientos', () => {
     it('muestra la sección "Movimientos del equipo" y nada de bonos cuando no hay metas', async () => {
         mount([BASE_ROW]);

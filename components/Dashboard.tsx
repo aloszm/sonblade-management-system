@@ -19,6 +19,8 @@ import { formatDateTime } from '@/lib/utils/dates';
 type Finance = {
     revenue: { total: number }; commissions: { total: number }; tips: { total: number }; expenses: { total: number };
     productCost: { total: number }; profit: number; productsWithoutCost: number;
+    /** Sueldos por día y bonos: conceptos propios de la utilidad (opcionales por si el servidor es anterior). */
+    wages?: { total: number; days: number }; bonuses?: { total: number; count: number };
     comparison: { hasBase: boolean; revenue: { previous: number }; profit: { previous: number }; commissions: { previous: number }; tips: { previous: number }; expenses: { previous: number } };
 };
 const isFinance = (v: unknown): v is Finance => !!v && typeof v === 'object' && typeof (v as Finance).profit === 'number' && !!(v as Finance).revenue && !!(v as Finance).comparison;
@@ -242,7 +244,7 @@ export default function Dashboard() {
                         {netKind === 'contribution' ? (
                             <BigStat title="Aporte" hint="Ventas del barbero − sus comisiones − costo de sus productos. No incluye gastos generales." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
                         ) : netKind === 'profit' ? (
-                            <BigStat title="Utilidad" hint="Ingresos − comisiones − costo de producto − gastos." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
+                            <BigStat title="Utilidad" hint="Ingresos − comisiones − sueldos − costo de producto − gastos." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
                         ) : barber ? (
                             <BigStat title="Comisión generada" hint="Lo que ganó por sus servicios." value={money(k.commissions)} current={k.commissions} previous={p.commissions} testId="kpi-net" />
                         ) : (
@@ -250,19 +252,21 @@ export default function Dashboard() {
                         )}
                     </section>
 
-                    <section aria-label="Más indicadores" className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                    <section aria-label="Más indicadores" className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
                         <SmallStat title="Ventas" hint="Cobros registrados" value={String(k.tickets)} />
                         <SmallStat title="Clientes con registro" hint="Solo ventas con cliente registrado" value={String(k.clients)} />
                         <SmallStat title="Clientes nuevos" hint="Dados de alta en el periodo" value={String(data.new_clients)} />
                         <SmallStat title="Productos vendidos" hint="Piezas, no servicios" value={String(k.products)} />
                         <SmallStat title="Propinas" hint="Son del barbero" value={money(k.tips)} />
                         {barber ? <SmallStat title="Ventas registradas" hint="Cobros de este barbero" value={String(data.activity.length)} /> : <SmallStat title="Comisiones" hint="Pagadas a barberos" value={money(k.commissions)} />}
+                        {fromFinance && finance?.wages && <SmallStat title="Sueldos" hint={`${finance.wages.days} día${finance.wages.days === 1 ? '' : 's'} de sueldo`} value={money(finance.wages.total)} />}
+                        {fromFinance && finance?.bonuses && finance.bonuses.total > 0 && <SmallStat title="Bonos" hint="Metas cumplidas" value={money(finance.bonuses.total)} />}
                     </section>
                     {!barber && (
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-bos-muted" data-testid="profit-note">
                             <p>
                                 {fromFinance && finance
-                                    ? `Utilidad = ingresos − comisiones − costo de producto (${money(finance.productCost.total)}) − gastos (${money(k.expenses)}). Las propinas son del barbero y no cuentan.`
+                                    ? `Utilidad = ingresos − comisiones − sueldos (${money(finance.wages?.total ?? 0)})${finance.bonuses && finance.bonuses.total > 0 ? ` − bonos (${money(finance.bonuses.total)})` : ''} − costo de producto (${money(finance.productCost.total)}) − gastos (${money(k.expenses)}). Las propinas son del barbero y no cuentan.`
                                     : `Utilidad = ingresos − comisiones − gastos (${money(k.expenses)}), sin costo de producto: puede no coincidir con Finanzas.`}
                             </p>
                             <Link href="/administracion" className="inline-flex items-center gap-1 font-semibold text-bos-accent-text hover:underline underline-offset-2">

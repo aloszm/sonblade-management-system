@@ -64,6 +64,26 @@ describe('Recibo', () => {
         expect(screen.getByText(/Sin pago en efectivo ni transferencia/)).toBeInTheDocument();
     });
 
+    it('un recibo de recepción con sueldo: "Sueldo: 5 días × $320 = $1,600" y cada día a la vista para imprimir (faltas incluidas)', async () => {
+        const days = ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13'].map((date) => ({ date, status: date === '2026-11-11' ? 'absent' : 'worked', rate: 320, amount: date === '2026-11-11' ? 0 : 320, reason: date === '2026-11-11' ? 'Avisó que estaba enfermo' : null }));
+        stubFetch(() => ({ body: {
+            ...RECEIPT, employee: { id: 'e-dago', display_name: 'Dago' }, total_amount: 1320, gross_commission: 40, payments: [{ method: 'cash', amount: 1320, reference: null }],
+            wages: 1280, net_amount: 1320,
+            wage: { amount: 1280, paid_days: 4, groups: [{ rate: 320, days: 4, amount: 1280 }], days, summary: '4 días × $320 = $1,280' },
+        } }));
+        render(<ReciboPage />);
+        const bd = await screen.findByTestId('pay-breakdown');
+        const line = within(bd).getByTestId('line-wage');
+        expect(line).toHaveTextContent('Sueldo: 4 días × $320 = $1,280');
+        expect(line).toHaveTextContent('+ $1,280.00');
+        expect(within(line).getByText('lun 9 nov · Trabajado')).toBeVisible();
+        expect(within(line).getByText('mié 11 nov · Faltó (Avisó que estaba enfermo)')).toBeVisible();
+        expect(within(bd).queryByRole('button')).toBeNull();
+        expect(within(bd).getByTestId('breakdown-net')).toHaveTextContent('$1,320.00');
+        // El recibo de quien solo cobra sueldo no se ve como "de barbero".
+        expect(screen.getByText('Persona')).toBeInTheDocument();
+    });
+
     it('con un bono cobrado muestra la línea de bonos y su meta', async () => {
         stubFetch(() => ({ body: {
             ...RECEIPT, total_amount: 1300, bonuses: 300, net_amount: 1300,

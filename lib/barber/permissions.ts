@@ -7,10 +7,14 @@ import type { BusinessRole } from '@/lib/auth/context';
 export const CLIENT_CREATE_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist', 'barber'];
 export const CLIENT_EDIT_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist'];
 
-/** Dueño y gerencia ven las cifras de cualquier barbero; un barbero, solo las suyas. */
+/**
+ * Dueño y gerencia ven las cifras de cualquier persona; barbero y recepción (que ahora tiene su propia «Mi semana»
+ * con sueldo por día y comisiones de producto), solo las suyas.
+ */
 export function mayReadBarberStats(role: BusinessRole, ownEmployeeId: string | null, targetEmployeeId: string): boolean {
     if (role === 'owner' || role === 'admin') return true;
-    return role === 'barber' && ownEmployeeId !== null && ownEmployeeId === targetEmployeeId;
+    const own = role === 'barber' || role === 'receptionist' || role === 'cashier';
+    return own && ownEmployeeId !== null && ownEmployeeId === targetEmployeeId;
 }
 
 /**

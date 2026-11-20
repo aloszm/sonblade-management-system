@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Banknote, CreditCard, Landmark, Minus, TriangleAlert, Wallet } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { BarberRow, Delta, ProfitReport } from '@/lib/admin/profit';
+import { waterfallRows } from '@/lib/admin/waterfall';
 import { formatMoney } from '@/lib/utils/money';
 import Skeleton from '@/components/ui/Skeleton';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
@@ -84,29 +85,32 @@ export function Hero({ data }: { data: ProfitReport }) {
                     <span className="text-[13px] text-bos-muted">Periodo anterior: {shortDay(comparison.period.from)} al {shortDay(comparison.period.to)} ({money(comparison.profit.previous)}).</span>
                 )}
             </div>
-            <p className="mt-3 text-[13px] text-bos-muted">Utilidad = lo cobrado (sin descuentos) menos comisiones, costo de los productos vendidos y gastos. Las propinas no entran: son del barbero.</p>
+            <p className="mt-3 text-[13px] text-bos-muted">Utilidad = lo cobrado (sin descuentos) menos comisiones, sueldos{data.bonuses.total > 0 ? ', bonos' : ''}, costo de los productos vendidos y gastos. Las propinas no entran: son del barbero.</p>
         </section>
     );
 }
 
 export function KpiStrip({ data }: { data: ProfitReport }) {
     const c = data.comparison;
-    const items: { label: string; value: number; delta: Delta; goodWhen: 'up' | 'down'; note?: string }[] = [
+    const items: { label: string; value: number; delta: Delta | null; goodWhen: 'up' | 'down'; note?: string }[] = [
         { label: 'Ingresos', value: data.revenue.total, delta: c.revenue, goodWhen: 'up', note: `${data.counts.sales} venta${data.counts.sales === 1 ? '' : 's'} cobrada${data.counts.sales === 1 ? '' : 's'}` },
         { label: 'Comisiones', value: data.commissions.total, delta: c.commissions, goodWhen: 'down' },
+        { label: 'Sueldos', value: data.wages.total, delta: c.wages, goodWhen: 'down', note: `${data.wages.days} día${data.wages.days === 1 ? '' : 's'} de sueldo` },
+        // Los bonos solo se muestran si hubo (sin metas activas no hay nada que contar).
+        ...(data.bonuses.total > 0 ? [{ label: 'Bonos', value: data.bonuses.total, delta: null, goodWhen: 'down' as const, note: `${data.bonuses.count} bono${data.bonuses.count === 1 ? '' : 's'} por metas` }] : []),
         { label: 'Gastos', value: data.expenses.total, delta: c.expenses, goodWhen: 'down' },
         { label: 'Propinas (del barbero)', value: data.tips.total, delta: c.tips, goodWhen: 'up' },
     ];
     return (
-        <section aria-label="Resumen" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <section aria-label="Resumen" className={`grid grid-cols-2 gap-3 ${items.length > 5 ? 'lg:grid-cols-3' : 'lg:grid-cols-5'}`}>
             {items.map((k) => (
-                <div key={k.label} className={`${card} p-4`}>
+                <div key={k.label} className={`${card} p-4`} data-testid={`kpi-${k.label.split(' ')[0].toLowerCase()}`}>
                     <p className="text-[13px] font-medium text-bos-muted">{k.label}</p>
                     <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{money(k.value)}</p>
                     <div className="mt-2 min-h-[1.75rem]">
                         {k.label.startsWith('Propinas')
                             ? <p className="text-[13px] text-bos-muted">{data.tips.count} propina{data.tips.count === 1 ? '' : 's'}</p>
-                            : <DeltaNote delta={k.delta} hasBase={c.hasBase} goodWhen={k.goodWhen} compact />}
+                            : k.delta ? <DeltaNote delta={k.delta} hasBase={c.hasBase} goodWhen={k.goodWhen} compact /> : null}
                     </div>
                     {k.note && <p className="mt-1 text-[13px] text-bos-muted">{k.note}</p>}
                 </div>
@@ -119,20 +123,12 @@ export function KpiStrip({ data }: { data: ProfitReport }) {
 
 export function Waterfall({ data }: { data: ProfitReport }) {
     const revenue = data.revenue.total;
-    const out = { commissions: data.commissions.total, cost: data.productCost.total, expenses: data.expenses.total };
-    const scale = Math.max(revenue, out.commissions + out.cost + out.expenses, 0.01);
-    const afterCommissions = revenue - out.commissions;
-    const afterCost = afterCommissions - out.cost;
+    const rows = waterfallRows(data);
+    const outTotal = rows.filter((r) => r.sign === '−').reduce((n, r) => n + r.amount, 0);
+    const scale = Math.max(revenue, outTotal, 0.01);
     const share = (n: number) => (revenue > 0 ? `${((n / revenue) * 100).toLocaleString('es-MX', { maximumFractionDigits: 1 })} % de lo cobrado` : '');
-    const rows: { key: string; label: string; hint: string; amount: number; sign: string; start: number; end: number; tone: string }[] = [
-        { key: 'rev', label: 'Ingresos', hint: `Servicios ${money(data.revenue.services)} · productos ${money(data.revenue.products)}. Ya sin descuentos (${money(data.revenue.discounts)}).`, amount: revenue, sign: '', start: 0, end: revenue, tone: 'bg-bos-text' },
-        { key: 'com', label: 'Comisiones', hint: `Servicios ${money(data.commissions.services)} · productos ${money(data.commissions.products)}.`, amount: out.commissions, sign: '−', start: afterCommissions, end: revenue, tone: 'bg-bos-accent' },
-        { key: 'cost', label: 'Costo de productos vendidos', hint: `${units(data.counts.productUnits)} vendidas, a su costo registrado.`, amount: out.cost, sign: '−', start: afterCost, end: afterCommissions, tone: 'bg-bos-control' },
-        { key: 'exp', label: 'Gastos', hint: 'Gastos registrados en caja (Gastos).', amount: out.expenses, sign: '−', start: data.profit, end: afterCost, tone: 'bg-bos-danger' },
-        { key: 'net', label: 'Utilidad neta', hint: 'Lo que le queda al negocio.', amount: data.profit, sign: '=', start: 0, end: Math.max(data.profit, 0), tone: data.profit < 0 ? 'bg-bos-danger' : 'bg-bos-success' },
-    ];
     return (
-        <section aria-labelledby="fin-cascada" className={`${card} p-5 sm:p-6`}>
+        <section aria-labelledby="fin-cascada" data-testid="waterfall" className={`${card} p-5 sm:p-6`}>
             <h2 id="fin-cascada" className={h2}>Del ingreso a la utilidad</h2>
             <p className="mt-1 text-sm text-bos-muted">Cada barra parte de lo que quedaba antes de ese concepto.</p>
             <ol className="mt-4 divide-y divide-bos-border">
@@ -141,7 +137,7 @@ export function Waterfall({ data }: { data: ProfitReport }) {
                     const width = Math.max(0, Math.max(r.start, r.end) - Math.max(0, Math.min(r.start, r.end))) / scale * 100;
                     const strong = r.key === 'net' || r.key === 'rev';
                     return (
-                        <li key={r.key} className="py-3">
+                        <li key={r.key} data-testid={`step-${r.key}`} className="py-3">
                             <div className="flex items-baseline justify-between gap-4">
                                 <p className={strong ? 'font-semibold' : ''}>
                                     {r.sign && <span aria-hidden="true" className="inline-block w-4 text-bos-muted">{r.sign}</span>}
@@ -167,6 +163,8 @@ export function Per100({ data }: { data: ProfitReport }) {
     const revenue = data.revenue.total;
     const parts = [
         { key: 'com', label: 'Comisiones', value: data.commissions.total, tone: 'bg-bos-accent' },
+        { key: 'wage', label: 'Sueldos', value: data.wages.total, tone: 'bg-bos-text' },
+        ...(data.bonuses.total > 0 ? [{ key: 'bonus', label: 'Bonos', value: data.bonuses.total, tone: 'bg-bos-muted' }] : []),
         { key: 'cost', label: 'Costo de productos', value: data.productCost.total, tone: 'bg-bos-control' },
         { key: 'exp', label: 'Gastos', value: data.expenses.total, tone: 'bg-bos-danger' },
         ...(data.profit > 0 ? [{ key: 'net', label: 'Utilidad', value: data.profit, tone: 'bg-bos-success' }] : []),
@@ -208,7 +206,7 @@ export function Trend({ data }: { data: ProfitReport }) {
     const rows = useMemo(() => data.daily.map((d) => ({ ...d, label: shortDay(d.date) })), [data.daily]);
     const best = rows.reduce<(typeof rows)[number] | null>((b, d) => (!b || d.net > b.net ? d : b), null);
     const totalIn = data.revenue.total;
-    const totalOut = data.commissions.total + data.productCost.total + data.expenses.total;
+    const totalOut = data.commissions.total + data.wages.total + data.bonuses.total + data.productCost.total + data.expenses.total;
     const summary = `Ingresos contra egresos por día. En total entraron ${money(totalIn)} y salieron ${money(totalOut)}.${best && best.revenue > 0 ? ` El mejor día fue ${shortDay(best.date)}, con ${money(best.net)} de resultado.` : ''}`;
     const tick = { fontSize: 12, fill: 'var(--bos-muted)' };
     const tooltip = {
@@ -228,7 +226,7 @@ export function Trend({ data }: { data: ProfitReport }) {
     return (
         <section aria-labelledby="fin-tendencia" className={`${card} p-5 sm:p-6`}>
             <h2 id="fin-tendencia" className={h2}>Ingresos contra egresos por día</h2>
-            <p className="mt-1 text-sm text-bos-muted">Egresos = comisiones + costo de productos + gastos, cada uno en el día en que ocurrió.</p>
+            <p className="mt-1 text-sm text-bos-muted">Egresos = comisiones + sueldos + bonos + costo de productos + gastos, cada uno en el día en que ocurrió.</p>
             <div role="img" aria-label={summary} className="mt-4 h-[260px] sm:h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                     {rows.length <= 31 ? (

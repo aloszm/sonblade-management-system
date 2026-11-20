@@ -9,7 +9,7 @@ import { paymentMethodLabel } from '@/lib/utils/payment';
 
 interface Finance {
     period: { from: string; to: string; timezone: string };
-    revenue: number; commissions: number; productCost: number; expenses: number; tips: number;
+    revenue: number; commissions: number; wages?: number; bonuses?: number; productCost: number; expenses: number; tips: number;
     profit: number; marginPct: number | null; productsWithoutCost: number; sales: number; avgTicket: number;
     profitDeltaPct: number | null;
 }
@@ -133,7 +133,7 @@ export default function AdminPage() {
             )}
 
             <section aria-label="Indicadores" className="space-y-3">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <div className={`${card} p-5`}>
                         <p className={labelCls}>Ingresos</p>
                         <p data-testid="kpi-revenue" className="font-display text-2xl sm:text-3xl font-semibold tabular-nums mt-1">{money(kpis.totalRevenue)}</p>
@@ -150,13 +150,18 @@ export default function AdminPage() {
                         <p className="text-xs text-bos-muted mt-1">De las ventas cobradas</p>
                     </div>
                     <div className={`${card} p-5`}>
+                        <p className={labelCls}>Sueldos</p>
+                        <p data-testid="kpi-wages" className="font-display text-2xl sm:text-3xl font-semibold tabular-nums mt-1">{money(finance.wages ?? 0)}</p>
+                        <p className="text-xs text-bos-muted mt-1">Sueldo por día, aparte de comisiones</p>
+                    </div>
+                    <div className={`${card} p-5`}>
                         <p className={labelCls}>Ticket promedio</p>
                         <p className="font-display text-2xl sm:text-3xl font-semibold tabular-nums mt-1">{money(kpis.avgTicket)}</p>
                         <p className="text-xs text-bos-muted mt-1">Ingresos entre ventas</p>
                     </div>
                 </div>
                 <p className="text-sm text-bos-muted" data-testid="profit-formula">
-                    Utilidad = ingresos − comisiones ({money(finance.commissions)}) − costo de producto ({money(finance.productCost)}) − gastos ({money(finance.expenses)}).
+                    Utilidad = ingresos − comisiones ({money(finance.commissions)}) − sueldos ({money(finance.wages ?? 0)}){(finance.bonuses ?? 0) > 0 ? <> − bonos ({money(finance.bonuses ?? 0)})</> : null} − costo de producto ({money(finance.productCost)}) − gastos ({money(finance.expenses)}).
                     {' '}Propinas ({money(finance.tips)}) son del barbero: no cuentan como ingreso ni se restan.
                 </p>
                 {finance.productsWithoutCost > 0 && (

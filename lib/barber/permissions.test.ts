@@ -24,9 +24,16 @@ describe('cifras de un barbero: cada quien solo las suyas', () => {
     it('un barbero sin empleado ligado no ve nada', () => {
         expect(mayReadBarberStats('barber', null, DANI)).toBe(false);
     });
-    it('dueño y gerencia ven las de cualquiera; recepción no', () => {
+    it('dueño y gerencia ven las de cualquiera', () => {
         expect(mayReadBarberStats('owner', null, DEYA)).toBe(true);
         expect(mayReadBarberStats('admin', DANI, DEYA)).toBe(true);
+    });
+    it('recepción (su propia «Mi semana»): solo las suyas, nunca las de otra persona', () => {
+        expect(mayReadBarberStats('receptionist', DANI, DANI)).toBe(true);
+        expect(mayReadBarberStats('receptionist', DANI, DEYA)).toBe(false);
+        expect(mayReadBarberStats('cashier', DANI, DANI)).toBe(true);
+        expect(mayReadBarberStats('cashier', DANI, DEYA)).toBe(false);
+        // Sin ficha de empleado ligada no ve nada.
         expect(mayReadBarberStats('receptionist', null, DEYA)).toBe(false);
         expect(mayReadBarberStats('cashier', null, DEYA)).toBe(false);
     });

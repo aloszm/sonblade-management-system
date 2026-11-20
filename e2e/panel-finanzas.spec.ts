@@ -17,7 +17,7 @@ test.describe('panel y finanzas', () => {
         await page.goto('/', { waitUntil: 'networkidle' });
         const kpis = page.getByRole('region', { name: 'Indicadores principales' });
         await page.getByRole('group', { name: 'Periodo' }).getByRole('button', { name: 'Mes', exact: true }).click();
-        await expect(page.getByTestId('profit-note')).toContainText('Utilidad = ingresos − comisiones − costo de producto');
+        await expect(page.getByTestId('profit-note')).toContainText('Utilidad = ingresos − comisiones − sueldos');
         await expect(kpis).toContainText('Utilidad');
 
         await page.getByRole('group', { name: 'Filtrar por persona' }).getByRole('button', { name: 'Deya' }).click();

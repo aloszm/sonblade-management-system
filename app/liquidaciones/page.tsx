@@ -7,6 +7,7 @@ import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Loader2, Receipt, 
 import Modal from '@/components/ui/Modal';
 import PayBreakdown from '@/components/payroll/PayBreakdown';
 import TeamLedger from '@/components/payroll/TeamLedger';
+import WeekWages from '@/components/payroll/WeekWages';
 import { buildBreakdown, type PayInput } from '@/lib/payroll/breakdown';
 import { addDays, weekLabel } from '@/lib/settlements/week';
 import { formatMoney } from '@/lib/utils/money';
@@ -45,6 +46,8 @@ export default function LiquidacionesPage() {
     const [readOnly, setReadOnly] = useState(true);
     const [periodStart, setPeriodStart] = useState<string | null>(null);
     const [week, setWeek] = useState<Week | null>(null);
+    // Domingo de la última semana cerrada: se aprende al abrir la pantalla. La semana en curso (la siguiente) también se puede ver.
+    const [latestClosed, setLatestClosed] = useState<string | null>(null);
     const [history, setHistory] = useState<HistoryRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<unknown>(null);
@@ -60,11 +63,13 @@ export default function LiquidacionesPage() {
         try { setHistory(await api<HistoryRow[]>('/api/settlements/history')); } catch { /* se muestra vacío */ }
     }, []);
 
-    const loadWeek = useCallback(async (start: string | null) => {
-        setLoading(true); setError(null);
+    const loadWeek = useCallback(async (start: string | null, quiet = false) => {
+        if (!quiet) setLoading(true);
+        setError(null);
         try {
             const data = await api<Week>(`/api/settlements${start ? `?period_start=${start}` : ''}`);
             setWeek(data); setPeriodStart(data.period_start);
+            if (data.is_latest_closed) setLatestClosed(data.period_start);
         } catch (e) { console.error(e); setError(e); }
         finally { setLoading(false); }
     }, []);
@@ -117,7 +122,7 @@ export default function LiquidacionesPage() {
             );
         }
         if (row.reason === 'week_not_closed') return <span className="text-bos-accent-text font-medium">Cierra el sábado a las 8:00 pm</span>;
-        if (row.reason === 'nothing_to_pay') return <span className="text-bos-muted">Sin comisiones</span>;
+        if (row.reason === 'nothing_to_pay') return <span className="text-bos-muted">Sin sueldo ni comisiones</span>;
         if (readOnly) return <span className="text-bos-muted font-medium">Pendiente de pago</span>;
         return (
             <button onClick={() => openPay(row)} className="min-h-11 px-4 rounded-xl bg-bos-accent text-bos-on-accent text-sm font-bold hover:bg-bos-accent-strong inline-flex items-center gap-1.5">
@@ -147,10 +152,13 @@ export default function LiquidacionesPage() {
                             <h2 className="font-display font-semibold text-center sm:min-w-[16rem] px-1" data-testid="week-label">
                                 {periodStart ? `Semana del ${weekLabel(periodStart)}` : 'Cargando…'}
                             </h2>
-                            <button aria-label="Semana siguiente" disabled={!periodStart || (week?.is_latest_closed ?? false)} onClick={() => periodStart && loadWeek(addDays(periodStart, 7))}
+                            <button aria-label="Semana siguiente" disabled={!periodStart || !latestClosed || periodStart >= addDays(latestClosed, 7)} onClick={() => periodStart && loadWeek(addDays(periodStart, 7))}
                                 className="h-11 w-11 inline-flex items-center justify-center rounded-xl border border-bos-border text-bos-text hover:bg-bos-raised disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
                         </div>
-                        {week && !week.is_latest_closed && <button onClick={() => loadWeek(null)} className={chip}>Ir a la última semana cerrada</button>}
+                        <div className="flex flex-wrap gap-2">
+                            {latestClosed && periodStart !== addDays(latestClosed, 7) && <button onClick={() => loadWeek(addDays(latestClosed, 7))} className={chip}>Ver la semana en curso</button>}
+                            {week && !week.is_latest_closed && <button onClick={() => loadWeek(null)} className={chip}>Ir a la última semana cerrada</button>}
+                        </div>
                     </div>
                     {loading ? (
                         <div className="p-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-bos-muted" /></div>
@@ -163,6 +171,7 @@ export default function LiquidacionesPage() {
                                     <tr>
                                         <th className={th}>Persona</th>
                                         <th className={`${th} text-center`}>Servicios</th>
+                                        <th className={`${th} text-right`}>Sueldo</th>
                                         <th className={`${th} text-right`}>Comisión</th>
                                         <th className={`${th} text-right`}>Ajustes</th>
                                         <th className={`${th} text-right`}>Propinas</th>
@@ -171,7 +180,7 @@ export default function LiquidacionesPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {week?.rows.length === 0 && <tr className="border-t border-bos-border"><td colSpan={7} data-label="" className="p-6 text-center text-bos-muted">No hay barberos activos.</td></tr>}
+                                    {week?.rows.length === 0 && <tr className="border-t border-bos-border"><td colSpan={8} data-label="" className="p-6 text-center text-bos-muted">No hay barberos activos.</td></tr>}
                                     {week?.rows.map((r) => {
                                         const b = buildBreakdown(r);
                                         const panelId = `breakdown-${r.employee_id}`;
@@ -187,6 +196,7 @@ export default function LiquidacionesPage() {
                                                 </button>
                                             </td>
                                             <td data-label="Servicios" className="px-4 py-3 text-center text-bos-muted tabular-nums">{r.entry_count}</td>
+                                            <td data-label="Sueldo" data-testid="row-wage" className={`px-4 py-3 text-right tabular-nums ${Number(r.wages) > 0 ? '' : 'text-bos-muted'}`}>{Number(r.wages) > 0 ? `+ ${money(Number(r.wages))}` : '—'}</td>
                                             <td data-label="Comisión" className="px-4 py-3 text-right tabular-nums">{money(r.gross_commission)}</td>
                                             <td data-label="Ajustes" className={`px-4 py-3 text-right tabular-nums ${r.deductions > 0 ? 'text-bos-danger' : 'text-bos-muted'}`}>{r.deductions > 0 ? `− ${money(r.deductions)}` : '—'}</td>
                                             <td data-label="Propinas" className={`px-4 py-3 text-right tabular-nums ${Number(r.tips) > 0 ? 'text-bos-success' : 'text-bos-muted'}`}>{Number(r.tips) > 0 ? `+ ${money(Number(r.tips))}` : '—'}</td>
@@ -199,7 +209,7 @@ export default function LiquidacionesPage() {
                                         </tr>
                                         {expanded[r.employee_id] && (
                                             <tr className="border-t border-bos-border bg-bos-bg">
-                                                <td id={panelId} colSpan={7} data-label="" className="px-4 py-3">
+                                                <td id={panelId} colSpan={8} data-label="" className="px-4 py-3">
                                                     <PayBreakdown data={r} className="max-w-xl" />
                                                 </td>
                                             </tr>
@@ -212,6 +222,10 @@ export default function LiquidacionesPage() {
                         </div>
                     )}
                 </section>
+            )}
+
+            {role === 'admin' && periodStart && !loading && !error && (
+                <WeekWages periodStart={periodStart} readOnly={readOnly} onChanged={() => loadWeek(periodStart, true)} />
             )}
 
             <section className={card}>

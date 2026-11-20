@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
-import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck, Wallet } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck, Wallet, Banknote } from 'lucide-react';
 import { DISPLAY_TITLE_MAX, PRIMARY_ACCOUNT_BADGE, isPrimaryAccount, personTitle, roleOptionLabel } from '@/lib/auth/roles';
 import { suggestLoginName } from '@/lib/auth/login-id';
 import type { BusinessRole } from '@/lib/auth/context';
@@ -18,6 +18,8 @@ import { HttpError, MSG_OFFLINE, isOfflineError, readJson, toUserMessage } from 
 import BarberScheduleModal from '@/components/BarberScheduleModal';
 import TeamLedger from '@/components/payroll/TeamLedger';
 import BonusGoalsManager from '@/components/payroll/BonusGoalsManager';
+import WageSection, { type WagesResponse } from '@/components/payroll/WageSection';
+import { rateSentence } from '@/lib/payroll/wage-ui';
 import type { Barber } from '@/types';
 
 interface BarberLive {
@@ -253,6 +255,9 @@ export default function TeamPage() {
     const [accessFor, setAccessFor] = useState<Barber | null>(null);
     // Movimientos (adelantos, préstamos, descuentos) de una persona, en un panel dentro de la página.
     const [ledgerFor, setLedgerFor] = useState<Barber | null>(null);
+    // Sueldo por día: resumen de cada tarjeta y la ficha abierta de una persona.
+    const [wages, setWages] = useState<WagesResponse | null>(null);
+    const [wageFor, setWageFor] = useState<Barber | null>(null);
     const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true, displayTitle: '' });
 
     const fetchBarbers = async () => {
@@ -274,6 +279,13 @@ export default function TeamPage() {
         } catch (e) { console.error(e); }
     };
 
+    const fetchWages = async () => {
+        try {
+            const res = await fetch('/api/wages', { cache: 'no-store' });
+            if (res.ok) setWages(await res.json());
+        } catch (e) { console.error('No se pudo leer el sueldo por día', e); }
+    };
+
     useEffect(() => {
         let alive = true;
         fetch('/api/auth/me', { cache: 'no-store' }).then((r) => r.json())
@@ -285,6 +297,7 @@ export default function TeamPage() {
     useEffect(() => {
         fetchBarbers();
         fetchLiveStats();
+        fetchWages();
         const interval = setInterval(fetchLiveStats, 30000);
         return () => clearInterval(interval);
     }, []);
@@ -374,6 +387,8 @@ export default function TeamPage() {
                 {barbers.map(barber => {
                     const live = liveStats.find(l => l.id === barber.id);
                     const active = barber.status === 'active';
+                    const wageRow = (wages?.current ?? []).find((c) => c.employee_id === barber.id)?.current ?? null;
+                    const wageRate = wageRow && wageRow.daily_amount > 0 ? wageRow : null;
                     return (
                         <div key={barber.id} className="rounded-xl border border-bos-border bg-bos-surface p-5 flex flex-col">
                             <div className="flex items-start justify-between mb-4">
@@ -408,10 +423,20 @@ export default function TeamPage() {
                                 </div>
                             )}
 
-                            <div className={`${live ? '' : 'mt-auto '}pt-3`}>
+                            {wageRate && (
+                                <p data-testid="member-wage" className="mt-3 rounded-lg bg-bos-raised px-3 py-2 text-xs text-bos-text">
+                                    <span className="font-semibold">Sueldo:</span> {rateSentence(wageRate)}
+                                </p>
+                            )}
+
+                            <div className={`${live || wageRate ? '' : 'mt-auto '}grid grid-cols-2 gap-2 pt-3`}>
                                 <button type="button" onClick={() => setLedgerFor(barber)} aria-pressed={ledgerFor?.id === barber.id} aria-label={`Movimientos de ${barber.name}`}
                                     className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
                                     <Wallet className="w-4 h-4" /> Movimientos
+                                </button>
+                                <button type="button" onClick={() => setWageFor(barber)} aria-pressed={wageFor?.id === barber.id} aria-label={`Sueldo por día de ${barber.name}`}
+                                    className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
+                                    <Banknote className="w-4 h-4" /> Sueldo
                                 </button>
                             </div>
 
@@ -437,6 +462,16 @@ export default function TeamPage() {
                     );
                 })}
             </div>
+
+            {wageFor && (
+                <div data-testid="person-wage" className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-bos-muted">Sueldo por día de <strong className="text-bos-text">{wageFor.name}</strong></p>
+                        <Button variant="secondary" size="sm" onClick={() => setWageFor(null)}>Cerrar</Button>
+                    </div>
+                    <WageSection key={wageFor.id} employee={{ id: wageFor.id, name: wageFor.name }} onChanged={fetchWages} />
+                </div>
+            )}
 
             {ledgerFor && (
                 <div data-testid="person-ledger" className="space-y-3">

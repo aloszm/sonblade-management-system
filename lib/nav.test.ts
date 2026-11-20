@@ -31,9 +31,14 @@ describe('menú por puesto', () => {
         expect(labels(menuItems(manager))).not.toContain('Configuración');
     });
 
-    it('recepción: Caja, Agenda, Barberos hoy, Clientes; Cobro, Pago semanal e Inventario en Más', () => {
+    it('recepción: Caja, Agenda, Barberos hoy, Clientes; Mi semana, Cobro, Pago semanal e Inventario en Más', () => {
         expect(labels(quickItems(front))).toEqual(['Caja', 'Agenda', 'Barberos hoy', 'Clientes']);
-        expect(labels(moreSections(front).flatMap((s) => s.items))).toEqual(['Cobro', 'Pago semanal', 'Inventario']);
+        expect(labels(moreSections(front).flatMap((s) => s.items))).toEqual(['Mi semana', 'Cobro', 'Pago semanal', 'Inventario']);
+    });
+
+    it('«Mi semana» es de quien trabaja (barbero, gerencia con ficha y recepción); la consulta no la ve', () => {
+        for (const u of [barber, owner, manager, front]) expect(labels(menuItems(u))).toContain('Mi semana');
+        expect(labels(menuItems(viewer))).not.toContain('Mi semana');
     });
 
     it('barbero: Mi semana, Agenda, Clientes, Pago semanal y nada más', () => {

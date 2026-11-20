@@ -127,7 +127,8 @@ async function internalMiddleware(request: NextRequest): Promise<NextResponse> {
         const matches = (paths: string[]) => paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
         const notForRole = (!isAdmin && pathname === '/')
             || (role === 'barber' && matches(['/caja', '/pos', '/equipo-hoy']))
-            || ((role === 'receptionist' || role === 'cashier') && matches(['/barbero', '/barberos']))
+            // Recepción entra a «Mi semana» (/barbero) para ver SU sueldo y comisiones; la ficha de otros barberos (/barberos) no.
+            || ((role === 'receptionist' || role === 'cashier') && matches(['/barberos']))
             || (role === 'viewer' && matches(['/pos', '/barbero']));
         if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : role === 'viewer' ? '/' : '/pos', request.url));
     }

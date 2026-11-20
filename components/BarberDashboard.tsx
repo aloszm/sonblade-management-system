@@ -7,8 +7,9 @@ import { SectionError, SectionSkeleton, Skeleton, card } from '@/app/barbero/_co
 import { ClientsSection, EarningsSection, ReceiptsSection, ServicesSection, TipsSection, TodaySection } from '@/app/barbero/_components/sections';
 import Ranking from '@/components/Ranking';
 import { MyMoneySections } from '@/app/barbero/_components/money';
+import { FrontDeskWeek } from '@/app/barbero/_components/front-desk';
 
-type Me = { id: string; role: 'admin' | 'recepcion' | 'barber'; employeeId: string | null };
+type Me = { id: string; role: 'admin' | 'recepcion' | 'barber'; employeeId: string | null; name?: string };
 type Barber = { id: string; name: string };
 type Stats = MyWeek & { barber: Barber };
 
@@ -55,7 +56,8 @@ export default function BarberDashboard() {
                 setBarbers(barberList);
                 // Un barbero ve lo suyo. Dueño y gerente eligen a quién ver; si la gerente también corta, empieza en ella.
                 const own = barberList.some((b) => b.id === user.employeeId) ? user.employeeId : null;
-                setSelectedId(user.role === 'barber' ? user.employeeId ?? user.id : own ?? barberList[0]?.id ?? null);
+                // Barbero y recepción ven lo suyo (recepción: sueldo por día y comisiones de producto). Su ficha de empleado es la persona.
+                setSelectedId(user.role === 'barber' || user.role === 'recepcion' ? user.employeeId ?? (user.role === 'barber' ? user.id : null) : own ?? barberList[0]?.id ?? null);
             } catch (e) {
                 if (!cancelled) setStartError(fail(e, 'No se pudo cargar tu panel.'));
             }
@@ -84,10 +86,11 @@ export default function BarberDashboard() {
             </div>
         );
     }
-    if (!selectedId) return <p className={`${card} mx-auto max-w-xl p-6 text-bos-muted`}>No hay barberos activos todavía.</p>;
+    const frontDesk = me.role === 'recepcion';
+    if (!selectedId) return <p className={`${card} mx-auto max-w-xl p-6 text-bos-muted`}>{frontDesk ? 'Tu cuenta aún no tiene ficha de empleado: pídele a la gerencia que la vincule.' : 'No hay barberos activos todavía.'}</p>;
 
     const canPick = me.role === 'admin';
-    const mine = me.role === 'barber' || selectedId === me.employeeId;
+    const mine = me.role === 'barber' || frontDesk || selectedId === me.employeeId;
     // Con otro barbero en pantalla (dueño o gerente) no se muestra su nombre hasta que sus cifras llegan.
     const shownName = stats && stats.barber.id === selectedId ? stats.barber.name : barbers.find((b) => b.id === selectedId)?.name ?? '';
     // Solo se muestran cifras que corresponden a la persona y al periodo elegidos; mientras llegan, esqueleto.
@@ -97,7 +100,7 @@ export default function BarberDashboard() {
         <div className="mx-auto max-w-5xl space-y-6">
             <header className="space-y-1">
                 <p className="text-sm text-bos-muted first-letter:uppercase">{today}</p>
-                <h1 className="font-display text-3xl font-semibold">{mine ? `Hola, ${shownName || 'barbero'}` : shownName}</h1>
+                <h1 className="font-display text-3xl font-semibold">{mine ? `Hola, ${shownName || me.name || (frontDesk ? 'equipo' : 'barbero')}` : shownName}</h1>
             </header>
 
             {canPick && barbers.length > 1 && (
@@ -111,16 +114,24 @@ export default function BarberDashboard() {
                 </div>
             )}
 
-            <div role="group" aria-label="Periodo" data-testid="period" className="grid grid-cols-3 gap-1 rounded-xl bg-bos-raised p-1 sm:inline-grid sm:grid-cols-[repeat(3,auto)]">
+            {!frontDesk && <div role="group" aria-label="Periodo" data-testid="period" className="grid grid-cols-3 gap-1 rounded-xl bg-bos-raised p-1 sm:inline-grid sm:grid-cols-[repeat(3,auto)]">
                 {PERIODS.map((p) => (
                     <button key={p} type="button" aria-pressed={period === p} onClick={() => setPeriod(p)}
                         className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition-colors sm:px-5 sm:text-[15px] ${period === p ? 'bg-bos-surface text-bos-text shadow-sm' : 'text-bos-muted hover:text-bos-text'}`}>
                         {PERIOD_LABELS[p]}
                     </button>
                 ))}
-            </div>
+            </div>}
 
-            {statsError && !data ? (
+            {frontDesk ? (
+                /* Recepción: su sueldo por día, lo que lleva por cobrar, lo que se le descontará y sus recibos. Sin agenda, cortes, clientes ni ranking. */
+                <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2" data-testid="front-desk-week">
+                    <FrontDeskWeek employeeId={selectedId} data={data} mine={mine} />
+                    <MyMoneySections employeeId={selectedId} mine={mine} name={shownName || 'esta persona'} showProgress={false} />
+                    {data && <ReceiptsSection data={data} mine={mine} />}
+                    {statsError && !data && <SectionError message={statsError} onRetry={() => setStatsKey((k) => k + 1)} />}
+                </div>
+            ) : statsError && !data ? (
                 <SectionError message={statsError} onRetry={() => setStatsKey((k) => k + 1)} />
             ) : (
                 <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">

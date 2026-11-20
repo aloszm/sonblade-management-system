@@ -70,7 +70,8 @@ export function MyMoneySections({ employeeId, mine, name, showProgress }: { empl
 
     const entries = ledger.data?.entries ?? [];
     const pending = ledger.data?.pending;
-    const history = entries.filter((e) => e.entry_type !== 'reversal');
+    // El sueldo sellado en un recibo no es un descuento: se ve en el recibo y en «Mi sueldo por día».
+    const history = entries.filter((e) => e.entry_type !== 'reversal' && e.entry_type !== 'wage');
     const person = progress.data?.people.find((p) => p.employee_id === employeeId) ?? (mine ? progress.data?.people[0] : undefined);
     const goals = progress.data?.enabled && person ? person.goals : [];
 

@@ -19,9 +19,12 @@ async function chooseServices(page: Page, names: string[]) {
     }
 }
 
+// Se busca por el nombre completo: con las decenas de "Prueba Agenda …" que dejan las corridas, buscar solo por el prefijo
+// dejaba al cliente nuevo fuera de los pocos resultados que muestra la lista (según cómo cayera el sufijo al azar).
+// La opción «Crear cliente nuevo: <nombre>» repite el texto escrito, así que se excluye.
 async function chooseClient(page: Page, name: string) {
-    await page.getByRole('combobox', { name: 'Cliente' }).fill(name.slice(0, 14));
-    await page.getByRole('option', { name: new RegExp(name) }).click();
+    await page.getByRole('combobox', { name: 'Cliente' }).fill(name);
+    await page.getByRole('option', { name: new RegExp(name) }).filter({ hasNotText: 'Crear cliente nuevo' }).click();
     await expect(page.getByTestId('client-selected')).toContainText(name);
 }
 
@@ -55,7 +58,7 @@ test.describe.serial('agenda: flujo completo', () => {
         await expect(page.getByTestId('services-price')).toHaveText('$250');
         await chooseClient(page, clientName);
         await form.getByRole('button', { name: 'Guardar cita' }).click();
-        await expect(form).toHaveCount(0);
+        await expect(form).toHaveCount(0, { timeout: 25_000 }); // guardar y volver a leer la agenda tarda unos segundos con la base de desarrollo lenta
 
         // En el día: ocupa de 1:00 a 2:00 p.m. y nombra los dos servicios.
         const card = page.getByTestId('day-appointment').filter({ hasText: clientName });
@@ -89,7 +92,7 @@ test.describe.serial('agenda: flujo completo', () => {
         await expect(form).toBeVisible();
         await pickTime(page, '#apt-time', '15:00');
         await form.getByRole('button', { name: 'Guardar cambios' }).click();
-        await expect(form).toHaveCount(0);
+        await expect(form).toHaveCount(0, { timeout: 25_000 });
         await page.goto(`/citas?fecha=${day}&barbero=${deyaId}`, { waitUntil: 'networkidle' });
         const card = page.getByTestId('day-appointment').filter({ hasText: clientName });
         await expect(card).toContainText('3–4 p.m.');

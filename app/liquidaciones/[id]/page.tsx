@@ -80,19 +80,19 @@ export default function ReciboPage() {
                         {receipt.branch.phone && <p className="text-sm text-bos-muted">Tel. {receipt.branch.phone}</p>}
                     </div>
                     <div className="text-right">
-                        <p className="text-[13px] font-medium text-bos-muted">Recibo de pago de comisiones</p>
+                        <p className="text-[13px] font-medium text-bos-muted">Recibo de pago semanal</p>
                         <p className="font-display text-2xl font-semibold tabular-nums" data-testid="receipt-number">{receipt.receipt_number}</p>
                         <p className="text-xs text-bos-muted mt-1">Pagado: {when(receipt.paid_at)}</p>
                     </div>
                 </header>
 
                 <section className="grid grid-cols-2 gap-4 py-4 text-sm">
-                    <div><p className="text-[13px] font-medium text-bos-muted">Barbero</p><p className="font-semibold text-lg">{receipt.employee.display_name}</p></div>
+                    <div><p className="text-[13px] font-medium text-bos-muted">Persona</p><p className="font-semibold text-lg">{receipt.employee.display_name}</p></div>
                     <div className="text-right"><p className="text-[13px] font-medium text-bos-muted">Semana</p><p className="font-bold">{weekLabel(receipt.period_start)}</p>
                         <p className="text-xs text-bos-muted">Corte: sábado 8:00 pm</p></div>
                 </section>
 
-                <div className="overflow-x-auto"><table className="w-full min-w-[34rem] text-sm border-t border-bos-border">
+                {(receipt.commission_lines.length > 0 || receipt.adjustment_lines.length > 0 || (receipt.tip_lines ?? []).length > 0) && <div className="overflow-x-auto"><table className="w-full min-w-[34rem] text-sm border-t border-bos-border">
                     <thead>
                         <tr className="text-left text-[13px] font-medium text-bos-muted">
                             <th className="py-2">Fecha</th><th className="py-2">Concepto</th>
@@ -123,7 +123,7 @@ export default function ReciboPage() {
                             </tr>
                         ))}
                     </tbody>
-                </table></div>
+                </table></div>}
 
                 <section className="mt-4 ml-auto w-full max-w-sm text-sm" aria-label="Desglose del pago">
                     <PayBreakdown data={{ ...receipt, adjustment_lines: receipt.adjustment_lines }} expandable={false} variant="receipt" />
