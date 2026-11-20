@@ -17,7 +17,7 @@ const at = (h: number, m = 0) => new Date(2030, 2, 12, h, m).toISOString();
 const apt = (over: Partial<Appointment> = {}): Appointment => ({
     id: 'a1', client_id: 'c9', barber_id: 'b1', client_name: 'Luis Pérez', customer_phone: '5551234567', barber: { id: 'b1', name: 'Deya' },
     scheduled_at: at(10), end_at: at(11), duration_minutes: 60, status: 'scheduled', notes: 'Corte adulto + Ritual de barba', created_at: at(8),
-    walk_in: false, sale: null, services: [
+    walk_in: false, online: false, sale: null, services: [
         { service_id: 's1', name: 'Corte adulto', price: 150, duration_minutes: 30 }, { service_id: 's2', name: 'Ritual de barba', price: 200, duration_minutes: 45 },
     ], ...over,
 });

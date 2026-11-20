@@ -300,7 +300,7 @@ describe('cobro: citas abiertas del barbero (B3)', () => {
     const APT = {
         id: 'a1', client_id: null, barber_id: 'b1', client_name: 'Luis', customer_phone: null, barber: { id: 'b1', name: 'Deya' },
         scheduled_at: '2026-11-20T19:00:00Z', end_at: '2026-11-20T19:30:00Z', duration_minutes: 30, status: 'checked_in',
-        notes: null, created_at: '2026-11-20T10:00:00Z', walk_in: false, sale: null,
+        notes: null, created_at: '2026-11-20T10:00:00Z', walk_in: false, online: false, sale: null,
     };
 
     it('al elegir barbero ofrece su cita y, al elegirla, la venta queda ligada a ella', async () => {

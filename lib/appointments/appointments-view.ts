@@ -118,6 +118,8 @@ export interface AppointmentView {
     created_at: string;
     /** 'walk_in' = servicio cobrado sin cita, que la base registra solo en la agenda. */
     walk_in: boolean;
+    /** Reservada por el propio cliente desde la página pública (origen 'online'). */
+    online: boolean;
     /** Venta vigente ligada (la cita ya se cobró), o null. */
     sale: { id: string; total: number } | null;
     /** Servicios vigentes de la cita en el orden en que se eligieron (vacío en citas anteriores a C2). */
@@ -143,6 +145,7 @@ export function toAppointmentView(row: AppointmentRow): AppointmentView {
         notes: row.notes,
         created_at: row.created_at,
         walk_in: row.source === 'walk_in',
+        online: row.source === 'online',
         sale: chargedSale(row.sales),
         services: currentServices(row.appointment_items),
     };

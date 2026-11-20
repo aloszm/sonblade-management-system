@@ -12,6 +12,7 @@ import PracticePrintMark from '@/components/PracticePrintMark';
 import ErrorState from '@/components/ui/ErrorState';
 import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
+import { formatDateTime } from '@/lib/utils/dates';
 
 // Los campos de PayInput (bonos, adelantos, préstamos, descuentos, arrastre, carryover_next) son opcionales.
 type Receipt = PayInput & {
@@ -54,8 +55,9 @@ export default function ReciboPage() {
 
     const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: receipt.business.currency }).format(n);
     const tz = receipt.business.timezone;
-    const when = (iso: string | null) => (iso ? new Intl.DateTimeFormat('es-MX', { timeZone: tz, dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso)) : '—');
-    const day = (iso: string) => new Intl.DateTimeFormat('es-MX', { timeZone: tz, weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+    // Mismo formato de fecha y hora que el resto del sistema (lib/utils/dates.ts): "sáb 14 nov 2026, 9:00 p. m.".
+    const when = (iso: string | null) => (iso ? formatDateTime(iso, tz) : '—');
+    const day = (iso: string) => formatDateTime(iso, tz, { year: false });
     const rate = (l: Receipt['commission_lines'][number]) => (l.percentage !== null ? `${Number(l.percentage)}%` : l.fixed_amount !== null ? `${money(Number(l.fixed_amount))} fijo` : '—');
 
     return (

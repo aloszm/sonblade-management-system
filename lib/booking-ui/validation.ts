@@ -1,3 +1,5 @@
+import { normalizeBookingPhone } from '@/lib/booking/phone';
+
 export type FieldResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 /** Nombre: sin espacios de sobra, de 2 a 80 caracteres y con al menos una letra. */
@@ -12,10 +14,11 @@ export function validateName(raw: string): FieldResult<string> {
 
 /** Teléfono de 10 dígitos. Acepta espacios, guiones, paréntesis y el prefijo +52 o 52. */
 export function validatePhone(raw: string): FieldResult<string> {
-    let digits = raw.replace(/\D/g, '');
-    if (!digits) return { ok: false, error: 'Escribe tu teléfono de 10 dígitos.' };
-    if (digits.length === 12 && digits.startsWith('52')) digits = digits.slice(2);
-    if (digits.length === 13 && digits.startsWith('521')) digits = digits.slice(3);
-    if (digits.length !== 10) return { ok: false, error: 'El teléfono debe tener 10 dígitos, con lada.' };
+    if (!raw.replace(/\D/g, '')) return { ok: false, error: 'Escribe tu teléfono de 10 dígitos.' };
+    const digits = normalizeBookingPhone(raw);
+    if (!digits) {
+        const count = raw.replace(/\D/g, '').replace(/^(521|52)(?=\d{10}$)/, '').length;
+        return { ok: false, error: count === 10 ? 'Ese teléfono no parece real. Escribe tu número de 10 dígitos, con lada.' : 'El teléfono debe tener 10 dígitos, con lada.' };
+    }
     return { ok: true, value: digits };
 }

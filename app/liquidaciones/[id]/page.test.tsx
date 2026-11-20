@@ -31,6 +31,14 @@ describe('Recibo', () => {
         expect(screen.queryByTestId('breakdown-negative')).toBeNull();
     });
 
+    it('la hora del pago y de cada línea usa el formato único del sistema ("9:00 p. m.", nunca "p.m." ni 24 horas)', async () => {
+        stubFetch(() => ({ body: RECEIPT }));
+        render(<ReciboPage />);
+        await screen.findByTestId('pay-breakdown');
+        expect(screen.getByText(/Pagado:/)).toHaveTextContent('Pagado: sáb 14 nov 2026, 9:00 p. m.');
+        expect(document.body.textContent).not.toMatch(/\b[ap]\.m\./i);
+    });
+
     it('con el libro del empleado: todo el desglose a la vista (sin pestañas cerradas) para imprimir', async () => {
         stubFetch(() => ({ body: {
             ...RECEIPT, total_amount: 700, advances: 200, loan_payments: 100, staff_deductions: 0, bonuses: 0, carryover_in: 0, net_amount: 700,

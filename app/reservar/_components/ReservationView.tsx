@@ -28,6 +28,7 @@ export default function ReservationView({ token }: { token: string }) {
     const [booking, setBooking] = useState<BookingDetail | null>(null);
     const [error, setError] = useState<BookingError | null>(null);
     const [tryN, setTryN] = useState(0);
+    const [business, setBusiness] = useState<{ name: string; address: string; phone: string }>(BUSINESS_FALLBACK);
     const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
     const [cancelError, setCancelError] = useState<BookingError | null>(null);
@@ -40,6 +41,13 @@ export default function ReservationView({ token }: { token: string }) {
         bookingApi.get(token).then((r) => { if (!alive) return; if (r.ok) setBooking(r.data.booking); else setError(r.error); });
         return () => { alive = false; };
     }, [token, tryN]);
+    // Domicilio y teléfono salen de la misma fuente que la pantalla "Listo" de la reserva (la configuración
+    // pública); mientras carga, o si falla, se usa el respaldo para no dejar la página sin datos.
+    useEffect(() => {
+        let alive = true;
+        bookingApi.config().then((r) => { if (alive && r.ok && r.data.business) setBusiness(r.data.business); });
+        return () => { alive = false; };
+    }, []);
     useEffect(() => { if (confirming) confirmRef.current?.focus(); }, [confirming]);
 
     const cancel = async () => {
@@ -52,7 +60,7 @@ export default function ReservationView({ token }: { token: string }) {
         setCancelError(r.error);
     };
 
-    const b = BUSINESS_FALLBACK;
+    const b = business;
     const frame = (children: React.ReactNode) => (
         <div className="min-h-dvh bg-bos-bg text-bos-text">
             <div className="mx-auto w-full max-w-[640px] px-4 pb-10">

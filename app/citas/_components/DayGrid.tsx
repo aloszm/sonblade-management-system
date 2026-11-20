@@ -240,7 +240,7 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
                                         const tall = visual.end - visual.start >= 3 * SLOT_MINUTES;
                                         const live = isActive(a.status) && a.status !== 'no_show';
                                         const range12 = formatRange(span);
-                                        const state = a.walk_in ? 'Sin cita' : STATUS_LABELS[a.status];
+                                        const state = a.walk_in ? 'Sin cita' : a.online ? `${STATUS_LABELS[a.status]}, reserva en línea` : STATUS_LABELS[a.status];
                                         return (
                                             <button key={a.id} type="button" data-testid="day-appointment"
                                                 onClick={() => onOpenAppointment(a)}
@@ -256,11 +256,12 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
                                                     <span className={`min-w-0 flex-1 text-[13px] font-bold leading-[18px] ${tall ? 'line-clamp-2' : 'truncate'} ${isActive(a.status) && a.status !== 'no_show' ? 'text-bos-text' : 'text-bos-muted'} ${isActive(a.status) ? '' : 'line-through'}`}>{a.client_name}</span>
                                                     <StatusDot status={a.status} className="mt-1" />
                                                 </span>
-                                                <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{detail.showService && servicesText(a) ? ` · ${servicesText(a)}` : ''}</span>
-                                                {(detail.showService || a.walk_in) && (a.walk_in || a.status !== 'scheduled' || a.sale) && (
+                                                <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{detail.showService && servicesText(a) ? ` · ${servicesText(a)}` : ''}{a.online && !detail.showService && <span data-testid="origen-en-linea" className="font-semibold text-bos-text"> · En línea</span>}</span>
+                                                {(detail.showService || a.walk_in) && (a.walk_in || a.online || a.status !== 'scheduled' || a.sale) && (
                                                     <span className="mt-0.5 flex flex-wrap items-center gap-1">
                                                         {a.status !== 'scheduled' && <StatusChip status={a.status} />}
                                                         {a.walk_in && <span className="inline-flex rounded-full border border-dashed border-bos-control px-2 py-0.5 text-xs font-semibold leading-4 text-bos-text">Sin cita</span>}
+                                                        {a.online && <span data-testid="origen-en-linea" className="inline-flex rounded-full border border-bos-control px-2 py-0.5 text-xs font-semibold leading-4 text-bos-text">En línea</span>}
                                                         {a.sale && <span className="text-xs font-semibold tabular-nums text-bos-text">{money(a.sale.total)}</span>}
                                                     </span>
                                                 )}

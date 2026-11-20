@@ -77,7 +77,7 @@ describe('BookingBody', () => {
     });
     it('señala el campo con error y mensaje con punto final', () => {
         const cases: Array<[Record<string, unknown>, string]> = [
-            [{ phone: '123' }, 'phone'], [{ name: '<b>x</b>' }, 'name'], [{ accept_privacy: false }, 'accept_privacy'],
+            [{ phone: '123' }, 'phone'], [{ phone: '0000000000' }, 'phone'], [{ phone: '5555555555' }, 'phone'], [{ name: '<b>x</b>' }, 'name'], [{ accept_privacy: false }, 'accept_privacy'],
             [{ time: '13:15' }, 'time'], [{ time: '24:00' }, 'time'], [{ date: '2026-02-30' }, 'date'], [{ service_id: 'x' }, 'service_id'],
         ];
         for (const [patch, field] of cases) {

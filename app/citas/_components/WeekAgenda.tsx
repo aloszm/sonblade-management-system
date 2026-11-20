@@ -82,8 +82,9 @@ export default function WeekAgenda({ days, todayKey, byDay, schedule, offOnDay, 
                                                     </span>
                                                     <span className="mt-0.5 flex shrink-0 flex-col items-end gap-1">
                                                         <StatusDot status={a.status} />
-                                                        <span className="sr-only">{a.walk_in ? 'Sin cita' : STATUS_LABELS[a.status]}</span>
+                                                        <span className="sr-only">{a.walk_in ? 'Sin cita' : a.online ? `${STATUS_LABELS[a.status]}, reserva en línea` : STATUS_LABELS[a.status]}</span>
                                                         {a.walk_in && <span aria-hidden="true" className="rounded-full border border-dashed border-bos-control px-1.5 text-xs text-bos-text">Sin cita</span>}
+                                                        {a.online && <span data-testid="origen-en-linea" aria-hidden="true" className="rounded-full border border-bos-control px-1.5 text-xs text-bos-text">En línea</span>}
                                                     </span>
                                                 </button>
                                             </li>

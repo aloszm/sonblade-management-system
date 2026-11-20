@@ -19,7 +19,7 @@ const at = (day: number, h: number, m = 0) => new Date(2030, 2, day, h, m).toISO
 const APT: Appointment = {
     id: 'a1', client_id: 'c9', barber_id: 'b2', client_name: 'Luis Pérez', customer_phone: '5551234567', barber: { id: 'b2', name: 'Sonny' },
     scheduled_at: at(12, 10), end_at: at(12, 11, 30), duration_minutes: 90, status: 'scheduled', notes: 'Corte adulto + Ritual de barba', created_at: at(1, 8),
-    walk_in: false, sale: null,
+    walk_in: false, online: false, sale: null,
     services: [{ service_id: 's1', name: 'Corte adulto', price: 150, duration_minutes: 30 }, { service_id: 's2', name: 'Ritual de barba', price: 200, duration_minutes: 45 }],
 };
 const BARBERS = [{ id: 'b1', name: 'Deya', status: 'active' }, { id: 'b2', name: 'Sonny', status: 'active' }];

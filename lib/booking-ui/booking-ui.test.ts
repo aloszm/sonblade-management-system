@@ -68,6 +68,8 @@ describe('validación', () => {
         expect(validatePhone('+52 55 3309 8072')).toEqual({ ok: true, value: '5533098072' });
         expect(validatePhone('(55) 3309 8072')).toEqual({ ok: true, value: '5533098072' });
         expect(validatePhone('12345').ok).toBe(false);
+        expect(validatePhone('0000000000').ok).toBe(false);
+        expect(validatePhone('5555555555').ok).toBe(false);
         expect(validatePhone('').ok).toBe(false);
     });
 });

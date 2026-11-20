@@ -56,6 +56,7 @@ export default function AppointmentDetail({ apt, barberColor, canManage, canSeeP
                         <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[apt.status]}`}>{STATUS_LABELS[apt.status]}</span>
                             {apt.walk_in && <span className="rounded-full border border-dashed border-bos-control px-2.5 py-0.5 text-xs font-semibold">Sin cita</span>}
+                            {apt.online && <span data-testid="origen-en-linea" className="rounded-full border border-bos-control px-2.5 py-0.5 text-xs font-semibold text-bos-text">En línea</span>}
                         </span>
                     </div>
                     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-semibold tabular-nums">

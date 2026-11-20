@@ -136,7 +136,7 @@ export default function WeekGrid({ days, todayKey, nowMinutes, byDay, schedule, 
                                     const color = a.barber ? colorOf(a.barber.id) : NO_BARBER_COLOR;
                                     const live = isActive(a.status) && a.status !== 'no_show';
                                     const range12 = formatRange(span);
-                                    const state = a.walk_in ? 'Sin cita' : STATUS_LABELS[a.status];
+                                    const state = a.walk_in ? 'Sin cita' : a.online ? `${STATUS_LABELS[a.status]}, reserva en línea` : STATUS_LABELS[a.status];
                                     return (
                                         <button key={a.id} type="button" data-testid="week-appointment" onClick={() => onOpenAppointment(a)}
                                             title={`${range12} · ${a.client_name}${servicesText(a) ? ` · ${servicesText(a)}` : ''}${a.barber ? ` · ${a.barber.name}` : ''} · ${state}`}
@@ -150,7 +150,7 @@ export default function WeekGrid({ days, todayKey, nowMinutes, byDay, schedule, 
                                                 <span className={`min-w-0 flex-1 truncate text-xs font-bold leading-4 ${live ? 'text-bos-text' : 'text-bos-muted'} ${isActive(a.status) ? '' : 'line-through'}`}>{slotsHigh === 1 ? `${formatClock(span.start, false)} ` : ''}{a.client_name}</span>
                                                 <StatusDot status={a.status} className="!h-2 !w-2" />
                                             </span>
-                                            {slotsHigh >= 2 && <span className="block truncate text-xs leading-4 text-bos-muted">{range12}</span>}
+                                            {slotsHigh >= 2 && <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{a.online && <span data-testid="origen-en-linea" className="font-semibold text-bos-text"> · En línea</span>}</span>}
                                             {slotsHigh >= 3 && servicesText(a) && <span className="block truncate text-xs leading-4 text-bos-muted">{servicesText(a)}</span>}
                                             <span className="sr-only">{state}{a.sale ? `, ${money(a.sale.total)}` : ''}</span>
                                         </button>

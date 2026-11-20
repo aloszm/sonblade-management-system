@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeBookingPhone } from '@/lib/booking/phone';
 import { CATEGORY_LABELS, SERVICE_CATEGORIES, categoryOf } from '@/lib/services/categories';
 
 /**
@@ -44,15 +45,10 @@ export function isWithinWindow(date: string, min: string, max: string): boolean 
 
 /**
  * Teléfono de México a 10 dígitos. Acepta espacios, guiones, paréntesis y el prefijo +52 / 52 / 521.
- * Devuelve null si no quedan exactamente 10 dígitos (que no empiecen con 0).
+ * Devuelve null si no quedan exactamente 10 dígitos (que no empiecen con 0 ni sean todos iguales; ver `lib/booking/phone.ts`).
  */
 export function normalizePhone(raw: unknown): string | null {
-    if (typeof raw !== 'string' || raw.length > 32) return null;
-    if (/[^\d\s()+.-]/.test(raw)) return null;
-    let digits = raw.replace(/\D/g, '');
-    if (digits.length === 13 && digits.startsWith('521')) digits = digits.slice(3);
-    else if (digits.length === 12 && digits.startsWith('52')) digits = digits.slice(2);
-    return /^[1-9]\d{9}$/.test(digits) ? digits : null;
+    return normalizeBookingPhone(raw);
 }
 
 /** Nombre recortado y con espacios simples; null si no mide 2–80 o trae HTML / caracteres de control. */
