@@ -12,6 +12,7 @@ import { SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 import PracticePrintMark from '@/components/PracticePrintMark';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
+import SaleBreakdownBlock from '@/components/SaleBreakdown';
 
 type TicketData = Ticket & {
     business: { name: string; currency: string; timezone: string };
@@ -62,6 +63,7 @@ export default function TicketPage() {
     const when = new Intl.DateTimeFormat('es-MX', { timeZone: ticket.business.timezone, dateStyle: 'long', timeStyle: 'short' }).format(new Date(ticket.created_at));
 
     return (
+        <div>
         <div className="max-w-md mx-auto">
             <div className="flex items-center justify-between mb-4 print:hidden">
                 <Link href="/pos" className="inline-flex items-center gap-2 text-sm font-semibold text-bos-muted hover:text-bos-text min-h-11"><ArrowLeft className="h-4 w-4" /> Volver al cobro</Link>
@@ -135,6 +137,9 @@ export default function TicketPage() {
                     <p className="mt-1">Este ticket no es un comprobante fiscal. · {SYSTEM_NAME}</p>
                 </footer>
             </article>
+        </div>
+        {/* Debajo del ticket, solo en pantalla: el ticket impreso es del cliente. */}
+        <SaleBreakdownBlock saleId={ticket.id} />
         </div>
     );
 }

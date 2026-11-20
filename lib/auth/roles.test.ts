@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES, MANAGEMENT_READ_ROLES, MANAGEMENT_ROLES, READ_ONLY_ROLES,
-    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canWrite, isPrimaryAccount, isReadOnlyRole, personTitle, readerRole, roleLabel, roleOptionLabel, roleTitle, screenRole, sessionTitle,
+    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canSeeSaleCost, canWrite, isPrimaryAccount, isReadOnlyRole, personTitle, readerRole, roleLabel, roleOptionLabel, roleTitle, screenRole, sessionTitle,
 } from './roles';
 
 describe('personTitle: título visible por persona', () => {
@@ -23,6 +23,13 @@ describe('personTitle: título visible por persona', () => {
         expect(sessionTitle({ businessRole: 'owner', display_title: null })).toBe('Gerente');
         expect(sessionTitle({ title: 'Recepción' })).toBe('Recepción');
         expect(sessionTitle(null)).toBe('');
+    });
+});
+
+describe('costo de producto de una venta', () => {
+    it('lo ven cuenta principal, gerencia y consulta; recepción y barbero no', () => {
+        for (const role of ['owner', 'admin', 'viewer'] as const) expect(canSeeSaleCost(role)).toBe(true);
+        for (const role of ['receptionist', 'cashier', 'barber'] as const) expect(canSeeSaleCost(role)).toBe(false);
     });
 });
 

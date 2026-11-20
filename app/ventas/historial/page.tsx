@@ -290,8 +290,8 @@ export default function SalesHistoryPage() {
                                         <td data-label="Método de pago" className="px-4 py-3"><PaymentBadge sale={sale} /></td>
                                         <td data-label="Total" className={`px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap max-md:order-first max-md:text-lg ${sale.status === 'refunded' ? 'line-through text-bos-muted' : ''}`}>{formatMoney(Number(sale.total), { cents: true })}{sale.status === 'refunded' && <span className="ml-2 text-xs no-underline text-bos-danger font-semibold align-middle inline-block">Anulada</span>}</td>
                                         <td data-label="" className="px-4 py-1 text-center whitespace-nowrap">
-                                            <Link href={`/ticket/${sale.id}`} aria-label="Ver ticket" title="Ver ticket" className={iconBtn}>
-                                                <FileText className="h-4 w-4" />
+                                            <Link href={`/ticket/${sale.id}`} title="Abre el ticket y el desglose de la venta" className="min-h-11 px-3 inline-flex items-center justify-center gap-2 rounded-xl border border-bos-border text-sm font-semibold text-bos-text hover:bg-bos-raised align-middle">
+                                                <FileText aria-hidden="true" className="h-4 w-4" /> Ver venta
                                             </Link>
                                             {!readOnly && <button onClick={() => { setDeleteError(''); setShowDeleteConfirm(sale.id); }} disabled={deletingId === sale.id || sale.status === 'refunded'} aria-label="Anular venta" className={`${iconBtn} hover:text-bos-danger disabled:opacity-40`}>
                                                 {deletingId === sale.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}

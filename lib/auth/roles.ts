@@ -39,6 +39,17 @@ export function canSeePayReceipts(role: BusinessRole | 'recepcion' | string | nu
     return typeof role === 'string' && (PAY_RECEIPT_ROLES as string[]).includes(role);
 }
 
+/**
+ * Quién puede ver el COSTO de producto de una venta y lo que le queda a la barbería (desglose de la venta).
+ * Cuenta principal, gerencia y consulta. Recepción y barbero no: el costo está cerrado para ellos también en la base
+ * (public.product_costs). Único punto de verdad: la ruta del desglose decide aquí qué columnas lee y qué entrega.
+ */
+export const SALE_COST_ROLES: BusinessRole[] = MANAGEMENT_READ_ROLES;
+
+export function canSeeSaleCost(role: BusinessRole): boolean {
+    return SALE_COST_ROLES.includes(role);
+}
+
 export function isReadOnlyRole(role: BusinessRole): boolean {
     return READ_ONLY_ROLES.includes(role);
 }
