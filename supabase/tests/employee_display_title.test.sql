@@ -1,6 +1,6 @@
 -- Pruebas del título visible (ejecutar DESPUÉS de aplicar 20261119200000_employee_display_title.sql).
 -- Todo ocurre dentro de un DO que termina con RAISE: nada se guarda; el mensaje de error trae los resultados.
--- En desarrollo, antes: update public.business_memberships set must_change_pin = false; (dentro del simulacro)
+-- La prueba quita el PIN temporal de las cuentas ella misma (dentro del simulacro).
 do $t$
 declare
   r text := '';
@@ -11,6 +11,9 @@ declare
   lucia uuid := (select id from auth.users where email = 'lucia@gallo-420.barberos.invalid');
   e_sonia uuid; e_deya uuid; v jsonb; t text; n int;
 begin
+  -- Precondición dentro de la prueba (no depender del estado de desarrollo, donde todas las cuentas tienen PIN temporal
+  -- y has_business_role/can_access_branch las rechazan): se revierte con el simulacro.
+  update public.business_memberships set must_change_pin = false;
   select id into e_sonia from public.employees where user_id = sonia;
   select id into e_deya from public.employees where user_id = deya;
   if e_sonia is null or e_deya is null then raise exception 'Faltan empleados de prueba'; end if;

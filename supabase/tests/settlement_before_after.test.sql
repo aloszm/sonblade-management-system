@@ -88,7 +88,10 @@ begin
          || ' mismas cifras antes y después: ' || n_before || ' fotos (' || n_settle || ' liquidaciones simuladas, '
          || n_receipts || ' recibos existentes); diferencias: ' || n_diff || coalesce(' [' || left(detail, 400) || ']', '');
   -- Las claves nuevas valen 0 (sin libro ni metas). No se supone que el libro real de desarrollo esté vacío: solo se
-  -- exige en las fotos de personas sin asientos en esa sucursal, de sucursales sin metas de bono.
+  -- exige en las fotos de personas sin asientos en esa sucursal, de sucursales sin metas de bono ACTIVAS (una meta
+  -- apagada no calcula bonos: 20261120051000_bonus_goals; la práctica deja metas de prueba apagadas en la sucursal).
+  -- Tampoco cuentan las personas con ficha de sueldo por día (20261120090000_daily_wages): su neto suma el sueldo a
+  -- propósito, así que net_amount <> total_amount es lo correcto para ellas.
   select count(*) into n_checked from b7_snap a
   where a.phase = 'after' and a.kind in ('preview', 'receipt') and not exists (
     select 1 from (
@@ -97,7 +100,8 @@ begin
       select cs.branch_id::text, cs.employee_id::text from public.commission_settlements cs where a.kind = 'receipt' and cs.id::text = a.key
     ) who
     where exists (select 1 from public.employee_ledger l where l.branch_id::text = who.branch_id and l.employee_id::text = who.employee_id)
-       or exists (select 1 from public.bonus_goals g where g.branch_id::text = who.branch_id));
+       or exists (select 1 from public.bonus_goals g where g.branch_id::text = who.branch_id and g.is_active)
+       or exists (select 1 from public.employee_wage_rates w where w.branch_id::text = who.branch_id and w.employee_id::text = who.employee_id));
   select count(*) into n_new_nonzero from b7_snap a
   where a.phase = 'after' and not exists (
     select 1 from (
@@ -106,7 +110,8 @@ begin
       select cs.branch_id::text, cs.employee_id::text from public.commission_settlements cs where a.kind = 'receipt' and cs.id::text = a.key
     ) who
     where exists (select 1 from public.employee_ledger l where l.branch_id::text = who.branch_id and l.employee_id::text = who.employee_id)
-       or exists (select 1 from public.bonus_goals g where g.branch_id::text = who.branch_id)) and (
+       or exists (select 1 from public.bonus_goals g where g.branch_id::text = who.branch_id and g.is_active)
+       or exists (select 1 from public.employee_wage_rates w where w.branch_id::text = who.branch_id and w.employee_id::text = who.employee_id)) and (
     (a.kind = 'preview' and ((a.payload ->> 'bonuses')::numeric <> 0 or (a.payload ->> 'advances')::numeric <> 0
                               or (a.payload ->> 'loan_payments')::numeric <> 0 or (a.payload ->> 'staff_deductions')::numeric <> 0
                               or (a.payload ->> 'carryover_in')::numeric <> 0 or (a.payload ->> 'carryover_out')::numeric <> 0

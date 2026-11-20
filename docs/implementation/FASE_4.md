@@ -528,6 +528,11 @@ Migración `20261120090000_daily_wages` (md5 `37f2f55375bcab97fc69d3c637810c84`,
 - **Dato cargado en desarrollo** (por SQL, con bitácora `employee_wage_set`, `source = 'sql'`, `confirmed_with_pin = false`): Dago lunes a viernes y Emi sábado y domingo, $320, vigentes desde el domingo 15 nov 2026.
 - **Falta:** pantallas (ficha en Equipo, faltas y días extra, renglón en Pago semanal y en "Mi semana", concepto "Sueldos" en Finanzas, Panel y la cascada de Administración); réplica a producción y carga del dato real allá.
 
+## 8e. Pruebas SQL sin depender de desarrollo y lectura de dinero por puesto (20 nov; sin migraciones)
+
+- **Pruebas SQL:** las 23 de `supabase/tests/` pasan en simulacro (`begin; <prueba>; rollback;`) sin pasos previos. Los fallos reportados eran de datos de desarrollo, no de la base: todas las cuentas de desarrollo tienen `must_change_pin = true` y `has_business_role` las rechaza ("Cash permission denied"); categorías y gastos agregados por la práctica; metas de bono apagadas de las pruebas de navegador; el correo de contacto del negocio en `businesses.settings`. Cada prueba prepara ahora su estado dentro de la transacción.
+- **Lectura de dinero del personal** (`staff_money_read_scope.test.sql`, comprobado con lecturas reales bajo RLS): dueño, gerencia y consulta leen todo lo de su sucursal; barbero solo lo propio; recepción solo lo propio en recibos, libro del empleado, sueldos, faltas y metas, **pero lee comisiones (`commission_entries`) y propinas (`sale_tips`) de toda la sucursal**. No se restringió: "Barberos hoy" (`/api/team-summary`, `lib/team/load.ts`, en el menú de recepción) las lee con la sesión del usuario para mostrar comisión y propina de cada persona. Para restringirlo, primero esa pantalla debe pasar a una función de la base que devuelva solo lo que recepción deba ver (decisión del dueño: ¿recepción debe ver lo que gana cada barbero?).
+
 ## 9. Preguntas abiertas para el dueño (resumen)
 
 1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).

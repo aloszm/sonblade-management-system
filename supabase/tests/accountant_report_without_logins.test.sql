@@ -45,7 +45,15 @@ begin
   txt := v::text;
 
   r := r || E'\n1 ' || case when position('login_name' in txt) = 0 and position('loginnuevo' in txt) = 0 and position('loginviejo' in txt) = 0 then 'OK' else 'FALLA' end || ' contador: sin login_name';
-  r := r || E'\n2 ' || case when position('@gallo-420.barberos.invalid' in txt) = 0 and position('"email"' in txt) = 0 then 'OK' else 'FALLA' end || ' contador: sin correos sintéticos';
+  -- 2 ningún correo sintético del personal en todo el reporte, y ninguna entrada de la bitácora conserva la llave
+  -- "email" en su detalle (changes/before/after), que es lo que quita la limpieza. No se busca '"email"' en todo el
+  -- texto: la configuración del negocio (businesses.settings) tiene su propio campo email de contacto del negocio
+  -- (no es de una persona) y la práctica deja cambios de esa configuración en la bitácora.
+  ok := position('@gallo-420.barberos.invalid' in txt) = 0
+        and not exists (select 1 from jsonb_array_elements(v -> 'audit') a, jsonb_each(case when jsonb_typeof(a -> 'details') = 'object' then a -> 'details' else '{}'::jsonb end) d
+                         where jsonb_typeof(d.value) = 'object' and d.value ? 'email')
+        and exists (select 1 from jsonb_array_elements(v -> 'audit') a where a ->> 'action' = 'employees.update' and a ->> 'entity_id' = dago_e::text);
+  r := r || E'\n2 ' || case when ok then 'OK' else 'FALLA' end || ' contador: sin correos sintéticos ni llave email en el detalle de la bitácora';
   r := r || E'\n3 ' || case when position('5511112222' in txt) = 0 and position('5533334444' in txt) = 0 then 'OK' else 'FALLA' end || ' contador: sin teléfono del personal';
   r := r || E'\n4 ' || case when position('Clienta Contador Prueba' in txt) = 0 and position('5599887766' in txt) = 0 then 'OK' else 'FALLA' end || ' contador: sin nombre ni teléfono de cliente';
   -- 5 se conservan los nombres del personal y lo demás del cambio

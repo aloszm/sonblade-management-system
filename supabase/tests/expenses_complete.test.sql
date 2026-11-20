@@ -37,12 +37,20 @@ begin
   select id into c_luz from public.expense_categories where business_id = biz and name = 'Luz';
   select id into c_general from public.expense_categories where business_id = biz and name = 'General';
 
-  -- 1 categorías iniciales
-  select count(*) into n from public.expense_categories where business_id = biz;
-  r := r || E'\n1 ' || case when n = 11 and c_renta is not null and c_general is not null then 'OK' else 'FALLA' end || ' categorías iniciales: ' || n;
+  -- 1 categorías iniciales: las 11 que siembra la migración existen y siguen activas. No se cuenta el total del
+  -- negocio: la práctica (y las pruebas de navegador) agregan categorías nuevas y eso no es un error.
+  select count(*) into n from public.expense_categories
+   where business_id = biz and is_active
+     and name in ('Renta', 'Luz', 'Agua', 'Internet y teléfono', 'Insumos y limpieza', 'Mantenimiento', 'Sueldos y apoyos',
+                  'Impuestos y contabilidad', 'Publicidad', 'Otros', 'General');
+  r := r || E'\n1 ' || case when n = 11 and c_renta is not null and c_general is not null then 'OK' else 'FALLA' end || ' categorías iniciales presentes y activas: ' || n || ' de 11';
 
-  -- 2 gastos existentes: cash_drawer + General, sin cambiar importe, fecha ni caja
-  select count(*) into n from public.expenses where business_id = biz and (paid_from <> 'cash_drawer' or category_id <> c_general or category <> 'General');
+  -- 2 gastos existentes ANTES de la migración (creados antes que la categoría General que ella sembró): cash_drawer + General,
+  -- sin cambiar importe, fecha ni caja. Los gastos capturados después (sobre, banco, otras categorías) no cuentan aquí.
+  select count(*) into n from public.expenses x
+   where x.business_id = biz
+     and x.created_at < (select g.created_at from public.expense_categories g where g.id = c_general)
+     and (x.paid_from <> 'cash_drawer' or x.category_id <> c_general or x.category <> 'General');
   if to_regclass('pg_temp.expense_test_before') is not null then
     execute 'select count(*) from pg_temp.expense_test_before o join public.expenses x on x.id = o.id
              where x.amount <> o.amount or x.incurred_at <> o.incurred_at or x.cash_session_id is distinct from o.cash_session_id or x.status <> o.status' into avail;

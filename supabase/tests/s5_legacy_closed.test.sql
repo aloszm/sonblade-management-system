@@ -1,6 +1,6 @@
 -- Pruebas de S5 (ejecutar DESPUÉS de aplicar 20261119175000_s5_close_legacy_admin_shortcuts.sql).
 -- Todo ocurre dentro de un DO que termina con RAISE: nada se guarda; el mensaje de error trae los resultados.
--- En desarrollo, antes: update public.business_memberships set must_change_pin = false; (dentro del simulacro)
+-- La prueba quita el PIN temporal de las cuentas ella misma (dentro del simulacro).
 do $t$
 declare
   r text := '';
@@ -10,6 +10,9 @@ declare
   emi uuid := 'a3b429be-3d7b-4c46-90fd-e15722193e27';
   s uuid; sid uuid; v jsonb; prod uuid; n int;
 begin
+  -- Precondición dentro de la prueba (no depender del estado de desarrollo, donde todas las cuentas tienen PIN temporal
+  -- y has_business_role/can_access_branch las rechazan): se revierte con el simulacro.
+  update public.business_memberships set must_change_pin = false;
   select p.id into prod from public.products p join public.branch_inventory bi on bi.product_id = p.id
    where p.is_active and p.tracks_inventory and bi.branch_id = b limit 1;
   -- caja abierta (como Emi) para los movimientos

@@ -11,6 +11,9 @@ declare
   lucia uuid := '6a8d153e-cf8d-4dd7-8029-01bc42481159';
   s uuid; sid uuid; n int; v jsonb; prod uuid; t text;
 begin
+  -- Precondición dentro de la prueba (no depender del estado de desarrollo, donde todas las cuentas tienen PIN temporal
+  -- y has_business_role/can_access_branch las rechazan): se revierte con el simulacro.
+  update public.business_memberships set must_change_pin = false;
   r := r || E'\nmigración ejecutada dentro de la transacción';
   -- sesión vieja de todos (no reciente)
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role','authenticated')::text, true);

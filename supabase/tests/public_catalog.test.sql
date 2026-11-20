@@ -1,5 +1,5 @@
 -- Pruebas de 20261120060000_public_catalog.sql (catálogo público de la página de inicio).
--- Correr en simulacro: begin; <migración>; update public.business_memberships set must_change_pin = false; <esta prueba>; rollback;
+-- Correr en simulacro: begin; <migración>; <esta prueba>; rollback; (la prueba quita el PIN temporal ella misma)
 -- Todo ocurre dentro de un DO que termina con RAISE: nada se guarda. No depende del estado real de desarrollo:
 -- apaga las reservas dentro de la prueba y siembra su propia recepción y su barbero inactivo.
 do $t$
@@ -16,6 +16,9 @@ declare
   svc uuid;
   barber uuid;
 begin
+  -- Precondición dentro de la prueba (no depender del estado de desarrollo, donde todas las cuentas tienen PIN temporal
+  -- y has_business_role/can_access_branch las rechazan): se revierte con el simulacro.
+  update public.business_memberships set must_change_pin = false;
   select b.slug, b.id into slug, biz from public.businesses b
    where b.is_active and exists (select 1 from public.branches br where br.business_id = b.id and br.is_active)
    order by b.created_at limit 1;

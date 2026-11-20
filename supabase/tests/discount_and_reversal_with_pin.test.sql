@@ -1,5 +1,5 @@
 -- Pruebas de B2 (ejecutar DESPUÉS de aplicar 20261119180000_discount_and_reversal_with_pin.sql).
--- Todo ocurre dentro de un simulacro: begin; <migración>; update public.business_memberships set must_change_pin = false; <este archivo>; rollback;
+-- Todo ocurre dentro de un simulacro: begin; <migración>; <este archivo>; rollback; (la prueba quita el PIN temporal ella misma)
 -- El DO termina con RAISE: nada se guarda; el mensaje de error trae los resultados.
 
 -- Sesión normal (sin PIN reciente) y sesión recién abierta con PIN (como hace runWithPin).
@@ -28,6 +28,9 @@ declare
   items30 jsonb; pay120 jsonb;
   a uuid; k text; v jsonb; sale1 uuid; sale_legacy uuid; n int; t text;
 begin
+  -- Precondición dentro de la prueba (no depender del estado de desarrollo, donde todas las cuentas tienen PIN temporal
+  -- y has_business_role/can_access_branch las rechazan): se revierte con el simulacro.
+  update public.business_memberships set must_change_pin = false;
   items30 := jsonb_build_array(jsonb_build_object('item_type','service','catalog_id',corte,'quantity',1,'employee_id',dani_emp,'discount_amount',30));
   pay120 := jsonb_build_array(jsonb_build_object('method','cash','amount',(select price from public.services where id = corte) - 30));
 
