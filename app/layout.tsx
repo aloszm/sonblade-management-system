@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { headers } from 'next/headers';
 import './globals.css';
 import AppShell from '@/components/AppShell';
 import Providers from '@/components/Providers';
 import PracticeBanner from '@/components/PracticeBanner';
 import { isPracticeMode, PRACTICE_TITLE_PREFIX, withPracticeTitle } from '@/lib/app-mode';
 import { APP_DESCRIPTION, APP_TITLE, CLIENT_NAME } from '@/lib/brand';
+import { siteFromHost } from '@/lib/hosts';
 
 const inter = Inter({
     subsets: ['latin'],
@@ -43,11 +45,13 @@ export const metadata: Metadata = {
     },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    // El sitio (público, citas, admin o todo junto) sale del dominio; ver lib/hosts.ts.
+    const site = siteFromHost((await headers()).get('host'));
     return (
         <html lang="es" data-theme="dark" data-app-mode={isPracticeMode() ? 'practice' : undefined} suppressHydrationWarning>
             <head>
@@ -56,7 +60,7 @@ export default function RootLayout({
             <body className={`${inter.variable} font-sans bg-bos-bg text-bos-text antialiased`}>
                 <PracticeBanner />
                 <Providers>
-                    <AppShell>{children}</AppShell>
+                    <AppShell site={site}>{children}</AppShell>
                 </Providers>
             </body>
         </html>

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Phone } from 'lucide-react';
 import { bookingApi } from '@/lib/booking-ui/api';
+import { findBarberBySlug } from '@/lib/booking-ui/barber-slug';
 import { BUSINESS_FALLBACK, phoneHref } from '@/lib/booking-ui/business';
 import type { BookingError } from '@/lib/booking-ui/errors';
 import type { BookingBarber, BookingConfig } from '@/lib/booking-ui/types';
@@ -18,7 +19,8 @@ type Stage = 'service' | 'how' | 'barber' | 'when' | 'details' | 'done';
 const STEP_OF: Record<Stage, number> = { service: 0, how: 1, barber: 1, when: 1, details: 2, done: 3 };
 const EMPTY_SEL: Selection = { date: null, time: null, label: null, barber: null };
 
-export default function BookingFlow() {
+/** `initialBarber`: nombre que viene del enlace corto (citas.…/<nombre> o ?barbero=); si coincide, el barbero queda preseleccionado. */
+export default function BookingFlow({ initialBarber }: { initialBarber?: string }) {
     const [config, setConfig] = useState<BookingConfig | null>(null);
     const [loadError, setLoadError] = useState<BookingError | null>(null);
     const [tryN, setTryN] = useState(0);
@@ -35,9 +37,16 @@ export default function BookingFlow() {
     useEffect(() => {
         let alive = true;
         setLoadError(null);
-        bookingApi.config().then((r) => { if (!alive) return; if (r.ok) setConfig(r.data); else setLoadError(r.error); });
+        bookingApi.config().then((r) => {
+            if (!alive) return;
+            if (!r.ok) { setLoadError(r.error); return; }
+            setConfig(r.data);
+            // Sin coincidencia (o con reservas apagadas) el parámetro se ignora en silencio.
+            const preset = findBarberBySlug(r.data.barbers ?? [], initialBarber);
+            if (preset) setBarber((current) => current ?? preset);
+        });
         return () => { alive = false; };
-    }, [tryN]);
+    }, [tryN, initialBarber]);
 
     // "Atrás" del navegador: cada paso es una entrada del historial; el estado queda en memoria.
     const go = useCallback((next: Stage, replace = false) => {
@@ -119,7 +128,7 @@ export default function BookingFlow() {
         {safeStage === 'service' && (
             <ServiceStep services={config.services} serviceId={serviceId} onSelect={(id) => { setServiceId(id); resetSelection(); }} onNext={() => go('how')} />
         )}
-        {safeStage === 'how' && service && <HowStep service={service} onPick={pickMode} onBack={() => window.history.back()} />}
+        {safeStage === 'how' && service && <HowStep service={service} presetBarber={barber?.name} onPick={pickMode} onBack={() => window.history.back()} />}
         {safeStage === 'barber' && (
             <BarberStep barbers={config.barbers} barberId={barber?.id ?? null}
                 onSelect={(id) => { setBarber(config.barbers.find((b) => b.id === id) ?? null); resetSelection(); }}

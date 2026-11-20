@@ -7,6 +7,9 @@ export const metadata: Metadata = {
     robots: { index: true, follow: true },
 };
 
-export default function ReservarPage() {
-    return <BookingFlow />;
+/** `?barbero=<nombre>` (o el enlace corto citas.…/<nombre>, que el middleware reescribe a esto) preselecciona al barbero. */
+export default async function ReservarPage({ searchParams }: { searchParams: Promise<{ barbero?: string | string[] }> }) {
+    const { barbero } = await searchParams;
+    const initialBarber = (Array.isArray(barbero) ? barbero[0] : barbero)?.slice(0, 80);
+    return <BookingFlow initialBarber={initialBarber} />;
 }

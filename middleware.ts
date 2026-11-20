@@ -3,16 +3,60 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { Database } from '@/lib/database.types';
 import { SESSION_COOKIE_OPTIONS } from '@/lib/supabase/cookie-options';
 import { isCrossOriginWrite } from '@/lib/security/origin';
+import { siteFromHost, siteOrigin, type Site } from '@/lib/hosts';
+import { routeForSite } from '@/lib/site-routing';
 
 // /reservar, /privacidad y /api/public son la puerta de reservas para clientes: sin sesión a propósito; la base valida todo.
 const PUBLIC_PATHS = ['/login', '/onboarding', '/auth/callback', '/api/auth/login', '/api/health', '/api/public', '/reservar', '/privacidad'];
 const NO_CACHE = { 'Cache-Control': 'no-store' };
 
+/**
+ * Entrada del middleware. Primero se decide por sitio (dominio): página pública, citas, admin o "todo junto"
+ * (lib/hosts.ts y lib/site-routing.ts). Lo que queda en `pass` sigue con la lógica interna de sesión y puestos.
+ */
 export async function middleware(request: NextRequest) {
     // Escrituras a la API desde otro sitio (CSRF): si el navegador dice de dónde viene y no es este host, se rechaza.
     if (isCrossOriginWrite(request.method, request.nextUrl.pathname, request.headers.get('origin'), request.headers.get('host'))) {
         return NextResponse.json({ error: 'Origen no permitido.' }, { status: 403, headers: NO_CACHE });
     }
+    const site = siteFromHost(request.headers.get('host'));
+    const response = await routeBySite(request, site);
+    // El sistema interno no se indexa en buscadores.
+    if (site === 'admin') response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return response;
+}
+
+async function routeBySite(request: NextRequest, site: Site): Promise<NextResponse> {
+    const decision = routeForSite(site, request.nextUrl.pathname, request.nextUrl.search);
+    switch (decision.kind) {
+        case 'pass':
+            return internalMiddleware(request);
+        case 'open':
+            return NextResponse.next({ request });
+        case 'rewrite': {
+            const target = request.nextUrl.clone();
+            target.pathname = decision.pathname;
+            target.search = decision.search ?? '';
+            return NextResponse.rewrite(target);
+        }
+        case 'redirect': {
+            const origin = decision.site === site ? request.nextUrl.origin : siteOrigin(decision.site);
+            if (!origin) return notFound(request);
+            return NextResponse.redirect(new URL(`${decision.pathname}${decision.search}`, origin), 308);
+        }
+        default:
+            return notFound(request);
+    }
+}
+
+function notFound(request: NextRequest): NextResponse {
+    const target = request.nextUrl.clone();
+    target.pathname = '/_sitio-no-encontrado';
+    target.search = '';
+    return NextResponse.rewrite(target, { status: 404 });
+}
+
+async function internalMiddleware(request: NextRequest): Promise<NextResponse> {
     let response = NextResponse.next({ request });
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

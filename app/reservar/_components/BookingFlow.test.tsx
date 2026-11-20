@@ -106,4 +106,41 @@ describe('flujo de reserva', () => {
         expect(await screen.findByText(/No hay conexión/)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
     });
+
+    describe('enlace corto por barbero (?barbero=)', () => {
+        async function toBarberStep(initialBarber?: string) {
+            mockApi(() => json({}, 201));
+            render(<BookingFlow initialBarber={initialBarber} />);
+            fireEvent.click(await screen.findByLabelText(/Corte adulto/));
+            fireEvent.click(screen.getByRole('button', { name: /Continuar con Corte adulto/ }));
+            await screen.findByRole('heading', { name: /¿Cómo quieres elegir\?/ });
+        }
+
+        it('preselecciona al barbero aunque el nombre cambie en mayúsculas o acentos', async () => {
+            await toBarberStep('DANI');
+            expect(screen.getByText(/Vienes del enlace de/)).toHaveTextContent('Dani');
+            fireEvent.click(screen.getByRole('button', { name: /Elegir barbero/ }));
+            expect(await screen.findByLabelText(/Dani$/)).toBeChecked();
+            expect(screen.getByRole('button', { name: /Ver días de Dani/ })).toBeEnabled();
+        });
+
+        it('si el nombre no existe lo ignora en silencio', async () => {
+            await toBarberStep('nadie');
+            expect(screen.queryByText(/Vienes del enlace de/)).toBeNull();
+            fireEvent.click(screen.getByRole('button', { name: /Elegir barbero/ }));
+            expect(await screen.findByLabelText(/Dani$/)).not.toBeChecked();
+            expect(screen.getByRole('button', { name: /Elige un barbero/ })).toBeDisabled();
+        });
+
+        it('sin parámetro todo queda como antes', async () => {
+            await toBarberStep(undefined);
+            expect(screen.queryByText(/Vienes del enlace de/)).toBeNull();
+        });
+
+        it('con reservas apagadas ignora el parámetro', async () => {
+            vi.stubGlobal('fetch', vi.fn(() => json({ enabled: false })));
+            render(<BookingFlow initialBarber="dani" />);
+            expect(await screen.findByText(/agendamos por teléfono/)).toBeInTheDocument();
+        });
+    });
 });

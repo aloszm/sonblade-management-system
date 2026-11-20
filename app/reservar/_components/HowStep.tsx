@@ -7,7 +7,7 @@ import { BackButton, ServiceMeta, StepHeading } from './parts';
 
 export type Mode = 'barber' | 'time';
 
-export default function HowStep({ service, onPick, onBack }: { service: BookingService; onPick: (m: Mode) => void; onBack: () => void }) {
+export default function HowStep({ service, presetBarber, onPick, onBack }: { service: BookingService; presetBarber?: string; onPick: (m: Mode) => void; onBack: () => void }) {
     const card = 'flex min-h-20 w-full items-center gap-4 rounded-2xl border border-bos-border bg-bos-surface p-4 text-left transition-colors hover:bg-bos-raised';
     return (
         <section aria-label="Cómo quieres elegir">
@@ -16,6 +16,9 @@ export default function HowStep({ service, onPick, onBack }: { service: BookingS
             <p className="mb-4 rounded-xl bg-bos-surface px-3 py-2 text-sm text-bos-muted">
                 <span className="font-medium text-bos-text">{service.name}</span> · <ServiceMeta service={service} />
             </p>
+            {presetBarber && (
+                <p className="mb-4 text-sm text-bos-muted">Vienes del enlace de <span className="font-medium text-bos-text">{presetBarber}</span>: con «Elegir barbero» ya queda seleccionado.</p>
+            )}
             <div className="space-y-3">
                 <button type="button" onClick={() => onPick('barber')} className={card}>
                     <UserRound className="h-7 w-7 shrink-0 text-bos-accent-text" aria-hidden="true" />

@@ -6,8 +6,10 @@ import { MotionConfig, motion } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import MobileNav from '@/components/MobileNav';
+import type { Site } from '@/lib/hosts';
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+/** `site` (por dominio, ver lib/hosts.ts): en la página pública y en citas nunca hay menú ni encabezado internos. */
+export default function AppShell({ children, site = 'all' }: { children: React.ReactNode; site?: Site }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
     const pathname = usePathname();
 
@@ -27,8 +29,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const drawerHidden = !isDesktop && !isSidebarOpen;
 
     // Páginas públicas (clientes sin cuenta): sin menú ni encabezado internos.
-    const isPublic = pathname === '/login' || pathname === '/onboarding'
-        || pathname === '/privacidad' || pathname === '/reservar' || pathname.startsWith('/reservar/');
+    const isPublic = site === 'public' || site === 'booking' || pathname === '/login' || pathname === '/onboarding'
+        || pathname === '/privacidad' || pathname === '/inicio' || pathname === '/reservar' || pathname.startsWith('/reservar/');
     if (isPublic) return <>{children}</>;
 
     return (
