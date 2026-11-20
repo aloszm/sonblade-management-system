@@ -7,6 +7,8 @@ export type FullKpis = {
     expenses: number; avg_ticket: number; net: number;
     /** B4 (20261119210000): costo de producto; con él, net = utilidad igual que Finanzas. Falta en reportes anteriores. */
     product_cost?: number; net_kind?: 'profit' | 'contribution'; units_without_cost?: number | null;
+    /** Bonos por metas y sueldos por día devengados (costos aparte de comisiones). Faltan en reportes anteriores. */
+    bonuses?: number; wages?: number;
     discounts_total: number; discounts_count: number; reversals_total: number; reversals_count: number;
 };
 
@@ -40,7 +42,10 @@ export type FinancialPerson = {
     product_cost: number;
     /** Comisiones pagadas por las ventas de esta persona (a ella o a quien vendió el producto). */
     sales_commissions: number;
-    /** Lo que deja al negocio antes de gastos: lo vendido − sales_commissions − product_cost. */
+    /** Bono por metas y sueldo por día devengado de esta persona (faltan en reportes anteriores). */
+    bonus?: number;
+    wage?: number;
+    /** Lo que deja al negocio antes de gastos: lo vendido − sales_commissions − product_cost − bonus − wage. */
     contribution: number;
 };
 
@@ -51,6 +56,9 @@ export type FinancialPeriod = {
     product_cost: { total: number; source: string; units_without_cost: number; missing: { product_id: string | null; name: string; units: number }[] };
     expenses: { total: number; by_category: { category: string; total: number; count: number }[]; by_method: MethodTotals };
     tips: { total: number; count: number; by_method: MethodTotals };
+    /** Bonos por metas y sueldos por día devengados (días pagables que ya empezaron). Faltan en reportes anteriores. */
+    bonuses?: { total: number; count: number };
+    wages?: { total: number; days: number };
     profit: number;
     /** null si no hubo ingresos. */
     margin_pct: number | null;

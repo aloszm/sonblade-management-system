@@ -1,11 +1,12 @@
 // Desglose del pago semanal (vista previa y recibo): cálculo puro, sin red ni reloj.
 //
-// neto = comisiones − ajustes por anulaciones + propinas + bonos − adelantos − abonos de préstamo − descuentos − arrastre.
+// neto = sueldo + comisiones − ajustes por anulaciones + propinas + bonos − adelantos − abonos de préstamo − descuentos − arrastre.
 // Si el neto es negativo, el recibo se paga en $0 y el faltante pasa a la semana siguiente.
 // Todos los campos nuevos son OPCIONALES: si no llegan (servidor anterior), el desglose queda como antes
 // (comisiones, ajustes y propinas) y el neto es `total_amount`.
 
 import { formatMoney } from '@/lib/utils/money';
+import { mapWageWeek, wageDayDetails, type WageWeekIn } from '@/lib/payroll/wages';
 
 type Num = number | string | null | undefined;
 
@@ -46,9 +47,12 @@ export interface PayInput {
     loans_waiting?: LoanWaitingIn[] | null;
     adjustment_lines?: AdjustmentLineIn[] | null;
     carryover_next?: { amount: Num; week_start?: string; reason?: string | null } | null;
+    /** Sueldo por día de la semana (20261120090000). Sin ficha de sueldo: 0 y `wage` null. */
+    wages?: Num;
+    wage?: WageWeekIn | null;
 }
 
-export type LineKey = 'commission' | 'tips' | 'bonus' | 'advance' | 'loan' | 'deduction' | 'adjustment' | 'carryover';
+export type LineKey = 'wage' | 'commission' | 'tips' | 'bonus' | 'advance' | 'loan' | 'deduction' | 'adjustment' | 'carryover';
 
 export interface BreakdownDetail { key: string; text: string; amount?: number }
 export interface BreakdownLine {
@@ -106,6 +110,8 @@ export function buildBreakdown(input: PayInput): Breakdown {
     const loanPayments = n(input.loan_payments);
     const staffDeductions = n(input.staff_deductions);
     const carryIn = n(input.carryover_in);
+    const wage = mapWageWeek(input.wage);
+    const wages = input.wages !== undefined && input.wages !== null ? n(input.wages) : wage?.amount ?? 0;
     // El recibo ya pagado trae los bonos dentro de ledger_lines (entry_type 'bonus'); la vista previa trae bonus_lines.
     const bonusEntries = ledger.filter((l) => l.entry_type === 'bonus');
     const bonusLines: BonusLineIn[] = input.bonus_lines ?? bonusEntries.map((l) => ({
@@ -113,14 +119,25 @@ export function buildBreakdown(input: PayInput): Breakdown {
     }));
     const bonusEnabled = Boolean(input.bonus_goals_enabled ?? (bonusLines.length > 0 || bonuses > 0));
 
-    const sum = round(gross - adjustments + tips + bonuses - advances - loanPayments - staffDeductions - carryIn);
+    const sum = round(wages + gross - adjustments + tips + bonuses - advances - loanPayments - staffDeductions - carryIn);
     const total = n(input.total_amount);
     const net = input.net_amount !== undefined && input.net_amount !== null ? n(input.net_amount) : sum;
     const paid = Math.max(total, 0);
     const explicitOut = input.carryover_out !== undefined && input.carryover_out !== null ? n(input.carryover_out) : null;
     const pending = round(Math.max(explicitOut ?? (net < 0 ? -net : 0), Math.abs(n(input.carryover_next?.amount))));
 
-    const lines: BreakdownLine[] = [{ key: 'commission', label: 'Comisiones', sign: 1, amount: gross, details: [] }];
+    const lines: BreakdownLine[] = [];
+    // Sueldo primero: "Sueldo: 5 días × $320 = $1,600", con el detalle día por día. Sin sueldo no hay fila.
+    if (wages > 0 || (wage && wage.days.length > 0)) {
+        lines.push({
+            key: 'wage',
+            label: wage ? `Sueldo: ${wage.summary}` : 'Sueldo',
+            sign: 1,
+            amount: wages,
+            details: wage ? wageDayDetails(wage) : [],
+        });
+    }
+    lines.push({ key: 'commission', label: 'Comisiones', sign: 1, amount: gross, details: [] });
     if (tips > 0) lines.push({ key: 'tips', label: 'Propinas', sign: 1, amount: tips, details: [] });
     // Sin metas activas no se muestra nada de bonos (ni la fila en $0).
     if (bonusEnabled) {

@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getJson } from '@/lib/money/client';
 
-export type EntryType = 'advance' | 'loan' | 'loan_payment' | 'deduction' | 'bonus' | 'carryover' | 'reversal';
+export type EntryType = 'advance' | 'loan' | 'loan_payment' | 'deduction' | 'bonus' | 'carryover' | 'reversal' | 'wage';
 export type ManualType = 'advance' | 'loan' | 'loan_payment' | 'deduction';
 export type LedgerPaidFrom = 'envelope' | 'cash_drawer' | 'bank';
 

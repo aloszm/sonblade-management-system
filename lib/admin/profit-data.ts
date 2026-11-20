@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
 import {
     comparePeriods, computeProfit, previousPeriod, type CommissionRow, type EmployeeRow, type ExpenseRow, type PaymentRow,
-    type ProductCostRow, type ProfitReport, type ProfitStatement, type SaleItemRow, type SaleRow, type TipRow,
+    type ProductCostRow, type ProfitReport, type ProfitStatement, type SaleItemRow, type SaleRow, type StaffCostRow, type TipRow,
 } from '@/lib/admin/profit';
 
 // Lectura con el cliente del usuario (RLS): dueño y gerencia ('owner', 'admin') pueden leer
@@ -49,6 +49,13 @@ async function loadProductCosts(supabase: SupabaseClient, businessId: string, br
     return names.map((p) => ({ id: p.id, name: p.name, cost_price: costById.get(p.id) ?? null }));
 }
 
+/** Sueldos devengados por día y bonos del periodo (public.staff_cost_lines; dueño, gerencia y consulta). */
+async function loadStaffCosts(supabase: SupabaseClient, branchId: string, window: { from: string; to: string }): Promise<StaffCostRow[]> {
+    const { data, error } = await supabase.rpc('staff_cost_lines', { p_branch_id: branchId, p_start: window.from, p_end: window.to });
+    if (error) throw error;
+    return (data ?? []) as StaffCostRow[];
+}
+
 async function loadStatement(
     supabase: SupabaseClient,
     scope: { businessId: string; branchId: string },
@@ -68,7 +75,7 @@ async function loadStatement(
         .order('paid_at', { ascending: true }).order('id', { ascending: true }));
     const paidIds = sales.filter((s) => s.status === 'paid').map((s) => s.id);
 
-    const [items, commissions, tips, payments, expenses] = await Promise.all([
+    const [items, commissions, tips, payments, expenses, staffCosts] = await Promise.all([
         fetchBySaleIds<SaleItemRow>(paidIds, (chunk) => supabase.from('sale_items')
             .select('id, sale_id, item_type, product_id, item_name_snapshot, quantity, discount_amount, line_total, unit_cost_snapshot, employee_id, commission_employee_id')
             .eq('business_id', businessId).eq('branch_id', branchId).in('sale_id', chunk).order('id')),
@@ -84,13 +91,15 @@ async function loadStatement(
         fetchAll<ExpenseRow>(() => supabase.from('expenses').select('amount, category, status, incurred_at')
             .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'posted')
             .gte('incurred_at', window.from).lt('incurred_at', window.to).order('id')),
+        // Sueldos devengados y bonos: misma función que usa la base para la utilidad (private.wage_cost_days).
+        loadStaffCosts(supabase, branchId, window),
     ]);
 
     const productIds = [...new Set(items.map((i) => i.product_id).filter((id): id is string => !!id))];
     // El costo se lee con public.product_costs (C1): la columna products.cost_price se cerrará a la API.
     const products = await loadProductCosts(supabase, businessId, branchId, productIds);
 
-    return computeProfit({ sales, items, commissions, tips, payments, products, expenses, employees, period: { ...period, timezone } });
+    return computeProfit({ sales, items, commissions, tips, payments, products, expenses, employees, staffCosts, period: { ...period, timezone } });
 }
 
 /**

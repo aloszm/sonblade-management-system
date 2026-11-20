@@ -33,6 +33,21 @@ describe('cifras del Panel = Finanzas', () => {
         expect(f.avgTicket).toBe(500);
         expect(f.payments.cash).toBe(500);
         expect(f.previousProfit).toBeNull();
+        expect(f.wages).toBe(0);
+        expect(f.bonuses).toBe(0);
+    });
+    it('el Panel resta los sueldos por día igual que Finanzas (mismo cálculo)', () => {
+        const r = report();
+        const withWages = computeProfit({
+            sales: [{ id: 's1', status: 'paid', paid_at: '2026-11-10T18:00:00Z' }],
+            items: [{ id: 'i1', sale_id: 's1', item_type: 'service' as const, product_id: null, item_name_snapshot: 'Corte', quantity: 1, discount_amount: 0, line_total: 500, employee_id: 'e1' }],
+            commissions: [], tips: [], products: [], expenses: [],
+            staffCosts: [{ employee_id: 'e-dago', kind: 'wage', cost_date: '2026-11-10', amount: 320 }],
+        });
+        const f = financeFromProfit({ ...r, ...withWages });
+        expect(f.wages).toBe(320);
+        expect(f.profit).toBe(180);
+        expect(f.profit).toBe(withWages.profit);
     });
     it('usa los mismos rangos que Finanzas', () => {
         expect(summaryRange('today', '2026-11-16')).toEqual({ from: '2026-11-16', to: '2026-11-16' });

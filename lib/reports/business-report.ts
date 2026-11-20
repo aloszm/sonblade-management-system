@@ -17,12 +17,14 @@ export type BarberRow = {
 
 /**
  * Bloque de dinero que arma private.profit_kpis (misma función que Finanzas):
- * net = revenue − commissions − product_cost − expenses (gastos por incurred_at).
+ * net = revenue − commissions − bonuses − wages − product_cost − expenses (gastos por incurred_at).
  * net_kind 'contribution' (filtro por persona) = aporte, sin gastos generales; no es "utilidad".
  */
 export type ProfitKpis = {
     revenue: number; commissions: number; product_cost: number; expenses: number; net: number;
     net_kind: 'profit' | 'contribution'; units_without_cost: number | null; sales_commissions?: number;
+    /** Bonos por metas y sueldos por día devengados; faltan si la base es anterior. */
+    bonuses?: number; wages?: number;
 };
 
 export type BusinessReport = {
@@ -70,12 +72,15 @@ export function effectiveRate(serviceCommission: number, serviceRevenue: number)
 export function adminMoney(kpis: BusinessReport['kpis']) {
     const p = kpis?.profit;
     if (p) {
-        return { revenue: round2(p.revenue), commissions: round2(p.commissions), productCost: round2(p.product_cost), expenses: round2(p.expenses), net: round2(p.net) };
+        return {
+            revenue: round2(p.revenue), commissions: round2(p.commissions), productCost: round2(p.product_cost), expenses: round2(p.expenses),
+            bonuses: round2(p.bonuses ?? 0), wages: round2(p.wages ?? 0), net: round2(p.net),
+        };
     }
     const revenue = kpis?.total_revenue ?? 0;
     const commissions = kpis?.total_commissions ?? 0;
     const expenses = kpis?.expenses ?? 0;
-    return { revenue, commissions: round2(commissions), productCost: 0, expenses: round2(expenses), net: round2(revenue - commissions - expenses) };
+    return { revenue, commissions: round2(commissions), productCost: 0, expenses: round2(expenses), bonuses: 0, wages: 0, net: round2(revenue - commissions - expenses) };
 }
 
 /** Forma que espera el panel de administrador (/admin, /reportes, /equipo). */

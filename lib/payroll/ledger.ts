@@ -1,14 +1,14 @@
 import { num } from '@/lib/money/api';
 
 /**
- * Libro del empleado (B7): adelantos, préstamos, abonos, descuentos, bonos y arrastres.
+ * Libro del empleado (B7): adelantos, préstamos, abonos, descuentos, bonos, arrastres y sueldos (20261120090000).
  * La regla vive en la base (public.record_employee_ledger_entry, cancel_employee_ledger_entry, RLS);
  * aquí solo están los nombres, etiquetas y conversiones que comparten las rutas y las pantallas.
  */
-export const ENTRY_TYPES = ['advance', 'loan', 'loan_payment', 'deduction', 'bonus', 'carryover', 'reversal'] as const;
+export const ENTRY_TYPES = ['advance', 'loan', 'loan_payment', 'deduction', 'bonus', 'carryover', 'reversal', 'wage'] as const;
 export type EntryType = (typeof ENTRY_TYPES)[number];
 
-/** Lo que se registra a mano (bonos, arrastres y reversas los crea la base). */
+/** Lo que se registra a mano (bonos, sueldos, arrastres y reversas los crea la base). */
 export const MANUAL_ENTRY_TYPES = ['advance', 'loan', 'loan_payment', 'deduction'] as const;
 export type ManualEntryType = (typeof MANUAL_ENTRY_TYPES)[number];
 
@@ -23,6 +23,7 @@ export const ENTRY_LABELS: Record<EntryType, string> = {
     bonus: 'Bono',
     carryover: 'Saldo de la semana anterior',
     reversal: 'Cancelación',
+    wage: 'Sueldo',
 };
 
 export const PAID_FROM_LABELS: Record<LedgerPaidFrom, string> = {

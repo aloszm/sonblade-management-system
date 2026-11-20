@@ -20,6 +20,11 @@
 //   Si el renglón no lo trae, se usa el costo actual del producto como respaldo. Si tampoco hay (null),
 //   no se asume cero: se cuenta en productsWithoutCost.
 // - Gastos: expenses con status 'posted' por fecha incurred_at, agrupados por categoría.
+// - Costos de personal (public.staff_cost_lines, la MISMA fuente que private.report_financial_period):
+//   * Sueldos por día (20261120090000_daily_wages): costo DEVENGADO por día trabajado (fijo no faltado o extra),
+//     en su día del negocio y solo si ese día ya empezó; concepto "Sueldos", aparte de comisiones.
+//   * Bonos por metas (20261120052000): costo con fecha del fin de su semana (sábado 8 pm).
+//   Sin `staffCosts` (o vacío) la utilidad queda exactamente como antes.
 // - Dinero en centavos enteros; se convierte a pesos solo al entregar el resultado.
 //
 // Ampliación (tablero financiero), de dónde sale cada dato:
@@ -52,6 +57,8 @@ export type PaymentRow = { sale_id: string; method: string; amount: number | str
 export type EmployeeRow = { id: string; display_name: string };
 export type ProductCostRow = { id: string; name: string; cost_price: number | string | null };
 export type ExpenseRow = { amount: number | string; category: string | null; status: string; incurred_at?: string | null };
+/** Renglón de public.staff_cost_lines: sueldo devengado de un día o bono de una semana. */
+export type StaffCostRow = { employee_id: string | null; kind: string; cost_date: string; amount: number | string };
 
 export type ProfitInput = {
     sales: SaleRow[];
@@ -63,6 +70,8 @@ export type ProfitInput = {
     /** Cobros de las ventas. Sin esto, payments sale vacío. */
     payments?: PaymentRow[];
     employees?: EmployeeRow[];
+    /** Sueldos devengados y bonos del periodo (public.staff_cost_lines). */
+    staffCosts?: StaffCostRow[];
     /** Periodo y zona horaria: sin esto no se arma la serie por día. */
     period?: { from: string; to: string; timezone: string };
 };
@@ -79,13 +88,22 @@ export type BarberRow = {
     commission: number;
     /** Costo de los productos que vendió. */
     productCost: number;
-    /** Lo que deja al negocio: ventas − comisión − costo de sus productos (antes de gastos generales). */
+    /** Sueldo por día devengado en el periodo. */
+    wage: number;
+    /** Bonos por metas del periodo. */
+    bonus: number;
+    /** Lo que deja al negocio: ventas − comisión − costo de sus productos − sueldo − bonos (antes de gastos generales). */
     keeps: number;
     /** Propinas: son suyas al 100 %, no entran en lo anterior. */
     tips: number;
     tipCount: number;
 };
-export type DailyRow = { date: string; revenue: number; commissions: number; productCost: number; expenses: number; outflow: number; net: number };
+export type DailyRow = {
+    date: string; revenue: number; commissions: number; productCost: number; expenses: number;
+    /** Sueldos devengados ese día y bonos fechados ese día. */
+    wages: number; bonuses: number;
+    outflow: number; net: number;
+};
 
 export type ProfitStatement = {
     revenue: { services: number; products: number; total: number; discounts: number };
@@ -94,6 +112,10 @@ export type ProfitStatement = {
     productCost: { total: number; unitsWithoutCost: number; missing: { productId: string; name: string; units: number }[] };
     productsWithoutCost: number;
     expenses: { total: number; byCategory: { category: string; total: number; count: number }[] };
+    /** Sueldos por día devengados (concepto "Sueldos", aparte de comisiones). */
+    wages: { total: number; days: number; byEmployee: { employeeId: string | null; name: string; total: number; days: number }[] };
+    /** Bonos por metas. */
+    bonuses: { total: number; count: number };
     profit: number;
     /** Utilidad / ingresos × 100, a un decimal. null si no hubo ingresos (no se divide entre cero). */
     marginPct: number | null;
@@ -110,7 +132,7 @@ export type PeriodComparison = {
     period: { from: string; to: string };
     /** false si el periodo anterior no tuvo ventas cobradas ni gastos. */
     hasBase: boolean;
-    revenue: Delta; profit: Delta; expenses: Delta; commissions: Delta; tips: Delta;
+    revenue: Delta; profit: Delta; expenses: Delta; commissions: Delta; tips: Delta; wages: Delta;
 };
 
 export type ProfitReport = ProfitStatement & { period: { from: string; to: string; timezone: string }; comparison: PeriodComparison };
@@ -157,17 +179,20 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
     const items = input.items.filter((i) => paidSales.has(i.sale_id));
     const itemType = new Map(items.map((i) => [i.id, i.item_type]));
     const names = new Map((input.employees ?? []).map((e) => [e.id, e.display_name]));
-    type Acc = { services: number; products: number; serviceUnits: number; commission: number; productCost: number; tips: number; tipCount: number };
+    type Acc = {
+        services: number; products: number; serviceUnits: number; commission: number; productCost: number; tips: number; tipCount: number;
+        wage: number; wageDays: number; bonus: number;
+    };
     const accs = new Map<string, Acc>();
     const acc = (employeeId: string | null | undefined): Acc => {
         const key = employeeId || NO_EMPLOYEE;
         let a = accs.get(key);
-        if (!a) { a = { services: 0, products: 0, serviceUnits: 0, commission: 0, productCost: 0, tips: 0, tipCount: 0 }; accs.set(key, a); }
+        if (!a) { a = { services: 0, products: 0, serviceUnits: 0, commission: 0, productCost: 0, tips: 0, tipCount: 0, wage: 0, wageDays: 0, bonus: 0 }; accs.set(key, a); }
         return a;
     };
     const timezone = input.period?.timezone;
-    const days = new Map<string, { revenue: number; commissions: number; productCost: number; expenses: number }>(
-        input.period ? eachDay(input.period.from, input.period.to).map((d) => [d, { revenue: 0, commissions: 0, productCost: 0, expenses: 0 }]) : []);
+    const days = new Map<string, { revenue: number; commissions: number; productCost: number; expenses: number; wages: number; bonuses: number }>(
+        input.period ? eachDay(input.period.from, input.period.to).map((d) => [d, { revenue: 0, commissions: 0, productCost: 0, expenses: 0, wages: 0, bonuses: 0 }]) : []);
     const saleDay = new Map<string, string>();
     if (timezone) for (const s of input.sales) if (s.paid_at && paidSales.has(s.id)) saleDay.set(s.id, businessDayKey(s.paid_at, timezone));
     const day = (saleId: string) => days.get(saleDay.get(saleId) ?? '');
@@ -245,6 +270,23 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
         if (timezone && e.incurred_at) { const d = days.get(businessDayKey(e.incurred_at, timezone)); if (d) d.expenses += cents; }
     }
 
+    // Costos de personal: ya vienen filtrados al periodo por la base (mismo criterio que report_financial_period).
+    let wagesTotal = 0, wageDays = 0, bonusTotal = 0, bonusCount = 0;
+    for (const c of input.staffCosts ?? []) {
+        const cents = toCents(c.amount);
+        if (cents === 0) continue;
+        const d = days.get(c.cost_date);
+        if (c.kind === 'wage') {
+            wagesTotal += cents; wageDays += 1;
+            const a = acc(c.employee_id); a.wage += cents; a.wageDays += 1;
+            if (d) d.wages += cents;
+        } else if (c.kind === 'bonus') {
+            bonusTotal += cents; bonusCount += 1;
+            acc(c.employee_id).bonus += cents;
+            if (d) d.bonuses += cents;
+        }
+    }
+
     let paymentsTotal = 0;
     const paymentRows: { method: string; cents: number }[] = [];
     for (const p of input.payments ?? []) {
@@ -260,7 +302,8 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
         return {
             employeeId: key === NO_EMPLOYEE ? null : key, name: nameOf(key),
             sales: fromCents(sales), services: fromCents(a.services), products: fromCents(a.products), serviceUnits: a.serviceUnits,
-            commission: fromCents(a.commission), productCost: fromCents(a.productCost), keeps: fromCents(sales - a.commission - a.productCost),
+            commission: fromCents(a.commission), productCost: fromCents(a.productCost), wage: fromCents(a.wage), bonus: fromCents(a.bonus),
+            keeps: fromCents(sales - a.commission - a.productCost - a.wage - a.bonus),
             tips: fromCents(a.tips), tipCount: a.tipCount,
         };
     }).sort((x, y) => y.sales - x.sales || y.tips - x.tips || x.name.localeCompare(y.name, 'es'));
@@ -270,7 +313,7 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
 
     const revenue = serviceRev + productRev;
     const commissions = serviceComm + productComm;
-    const profit = revenue - commissions - cogs - expensesTotal;
+    const profit = revenue - commissions - bonusTotal - wagesTotal - cogs - expensesTotal;
     const marginPct = revenue > 0 ? Math.round((profit / revenue) * 1000) / 10 : null;
 
     return {
@@ -288,13 +331,23 @@ export function computeProfit(input: ProfitInput): ProfitStatement {
                 .sort((a, b) => b.total - a.total)
                 .map((c) => ({ ...c, total: fromCents(c.total) })),
         },
+        wages: {
+            total: fromCents(wagesTotal), days: wageDays,
+            byEmployee: [...accs.entries()].filter(([, a]) => a.wageDays > 0)
+                .map(([key, a]) => ({ employeeId: key === NO_EMPLOYEE ? null : key, name: nameOf(key), total: fromCents(a.wage), days: a.wageDays }))
+                .sort((x, y) => y.total - x.total || x.name.localeCompare(y.name, 'es')),
+        },
+        bonuses: { total: fromCents(bonusTotal), count: bonusCount },
         profit: fromCents(profit),
         marginPct,
         counts: { sales: paidSales.size, voidedExcluded, serviceUnits, productUnits },
         barbers,
         daily: [...days.entries()].map(([date, d]) => {
-            const outflow = d.commissions + d.productCost + d.expenses;
-            return { date, revenue: fromCents(d.revenue), commissions: fromCents(d.commissions), productCost: fromCents(d.productCost), expenses: fromCents(d.expenses), outflow: fromCents(outflow), net: fromCents(d.revenue - outflow) };
+            const outflow = d.commissions + d.productCost + d.expenses + d.wages + d.bonuses;
+            return {
+                date, revenue: fromCents(d.revenue), commissions: fromCents(d.commissions), productCost: fromCents(d.productCost), expenses: fromCents(d.expenses),
+                wages: fromCents(d.wages), bonuses: fromCents(d.bonuses), outflow: fromCents(outflow), net: fromCents(d.revenue - outflow),
+            };
         }),
         payments: {
             total: fromCents(paymentsTotal),
@@ -326,12 +379,13 @@ export function previousPeriod(from: string, to: string): { from: string; to: st
 export function comparePeriods(current: ProfitStatement, previous: ProfitStatement, period: { from: string; to: string }): PeriodComparison {
     return {
         period,
-        hasBase: previous.counts.sales > 0 || previous.expenses.total > 0,
+        hasBase: previous.counts.sales > 0 || previous.expenses.total > 0 || previous.wages.total > 0,
         revenue: compareValues(current.revenue.total, previous.revenue.total),
         profit: compareValues(current.profit, previous.profit),
         expenses: compareValues(current.expenses.total, previous.expenses.total),
         commissions: compareValues(current.commissions.total, previous.commissions.total),
         tips: compareValues(current.tips.total, previous.tips.total),
+        wages: compareValues(current.wages.total, previous.wages.total),
     };
 }
 

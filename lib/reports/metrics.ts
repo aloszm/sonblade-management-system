@@ -12,6 +12,9 @@ export type Kpis = {
      * sin gastos generales. Rotularlo "Aporte", no "Utilidad". Faltan si la base es anterior.
      */
     product_cost?: number;
+    /** Bonos por metas y sueldos por día devengados (20261120052000 / 20261120090000): costos aparte de comisiones. */
+    bonuses?: number;
+    wages?: number;
     net_kind?: 'profit' | 'contribution';
     units_without_cost?: number | null;
 };

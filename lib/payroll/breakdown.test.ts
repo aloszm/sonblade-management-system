@@ -80,6 +80,57 @@ describe('buildBreakdown', () => {
     });
 });
 
+describe('buildBreakdown con sueldo por día', () => {
+    const dagoWeek = {
+        enabled: true, amount: 1280, paid_days: 4, worked_days: 4, absent_days: 1, extra_days: 0,
+        groups: [{ rate: 320, days: 4, amount: 1280 }],
+        summary: '4 días × $320 = $1,280',
+        days: [
+            { date: '2026-11-16', weekday: 1, status: 'worked', rate: 320, amount: 320 },
+            { date: '2026-11-17', weekday: 2, status: 'absent', rate: 320, amount: 0, exception_id: 'x1', reason: 'Enfermo' },
+            { date: '2026-11-18', weekday: 3, status: 'worked', rate: 320, amount: 320 },
+            { date: '2026-11-19', weekday: 4, status: 'worked', rate: 320, amount: 320 },
+            { date: '2026-11-20', weekday: 5, status: 'worked', rate: 320, amount: 320 },
+        ],
+    };
+
+    it('sin sueldo (wages 0, wage null) queda exactamente como antes', () => {
+        const b = buildBreakdown({ ...legacy, wages: 0, wage: null });
+        expect(b.lines.map((l) => l.key)).toEqual(['commission', 'tips', 'adjustment']);
+        expect(b.net).toBe(480);
+    });
+
+    it('el sueldo va primero, con su texto y el detalle día por día, y suma al neto', () => {
+        const b = buildBreakdown({ gross_commission: 40, total_amount: 1320, wages: 1280, wage: dagoWeek });
+        expect(b.lines.map((l) => l.key)).toEqual(['wage', 'commission']);
+        const wage = b.lines[0];
+        expect(wage.label).toBe('Sueldo: 4 días × $320 = $1,280');
+        expect(wage.amount).toBe(1280);
+        expect(wage.sign).toBe(1);
+        expect(wage.details.map((d) => d.text)).toEqual([
+            'lun 16 nov · Trabajado', 'mar 17 nov · Faltó (Enfermo)', 'mié 18 nov · Trabajado', 'jue 19 nov · Trabajado', 'vie 20 nov · Trabajado',
+        ]);
+        expect(b.net).toBe(1320);
+    });
+
+    it('neto = sueldo + comisiones + bonos − adelantos − descuentos; negativo pasa a la semana siguiente', () => {
+        const b = buildBreakdown({
+            gross_commission: 200, tips: 50, bonuses: 100, advances: 1300, staff_deductions: 40, total_amount: 0, carryover_out: 350,
+            wages: 640, wage: { amount: 640, summary: '2 días × $320 = $640', days: [] }, bonus_goals_enabled: true, bonus_lines: [],
+        });
+        expect(b.net).toBe(640 + 200 + 50 + 100 - 1300 - 40);
+        expect(b.paid).toBe(0);
+        expect(b.pending).toBe(350);
+        expect(b.lines[0]).toMatchObject({ key: 'wage', label: 'Sueldo: 2 días × $320 = $640' });
+    });
+
+    it('si solo llega `wage` (sin `wages`), el monto sale del detalle', () => {
+        const b = buildBreakdown({ gross_commission: 0, total_amount: 1280, wage: dagoWeek });
+        expect(b.lines[0].amount).toBe(1280);
+        expect(b.net).toBe(1280);
+    });
+});
+
 describe('progressText', () => {
     it('servicios y pesos', () => {
         expect(progressText('services_count', 18, 25)).toBe('18 de 25 servicios');

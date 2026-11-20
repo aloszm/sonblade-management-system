@@ -51,7 +51,8 @@ describe('GET /api/admin/summary', () => {
         // Periodo actual y anterior: una lectura de ventas y de gastos por cada uno.
         expect(reads.filter((t) => t === 'sales')).toHaveLength(2);
         expect(reads.filter((t) => t === 'employees')).toHaveLength(1);
-        expect(rpcs).toEqual(['business_report']);
+        // Más los costos de personal (sueldos por día y bonos) del periodo actual y del anterior, igual que Finanzas.
+        expect([...rpcs].sort()).toEqual(['business_report', 'staff_cost_lines', 'staff_cost_lines']);
         const body = await res.json();
         expect(body.finance.period.timezone).toBe('America/Mexico_City');
         expect(body.kpis.netProfit).toBe(0);

@@ -331,3 +331,64 @@ describe('costo guardado en la venta', () => {
         expect(r.productsWithoutCost).toBe(0);
     });
 });
+
+describe('sueldos por día y bonos (costos de personal, misma fuente que la base)', () => {
+    const tz = 'America/Mexico_City';
+    const base: ProfitInput = {
+        ...empty, period: { from: '2026-11-15', to: '2026-11-21', timezone: tz },
+        sales: [{ id: 's1', status: 'paid', paid_at: '2026-11-16T18:00:00Z' }],
+        items: [{ ...service('i1', 's1', 1000), employee_id: 'e-dani' }],
+        commissions: [{ ...comm('s1', 'i1', 500), employee_id: 'e-dani' }],
+        employees: [{ id: 'e-dani', display_name: 'Dani' }, { id: 'e-dago', display_name: 'Dago' }, { id: 'e-emi', display_name: 'Emi' }],
+    };
+    // Dago lunes a viernes y Emi el domingo, $320 por día devengado; un bono de $100 a Dani el sábado.
+    const staffCosts = [
+        ...['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20'].map((d) => ({ employee_id: 'e-dago', kind: 'wage', cost_date: d, amount: '320.00' })),
+        { employee_id: 'e-emi', kind: 'wage', cost_date: '2026-11-15', amount: 320 },
+        { employee_id: 'e-dani', kind: 'bonus', cost_date: '2026-11-21', amount: 100 },
+    ];
+
+    it('sin costos de personal la utilidad queda exactamente igual que antes', () => {
+        const before = computeProfit(base);
+        const same = computeProfit({ ...base, staffCosts: [] });
+        expect(same.profit).toBe(500);
+        expect(same.profit).toBe(before.profit);
+        expect(same.wages).toEqual({ total: 0, days: 0, byEmployee: [] });
+        expect(same.bonuses).toEqual({ total: 0, count: 0 });
+    });
+
+    it('la utilidad baja exactamente en sueldos y bonos, en un concepto aparte de comisiones', () => {
+        const r = computeProfit({ ...base, staffCosts });
+        expect(r.commissions.total).toBe(500);
+        expect(r.wages.total).toBe(1920);
+        expect(r.wages.days).toBe(6);
+        expect(r.bonuses).toEqual({ total: 100, count: 1 });
+        expect(r.profit).toBe(1000 - 500 - 1920 - 100);
+        expect(r.marginPct).toBe(-152);
+        expect(r.wages.byEmployee).toEqual([
+            { employeeId: 'e-dago', name: 'Dago', total: 1600, days: 5 },
+            { employeeId: 'e-emi', name: 'Emi', total: 320, days: 1 },
+        ]);
+        const dago = r.barbers.find((b) => b.employeeId === 'e-dago')!;
+        expect(dago).toMatchObject({ sales: 0, wage: 1600, bonus: 0, keeps: -1600 });
+        const dani = r.barbers.find((b) => b.employeeId === 'e-dani')!;
+        expect(dani).toMatchObject({ sales: 1000, commission: 500, bonus: 100, keeps: 400 });
+    });
+
+    it('la serie por día lleva el sueldo en su día y cuadra con el total', () => {
+        const r = computeProfit({ ...base, staffCosts });
+        expect(r.daily.find((d) => d.date === '2026-11-15')).toMatchObject({ wages: 320, outflow: 320, net: -320 });
+        expect(r.daily.find((d) => d.date === '2026-11-16')).toMatchObject({ revenue: 1000, commissions: 500, wages: 320, outflow: 820, net: 180 });
+        expect(r.daily.find((d) => d.date === '2026-11-21')).toMatchObject({ bonuses: 100, outflow: 100 });
+        const net = r.daily.reduce((n, d) => n + d.net, 0);
+        expect(net).toBe(r.profit);
+    });
+
+    it('la comparación incluye sueldos y cuenta como base aunque no haya ventas', () => {
+        const current = computeProfit({ ...base, staffCosts });
+        const previous = computeProfit({ ...empty, staffCosts: [{ employee_id: 'e-dago', kind: 'wage', cost_date: '2026-11-09', amount: 320 }] });
+        const c = comparePeriods(current, previous, { from: '2026-11-08', to: '2026-11-14' });
+        expect(c.hasBase).toBe(true);
+        expect(c.wages).toMatchObject({ current: 1920, previous: 320, delta: 1600 });
+    });
+});

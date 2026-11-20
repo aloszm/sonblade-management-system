@@ -97,7 +97,7 @@ La versión 2 **está publicada en producción**, con la base de producción car
 
 ### 1.5 Decisiones del dueño (19 de noviembre de 2026)
 
-- **Pago al equipo:** adelantos y préstamos, descuentos y bonos por metas. **No hay sueldo fijo.**
+- **Pago al equipo:** adelantos y préstamos, descuentos y bonos por metas. ~~No hay sueldo fijo.~~ **Cambió el 20 nov:** recepción gana **sueldo por día** (Dago lunes a viernes, Emi sábado y domingo, $320 por día trabajado) además de su comisión de producto; los barberos siguen solo con comisión y propinas. Ver sección 8d.
 - **WhatsApp:** con un clic desde recepción. **Sin API de Meta.**
 - **Gastos:** se pagan del apartado (en efectivo, o por transferencia o tarjeta). **No salen de la caja del día.**
 - **Planes:** seguir en planes gratuitos por ahora (ver O1 y O2 en la sección 3.3).
@@ -513,6 +513,20 @@ Migraciones aplicadas en `sonblade-dev` (md5 igual al archivo); **no** replicada
 - La comisión de producto ya se apuntaba por partida (`sale_items.commission_employee_id`, 20 % de la tasa general) y recepción ya cobra comisión y aparece en el pago semanal: no se tocó ninguna función de dinero.
 - El enlace con token de la reserva en línea **no** va en los mensajes: el token solo se guarda como huella (sha256) y no se puede reconstruir.
 - Falta: pantallas (agenda: botón de WhatsApp, recordatorios de mañana, agregar producto; Configuración: interruptor de reservas).
+
+## 8d. Sueldo por día del personal — base, API y lógica (20 nov; SOLO en desarrollo, sin pantallas)
+
+Decisión del dueño (20 nov): Dago lunes a viernes y Emi sábado y domingo, **$320 por día trabajado**, además de su comisión de producto (20 %). Barberos: solo comisión y propinas.
+
+Migración `20261120090000_daily_wages` (md5 `37f2f55375bcab97fc69d3c637810c84`, aplicada en `sonblade-dev`; **no** replicada a producción) · prueba `supabase/tests/daily_wages.test.sql` (34 casos).
+
+- **Ficha con vigencia** (`public.employee_wage_rates`, solo altas): monto por día y días fijos (0 = domingo … 6 = sábado). Tarifa de un día = vigencia más reciente <= ese día (empate: la última capturada). Solo la cuenta principal con PIN y motivo (`public.set_employee_wage`); la vigencia **nunca** es anterior al domingo de la semana de pago en curso (`private.pay_week_start`) ni cae en una semana pagada.
+- **Los días fijos se dan por trabajados.** Excepciones (`public.employee_attendance_exceptions`): `absent` (día fijo que no se paga) y `extra` (día no fijo que sí se paga, a la tarifa de ese día). Dueño y gerencia, **con PIN** y motivo (decisión del agente: mismo criterio que el libro del empleado). Se anulan sin borrar (`void_attendance_exception`). Semana pagada: no se registra ni se anula nada (una falta descubierta después se corrige con un descuento del libro).
+- **Pago:** opción A, un asiento `wage` del libro (`employee_ledger`), uno por persona, sucursal y semana (índice único), sellado en el recibo, con el detalle día por día en `details`. La vista previa y el pago usan la misma función (`private.wage_week_summary`). Neto = sueldo + comisiones − ajustes + propinas + bonos − adelantos − abonos − descuentos − arrastre. Sin ficha, todo queda igual que antes. Se paga por el mismo camino que el neto (mismos pagos y freno de efectivo de la caja). `commission_settlements.wage_amount` guarda el monto.
+- **Utilidad:** el sueldo es costo en el concepto **"Sueldos"** (aparte de comisiones), **devengado por día trabajado** como las comisiones (que cuentan al cobrar la venta): cada día pagable cuenta en su día del negocio una vez que empezó (fecha <= hoy). Una sola fuente: `private.wage_cost_days` → `private.report_financial_period` (Panel por base, reportes) y `public.staff_cost_lines` → `lib/admin/profit.ts` (Finanzas y Panel en la app). `staff_cost_lines` también lleva los bonos, que antes Finanzas no restaba.
+- **API:** `GET/PUT /api/wages`, `GET /api/wages/week`, `POST /api/wages/exceptions`, `POST /api/wages/exceptions/[id]/void`; la vista previa (`GET /api/settlements`) y el recibo (`GET /api/settlements/[id]/receipt`) traen `wages` y `wage`. `buildBreakdown` agrega el renglón "Sueldo: 5 días × $320 = $1,600" con el detalle día por día.
+- **Dato cargado en desarrollo** (por SQL, con bitácora `employee_wage_set`, `source = 'sql'`, `confirmed_with_pin = false`): Dago lunes a viernes y Emi sábado y domingo, $320, vigentes desde el domingo 15 nov 2026.
+- **Falta:** pantallas (ficha en Equipo, faltas y días extra, renglón en Pago semanal y en "Mi semana", concepto "Sueldos" en Finanzas, Panel y la cascada de Administración); réplica a producción y carga del dato real allá.
 
 ## 9. Preguntas abiertas para el dueño (resumen)
 

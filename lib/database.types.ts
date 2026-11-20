@@ -1340,6 +1340,7 @@ export type Database = {
           reference: string | null
           status: Database["public"]["Enums"]["settlement_status"]
           total_amount: number
+          wage_amount: number
           window_end: string
           window_start: string
         }
@@ -1365,6 +1366,7 @@ export type Database = {
           reference?: string | null
           status?: Database["public"]["Enums"]["settlement_status"]
           total_amount?: number
+          wage_amount?: number
           window_end: string
           window_start: string
         }
@@ -1390,6 +1392,7 @@ export type Database = {
           reference?: string | null
           status?: Database["public"]["Enums"]["settlement_status"]
           total_amount?: number
+          wage_amount?: number
           window_end?: string
           window_start?: string
         }
@@ -1407,6 +1410,73 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      employee_attendance_exceptions: {
+        Row: {
+          branch_id: string
+          business_id: string
+          created_at: string
+          created_by: string
+          employee_id: string
+          id: string
+          kind: string
+          reason: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+          work_date: string
+        }
+        Insert: {
+          branch_id: string
+          business_id: string
+          created_at?: string
+          created_by: string
+          employee_id: string
+          id?: string
+          kind: string
+          reason: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          work_date: string
+        }
+        Update: {
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          id?: string
+          kind?: string
+          reason?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_attendance_exceptions_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_attendance_exceptions_business_id_employee_id_fkey"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_attendance_exceptions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1708,6 +1778,67 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      employee_wage_rates: {
+        Row: {
+          branch_id: string
+          business_id: string
+          created_at: string
+          created_by: string
+          daily_amount: number
+          effective_from: string
+          employee_id: string
+          id: string
+          reason: string
+          work_days: number[]
+        }
+        Insert: {
+          branch_id: string
+          business_id: string
+          created_at?: string
+          created_by: string
+          daily_amount: number
+          effective_from: string
+          employee_id: string
+          id?: string
+          reason: string
+          work_days: number[]
+        }
+        Update: {
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          daily_amount?: number
+          effective_from?: string
+          employee_id?: string
+          id?: string
+          reason?: string
+          work_days?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_wage_rates_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_wage_rates_business_id_employee_id_fkey"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_wage_rates_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3169,6 +3300,14 @@ export type Database = {
           weekly_amount: number
         }[]
       }
+      employee_wage_week: {
+        Args: {
+          p_branch_id: string
+          p_employee_id?: string
+          p_period_start?: string
+        }
+        Returns: Json
+      }
       envelope_adjust_confirmed: {
         Args: {
           p_comment: string
@@ -3341,6 +3480,16 @@ export type Database = {
       }
       record_appointment_notification: {
         Args: { p_appointment_id: string; p_kind: string }
+        Returns: Json
+      }
+      record_attendance_exception: {
+        Args: {
+          p_branch_id: string
+          p_employee_id: string
+          p_kind: string
+          p_reason: string
+          p_work_date: string
+        }
         Returns: Json
       }
       record_cash_movement: {
@@ -3559,6 +3708,17 @@ export type Database = {
         Args: { p_days: Json; p_employee_id: string }
         Returns: Json
       }
+      set_employee_wage: {
+        Args: {
+          p_branch_id: string
+          p_daily_amount: number
+          p_effective_from?: string
+          p_employee_id: string
+          p_reason: string
+          p_work_days: number[]
+        }
+        Returns: Json
+      }
       set_expense_receipt: {
         Args: { p_expense_id: string; p_receipt_path: string }
         Returns: Json
@@ -3590,6 +3750,15 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_cost_lines: {
+        Args: { p_branch_id: string; p_end: string; p_start: string }
+        Returns: {
+          amount: number
+          cost_date: string
+          employee_id: string
+          kind: string
+        }[]
+      }
       team_ranking: {
         Args: { p_branch_id: string; p_from: string; p_to: string }
         Returns: Json
@@ -3609,6 +3778,10 @@ export type Database = {
       }
       verify_report_export: {
         Args: { p_code: string; p_folio: string }
+        Returns: Json
+      }
+      void_attendance_exception: {
+        Args: { p_exception_id: string; p_reason: string }
         Returns: Json
       }
       weekly_cuts_podium: { Args: { p_branch_id: string }; Returns: Json }

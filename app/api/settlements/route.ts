@@ -31,11 +31,14 @@ type Preview = {
     carryover_in?: number; carryover_out?: number; net_amount?: number;
     ledger_lines?: unknown[]; loan_scheduled_lines?: unknown[]; loans_waiting?: unknown[];
     bonus_lines?: unknown[]; bonus_goals?: unknown[]; bonus_goals_enabled?: boolean;
+    // Sueldo por día (20261120090000): `wages` entra al neto (total_amount = wages + …); `wage` trae el detalle día por
+    // día (private.wage_week_summary, el mismo cálculo que el pago). Sin ficha de sueldo: wages 0 y wage null.
+    wages?: number; wage?: unknown;
 };
 
 /**
  * Vista previa de la liquidación de una semana (domingo a sábado, corte sábado 8 pm):
- * cuánto se le debe a cada barbero y si ya se pagó. Solo dueño y administrador.
+ * cuánto se le debe a cada persona (sueldo por día, comisiones, propinas y libro) y si ya se pagó. Dueño, gerencia y consulta.
  */
 export async function GET(request: NextRequest) {
     try {
@@ -80,7 +83,10 @@ export async function GET(request: NextRequest) {
     }
 }
 
-/** Paga la semana de un barbero: el servidor calcula el total, valida los pagos y genera el folio. */
+/**
+ * Paga la semana de una persona: el servidor calcula el total (sueldo por día incluido), valida los pagos y genera el
+ * folio. El efectivo sale de la caja abierta con el mismo freno de siempre.
+ */
 export async function POST(request: NextRequest) {
     try {
         const context = await requireAuthContext(['owner', 'admin']);

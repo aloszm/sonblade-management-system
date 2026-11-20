@@ -9,7 +9,7 @@ export function summaryRange(period: SummaryPeriod, today: string): { from: stri
 
 /**
  * Cifras del Panel que salen de la misma fórmula que Finanzas (computeProfit): ingresos netos de
- * descuento, comisiones, costo de producto guardado en cada venta, gastos y propinas (aparte).
+ * descuento, comisiones, sueldos por día, bonos, costo de producto guardado en cada venta, gastos y propinas (aparte).
  * El Panel no recalcula nada: solo da forma a lo que ya calculó Finanzas.
  */
 export function financeFromProfit(profit: ProfitReport) {
@@ -18,6 +18,9 @@ export function financeFromProfit(profit: ProfitReport) {
         period: profit.period,
         revenue: profit.revenue.total,
         commissions: profit.commissions.total,
+        /** Sueldos por día devengados (concepto aparte de comisiones). */
+        wages: profit.wages.total,
+        bonuses: profit.bonuses.total,
         productCost: profit.productCost.total,
         expenses: profit.expenses.total,
         tips: profit.tips.total,
