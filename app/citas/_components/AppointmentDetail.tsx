@@ -11,6 +11,7 @@ import { formatDuration } from '@/lib/services/categories';
 import { servicesText } from '@/lib/appointments/booking';
 import { Avatar } from './parts';
 import { NO_BARBER_COLOR, STATUS_STYLE, money } from './agenda-ui';
+import { formatPhone } from '@/lib/utils/phone';
 
 // En la agenda solo se usan estas acciones: confirmar, marcar que llegó y cancelar.
 const UI_ACTIONS: AppointmentStatus[] = ['confirmed', 'checked_in', 'cancelled'];
@@ -72,7 +73,7 @@ export default function AppointmentDetail({ apt, barberColor, canManage, canSeeP
                         {canSeePhones && apt.customer_phone && (
                             <div>
                                 <dt className="text-xs font-medium text-bos-muted">Teléfono</dt>
-                                <dd className="mt-1 font-medium tabular-nums">{apt.customer_phone}</dd>
+                                <dd className="mt-1 font-medium tabular-nums">{formatPhone(apt.customer_phone)}</dd>
                             </div>
                         )}
                         {apt.client_id && (

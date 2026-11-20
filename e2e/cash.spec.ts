@@ -1,13 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { USERS, ensureOpenCashSession, login } from './helpers';
+import { cashWasOpenBeforeSuite } from './cash-guard';
 
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
 
 test.describe('caja', () => {
-    test('gasto, límite de efectivo, cierre guiado y reapertura con el fondo', async ({ page }) => {
+    test('el encabezado dice quién abrió la caja, o no inventa un nombre', async ({ page }) => {
         await login(page, USERS.reception);
         await ensureOpenCashSession(page.request);
-        const settings = await (await page.request.get('/api/cash/settings')).json();
+        await page.goto('/caja', { waitUntil: 'networkidle' });
+        const header = page.getByText(/^Abierta .*a las /);
+        await expect(header).toBeVisible();
+        // "Usuario" es el comodín del servidor cuando recepción no puede ver el nombre de la cuenta principal.
+        await expect(header).not.toContainText('por Usuario');
+    });
+
+    test('gasto y límite de efectivo', async ({ page }) => {
+        await login(page, USERS.reception);
+        await ensureOpenCashSession(page.request);
         const before = await (await page.request.get('/api/cash/session')).json();
 
         // Si la caja de pruebas está corta, se le mete efectivo para poder registrar un gasto.
@@ -36,10 +46,21 @@ test.describe('caja', () => {
         await page.locator('#movement-amount').fill(String(expectedBefore + 5000));
         await page.getByRole('button', { name: 'Registrar', exact: true }).click();
         await expect(page.getByRole('alert').filter({ hasText: 'No hay suficiente efectivo en caja' })).toBeVisible();
-        await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
+        await page.getByRole('dialog').getByRole('button', { name: 'Cerrar', exact: true }).click();
+    });
+
+    // Cierra y reabre la caja: solo si la caja la abrió la propia suite. Una caja que ya estaba abierta
+    // (la del negocio en el entorno de práctica) NO se cierra: se perdería su sesión original.
+    test('cierre guiado y reapertura con el fondo', async ({ page }) => {
+        test.skip(cashWasOpenBeforeSuite(), 'Había una caja abierta antes de la suite: no se cierra. Corre esta prueba con la caja cerrada.');
+        await login(page, USERS.reception);
+        await ensureOpenCashSession(page.request);
+        const settings = await (await page.request.get('/api/cash/settings')).json();
+        await page.goto('/caja', { waitUntil: 'networkidle' });
+        const expectedBefore = (await (await page.request.get('/api/cash/session')).json()).expected_cash as number;
 
         // Cierre guiado: contar.
-        const expected = expectedBefore - 20;
+        const expected = expectedBefore;
         await page.getByRole('button', { name: 'Cerrar caja' }).click();
         await page.getByLabel('Cantidad de billetes de 500').fill('2');
         await page.getByLabel('Cantidad de monedas de 0.5').fill('1');

@@ -6,6 +6,7 @@ import { Plus, UserRound, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Field from '@/components/ui/Field';
 import { readJson, toUserMessage } from '@/lib/utils/errors';
+import { formatPhone } from '@/lib/utils/phone';
 
 /** Quién reserva: un cliente registrado, alguien sin registrar (nombre libre) o todavía nadie. */
 export type ClientValue =
@@ -118,7 +119,7 @@ export default function ClientPicker({ value, onChange }: { value: ClientValue; 
                 <p className="mb-1.5 block text-[13px] font-medium text-bos-muted">Cliente</p>
                 <div data-testid="client-selected" className="flex min-h-12 items-center gap-3 rounded-xl border border-bos-control bg-bos-bg px-3">
                     <UserRound aria-hidden="true" className="h-5 w-5 shrink-0 text-bos-muted" />
-                    <p className="min-w-0 flex-1 truncate text-base font-medium">{value.name}{value.phone ? <span className="font-normal text-bos-muted"> · {value.phone}</span> : null}</p>
+                    <p className="min-w-0 flex-1 truncate text-base font-medium">{value.name}{value.phone ? <span className="font-normal text-bos-muted"> · {formatPhone(value.phone)}</span> : null}</p>
                     <Button variant="ghost" size="sm" onClick={() => { onChange(NO_CLIENT); requestAnimationFrame(() => input.current?.focus()); }} aria-label={`Cambiar cliente (${value.name})`}>
                         <X aria-hidden="true" className="h-4 w-4" /> Cambiar
                     </Button>
@@ -184,7 +185,7 @@ export default function ClientPicker({ value, onChange }: { value: ClientValue; 
                             // mouseDown (no click): el campo no debe perder el foco antes de elegir.
                             onMouseDown={(e) => { e.preventDefault(); choose(option); }} onMouseMove={() => setActive(i)}
                             className={`flex min-h-11 cursor-pointer items-center gap-2 px-3 text-[15px] ${i === active ? 'bg-bos-raised' : ''} ${option.type !== 'client' ? 'border-t border-bos-border first:border-t-0' : ''}`}>
-                            {option.type === 'client' && <span className="min-w-0 truncate font-medium">{option.client.name}{option.client.phone ? <span className="font-normal text-bos-muted"> · {option.client.phone}</span> : null}</span>}
+                            {option.type === 'client' && <span className="min-w-0 truncate font-medium">{option.client.name}{option.client.phone ? <span className="font-normal text-bos-muted"> · {formatPhone(option.client.phone)}</span> : null}</span>}
                             {option.type === 'free' && <span>Cliente sin registrar</span>}
                             {option.type === 'create' && <span className="flex items-center gap-2 font-semibold text-bos-accent-text"><Plus aria-hidden="true" className="h-4 w-4" /> Crear cliente nuevo{text.trim() ? `: ${text.trim()}` : ''}</span>}
                         </li>

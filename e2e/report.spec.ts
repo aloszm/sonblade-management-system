@@ -4,7 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { USERS, login } from './helpers';
 
 // Cada descarga emite un folio nuevo (la base no deja borrarlos): la prueba descarga lo mínimo.
-const SHEETS = ['Portada', 'Resumen', 'Ventas', 'Caja', 'Gastos', 'Comisiones', 'Inventario', 'Agenda', 'Bitácora', 'Anexo'];
+const SHEETS = ['Portada', 'Resumen', 'Resultado', 'Propinas', 'Por persona', 'Balance', 'Ventas', 'Caja', 'Gastos', 'Comisiones', 'Inventario', 'Agenda', 'Bitácora', 'Anexo'];
 
 async function download(page: Page, testId: 'download-pdf' | 'download-xlsx') {
     const [file] = await Promise.all([page.waitForEvent('download'), page.getByTestId(testId).click()]);
@@ -30,7 +30,10 @@ async function clientNames(page: Page, from: string, to: string): Promise<string
     const names = new Set<string>();
     for (const l of report.annex) if (l.client) names.add(l.client);
     for (const a of [...report.agenda.cancelled, ...report.agenda.no_show]) if (a.client) names.add(a.client);
-    return Array.from(names);
+    // Datos viejos de la base de desarrollo: algún "cliente" se llama igual que una cuenta del equipo ("alonso"), y el
+    // equipo sí aparece (con su usuario) en la bitácora del reporte. Solo se vigilan nombres que no son del equipo.
+    const team = new Set<string>(Object.values(USERS).map((u) => u.toLowerCase()));
+    return Array.from(names).filter((n) => !team.has(n.trim().toLowerCase()));
 }
 
 test.describe.serial('reporte completo', () => {
@@ -47,7 +50,7 @@ test.describe.serial('reporte completo', () => {
         }
         await expect(page.getByRole('heading', { name: 'Ingresos por día' })).toBeVisible();
         await expect(page.getByRole('heading', { name: 'Cortes por día' })).toBeVisible();
-        await expect(page.getByTestId('section-resumen')).toContainText('todavía no descuenta el costo de los productos');
+        await expect(page.getByTestId('section-resumen')).toContainText(/La (utilidad neta|pérdida) fue de \$/);
         const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
         month.from = `${today.slice(0, 8)}01`;
         month.to = today;
@@ -123,7 +126,8 @@ test.describe.serial('reporte completo', () => {
         await expect(valid).toBeVisible();
         await expect(valid).toContainText(folio);
         await expect(valid).toContainText('Interno');
-        await expect(valid).toContainText('Dueño');
+        await expect(valid).toContainText('Generado por');
+        await expect(valid).toContainText('Alonso'); // la pantalla muestra quién lo generó (antes decía "Dueño")
 
         await page.locator('#verify-code').fill('0'.repeat(16));
         await page.getByTestId('verify-submit').click();

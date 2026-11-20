@@ -14,6 +14,7 @@ import Field, { FIELD_CLASS } from '@/components/ui/Field';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { HttpError, MSG_OFFLINE, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
+import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 interface Gasto {
     id: string;
@@ -95,7 +96,7 @@ export default function GastosPage() {
     };
 
     const totalGastos = gastos.reduce((acc, g) => acc + Number(g.amount), 0);
-    const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
+    const METHOD_LABELS = PAYMENT_METHOD_LABELS;
     const filteredGastos = gastos.filter(g =>
         g.description.toLowerCase().includes(searchTerm.toLowerCase())
     );

@@ -42,3 +42,8 @@ export async function restoreCashState(config: FullConfig): Promise<void> {
         if (!closed.ok()) console.error('[cash-guard] no se pudo cerrar la caja de pruebas:', await closed.text());
     });
 }
+
+/** ¿Había una caja abierta antes de la suite? (las pruebas que cierran la caja se omiten en ese caso). */
+export function cashWasOpenBeforeSuite(): boolean {
+    try { return Boolean(JSON.parse(readFileSync(STATE_FILE, 'utf8')).wasOpen); } catch { return true; }
+}

@@ -9,6 +9,7 @@ import BrandLogo from '@/components/BrandLogo';
 import PracticePrintMark from '@/components/PracticePrintMark';
 import ErrorState from '@/components/ui/ErrorState';
 import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
+import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 type Receipt = {
     receipt_number: string;
@@ -26,7 +27,7 @@ type Receipt = {
     adjustment_lines: { reason: string; amount: number }[];
 };
 
-const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
+const METHOD_LABELS = PAYMENT_METHOD_LABELS;
 
 export default function ReciboPage() {
     const { id } = useParams<{ id: string }>();

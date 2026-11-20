@@ -40,3 +40,4 @@ playwright-report
 
 # Copias de trabajo temporales de agentes
 .claude/worktrees/
+.e2e-server.log

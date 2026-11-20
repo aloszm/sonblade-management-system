@@ -25,7 +25,7 @@ test.describe('agenda', () => {
         // Abre la ventana y se cierra tocando afuera.
         await day.click();
         await expect(page.getByTestId('day-modal')).toBeVisible();
-        await page.getByTestId('modal-backdrop').click({ position: { x: 10, y: 10 } });
+        await page.getByTestId('modal-backdrop').click({ position: { x: 10, y: 120 } }) ; // debajo de la franja fija del modo práctica
         await expect(page.getByTestId('day-modal')).toHaveCount(0);
 
         // Y también con Esc.
@@ -41,15 +41,21 @@ test.describe('agenda', () => {
         await expect(page.locator('#apt-date')).toHaveText(new RegExp(`\\b${Number(key.slice(8))} [a-z]{3} ${key.slice(0, 4)}$`));
         await page.locator('#apt-time').click();
         await page.locator(`[role="option"][data-value="${time}"]`).click();
-        await page.locator('#apt-name').fill('Visitante agenda E2E');
+        // El cliente se busca; quien no está registrado se anota con su nombre.
+        // (reintenta: si la lista se cierra por un cambio de foco justo al escribir, se vuelve a abrir)
+        await expect(async () => {
+            await page.getByRole('combobox', { name: 'Cliente' }).fill('Prueba Visitante agenda');
+            await expect(page.getByRole('option', { name: 'Cliente sin registrar' })).toBeVisible({ timeout: 3000 });
+        }).toPass({ timeout: 20_000 });
+        await page.getByRole('option', { name: 'Cliente sin registrar' }).click();
         await page.getByRole('button', { name: 'Guardar cita' }).click();
 
         const modal = page.getByTestId('day-modal');
         await expect(modal).toBeVisible();
-        await expect(modal.getByTestId('appointment').filter({ hasText: 'Visitante agenda E2E' }).first()).toBeVisible();
+        await expect(modal.getByTestId('appointment').filter({ hasText: 'Prueba Visitante agenda' }).first()).toBeVisible();
 
         // Cancelarla deja el horario libre y la cita registrada como cancelada.
-        const item = modal.getByTestId('appointment').filter({ hasText: 'Visitante agenda E2E' }).filter({ hasText: 'Agendada' }).first();
+        const item = modal.getByTestId('appointment').filter({ hasText: 'Prueba Visitante agenda' }).filter({ hasText: 'Agendada' }).first();
         await item.getByRole('button', { name: 'Cancelar' }).click();
         await page.locator('#cancel-reason').fill('Prueba automática');
         await page.getByRole('button', { name: 'Cancelar cita' }).click();

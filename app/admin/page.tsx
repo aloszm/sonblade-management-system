@@ -5,6 +5,7 @@ import { ArrowRight, Download, Loader2, Package, TriangleAlert } from 'lucide-re
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Link from 'next/link';
 import { formatMoney } from '@/lib/utils/money';
+import { paymentMethodLabel } from '@/lib/utils/payment';
 
 interface Finance {
     period: { from: string; to: string; timezone: string };
@@ -196,7 +197,7 @@ export default function AdminPage() {
                     <p className="text-sm text-bos-muted mb-4">{meta.label} · {dates}</p>
                     {payTotal === 0 ? <Empty title={meta.empty} /> : (
                         <ul className="space-y-3">
-                            {([['Efectivo', paymentBreakdown.cash], ['Tarjeta', paymentBreakdown.card], ['Transferencia', paymentBreakdown.transfer]] as const).map(([name, amount]) => (
+                            {([[paymentMethodLabel('cash'), paymentBreakdown.cash], [paymentMethodLabel('card'), paymentBreakdown.card], [paymentMethodLabel('transfer'), paymentBreakdown.transfer]] as const).map(([name, amount]) => (
                                 <li key={name} className="p-4 rounded-xl border border-bos-border bg-bos-bg">
                                     <div className="flex justify-between items-center mb-1">
                                         <p className={labelCls}>{name}</p>

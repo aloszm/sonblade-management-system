@@ -184,9 +184,11 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
                                     {slots.map((m, i) => {
                                         const w = schedule ? workingWindow(schedule, dayKey, c.id) : undefined;
                                         const open = w === undefined || (w !== null && m + SLOT_MINUTES > w.open && m < w.close);
-                                        const canBook = canManage && open;
+                                        // Un hueco tapado por una cita (aunque sea en parte) no se agenda desde la cuadrícula: el clic caería en la cita.
+                                        const covered = items.some(({ visual }) => visual.start < m + SLOT_MINUTES && visual.end > m);
+                                        const canBook = canManage && open && !covered;
                                         return (
-                                            <button key={m} type="button" disabled={!canBook}
+                                            <button key={m} type="button" disabled={!canBook} aria-hidden={canBook ? undefined : true} tabIndex={canBook ? undefined : -1}
                                                 aria-label={canBook ? `Agendar con ${c.name} a las ${formatClock(m)}` : undefined}
                                                 onClick={() => pickSlot(m, c.id)}
                                                 style={{ top: i * SLOT_PX, height: SLOT_PX }}

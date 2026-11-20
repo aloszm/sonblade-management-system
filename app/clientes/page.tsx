@@ -15,6 +15,7 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { HttpError, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 import { EMPTY_CLIENT_FORM, validateClientForm, type ClientFormErrors } from '@/lib/clients/labels';
+import { formatPhone } from '@/lib/utils/phone';
 
 type Status = 'activos' | 'inactivos' | 'todos';
 const STATUS_OPTIONS: { id: Status; label: string }[] = [
@@ -38,12 +39,14 @@ export default function ClientsPage() {
     const [error, setError] = useState('');
     // La cuenta de consulta no registra: solo ve la cartera.
     const [readOnly, setReadOnly] = useState(true);
+    // La barbera solo ve a quienes atiende o registra: su lista vacía se explica distinto.
+    const [isBarber, setIsBarber] = useState(false);
     const submitting = useRef(false);
     const requestId = useRef(0);
 
     useEffect(() => {
         fetch('/api/auth/me', { cache: 'no-store' }).then((r) => r.json())
-            .then((me) => setReadOnly(!me?.authenticated || Boolean(me.user?.readOnly)))
+            .then((me) => { setReadOnly(!me?.authenticated || Boolean(me.user?.readOnly)); setIsBarber(me?.user?.role === 'barbero'); })
             .catch(() => setReadOnly(true));
     }, []);
 
@@ -199,8 +202,8 @@ export default function ClientsPage() {
                                 <tr className="border-t border-bos-border">
                                     <td colSpan={5}>
                                         <EmptyState
-                                            title={filtered ? 'No se encontraron clientes con ese filtro' : 'Todavía no hay clientes registrados'}
-                                            description={filtered ? 'Prueba con otro nombre, otro teléfono o cambia el filtro.' : 'Registra al primero para empezar tu cartera.'}
+                                            title={filtered ? 'No se encontraron clientes con ese filtro' : isBarber ? 'Aquí verás a los clientes que atiendas o registres' : 'Todavía no hay clientes registrados'}
+                                            description={filtered ? 'Prueba con otro nombre, otro teléfono o cambia el filtro.' : isBarber ? 'Cuando cobres o agendes a alguien, aparecerá en esta lista. También puedes registrar a un cliente nuevo.' : 'Registra al primero para empezar tu cartera.'}
                                         />
                                     </td>
                                 </tr>
@@ -222,7 +225,7 @@ export default function ClientsPage() {
                                             </span>
                                         </Link>
                                     </td>
-                                    {c.phone ? <td data-label="Teléfono" className="px-4 py-3 text-bos-text">{c.phone}</td> : <td data-label="Teléfono" className="px-4 py-3 text-bos-muted max-md:hidden">—</td>}
+                                    {c.phone ? <td data-label="Teléfono" className="px-4 py-3 text-bos-text">{formatPhone(c.phone)}</td> : <td data-label="Teléfono" className="px-4 py-3 text-bos-muted max-md:hidden">—</td>}
                                     <td data-label="Visitas" className="px-4 py-3 text-center tabular-nums">{c.visits ?? 0}</td>
                                     <td data-label="Última visita" className="px-4 py-3 whitespace-nowrap">
                                         {c.last_visit_at ? formatDate(c.last_visit_at) : <span className="text-bos-muted">Nunca</span>}

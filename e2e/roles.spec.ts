@@ -41,7 +41,7 @@ test.describe('acceso por puesto', () => {
     test('la gerente opera la sucursal, pero solo el dueño cambia comisiones; la caja la cambia con PIN', async ({ page }) => {
         await login(page, USERS.manager);
         const me = (await (await page.request.get('/api/auth/me')).json()).user;
-        expect(me.title).toBe('Gerente');
+        expect(me.title).toBe('Gerente Barbera');
         expect(me.isOwner).toBe(false);
 
         expect((await page.request.get('/api/admin/summary?period=week')).status()).toBe(200);

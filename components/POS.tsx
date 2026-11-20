@@ -11,12 +11,14 @@ import { formatTime } from '@/lib/utils/dates';
 import PinConfirm from '@/components/ui/PinConfirm';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import { formatPhone } from '@/lib/utils/phone';
+import { paymentMethodLabel } from '@/lib/utils/payment';
 
 const money = (n: number) => formatMoney(n);
 const METHODS: { id: PaymentType; label: string }[] = [
-    { id: 'cash', label: 'Efectivo' },
-    { id: 'card', label: 'Tarjeta' },
-    { id: 'transfer', label: 'Transferencia' },
+    { id: 'cash', label: paymentMethodLabel('cash') },
+    { id: 'card', label: paymentMethodLabel('card') },
+    { id: 'transfer', label: paymentMethodLabel('transfer') },
 ];
 const QUICK_TIPS = [0, 20, 50, 100];
 
@@ -225,7 +227,7 @@ export default function POS() {
                     {selectedClient ? (
                         <div className="inline-flex items-center gap-3 min-h-11 pl-4 pr-1 rounded-full border border-bos-border bg-bos-surface text-[15px]">
                             <span className="font-semibold">{selectedClient.name}</span>
-                            {selectedClient.phone && <span className="text-bos-muted">{selectedClient.phone}</span>}
+                            {selectedClient.phone && <span className="text-bos-muted">{formatPhone(selectedClient.phone)}</span>}
                             <button type="button" aria-label="Quitar cliente" onClick={() => setSelectedClient(null)}
                                 className="h-9 w-9 inline-flex items-center justify-center rounded-full text-bos-muted hover:text-bos-text hover:bg-bos-raised"><X className="h-4 w-4" /></button>
                         </div>
@@ -241,7 +243,7 @@ export default function POS() {
                                             <button type="button" onClick={() => { setSelectedClient(c); setClientSearch(''); }}
                                                 className="w-full min-h-11 px-4 text-left text-[15px] hover:bg-bos-raised flex items-center justify-between gap-3">
                                                 <span className="font-medium">{c.name}</span>
-                                                <span className="text-sm text-bos-muted">{c.phone ?? ''}</span>
+                                                <span className="text-sm text-bos-muted">{formatPhone(c.phone)}</span>
                                             </button>
                                         </li>
                                     ))}

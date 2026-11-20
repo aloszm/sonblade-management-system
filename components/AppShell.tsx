@@ -42,7 +42,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 />
             )}
 
-            <div inert={drawerHidden} aria-hidden={drawerHidden || undefined} className={`print:hidden fixed bottom-0 top-[var(--bos-banner-h,0px)] left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out motion-reduce:transition-none`}>
+            <div inert={drawerHidden} aria-hidden={drawerHidden || undefined} className={`print:hidden fixed bottom-0 top-[var(--bos-banner-h,0px)] left-0 z-50 transform md:top-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out motion-reduce:transition-none`}>
                 <Sidebar isOpen={true} />
             </div>
 

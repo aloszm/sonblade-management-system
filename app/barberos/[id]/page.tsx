@@ -9,6 +9,7 @@ import { formatDate, formatTime } from '@/lib/utils/dates';
 import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
 import { isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
+import { paymentMethodLabel } from '@/lib/utils/payment';
 
 interface Kpis { cuts: number; serviceRevenue: number; productRevenue: number; totalRevenue: number; tips: number; commissionRate: number; totalCommission: number; serviceCommission: number; productCommission: number; }
 interface Movement { id: string; date: string; services: string; products: string; payment_method: string; cash_amount: number; card_amount: number; transfer_amount: number; tip: number; total: number; commission: number; }
@@ -17,11 +18,11 @@ interface ServiceBreak { name: string; count: number; revenue: number; }
 function PaymentDetail({ m }: { m: Movement }) {
     const pill = 'inline-block whitespace-nowrap text-xs font-medium px-2.5 py-0.5 rounded-full border border-bos-border bg-bos-raised text-bos-text';
     const parts: string[] = [];
-    if (m.cash_amount > 0) parts.push(`Efect. ${formatMoney(m.cash_amount)}`);
-    if (m.card_amount > 0) parts.push(`Tarj. ${formatMoney(m.card_amount)}`);
-    if (m.transfer_amount > 0) parts.push(`Transf. ${formatMoney(m.transfer_amount)}`);
+    if (m.cash_amount > 0) parts.push(`${paymentMethodLabel('cash', true)} ${formatMoney(m.cash_amount)}`);
+    if (m.card_amount > 0) parts.push(`${paymentMethodLabel('card', true)} ${formatMoney(m.card_amount)}`);
+    if (m.transfer_amount > 0) parts.push(`${paymentMethodLabel('transfer', true)} ${formatMoney(m.transfer_amount)}`);
     if (parts.length > 1) return <span className={pill}>{parts.join(' / ')}</span>;
-    const label = m.payment_method === 'cash' ? 'Efectivo' : m.payment_method === 'card' ? 'Tarjeta' : m.payment_method === 'transfer' ? 'Transferencia' : m.payment_method;
+    const label = paymentMethodLabel(m.payment_method);
     return <span className={pill}>{label}</span>;
 }
 

@@ -1,5 +1,6 @@
 // Métricas del panel: tipos de lo que entrega public.business_metrics y cálculos de presentación.
 import { addDays } from '@/lib/settlements/week';
+import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 export type Kpis = {
     revenue: number; cuts: number; products: number; tickets: number; clients: number;
@@ -74,7 +75,7 @@ export function busiestHour(hourly: Metrics['hourly']): number | null {
 }
 
 export const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-export const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
+export const METHOD_LABELS = PAYMENT_METHOD_LABELS;
 
 /** Renglones del registro para descargar en CSV, con fecha y hora exactas en la zona del negocio. */
 export function activityRows(activity: Metrics['activity'], timeZone: string): (string | number)[][] {

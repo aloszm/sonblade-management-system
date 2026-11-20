@@ -118,6 +118,25 @@ export function usePOS() {
         }
     }, [appointment, barbers, clients]);
 
+    // Los servicios de la cita ya vienen en la venta (una sola vez, y solo si el carrito está vacío).
+    const preloadedFor = useRef<string | null>(null);
+    useEffect(() => {
+        if (!appointment || !services || preloadedFor.current === appointment.id) return;
+        preloadedFor.current = appointment.id;
+        const lines = (appointment.services ?? [])
+            .map((line) => services.find((s) => s.id === line.service_id))
+            .filter((s): s is Service => Boolean(s));
+        if (lines.length === 0) return;
+        setCart((prev) => prev.length > 0 ? prev : lines.map((service) => {
+            const free = Boolean(service.variable_price);
+            return {
+                id: free ? `s-${service.id}-${++freeLineCounter}` : `s-${service.id}`,
+                name: service.name, price: free ? 0 : service.price, type: 'service' as const, quantity: 1, service_id: service.id,
+                ...(free ? { variable_price: true, price_input: '' } : {}),
+            };
+        }));
+    }, [appointment, services]);
+
     // B3: al elegir barbero sin venir de una cita, se ofrecen sus citas abiertas de hoy para no duplicarlas.
     const [openAppointments, setOpenAppointments] = useState<Appointment[]>([]);
     const [walkInFor, setWalkInFor] = useState<string | null>(null);

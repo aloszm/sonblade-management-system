@@ -7,11 +7,12 @@ import Modal from '@/components/ui/Modal';
 import CashSettingsEditor from '@/components/CashSettingsEditor';
 import { REASON_MAX, closingNeedsReason, closingWarning, openingNeedsReason, openingWarning, reasonProblem } from '@/lib/cash/reasons';
 import type { CashMovement, CashSession } from '@/types';
-import { toUiMovement, type CashMovementRow } from '@/lib/cash/session-view';
+import { toUiMovement, UNKNOWN_OPENER, type CashMovementRow } from '@/lib/cash/session-view';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import { DENOMINATIONS, breakdownTotal, compactBreakdown, proposeSplit, withdrawnFor } from '@/lib/cash/closing';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDate, formatTime } from '@/lib/utils/dates';
+import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean; movement_needs_pin?: boolean }
 type Movement = CashMovement & { direction: 'in' | 'out' };
@@ -19,7 +20,7 @@ type CloseResult = { counted: number; difference: number; float: number; reserve
 
 const money = (n: number) => formatMoney(n);
 const timeOf = (iso: string) => formatTime(iso);
-const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
+const METHOD_LABELS = PAYMENT_METHOD_LABELS;
 const MOVEMENT_TYPES = [
     { id: 'expense', label: 'Gasto', short: 'Pagas algo del negocio', example: 'Agua, basura, insumos, material de limpieza.', affects: true, effect: 'Baja la utilidad: es un costo del negocio.' },
     { id: 'withdrawal', label: 'Retiro', short: 'El dinero cambia de lugar', example: 'Llevar efectivo al banco o a la caja fuerte, entregárselo a la gerencia, pagar comisiones en efectivo.', affects: false, effect: 'No baja la utilidad: el dinero sigue siendo del negocio, solo sale de la caja.' },
@@ -379,7 +380,7 @@ export default function CashRegister() {
             <header className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                     <h1 className="font-display text-3xl font-semibold">Caja abierta</h1>
-                    <p className="text-sm text-bos-muted">Abierta por {session.opened_by} a las {timeOf(session.opened_at)}</p>
+                    <p className="text-sm text-bos-muted">Abierta {session.opened_by !== UNKNOWN_OPENER ? `por ${session.opened_by} ` : ''}a las {timeOf(session.opened_at)}</p>
                 </div>
                 {!readOnly && <div className="flex flex-wrap gap-3">
                     {settings?.can_edit && <button type="button" onClick={() => setSettingsOpen(true)} className={secondary}><Settings2 className="h-5 w-5" /> Ajustes de caja</button>}

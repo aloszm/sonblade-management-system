@@ -8,13 +8,14 @@ import type { Ticket } from '@/lib/sales/ticket';
 import { SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 import PracticePrintMark from '@/components/PracticePrintMark';
+import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 type TicketData = Ticket & {
     business: { name: string; currency: string; timezone: string };
     branch: { name: string; address: string | null; phone: string | null };
 };
 
-const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
+const METHOD_LABELS = PAYMENT_METHOD_LABELS;
 
 export default function TicketPage() {
     const { id } = useParams<{ id: string }>();

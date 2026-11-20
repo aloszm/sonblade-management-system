@@ -37,7 +37,7 @@ describe('ClientPicker (buscador con teclado)', () => {
         expect(String(fetchMock.mock.calls[0][0])).toBe('/api/clients?q=Lu');
         expect(screen.getByRole('listbox', { name: 'Clientes' })).toBeInTheDocument();
         expect(options.map((o) => o.textContent?.trim())).toEqual([
-            'Luis Pérez · 5551110000', 'Lucía Soto', 'Cliente sin registrar', 'Crear cliente nuevo: Lu',
+            'Luis Pérez · 55 5111 0000', 'Lucía Soto', 'Cliente sin registrar', 'Crear cliente nuevo: Lu',
         ]);
     });
 

@@ -37,7 +37,7 @@ describe('Clientes: lista', () => {
         expect(await screen.findByText('Marco Pérez')).toBeInTheDocument();
         const rows = screen.getAllByTestId('client-row');
         expect(rows).toHaveLength(2);
-        expect(rows[0]).toHaveTextContent('5512345678');
+        expect(rows[0]).toHaveTextContent('55 1234 5678');
         expect(rows[0]).toHaveTextContent('2 faltas');
         expect(rows[0]).not.toHaveTextContent('Nunca');
         expect(rows[0]).toHaveTextContent('3');
@@ -68,6 +68,12 @@ describe('Clientes: lista', () => {
         mockApi({ clients: [] });
         render(<ClientsPage />);
         expect(await screen.findByText('Todavía no hay clientes registrados')).toBeInTheDocument();
+    });
+
+    it('la barbera con la lista vacía ve que aquí aparecen quienes atienda o registre', async () => {
+        mockApi({ clients: [], me: { authenticated: true, user: { id: 'u2', role: 'barbero', readOnly: false } } });
+        render(<ClientsPage />);
+        expect(await screen.findByText('Aquí verás a los clientes que atiendas o registres')).toBeInTheDocument();
     });
 
     it('la cuenta de consulta no ve el botón de registrar', async () => {

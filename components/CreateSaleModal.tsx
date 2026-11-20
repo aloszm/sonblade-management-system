@@ -5,6 +5,8 @@ import { Loader2, Plus, Minus, Search, Trash2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import type { Barber, Service, Client } from '@/types';
 import { formatMoney } from '@/lib/utils/money';
+import { formatPhone } from '@/lib/utils/phone';
+import { paymentMethodLabel } from '@/lib/utils/payment';
 
 interface CreateSaleModalProps {
     isOpen: boolean;
@@ -171,7 +173,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                                                     className="w-full text-left px-3 py-2.5 text-sm hover:bg-bos-raised border-b border-bos-border last:border-0"
                                                 >
                                                     <div className="font-semibold">{c.name}</div>
-                                                    <div className="text-xs text-bos-muted">{c.phone ?? ''}</div>
+                                                    <div className="text-xs text-bos-muted">{formatPhone(c.phone)}</div>
                                                 </button>
                                             ))}
                                         </div>
@@ -212,7 +214,7 @@ export default function CreateSaleModal({ isOpen, onClose, onCreated, barbers, s
                         {(['cash', 'card', 'transfer', 'mixed'] as const).map(m => (
                             <button type="button" key={m} aria-pressed={paymentMethod === m} onClick={() => setPaymentMethod(m)}
                                 className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors ${paymentMethod === m ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>
-                                {m === 'cash' ? 'Efectivo' : m === 'card' ? 'Tarjeta' : m === 'transfer' ? 'Transf.' : 'Mixto'}
+                                {paymentMethodLabel(m)}
                             </button>
                         ))}
                     </div>

@@ -6,48 +6,12 @@ import type { AuditLog } from '@/types';
 import { BUSINESS_TIME_ZONE, formatDateTime, zonedDayStartIso } from '@/lib/utils/dates';
 import { addDays } from '@/lib/settlements/week';
 import { roleLabel } from '@/lib/auth/roles';
+import { ACTION_LABELS, actionLabel, entityLabel } from '@/lib/audit/labels';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
 import { isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
-
-const ACTION_LABELS: Record<string, string> = {
-    initial_owner_bootstrap: 'Alta del negocio',
-    initial_haircut_commission_configured: 'Configurar comisión de cortes',
-    product_created: 'Alta de producto',
-    cash_opened: 'Abrir caja',
-    cash_closed: 'Cerrar caja',
-    cash_movement_recorded: 'Movimiento de caja',
-    sale_confirmed: 'Venta registrada',
-    sale_payment_recorded: 'Abono a venta',
-    sale_reversed: 'Venta anulada',
-    inventory_adjusted: 'Ajuste de inventario',
-    inventory_received: 'Entrada de mercancía',
-    inventory_minimum_changed: 'Cambio de mínimo de inventario',
-    commission_settlement_paid: 'Pago de comisiones',
-    commission_adjustment_approved: 'Ajuste de comisión aprobado',
-    commission_adjustment_rejected: 'Ajuste de comisión rechazado',
-    business_profile_updated: 'Cambio del perfil del negocio',
-    commission_defaults_changed: 'Cambio de tasas de comisión',
-    cash_settings_changed: 'Cambio de fondo y apartado de caja',
-};
-
-
-const TABLE_LABELS: Record<string, string> = {
-    services: 'servicio', products: 'producto', clients: 'cliente', commission_rules: 'regla de comisión',
-    employees: 'empleado', business_memberships: 'rol de usuario', branches: 'sucursal', businesses: 'negocio',
-    appointments: 'cita', appointment_items: 'concepto de cita', user_branch_access: 'acceso a sucursal',
-};
-const VERB_LABELS: Record<string, string> = { insert: 'Alta de', update: 'Cambio en', delete: 'Baja de' };
-
-/** Texto en español de una acción; las altas y cambios automáticos vienen como "tabla.operación". */
-function actionLabel(action: string): string {
-    if (ACTION_LABELS[action]) return ACTION_LABELS[action];
-    const [table, verb] = action.split('.');
-    if (TABLE_LABELS[table] && VERB_LABELS[verb]) return `${VERB_LABELS[verb]} ${TABLE_LABELS[table]}`;
-    return action;
-}
 
 export default function AuditoriaPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -188,7 +152,7 @@ export default function AuditoriaPage() {
                                         <span className="font-semibold">{actionLabel(log.action)}</span>
                                     </td>
                                     <td className="px-4 py-3 text-bos-muted text-xs">
-                                        {log.entity}{typeof log.details?.folio === 'string' ? ` ${log.details.folio}` : log.entity_id ? ` #${log.entity_id.substring(0, 8)}...` : ''}
+                                        {entityLabel(log.entity)}{typeof log.details?.folio === 'string' ? ` ${log.details.folio}` : log.entity_id ? ` #${log.entity_id.substring(0, 8)}...` : ''}
                                     </td>
                                     <td className="px-4 py-3">
                                         {log.details && Object.keys(log.details).length > 0 ? (

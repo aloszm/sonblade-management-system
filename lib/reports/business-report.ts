@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { paymentMethodLabel } from '@/lib/utils/payment';
 
 export type ReportPeriod = 'today' | 'week' | 'month' | 'last_week';
 
@@ -140,8 +141,8 @@ export function toDashboard(selected: BusinessReport, week: BusinessReport, mont
             monthLine: month.daily.map((d) => ({ name: d.day, revenue: d.revenue })),
             paymentDonut: [
                 { name: 'Efectivo', value: selected.payment_breakdown.cash },
-                { name: 'Tarjeta', value: selected.payment_breakdown.card },
-                { name: 'Transferencia', value: selected.payment_breakdown.transfer },
+                { name: paymentMethodLabel('card'), value: selected.payment_breakdown.card },
+                { name: paymentMethodLabel('transfer'), value: selected.payment_breakdown.transfer },
             ],
         },
     };

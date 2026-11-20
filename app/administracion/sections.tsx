@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContai
 import type { BarberRow, Delta, ProfitReport } from '@/lib/admin/profit';
 import { formatMoney } from '@/lib/utils/money';
 import Skeleton from '@/components/ui/Skeleton';
+import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 // Piezas de presentación del tablero de Finanzas. Reciben el reporte ya calculado; no calculan dinero propio
 // salvo proporciones para dibujar barras. Solo colores del sistema (bos-*).
@@ -16,7 +17,7 @@ const pctText = (n: number) => `${Math.abs(n).toLocaleString('es-MX', { maximumF
 export const dayLabel = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
 const shortDay = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 const units = (n: number) => `${n} pieza${n === 1 ? '' : 's'}`;
-export const METHOD_LABEL: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
+export const METHOD_LABEL = PAYMENT_METHOD_LABELS;
 const METHOD_ICON: Record<string, typeof Banknote> = { cash: Banknote, card: CreditCard, transfer: Landmark, other: Wallet };
 
 const card = 'rounded-xl border border-bos-border bg-bos-surface print:break-inside-avoid';

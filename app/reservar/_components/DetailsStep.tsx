@@ -117,7 +117,7 @@ export default function DetailsStep({ config, service, sel, onBack, onDone, onSl
                     <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1">
                         <input id="bk-accept" type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)}
                             aria-invalid={!!errors.accept} aria-describedby={errors.accept ? 'bk-accept-err' : undefined}
-                            className="mt-0.5 h-6 w-6 shrink-0 accent-bos-accent" />
+                            className="bos-check mt-0.5 h-6 w-6 shrink-0" />
                         <span className="text-sm text-bos-text">He leído el <a href={config.privacy.url} target="_blank" rel="noopener noreferrer" className="font-medium text-bos-accent-text underline underline-offset-2">aviso de privacidad</a> (se abre en otra pestaña).</span>
                     </label>
                     {fieldErr('bk-accept-err', errors.accept)}

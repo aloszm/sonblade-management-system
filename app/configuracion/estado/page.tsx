@@ -65,7 +65,7 @@ export default function SystemStatusPage() {
                     <dl className="divide-y divide-bos-border">
                         <Row label="Modo de la publicación" value={status.mode === 'practice' ? 'Práctica (datos simulados, nada es real)' : 'Producción (datos reales)'} tone={status.mode === 'practice' ? 'bad' : undefined} />
                         <Row label="Versión publicada" value={status.commit ?? 'No disponible (no es un despliegue de Vercel)'} />
-                        <Row label="Entorno" value={status.environment ? (ENVIRONMENTS[status.environment] ?? status.environment) : 'No disponible'} />
+                        <Row label="Despliegue en Vercel" value={status.environment ? `${ENVIRONMENTS[status.environment] ?? status.environment}${status.mode === 'practice' ? ' de Vercel (la aplicación corre en modo práctica)' : ''}` : 'No disponible'} />
                         <Row label="Última migración de la base incluida en esta versión" value={status.lastMigration ?? 'No disponible'} />
                         <Row label="Llave del servidor"
                             value={status.adminKey.works ? 'Funciona' : (status.adminKey.cause ?? 'No funciona')}

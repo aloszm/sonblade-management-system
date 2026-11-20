@@ -211,7 +211,12 @@ export default function Dashboard() {
                             className="h-11 min-w-64 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text" />
                     </div>
                 )}
-                <div role="group" aria-label="Filtrar por persona" className="flex flex-wrap gap-2">
+                <label className="sr-only" htmlFor="metrics-person">Filtrar por persona</label>
+                <select id="metrics-person" value={barber} onChange={(e) => setBarber(e.target.value)}
+                    className="sm:hidden h-11 min-w-0 flex-1 px-3 rounded-xl bg-bos-surface border border-bos-control text-base text-bos-text">
+                    {[{ id: '', name: 'Toda la barbería' }, ...team].map((t) => <option key={t.id || 'all'} value={t.id}>{t.name}</option>)}
+                </select>
+                <div role="group" aria-label="Filtrar por persona" className="hidden sm:flex flex-wrap gap-2">
                     {[{ id: '', name: 'Toda la barbería' }, ...team].map((t) => (
                         <button key={t.id || 'all'} type="button" aria-pressed={barber === t.id} onClick={() => setBarber(t.id)}
                             className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${barber === t.id ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border text-bos-muted hover:text-bos-text'}`}>
@@ -333,7 +338,7 @@ export default function Dashboard() {
                     <section aria-labelledby="team-title" className={`${card} overflow-hidden`}>
                         <h2 id="team-title" className="font-display text-lg font-semibold px-5 pt-5">Equipo</h2>
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[720px] text-[15px] mt-3">
+                            <table className="bos-stack w-full md:min-w-[720px] text-[15px] mt-3">
                                 <thead>
                                     <tr className="text-left text-[13px] text-bos-muted">
                                         <th className="px-5 py-3 font-semibold">Persona</th>
@@ -347,14 +352,14 @@ export default function Dashboard() {
                                 <tbody>
                                     {data.barbers.map((b, i) => (
                                         <tr key={b.id} data-testid="team-row" className="border-t border-bos-border tabular-nums">
-                                            <td className="px-5 py-3">
+                                            <td data-label="" className="px-5 py-3">
                                                 <span className="inline-flex items-center gap-3">
                                                     <span aria-hidden="true" className={`h-8 w-8 rounded-full inline-flex items-center justify-center text-sm font-bold ${i === 0 && b.cuts > 0 ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised'}`}>{b.name.charAt(0)}</span>
                                                     <span className="font-medium">{b.name}</span>
                                                     {!b.is_barber && <span className="text-xs text-bos-muted">Recepción</span>}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-3">
+                                            <td data-label="Cortes" className="px-5 py-3">
                                                 <span className="flex items-center gap-3">
                                                     <span className="w-8 font-semibold">{b.cuts}</span>
                                                     <span aria-hidden="true" className="hidden sm:block h-1.5 w-28 rounded-full bg-bos-raised overflow-hidden">
@@ -362,10 +367,10 @@ export default function Dashboard() {
                                                     </span>
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-3 text-right font-semibold">{money(b.revenue)}</td>
-                                            <td className="px-5 py-3 text-right">{money(b.avg_ticket)}</td>
-                                            <td className="px-5 py-3 text-right">{money(b.tips)}</td>
-                                            <td className="px-5 py-3 text-right">{money(b.commission)}</td>
+                                            <td data-label="Ingresos" className="px-5 py-3 text-right font-semibold">{money(b.revenue)}</td>
+                                            <td data-label="Ticket prom." className="px-5 py-3 text-right">{money(b.avg_ticket)}</td>
+                                            <td data-label="Propinas" className="px-5 py-3 text-right">{money(b.tips)}</td>
+                                            <td data-label="Comisión" className="px-5 py-3 text-right">{money(b.commission)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -440,7 +445,7 @@ export default function Dashboard() {
                             </div>
                         </div>
                         <div className="overflow-x-auto mt-3">
-                            <table className="w-full min-w-[760px] text-[15px]">
+                            <table className="bos-stack w-full md:min-w-[760px] text-[15px]">
                                 <thead>
                                     <tr className="text-left text-[13px] text-bos-muted">
                                         <th className="px-5 py-3 font-semibold">Fecha y hora</th>
@@ -453,19 +458,19 @@ export default function Dashboard() {
                                 <tbody>
                                     {activity.slice(0, shown).map((a, i) => (
                                         <tr key={`${a.sale_id}-${i}`} data-testid="log-row" className="border-t border-bos-border">
-                                            <td className="px-5 py-3 tabular-nums whitespace-nowrap">
+                                            <td data-label="Fecha y hora" className="px-5 py-3 tabular-nums whitespace-nowrap">
                                                 {formatDateTime(a.at, tz, { year: false })}
                                             </td>
-                                            <td className="px-5 py-3">{a.employee ?? '—'}</td>
-                                            <td className="px-5 py-3">
+                                            <td data-label="Persona" className="px-5 py-3">{a.employee ?? '—'}</td>
+                                            <td data-label="" className="px-5 py-3">
                                                 {a.item}{a.quantity > 1 ? ` × ${a.quantity}` : ''}
                                                 {a.client && <span className="block text-xs text-bos-muted">{a.client}</span>}
                                             </td>
-                                            <td className="px-5 py-3 text-bos-muted">{(a.methods ?? '').split(',').filter(Boolean).map((m) => METHOD_LABELS[m] ?? m).join(' + ')}</td>
-                                            <td className="px-5 py-3 text-right font-semibold tabular-nums">{money2(a.amount)}</td>
+                                            <td data-label="Pago" className="px-5 py-3 text-bos-muted">{(a.methods ?? '').split(',').filter(Boolean).map((m) => METHOD_LABELS[m] ?? m).join(' + ')}</td>
+                                            <td data-label="Importe" className="px-5 py-3 text-right font-semibold tabular-nums">{money2(a.amount)}</td>
                                         </tr>
                                     ))}
-                                    {activity.length === 0 && <tr><td colSpan={5} className="px-5 py-8 text-center text-bos-muted">Nada que mostrar con estos filtros.</td></tr>}
+                                    {activity.length === 0 && <tr><td colSpan={5} data-label="" className="px-5 py-8 text-center text-bos-muted">Nada que mostrar con estos filtros.</td></tr>}
                                 </tbody>
                             </table>
                         </div>

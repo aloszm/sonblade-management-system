@@ -148,6 +148,9 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
 const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
 const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 
+/** Nombre que se usa cuando el servidor no puede decir quién abrió la caja (la ficha de la cuenta principal no la ve recepción). */
+export const UNKNOWN_OPENER = 'Usuario';
+
 async function toViews(supabase: SupabaseClient, sessions: CashSessionRow[]): Promise<CashSession[]> {
     if (sessions.length === 0) return [];
     const ids = sessions.map((s) => s.id);
@@ -174,7 +177,7 @@ async function toViews(supabase: SupabaseClient, sessions: CashSessionRow[]): Pr
         list.push(m);
         bySession.set(m.cash_session_id, list);
     }
-    return sessions.map((s) => buildSessionView(s, bySession.get(s.id) ?? [], names.get(s.opened_by) ?? 'Usuario'));
+    return sessions.map((s) => buildSessionView(s, bySession.get(s.id) ?? [], names.get(s.opened_by) ?? UNKNOWN_OPENER));
 }
 
 export async function loadOpenSession(supabase: SupabaseClient, businessId: string, branchId: string): Promise<CashSession | null> {

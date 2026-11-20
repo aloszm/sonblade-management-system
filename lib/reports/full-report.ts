@@ -4,6 +4,7 @@
 import { addDays } from '@/lib/settlements/week';
 import { roleLabel } from '@/lib/auth/roles';
 import type { Audience, AuditEntry, CashSessionReport, FullKpis, FullReport } from './full-report-types';
+import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 // ───────────────────────── Periodos ─────────────────────────
 
@@ -59,7 +60,7 @@ export const AUDIENCE_NOTES: Record<Audience, string> = {
     interno: 'Incluye nombres de clientes. Solo para la cuenta principal y la gerencia.',
     contador: 'Sin nombres ni teléfonos de clientes: solo totales y movimientos del negocio.',
 };
-export const METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
+export const METHOD_LABELS = PAYMENT_METHOD_LABELS;
 export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
     scheduled: 'Programada', confirmed: 'Confirmada', checked_in: 'Ya llegó', in_progress: 'En servicio',
     completed: 'Completada', cancelled: 'Cancelada', no_show: 'No llegó',

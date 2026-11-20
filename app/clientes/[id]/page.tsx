@@ -19,6 +19,7 @@ import { SOURCE_LABELS, historyStatusLabel, validateClientForm, type ClientFormE
 import { formatDate, formatDateTime } from '@/lib/utils/dates';
 import { formatMoney } from '@/lib/utils/money';
 import { HttpError, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
+import { formatPhone } from '@/lib/utils/phone';
 
 const NOTES_HELP = 'No anotes datos de salud ni información sensible.';
 
@@ -229,7 +230,7 @@ export default function ClientDetailPage() {
                 </div>
                 <dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
                     {client.phone && (
-                        <div><dt className="text-bos-muted">Teléfono</dt><dd className="font-medium">{client.phone}</dd></div>
+                        <div><dt className="text-bos-muted">Teléfono</dt><dd className="font-medium tabular-nums">{formatPhone(client.phone)}</dd></div>
                     )}
                     {client.email && (
                         <div><dt className="text-bos-muted">Correo</dt><dd className="font-medium break-all">{client.email}</dd></div>
@@ -335,7 +336,7 @@ export default function ClientDetailPage() {
                     {contactError && <p role="alert" className="mb-4 p-3 rounded-xl border border-bos-border bg-bos-bg text-bos-danger text-sm font-medium">{contactError}</p>}
                     <form onSubmit={saveContact} noValidate className="space-y-4">
                         <Field label="Nombre completo *" autoComplete="name" value={contact.name} error={contactErrors.name} onChange={(e) => setContact({ ...contact, name: e.target.value })} />
-                        <Field label="Teléfono (WhatsApp) *" type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} error={contactErrors.phone} maxLength={20} onChange={(e) => setContact({ ...contact, phone: e.target.value })} />
+                        <Field label="Teléfono (WhatsApp, opcional)" type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} error={contactErrors.phone} maxLength={20} onChange={(e) => setContact({ ...contact, phone: e.target.value })} />
                         <Field label="Correo electrónico (opcional)" type="email" inputMode="email" autoComplete="email" value={contact.email} error={contactErrors.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} />
                         <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3">
                             <Button variant="secondary" onClick={() => setEditContact(false)} className="flex-1">Cancelar</Button>
