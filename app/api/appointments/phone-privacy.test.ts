@@ -25,7 +25,9 @@ vi.mock('@/lib/supabase/server', () => {
     for (const name of ['select', 'eq', 'order', 'gte', 'lt']) chain[name] = () => chain;
     chain.maybeSingle = async () => ({ data: APPOINTMENT, error: null });
     chain.then = (resolve: (value: unknown) => void) => resolve({ data: [APPOINTMENT], error: null });
-    return { createSupabaseServerClient: async () => ({ from: () => chain }) };
+    // Productos y notificaciones de las citas (appointment_products_read / member_display_names): vacíos aquí.
+    const rpc = async () => ({ data: null, error: null });
+    return { createSupabaseServerClient: async () => ({ from: () => chain, rpc }) };
 });
 
 import { GET as listAppointments } from './route';

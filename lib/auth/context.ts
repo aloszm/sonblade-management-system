@@ -83,6 +83,8 @@ const DB_ERRORS: Record<string, { status: number; message: string }> = {
     // exclusion_violation: hoy solo la usa appointments_no_barber_overlap (agenda).
     '23P01': { status: 409, message: 'Ese barbero ya tiene una cita en ese horario.' },
     P0002: { status: 404, message: 'No se encontró el registro.' },
+    // program_limit_exceeded: topes contra clics repetidos (p. ej. mensajes de WhatsApp por cita).
+    '54000': { status: 429, message: 'Se alcanzó el límite de intentos para esta operación.' },
 };
 
 export function authErrorResponse(error: unknown) {

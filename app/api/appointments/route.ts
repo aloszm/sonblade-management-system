@@ -9,6 +9,9 @@ import { businessDayKey } from '@/lib/admin/profit';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
 import { bookingSlotError } from '@/lib/appointments/calendar-grid';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { addDays } from '@/lib/settlements/week';
+import { withAppointmentExtras, type ExtrasClient, type NotificationRow } from '@/lib/appointments/extras';
+import { waPhone } from '@/lib/notifications/wa-link';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +38,11 @@ const AppointmentSchema = z.object({
 
 const OPEN_STATUSES = ['scheduled', 'confirmed', 'checked_in', 'in_progress'] as const;
 
+/** Notificaciones que la RLS dejó ver, por cita (D3). */
+function notificationRows(rows: AppointmentRow[]): Map<string, NotificationRow[]> {
+    return new Map(rows.map((row) => [row.id, row.appointment_notifications ?? []]));
+}
+
 /**
  * Citas de la sucursal.
  * Con `?abiertas=1&barbero=<id>` (B3, solo lectura): citas de ese barbero de HOY (día del negocio) que siguen
@@ -59,10 +67,34 @@ export async function GET(request: NextRequest) {
                 .gte('scheduled_start_at', day.from).lt('scheduled_start_at', day.to);
             if (error) throw error;
             const showPhones = canSeeClientPhones(context.role);
-            const rows = ((data ?? []) as unknown as AppointmentRow[]).map((row) => ({
+            const raw = (data ?? []) as unknown as AppointmentRow[];
+            const rows = raw.map((row) => ({
                 ...toAppointmentView(row), customer_phone: showPhones ? row.customer_phone : null, source: row.source,
             })).filter((view) => canCharge(view));
-            return NextResponse.json(rows, { headers: NO_STORE });
+            return NextResponse.json(await withAppointmentExtras(db as unknown as ExtrasClient, context, rows, notificationRows(raw)), { headers: NO_STORE });
+        }
+
+        // D3: `?recordatorios=manana` — citas de MAÑANA (día del negocio) que siguen agendadas o confirmadas y sin
+        // cobrar, con su estado de recordatorio. Solo mostrador y gerencia (mandan los mensajes).
+        if (params.get('recordatorios') !== null) {
+            if (params.get('recordatorios') !== 'manana') return NextResponse.json({ error: 'Usa recordatorios=manana.' }, { status: 400, headers: NO_STORE });
+            if (!FRONT_DESK_ROLES.includes(context.role)) return NextResponse.json({ error: 'No tienes permiso para esta operación.' }, { status: 403, headers: NO_STORE });
+            const timezone = await loadBusinessTimezone(db as unknown as SupabaseClient, context.businessId);
+            const tomorrow = addDays(businessDayKey(new Date().toISOString(), timezone), 1);
+            const day = businessDayRange(tomorrow, tomorrow, timezone);
+            const { data, error } = await query.in('status', ['scheduled', 'confirmed'])
+                .gte('scheduled_start_at', day.from).lt('scheduled_start_at', day.to);
+            if (error) throw error;
+            const raw = ((data ?? []) as unknown as AppointmentRow[]);
+            const views = raw.map((row) => ({ ...toAppointmentView(row), source: row.source }))
+                .filter((view) => !view.sale)
+                .map((view) => ({ ...view, has_valid_phone: waPhone(view.customer_phone) !== null }));
+            const withExtras = await withAppointmentExtras(db as unknown as ExtrasClient, context, views, notificationRows(raw));
+            return NextResponse.json({
+                day: tomorrow,
+                timezone,
+                appointments: withExtras.map((view) => ({ ...view, reminder_sent: view.notifications.reminder !== null })),
+            }, { headers: NO_STORE });
         }
 
         const range = RangeSchema.safeParse({ from: params.get('from'), to: params.get('to') });
@@ -79,9 +111,12 @@ export async function GET(request: NextRequest) {
         // source (aditivo): 'appointment' | 'walk_in' | 'online' (reservada por el cliente en la página pública).
         // El barbero no recibe el teléfono del cliente (se quita aquí, en el servidor).
         const showPhones = canSeeClientPhones(context.role);
-        return NextResponse.json(((data ?? []) as unknown as AppointmentRow[]).map((row) => ({
+        const raw = (data ?? []) as unknown as AppointmentRow[];
+        const views = raw.map((row) => ({
             ...toAppointmentView(row), customer_phone: showPhones ? row.customer_phone : null, source: row.source,
-        })), { headers: NO_STORE });
+        }));
+        // Cada cita trae `notifications` (último WhatsApp abierto por tipo) y `products` (productos propuestos).
+        return NextResponse.json(await withAppointmentExtras(db as unknown as ExtrasClient, context, views, notificationRows(raw)), { headers: NO_STORE });
     } catch (error) { return authErrorResponse(error); }
 }
 

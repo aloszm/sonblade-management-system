@@ -34,7 +34,9 @@ vi.mock('@/lib/supabase/server', () => {
     for (const name of ['select', 'eq', 'order', 'gte', 'lt', 'in']) chain[name] = (...args: unknown[]) => { calls.push([name, args]); return chain; };
     chain.single = async () => ({ data: { timezone: 'America/Mexico_City' }, error: null });
     chain.then = (resolve: (value: unknown) => void) => resolve({ data: ROWS, error: null });
-    return { createSupabaseServerClient: async () => ({ from: () => chain }) };
+    // Productos y notificaciones de las citas (appointment_products_read / member_display_names): vacíos aquí.
+    const rpc = async () => ({ data: null, error: null });
+    return { createSupabaseServerClient: async () => ({ from: () => chain, rpc }) };
 });
 
 import { GET } from './route';

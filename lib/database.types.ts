@@ -78,6 +78,117 @@ export type Database = {
           },
         ]
       }
+      appointment_notifications: {
+        Row: {
+          appointment_id: string
+          branch_id: string
+          business_id: string
+          channel: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+        }
+        Insert: {
+          appointment_id: string
+          branch_id: string
+          business_id: string
+          channel?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          kind: string
+        }
+        Update: {
+          appointment_id?: string
+          branch_id?: string
+          business_id?: string
+          channel?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_notifications_appointment_fkey"
+            columns: ["business_id", "branch_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+        ]
+      }
+      appointment_products: {
+        Row: {
+          added_at: string
+          added_by: string
+          appointment_id: string
+          branch_id: string
+          business_id: string
+          id: string
+          product_id: string
+          quantity: number
+          removed_at: string | null
+          removed_by: string | null
+          seller_employee_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          appointment_id: string
+          branch_id: string
+          business_id: string
+          id?: string
+          product_id: string
+          quantity: number
+          removed_at?: string | null
+          removed_by?: string | null
+          seller_employee_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          appointment_id?: string
+          branch_id?: string
+          business_id?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          removed_at?: string | null
+          removed_by?: string | null
+          seller_employee_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_products_appointment_fkey"
+            columns: ["business_id", "branch_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "appointment_products_product_fkey"
+            columns: ["business_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "appointment_products_seller_fkey"
+            columns: ["business_id", "seller_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           arrived_at: string | null
@@ -2758,6 +2869,15 @@ export type Database = {
     }
     Functions: {
       accept_pre_agenda_sales: { Args: { p_branch_id: string }; Returns: Json }
+      add_appointment_product: {
+        Args: {
+          p_appointment_id: string
+          p_product_id: string
+          p_quantity?: number
+          p_seller_employee_id?: string
+        }
+        Returns: Json
+      }
       adjust_inventory_stock: {
         Args: {
           p_branch_id: string
@@ -2778,6 +2898,10 @@ export type Database = {
       }
       agenda_reconciliation: {
         Args: { p_branch_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      appointment_products_read: {
+        Args: { p_appointment_ids: string[]; p_branch_id: string }
         Returns: Json
       }
       assert_can_manage_account: {
@@ -3100,6 +3224,7 @@ export type Database = {
           source: string
         }[]
       }
+      get_booking_settings: { Args: { p_business_id: string }; Returns: Json }
       get_settlement_receipt: {
         Args: { p_settlement_id: string }
         Returns: Json
@@ -3191,6 +3316,7 @@ export type Database = {
           product_id: string
         }[]
       }
+      product_seller_options: { Args: { p_branch_id: string }; Returns: Json }
       provision_account: {
         Args: {
           p_actor_user_id: string
@@ -3211,6 +3337,10 @@ export type Database = {
           p_product_id: string
           p_quantity: number
         }
+        Returns: Json
+      }
+      record_appointment_notification: {
+        Args: { p_appointment_id: string; p_kind: string }
         Returns: Json
       }
       record_cash_movement: {
@@ -3284,6 +3414,10 @@ export type Database = {
           p_from: string
           p_to: string
         }
+        Returns: Json
+      }
+      remove_appointment_product: {
+        Args: { p_line_id: string; p_quantity?: number }
         Returns: Json
       }
       reverse_sale: {
@@ -3368,6 +3502,22 @@ export type Database = {
       server_pin_pepper: { Args: never; Returns: string }
       set_account_active: {
         Args: { p_active: boolean; p_business_id: string; p_user_id: string }
+        Returns: Json
+      }
+      set_appointment_product_seller: {
+        Args: { p_line_id: string; p_seller_employee_id: string }
+        Returns: Json
+      }
+      set_booking_settings: {
+        Args: {
+          p_business_id: string
+          p_cancel_hours?: number
+          p_comment?: string
+          p_enabled: boolean
+          p_lead_minutes?: number
+          p_max_days_ahead?: number
+          p_max_online_per_day?: number
+        }
         Returns: Json
       }
       set_cash_settings: {

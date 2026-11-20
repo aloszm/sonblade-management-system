@@ -9,7 +9,7 @@ const SERVICES = [
     { id: 'sv2', name: 'Greca', price: 0, duration_minutes: 45, is_active: true, variable_price: true },
 ];
 
-interface Mock { services?: unknown; products?: unknown; cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesSeq?: { status: number; body: unknown }[]; authorizers?: unknown; openAppointments?: unknown; salesBodies: unknown[] }
+interface Mock { services?: unknown; products?: unknown; cash: unknown; cashStatus?: number; sales?: { status: number; body: unknown }; salesSeq?: { status: number; body: unknown }[]; authorizers?: unknown; openAppointments?: unknown; appointment?: unknown; salesBodies: unknown[] }
 
 function mockApi(opts: Partial<Mock> = {}) {
     const state: Mock = { cash: { id: 'x' }, salesBodies: [], ...opts };
@@ -29,6 +29,7 @@ function mockApi(opts: Partial<Mock> = {}) {
         }
         if (url.includes('/api/products')) return json(state.products ?? []);
         if (url.includes('/api/appointments?abiertas=1')) return json(state.openAppointments ?? []);
+        if (url.includes('/api/appointments/')) return json(state.appointment ?? { error: 'Cita no encontrada.' }, state.appointment ? 200 : 404);
         return json([]);
     }));
     return state;
@@ -341,5 +342,39 @@ describe('cobro: citas abiertas del barbero (B3)', () => {
         fireEvent.click(await screen.findByRole('button', { name: /Deya/ }));
         await waitFor(() => expect(screen.getByRole('button', { name: /Deya/ })).toHaveAttribute('aria-pressed', 'true'));
         expect(screen.queryByTestId('pos-open-appointments')).not.toBeInTheDocument();
+    });
+});
+
+describe('cobro desde la agenda: productos de la cita con su vendedor', () => {
+    const PRODUCTS = [{ id: 'p1', name: 'Prueba cera', price: 160, stock: 4, sku: '', category: '', min_stock: 0, cost: 0, status: 'ok', created_at: '', updated_at: '' }];
+    const APT = {
+        id: 'a1', client_id: null, barber_id: 'b1', client_name: 'Luis', customer_phone: null, barber: { id: 'b1', name: 'Deya' },
+        scheduled_at: '2026-11-20T19:00:00Z', end_at: '2026-11-20T19:30:00Z', duration_minutes: 30, status: 'checked_in',
+        notes: null, created_at: '2026-11-20T10:00:00Z', walk_in: false, online: false, sale: null,
+        services: [{ service_id: 'sv1', name: 'Corte', price: 200, duration_minutes: 30 }],
+        products: {
+            barber: { id: 'b1', name: 'Deya' }, session_employee: { id: 'e-dago', name: 'Dago' }, open: true, can_edit: true, can_choose_seller: true,
+            lines: [{ id: 'l1', appointment_id: 'a1', product_id: 'p1', name: 'Prueba cera', quantity: 2, unit_price: 150, product_active: true,
+                tracks_inventory: true, stock: 4, short_stock: false, seller_employee_id: 'e-dago', seller_name: 'Dago', added_by: 'u-dago',
+                added_by_name: 'Dago', added_at: '2026-11-20T15:00:00Z', updated_at: null }],
+        },
+    };
+
+    it('precarga servicio y producto; la partida de producto se cobra a nombre de su vendedor', async () => {
+        window.history.replaceState(null, '', '/pos?cita=a1');
+        const api = mockApi({ appointment: APT, products: PRODUCTS });
+        render(<POS />);
+        expect(await screen.findByTestId('pos-appointment')).toHaveTextContent('Cobrando la cita de Luis');
+        // 200 del corte + 2 × 160 (precio vigente del catálogo, no el de la cita).
+        const cobrar = await screen.findByRole('button', { name: 'Cobrar $520' });
+        await waitFor(() => expect(cobrar).toBeEnabled());
+        fireEvent.click(cobrar);
+        await waitFor(() => expect(api.salesBodies).toHaveLength(1));
+        const body = api.salesBodies[0] as { appointment_id: string; items: Record<string, unknown>[] };
+        expect(body.appointment_id).toBe('a1');
+        expect(body.items).toEqual([
+            expect.objectContaining({ item_type: 'service', catalog_id: 'sv1', employee_id: 'b1' }),
+            expect.objectContaining({ item_type: 'product', catalog_id: 'p1', quantity: 2, commission_employee_ids: ['e-dago'] }),
+        ]);
     });
 });

@@ -1,3 +1,5 @@
+import type { AppointmentNotifications, AppointmentProducts, NotificationRow } from '@/lib/appointments/extras';
+
 // Vista de citas para la pantalla. Los estados y sus transiciones deben coincidir con
 // public.change_appointment_status en la base, que es quien manda: esto solo decide qué botones mostrar.
 
@@ -80,6 +82,8 @@ export interface AppointmentRow {
     source?: string | null;
     sales?: { id: string; status: string; total_amount: number | string }[] | null;
     appointment_items?: AppointmentItemRow[] | null;
+    /** D3: veces que se abrió el enlace de WhatsApp (la RLS solo entrega las que el puesto puede ver). */
+    appointment_notifications?: NotificationRow[] | null;
 }
 
 export interface AppointmentItemRow {
@@ -101,7 +105,7 @@ export interface AppointmentServiceView {
 }
 
 /** Columnas que piden las rutas de citas (con sus servicios vigentes). */
-export const APPOINTMENT_COLUMNS = 'id, client_id, assigned_employee_id, customer_name, customer_phone, scheduled_start_at, scheduled_end_at, status, notes, created_at, source, clients(id, full_name), employees(id, display_name), sales(id, status, total_amount), appointment_items(id, service_id, price_snapshot, duration_snapshot_minutes, position, removed_at, services(name))';
+export const APPOINTMENT_COLUMNS = 'id, client_id, assigned_employee_id, customer_name, customer_phone, scheduled_start_at, scheduled_end_at, status, notes, created_at, source, clients(id, full_name), employees(id, display_name), sales(id, status, total_amount), appointment_items(id, service_id, price_snapshot, duration_snapshot_minutes, position, removed_at, services(name)), appointment_notifications(kind, created_at, created_by)';
 
 export interface AppointmentView {
     id: string;
@@ -124,6 +128,10 @@ export interface AppointmentView {
     sale: { id: string; total: number } | null;
     /** Servicios vigentes de la cita en el orden en que se eligieron (vacío en citas anteriores a C2). */
     services: AppointmentServiceView[];
+    /** D3: último mensaje de WhatsApp abierto por tipo (lo agregan las rutas; "abierto" no es "entregado"). */
+    notifications?: AppointmentNotifications;
+    /** Productos propuestos para la cita, con vendedor y existencias (lo agregan las rutas). */
+    products?: AppointmentProducts;
 }
 
 export function toAppointmentView(row: AppointmentRow): AppointmentView {

@@ -6,6 +6,7 @@ import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { APPOINTMENT_COLUMNS, toAppointmentView, type AppointmentRow } from '@/lib/appointments/appointments-view';
 import { bookingSlotError } from '@/lib/appointments/calendar-grid';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { withAppointmentExtras, type ExtrasClient } from '@/lib/appointments/extras';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,13 +35,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const id = IdSchema.safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Cita no encontrada.', 404);
-        const { data, error } = await (await createSupabaseServerClient()).from('appointments').select(COLUMNS)
+        const db = await createSupabaseServerClient();
+        const { data, error } = await db.from('appointments').select(COLUMNS)
             .eq('business_id', context.businessId).eq('branch_id', context.branchId).eq('id', id.data).maybeSingle();
         if (error) throw error;
         if (!data) throw new AuthorizationError('Cita no encontrada.', 404);
         // Defensa extra: si algún día se abre esta ruta a más puestos, el barbero seguiría sin recibir el teléfono.
-        const view = toAppointmentView(data as unknown as AppointmentRow);
-        return Response.json(canSeeClientPhones(context.role) ? view : { ...view, customer_phone: null }, { headers: NO_STORE });
+        const row = data as unknown as AppointmentRow;
+        const view = toAppointmentView(row);
+        // `products` (lo que el cobro precarga, con su vendedor) y `notifications` (último WhatsApp abierto por tipo).
+        const [full] = await withAppointmentExtras(db as unknown as ExtrasClient, context,
+            [canSeeClientPhones(context.role) ? view : { ...view, customer_phone: null }],
+            new Map([[row.id, row.appointment_notifications ?? []]]));
+        return Response.json(full, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);
     }

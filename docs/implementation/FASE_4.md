@@ -499,6 +499,21 @@ Anotar aquí cada problema real: fecha, quién, pantalla, qué pasó, estado.
 
 **Práctica (base de desarrollo):** las cuentas alonso, dago, deya y sonia quedaron con `must_change_pin = true` y un PIN que nadie conoce; el dueño fija el suyo con `scripts/emergency-reset-pin.sql` en `sonblade-dev` y restablece los demás desde Equipo. Hay datos de ensayo "Prueba …" que no se borran (regla de no borrar dinero).
 
+## 8c. D1, D3 y productos en la cita — base y API (20 nov; SOLO en desarrollo, sin pantallas)
+
+Migraciones aplicadas en `sonblade-dev` (md5 igual al archivo); **no** replicadas a producción. Orden al publicar: primero la base (las tres), después el código.
+
+| Versión | Qué hace | Prueba SQL |
+|---|---|---|
+| `20261120080000_booking_settings` | `get_booking_settings` (dueño y gerencia) y `set_booking_settings` (solo cuenta principal, con PIN). Un UPDATE directo a `businesses.settings->'booking'` y `update_business_profile` ya no pueden cambiar `booking` | `booking_settings.test.sql` |
+| `20261120081000_appointment_notifications` | Tabla de solo altas: "se abrió el enlace de WhatsApp" (no confirma envío ni entrega). `record_appointment_notification` (dueño, gerencia, recepción) | `appointment_notifications.test.sql` |
+| `20261120082000_appointment_products` | Productos propuestos en una cita abierta, con **vendedor** (por omisión el barbero de la cita) y **quién capturó**. Sin precio, inventario ni comisión: el cobro los precarga y `confirm_sale` (sin cambios) los registra | `appointment_products.test.sql` |
+
+- API: `GET/PUT /api/booking-settings`, `POST /api/appointments/[id]/notifications`, `GET/POST /api/appointments/[id]/products`, `PATCH/DELETE /api/appointments/[id]/products/[lineId]`, `GET /api/appointments?recordatorios=manana`. Las lecturas de citas traen `notifications` y `products`.
+- La comisión de producto ya se apuntaba por partida (`sale_items.commission_employee_id`, 20 % de la tasa general) y recepción ya cobra comisión y aparece en el pago semanal: no se tocó ninguna función de dinero.
+- El enlace con token de la reserva en línea **no** va en los mensajes: el token solo se guarda como huella (sha256) y no se puede reconstruir.
+- Falta: pantallas (agenda: botón de WhatsApp, recordatorios de mañana, agregar producto; Configuración: interruptor de reservas).
+
 ## 9. Preguntas abiertas para el dueño (resumen)
 
 1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).

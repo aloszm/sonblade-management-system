@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Appointment, Barber, Service, Product, Client } from '@/types';
+import { appointmentCartLines, productLineSeller, type PreloadSkip } from '@/lib/pos/appointment-preload';
 
 export interface CartItem {
     id: string;
@@ -15,6 +16,13 @@ export interface CartItem {
     variable_price?: boolean;
     /** Lo que se escribió en el campo de precio (solo precio libre). */
     price_input?: string;
+    /**
+     * Vendedor propio de la partida de producto (precargado desde la cita): gana la comisión de producto.
+     * Sin él, la partida usa el vendedor general del cobro (productSeller).
+     */
+    seller_id?: string;
+    /** Nombre visible del vendedor propio (para mostrarlo en la partida). */
+    seller_name?: string;
 }
 
 export type PosErrorField = 'barber' | 'seller' | 'discount' | 'split' | 'cart' | 'payment' | 'server' | 'variable_price';
@@ -118,24 +126,20 @@ export function usePOS() {
         }
     }, [appointment, barbers, clients]);
 
-    // Los servicios de la cita ya vienen en la venta (una sola vez, y solo si el carrito está vacío).
+    // Los servicios y productos de la cita ya vienen en la venta (una sola vez, y solo si el carrito está vacío).
+    // Cada producto llega con su vendedor (lib/pos/appointment-preload.ts). Se espera el catálogo de productos
+    // si la cita trae productos, para usar precio y existencias vigentes.
     const preloadedFor = useRef<string | null>(null);
+    const [preloadSkipped, setPreloadSkipped] = useState<PreloadSkip[]>([]);
     useEffect(() => {
         if (!appointment || !services || preloadedFor.current === appointment.id) return;
+        if ((appointment.products?.lines.length ?? 0) > 0 && !products) return;
         preloadedFor.current = appointment.id;
-        const lines = (appointment.services ?? [])
-            .map((line) => services.find((s) => s.id === line.service_id))
-            .filter((s): s is Service => Boolean(s));
-        if (lines.length === 0) return;
-        setCart((prev) => prev.length > 0 ? prev : lines.map((service) => {
-            const free = Boolean(service.variable_price);
-            return {
-                id: free ? `s-${service.id}-${++freeLineCounter}` : `s-${service.id}`,
-                name: service.name, price: free ? 0 : service.price, type: 'service' as const, quantity: 1, service_id: service.id,
-                ...(free ? { variable_price: true, price_input: '' } : {}),
-            };
-        }));
-    }, [appointment, services]);
+        const { items, skipped } = appointmentCartLines(appointment, services, products, (id) => `s-${id}-${++freeLineCounter}`);
+        setPreloadSkipped(skipped);
+        if (items.length === 0) return;
+        setCart((prev) => prev.length > 0 ? prev : items);
+    }, [appointment, services, products]);
 
     // B3: al elegir barbero sin venir de una cita, se ofrecen sus citas abiertas de hoy para no duplicarlas.
     const [openAppointments, setOpenAppointments] = useState<Appointment[]>([]);
@@ -408,7 +412,9 @@ export function usePOS() {
         const hasServices = cart.some(i => i.type === 'service');
         const hasProducts = cart.some(i => i.type === 'product');
         if ((hasServices || tip > 0) && !selectedBarber) return fail('barber', 'Selecciona al barbero que hizo el servicio.');
-        if (hasProducts && !productSeller) return fail('seller', 'Indica quién vendió el producto.');
+        // Las partidas precargadas de la cita traen su propio vendedor; las demás usan el vendedor del cobro.
+        const needsSeller = cart.some(i => i.type === 'product' && !i.seller_id);
+        if (hasProducts && needsSeller && !productSeller) return fail('seller', 'Indica quién vendió el producto.');
         if (discountTotal > 0 && discountReason.trim().length < 3) return fail('discount', 'Escribe el motivo del descuento.');
         if (discountTotal > 0 && !discountAuthorizer) return fail('discount', 'Indica quién autoriza el descuento.');
         if (saleTotal <= 0) return fail('discount', 'El descuento no puede cubrir toda la venta.');
@@ -442,7 +448,7 @@ export function usePOS() {
                     client_id: selectedClient?.id || null,
                     items: cart.map(item => item.type === 'service'
                         ? { item_type: 'service', catalog_id: item.service_id, quantity: item.quantity, employee_id: selectedBarber?.id, discount_amount: lineDiscount(item), ...(item.variable_price ? { unit_price: item.price } : {}) }
-                        : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [productSeller], discount_amount: lineDiscount(item) }),
+                        : { item_type: 'product', catalog_id: item.product_id, quantity: item.quantity, commission_employee_ids: [productLineSeller(item, productSeller)], discount_amount: lineDiscount(item) }),
                     payments,
                     ...(discountTotal > 0 ? { discount_reason: discountReason.trim(), discount_authorized_by: discountAuthorizer, discount_pin: discountPin } : {}),
                     tips: tip > 0 && selectedBarber ? [{ employee_id: selectedBarber.id, amount: tip, method: tipPayment }] : [],
@@ -475,6 +481,7 @@ export function usePOS() {
             setProductSellerChoice('');
             setWalkInFor(null);
             if (appointment) clearAppointment();
+            setPreloadSkipped([]);
             setLastSaleTotal(total);
             setLastSale({ id: saved?.sale_id ?? null, saleTotal, tip: selectedBarber ? tip : 0, total: selectedBarber ? total : saleTotal, barberName: selectedBarber?.name ?? null });
             // La confirmación se queda en pantalla hasta que recepción empieza otra venta.
@@ -521,7 +528,7 @@ export function usePOS() {
             loadingBarbers, loadingServices, userRole, visibleBarbers, filteredBarbers, clients,
             filteredClients, filteredServices, filteredProducts, serviceItems, productItems, subtotal, total,
             discountTotal, saleTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, discountPinOpen, userId,
-            appointment, appointmentError, appointmentSuggestions
+            appointment, appointmentError, appointmentSuggestions, preloadSkipped
         },
         actions: {
             setSelectedBarber: chooseBarber, setSelectedClient, setServicePayment: chooseServicePayment, setTipPayment: chooseTipPayment, setProductPayment: chooseProductPayment, setTip,
