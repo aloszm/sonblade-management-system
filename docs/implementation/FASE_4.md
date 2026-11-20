@@ -533,6 +533,18 @@ Migración `20261120090000_daily_wages` (md5 `37f2f55375bcab97fc69d3c637810c84`,
 - **Pruebas SQL:** las 23 de `supabase/tests/` pasan en simulacro (`begin; <prueba>; rollback;`) sin pasos previos. Los fallos reportados eran de datos de desarrollo, no de la base: todas las cuentas de desarrollo tienen `must_change_pin = true` y `has_business_role` las rechaza ("Cash permission denied"); categorías y gastos agregados por la práctica; metas de bono apagadas de las pruebas de navegador; el correo de contacto del negocio en `businesses.settings`. Cada prueba prepara ahora su estado dentro de la transacción.
 - **Lectura de dinero del personal** (`staff_money_read_scope.test.sql`, comprobado con lecturas reales bajo RLS): dueño, gerencia y consulta leen todo lo de su sucursal; barbero solo lo propio; recepción solo lo propio en recibos, libro del empleado, sueldos, faltas y metas, **pero lee comisiones (`commission_entries`) y propinas (`sale_tips`) de toda la sucursal**. No se restringió: "Barberos hoy" (`/api/team-summary`, `lib/team/load.ts`, en el menú de recepción) las lee con la sesión del usuario para mostrar comisión y propina de cada persona. Para restringirlo, primero esa pantalla debe pasar a una función de la base que devuelva solo lo que recepción deba ver (decisión del dueño: ¿recepción debe ver lo que gana cada barbero?).
 
+## 8f. Publicado el 20 nov 2026 por la tarde (`d34d610`, 89 migraciones en ambas bases)
+
+- **Interruptor de reservas** (Configuración › Reservas en línea; solo la cuenta principal, con PIN). Ya no se cambia por SQL.
+- **WhatsApp de un clic** desde la cita (confirmación y recordatorio) y lista "Recordatorios de mañana". Sin API de Meta; el sistema anota que se abrió el enlace, no la entrega. El mensaje no lleva el enlace de cancelación (el token solo se guarda como huella).
+- **Productos en la cita** con vendedor: por omisión el barbero de la cita; recepción elige entre ese barbero y su propio nombre; 20 % al vendedor. No mueve dinero ni inventario hasta cobrar.
+- **Sueldo por día** (Dago lunes a viernes, Emi sábado y domingo, $320; cargados en producción por SQL con bitácora, vigentes desde el 15 nov 2026). Faltas y días extra con PIN de gerencia o cuenta principal. Entra al recibo semanal y se resta en la utilidad como "Sueldos", devengado por día.
+- Verificado tras publicar: despliegues READY, `/api/health` con `ok` en los cuatro dominios, rutas internas piden sesión.
+
+**Sin probar:** abrir WhatsApp desde un teléfono real; Safari/iPhone; pagar en navegador una semana con sueldo (sí en prueba SQL); la suite completa de navegador no se repitió tras las últimas correcciones (sí los archivos que fallaron).
+
+**Decisión pendiente del dueño:** recepción lee en la base las comisiones y propinas de toda la sucursal porque "Barberos hoy" las muestra; para restringirlo hay que mover esa pantalla a una función de base.
+
 ## 9. Preguntas abiertas para el dueño (resumen)
 
 1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).
