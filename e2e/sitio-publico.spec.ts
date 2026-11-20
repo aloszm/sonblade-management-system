@@ -64,20 +64,19 @@ test.describe('página pública /inicio (todo junto)', () => {
         await context.close();
     });
 
-    test('/reservar?barbero=<nombre> preselecciona al barbero (sin acentos ni mayúsculas) y un nombre inexistente se ignora', async ({ page }) => {
+    test('/reservar?barbero=<nombre> salta el paso del barbero (sin acentos ni mayúsculas) y un nombre inexistente se ignora', async ({ page }) => {
         await page.goto('/reservar?barbero=DEYA', { waitUntil: 'networkidle' });
-        const first = page.locator('label', { hasText: /^Corte adulto/ });
+        const first = page.getByRole('radio', { name: /^Corte adulto/ });
         test.skip(!(await first.count()), 'Reservas en línea apagadas en este entorno.');
-        await first.click();
-        await page.getByRole('button', { name: /Continuar/ }).click();
-        await expect(page.getByText(/Vienes del enlace de/)).toContainText('Deya');
-        await page.getByRole('button', { name: /Elegir barbero/ }).click();
-        await expect(page.getByRole('button', { name: /Ver días de Deya/ })).toBeEnabled();
+        await first.click({ force: true });
+        await expect(page.getByRole('heading', { name: '¿Cuándo?' })).toBeVisible();
+        await expect(page.getByText(/Con Deya/)).toBeVisible();
+        await page.getByRole('button', { name: 'cambiar' }).click();
+        await expect(page.getByRole('radio', { name: 'Deya' })).toBeChecked();
 
         await page.goto('/reservar?barbero=nadie-existe', { waitUntil: 'networkidle' });
-        await page.locator('label', { hasText: /^Corte adulto/ }).click();
-        await page.getByRole('button', { name: /Continuar/ }).click();
-        await expect(page.getByText(/Vienes del enlace de/)).toHaveCount(0);
+        await page.getByRole('radio', { name: /^Corte adulto/ }).click({ force: true });
+        await expect(page.getByRole('heading', { name: '¿Con quién?' })).toBeVisible();
     });
 
     test('robots y sitemap en "todo junto": no se indexa', async ({ request }) => {

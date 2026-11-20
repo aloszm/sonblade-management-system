@@ -22,48 +22,49 @@ test.describe('público', () => {
         await expect(page).toHaveURL(/\/privacidad$/);
     });
 
-    test('reserva completa: servicio, horario, datos, confirmación y cancelación por el enlace', async ({ page }) => {
+    test('reserva completa: servicio, barbero, día y hora, datos, confirmación y cancelación por el enlace', async ({ page }) => {
         await page.goto('/reservar', { waitUntil: 'networkidle' });
-        await expect(page.getByText('Paso 1 de 4 · Servicio')).toBeVisible();
+        await expect(page.getByRole('heading', { name: '¿Qué te hacemos?' })).toBeVisible();
+        await expect(page.getByText('Paso 1 de 4')).toBeVisible();
 
-        await page.locator('label', { hasText: /^Corte adulto/ }).click();
-        await page.getByRole('button', { name: /Continuar/ }).click();
-        await page.getByRole('button', { name: /Elegir horario/ }).click();
+        // Tocar una opción la elige y avanza (sin botón "Continuar").
+        await page.getByRole('radio', { name: /^Corte adulto/ }).click({ force: true });
+        await expect(page.getByRole('heading', { name: '¿Con quién?' })).toBeVisible();
+        await page.getByRole('radio', { name: /Cualquier barbero disponible/ }).click({ force: true });
+        await expect(page.getByRole('heading', { name: '¿Cuándo?' })).toBeVisible();
 
-        // El último día con horarios del mes visible y su última hora: lejos de las citas de la agenda real.
-        const days = page.getByRole('button', { name: /con horarios/ });
-        await expect(days.first()).toBeVisible();
-        await days.last().click();
-        const slots = page.locator('label:has(input[name="slot"])');
-        await expect(slots.first()).toBeVisible();
-        await slots.last().click();
-        // "Cualquier barbero" o el primero libre.
-        const barbers = page.getByRole('group', { name: /Libres a las/ }).locator('label');
-        if (await barbers.count()) await barbers.first().click();
-        await page.getByRole('button', { name: /^Continuar · / }).click();
+        // El último día con horas de la tira y su última hora: lejos de las citas de la agenda real.
+        const days = page.locator('input[name="day"]:not([disabled])');
+        await expect(days.first()).toBeAttached();
+        await days.last().click({ force: true });
+        const slots = page.locator('input[name="slot"]');
+        await expect(slots.first()).toBeAttached();
+        await slots.last().click({ force: true });
 
-        await expect(page.getByText(/Paso 3 de 4/)).toBeVisible();
+        await expect(page.getByRole('heading', { name: '¿A nombre de quién?' })).toBeVisible();
+        await expect(page.getByText('Paso 4 de 4')).toBeVisible();
         // Sin aceptar el aviso y sin datos no deja reservar y lo dice junto al campo.
-        await page.getByRole('button', { name: 'Confirmar reserva' }).click();
+        await page.getByRole('button', { name: 'Confirmar cita' }).click();
         await expect(page.locator('#bk-name-err')).toBeVisible();
         await page.locator('#bk-name').fill('Prueba Reserva');
         await page.locator('#bk-phone').fill('5550001111');
-        await page.getByRole('button', { name: 'Confirmar reserva' }).click();
+        await page.getByRole('button', { name: 'Confirmar cita' }).click();
         await expect(page.locator('#bk-accept-err')).toBeVisible();
         await page.getByRole('checkbox').check();
-        await page.getByRole('button', { name: 'Confirmar reserva' }).click();
+        await page.getByRole('button', { name: 'Confirmar cita' }).click();
 
-        await expect(page.getByRole('heading', { name: 'Listo, quedó tu reserva' })).toBeVisible({ timeout: 30_000 });
-        await expect(page.getByText('Te esperamos, Prueba Reserva.')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Listo, te esperamos' })).toBeVisible({ timeout: 30_000 });
+        await expect(page.getByText('Tu cita quedó a nombre de Prueba Reserva.')).toBeVisible();
+        await expect(page.getByRole('link', { name: /Enviarme esto por WhatsApp/ })).toHaveAttribute('href', /^https:\/\/wa\.me\/\?text=/);
         await expect(page.getByTestId('practice-banner')).toBeVisible();
 
         // El enlace personal lleva a la reserva, donde se cancela.
-        await page.getByRole('link', { name: 'Ver o cancelar mi reserva' }).click();
+        await page.getByRole('link', { name: 'Ver o cancelar mi cita' }).click();
         await expect(page).toHaveURL(/\/reservar\/[^/]+$/);
         await expect(page.getByRole('region', { name: 'Mi reserva' })).toContainText('Corte adulto');
-        await page.getByRole('button', { name: 'Cancelar mi reserva' }).click();
-        await page.getByRole('group', { name: 'Confirmar cancelación' }).getByRole('button').first().click();
+        await page.getByRole('button', { name: 'Cancelar mi cita' }).click();
+        await page.getByRole('group', { name: '¿Seguro que quieres cancelar?' }).getByRole('button').first().click();
         await expect(page.getByText(/cancelad/i).first()).toBeVisible({ timeout: 20_000 });
-        await expect(page.getByRole('button', { name: 'Cancelar mi reserva' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Cancelar mi cita' })).toHaveCount(0);
     });
 });

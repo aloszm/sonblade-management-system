@@ -10,3 +10,10 @@ export const phoneHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}
 
 export const mapsUrl = (address: string) =>
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+
+/** WhatsApp de la barbería (número de México de 10 dígitos) con un mensaje prellenado. */
+export const businessWhatsappHref = (phone: string, message = 'Hola, quiero agendar una cita en Gallo 4:20.') =>
+    `https://wa.me/52${phone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(message)}`;
+
+/** WhatsApp sin destinatario: el cliente elige a quién mandarlo (por ejemplo, a sí mismo). No envía nada por su cuenta. */
+export const shareWhatsappHref = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;

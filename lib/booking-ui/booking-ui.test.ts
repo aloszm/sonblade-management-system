@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration, formatInstantInBusiness, formatPhone10, formatPrice, groupByCategory } from './format';
+import {
+    cancelHoursBefore, dayPartOf, dayRange, formatDayShort, formatDuration, formatInstantInBusiness, formatPhone10, formatPrice, formatWhen,
+    groupByCategory, groupByDayPart, nextAvailableDay,
+} from './format';
+import { businessWhatsappHref, shareWhatsappHref } from './business';
 import { buildIcs, escapeIcsText, foldLine, localStamp } from './ics';
 import { formatWait, mapApiError, parseRetryAfter } from './errors';
 import { validateName, validatePhone } from './validation';
@@ -93,5 +97,37 @@ describe('errores', () => {
 describe('aviso de privacidad', () => {
     it('no deja campos por completar a la vista', () => {
         for (const s of PRIVACY_SECTIONS) expect(`${s.title} ${s.paragraphs.join(' ')} ${(s.items ?? []).join(' ')}`).not.toMatch(/POR COMPLETAR|\[|\]/);
+    });
+});
+
+describe('formato de la reserva rediseñada', () => {
+    it('día corto y cuándo: "jue 26 nov · 5:30 p. m."', () => {
+        expect(formatDayShort('2026-11-26')).toBe('jue 26 nov');
+        expect(formatWhen('2026-11-26', '5:30 p. m.')).toBe('jue 26 nov · 5:30 p. m.');
+    });
+    it('partes del día', () => {
+        expect(dayPartOf('11:30')).toBe('Mañana');
+        expect(dayPartOf('12:00')).toBe('Tarde');
+        expect(dayPartOf('18:30')).toBe('Tarde');
+        expect(dayPartOf('19:00')).toBe('Noche');
+        const g = groupByDayPart([{ time: '10:00' }, { time: '13:00' }, { time: '19:30' }, { time: '14:00' }]);
+        expect(g.map((x) => [x.part, x.slots.length])).toEqual([['Mañana', 1], ['Tarde', 2], ['Noche', 1]]);
+        expect(groupByDayPart([{ time: '17:00' }]).map((x) => x.part)).toEqual(['Tarde']);
+    });
+    it('siguiente día con horas y rango de días', () => {
+        const days = [{ date: '2026-11-20', available: true }, { date: '2026-11-21', available: false }, { date: '2026-11-22', available: true }];
+        expect(nextAvailableDay(days, '2026-11-20')).toBe('2026-11-22');
+        expect(nextAvailableDay(days, '2026-11-22')).toBeNull();
+        const r = dayRange('2026-11-29', '2026-12-02');
+        expect(r).toEqual(['2026-11-29', '2026-11-30', '2026-12-01', '2026-12-02']);
+        expect(dayRange('x', '2026-12-02')).toEqual([]);
+    });
+    it('horas de anticipación para cancelar', () => {
+        expect(cancelHoursBefore('2026-11-26', '17:30', '2026-11-26T21:30:00.000Z')).toBe(2);
+        expect(cancelHoursBefore('2026-11-26', '17:30', 'no')).toBeNull();
+    });
+    it('enlaces de WhatsApp', () => {
+        expect(businessWhatsappHref('55 3309 8072', 'Hola')).toBe('https://wa.me/525533098072?text=Hola');
+        expect(shareWhatsappHref('a b\nc')).toBe('https://wa.me/?text=a%20b%0Ac');
     });
 });

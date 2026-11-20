@@ -1,0 +1,66 @@
+/* ───────────────────────── Reservas en línea (app/reservar) ─────────────────────────
+ * Todo con prefijo gr-. Hereda de la portada la serif (Playfair Display, variable --font-gi-serif),
+ * los filetes dorados y los numerales, pero más sobrio: aquí manda la claridad.
+ * El texto siempre va en --bos-text, --bos-muted o --bos-accent-text sobre --bos-bg o --bos-surface
+ * (≥ 4.5:1 en los dos temas). Los colores nuevos son solo líneas decorativas. */
+.gr-page {
+  --gr-line: color-mix(in srgb, var(--bos-accent) 30%, transparent);
+  --gr-line-strong: color-mix(in srgb, var(--bos-accent) 62%, transparent);
+  --gr-bar-bg: color-mix(in srgb, var(--bos-bg) 94%, transparent);
+}
+[data-theme='light'] .gr-page {
+  --gr-line: color-mix(in srgb, var(--bos-accent) 34%, transparent);
+  --gr-line-strong: color-mix(in srgb, var(--bos-accent) 70%, transparent);
+}
+
+.gr-serif {
+  font-family: var(--font-gi-serif), 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-feature-settings: 'lnum' 1;
+  letter-spacing: -0.005em;
+}
+/* Numerales de precio: serif, de altura completa y del mismo ancho (no bailan entre filas). */
+.gr-num {
+  font-family: var(--font-gi-serif), 'Playfair Display', Georgia, serif;
+  font-feature-settings: 'lnum' 1, 'tnum' 1;
+}
+.gr-caps { text-transform: uppercase; letter-spacing: .18em; font-size: .75rem; line-height: 1rem; font-weight: 600; }
+
+/* Filete dorado con rombo bajo el título de cada paso. */
+.gr-rule { display: flex; align-items: center; gap: .5rem; width: 7rem; color: var(--gr-line-strong); }
+.gr-rule::before, .gr-rule::after { content: ''; height: 1px; flex: 1; background: currentColor; }
+.gr-rule > i { width: .4rem; height: .4rem; transform: rotate(45deg); background: var(--bos-accent); flex: none; }
+
+/* Marco de doble filete (encabezado, tarjeta de la cita, pantallas sin reservas). */
+.gr-frame { position: relative; border: 1px solid var(--gr-line-strong); }
+.gr-frame::after { content: ''; position: absolute; inset: 4px; border: 1px solid var(--gr-line); border-radius: inherit; pointer-events: none; }
+.gr-hairline { border-color: var(--gr-line); }
+
+/* Barra inferior fija: resumen tocable y la acción principal, al alcance del pulgar. */
+.gr-bar {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+  padding: .625rem 1rem calc(.75rem + env(safe-area-inset-bottom));
+  background: var(--gr-bar-bg);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--gr-line);
+}
+.gr-bar-spacer { height: calc(9.5rem + env(safe-area-inset-bottom)); }
+
+/* Tira de días deslizable. "relative" para que los radios ocultos (absolutos) queden dentro y no ensanchen la página. */
+.gr-strip { position: relative; display: flex; gap: .5rem; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 1rem; scrollbar-width: none; padding: .25rem 1rem .5rem; margin-inline: -1rem; }
+.gr-strip::-webkit-scrollbar { display: none; }
+@media (min-width: 640px) { .gr-strip { margin-inline: 0; padding-inline: 0; scroll-padding-inline: 0; scroll-behavior: smooth; } }
+@media (prefers-reduced-motion: reduce) { .gr-strip { scroll-behavior: auto; } }
+.gr-strip > * { scroll-snap-align: start; flex: none; }
+.gr-chips { position: relative; display: flex; gap: .5rem; overflow-x: auto; scrollbar-width: none; margin-inline: -1rem; padding-inline: 1rem; }
+.gr-chips::-webkit-scrollbar { display: none; }
+.gr-chips > * { flex: none; }
+
+/* Días sin horas: apagados y con el número tachado, para no depender solo del color. */
+.gr-off .gr-daynum { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* Entrada de cada paso: 180 ms, solo opacidad y desplazamiento. Nada con "reducir movimiento". */
+@keyframes gr-step-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  /* Solo "backwards": al terminar no queda animación viva, que en Chrome volvería al paso el contenedor de la barra fija. */
+  .gr-step { animation: gr-step-in .18s cubic-bezier(.2, .7, .2, 1) backwards; }
+}

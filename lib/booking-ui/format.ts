@@ -55,6 +55,61 @@ export function formatInstantInBusiness(iso: string): string {
 /** Nombre y primera letra para el avatar. */
 export const initialOf = (name: string) => (name.trim()[0] ?? '?').toLocaleUpperCase('es-MX');
 
+/** 'jue 26 nov' (día de la barbería, como texto; no se convierte de zona). */
+export function formatDayShort(key: string): string {
+    const d = parseDay(key);
+    return d ? format(d, 'EEE d MMM', { locale: es }).replace(/\./g, '') : key;
+}
+
+/** 'jue 26 nov · 5:30 p. m.': la forma corta de una cita en toda la página de reservas. */
+export function formatWhen(date: string, label: string): string {
+    return `${formatDayShort(date)} · ${label}`;
+}
+
+/** Partes del día para agrupar las horas: antes de 12:00, de 12:00 a 18:30 y desde 19:00. */
+export type DayPart = 'Mañana' | 'Tarde' | 'Noche';
+export function dayPartOf(time: string): DayPart {
+    const h = Number(time.slice(0, 2));
+    return h < 12 ? 'Mañana' : h < 19 ? 'Tarde' : 'Noche';
+}
+
+/** Agrupa las horas (ya ordenadas) por parte del día; solo devuelve los grupos con horas. */
+export function groupByDayPart<T extends { time: string }>(slots: readonly T[]): { part: DayPart; slots: T[] }[] {
+    const out: { part: DayPart; slots: T[] }[] = [];
+    for (const s of slots) {
+        const part = dayPartOf(s.time);
+        let g = out.find((x) => x.part === part);
+        if (!g) { g = { part, slots: [] }; out.push(g); }
+        g.slots.push(s);
+    }
+    return out;
+}
+
+/** Primer día con horas después de `after` (sin incluirlo); null si no hay. */
+export function nextAvailableDay(days: readonly { date: string; available: boolean }[], after: string): string | null {
+    return days.find((d) => d.available && d.date > after)?.date ?? null;
+}
+
+/** Días 'AAAA-MM-DD' de `from` a `to`, ambos incluidos (máximo 62, por si llegan datos raros). */
+export function dayRange(from: string, to: string): string[] {
+    const start = parseDay(from), end = parseDay(to);
+    if (!start || !end) return [];
+    const out: string[] = [];
+    for (const d = new Date(start); d <= end && out.length < 62; d.setDate(d.getDate() + 1)) {
+        out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+    return out;
+}
+
+/** Horas de anticipación para cancelar, a partir de la hora de la cita y de `cancel_until` (CDMX no tiene horario de verano). */
+export function cancelHoursBefore(date: string, time: string, cancelUntilIso: string): number | null {
+    const start = Date.parse(`${date}T${time}:00-06:00`);
+    const until = Date.parse(cancelUntilIso);
+    if (!Number.isFinite(start) || !Number.isFinite(until)) return null;
+    const h = Math.round((start - until) / 3_600_000);
+    return h > 0 ? h : null;
+}
+
 /** '5533098072' -> '55 3309 8072'. */
 export function formatPhone10(digits: string): string {
     return digits.length === 10 ? `${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}` : digits;
