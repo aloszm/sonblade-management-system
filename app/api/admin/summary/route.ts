@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         const range = summaryRange(period, businessDayKey(new Date().toISOString(), timezone));
         const window = businessDayRange(range.from, range.to, timezone);
         const [profit, report] = await Promise.all([
-            loadProfitReport(client, { businessId: context.businessId, branchId: context.branchId }, range),
+            loadProfitReport(client, { businessId: context.businessId, branchId: context.branchId }, range, { timezone }),
             fetchBusinessReport(supabase, context.branchId, period, null, window),
         ]);
         const summary = toAdminSummary(report);

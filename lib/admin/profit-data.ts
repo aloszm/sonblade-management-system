@@ -93,14 +93,22 @@ async function loadStatement(
     return computeProfit({ sales, items, commissions, tips, payments, products, expenses, employees, period: { ...period, timezone } });
 }
 
+/**
+ * Utilidad del periodo y del anterior. Si quien llama ya leyó la zona horaria del negocio, la pasa en
+ * `options.timezone` y no se vuelve a pedir; la zona y los empleados se leen en paralelo (menos viajes en serie
+ * a la base: cada viaje cuenta cuando varias pantallas cargan a la vez).
+ */
 export async function loadProfitReport(
     supabase: SupabaseClient,
     scope: { businessId: string; branchId: string },
     period: { from: string; to: string },
+    options: { timezone?: string } = {},
 ): Promise<ProfitReport> {
-    const timezone = await loadBusinessTimezone(supabase, scope.businessId);
-    const employees = await fetchAll<EmployeeRow>(() => supabase.from('employees')
-        .select('id, display_name').eq('business_id', scope.businessId).order('id'));
+    const [timezone, employees] = await Promise.all([
+        options.timezone ?? loadBusinessTimezone(supabase, scope.businessId),
+        fetchAll<EmployeeRow>(() => supabase.from('employees')
+            .select('id, display_name').eq('business_id', scope.businessId).order('id')),
+    ]);
     const previous = previousPeriod(period.from, period.to);
     const [current, before] = await Promise.all([
         loadStatement(supabase, scope, period, timezone, employees),
