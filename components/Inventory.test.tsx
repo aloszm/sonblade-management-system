@@ -16,8 +16,11 @@ import Inventory from './Inventory';
 
 const PRODUCT = { id: 'p1', name: 'Cera mate', sku: 'CER-1', category: 'Ceras', stock: 4, min_stock: 2, price: 180, status: 'ok', created_at: '', updated_at: '' };
 
-function mockApi(user: Record<string, unknown>, opts: { receive?: { status: number; body: unknown } } = {}) {
+const productPosts: unknown[] = [];
+
+function mockApi(user: Record<string, unknown>, opts: { receive?: { status: number; body: unknown }; cost?: number } = {}) {
     const bodies: unknown[] = [];
+    productPosts.length = 0;
     let stock = PRODUCT.stock;
     const json = (body: unknown, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -30,8 +33,13 @@ function mockApi(user: Record<string, unknown>, opts: { receive?: { status: numb
             return json(r.body, r.status);
         }
         if (url.includes('/api/products/stats')) return json({ total: 1, lowStock: 0, outOfStock: 0, totalValue: 720 });
+        if (url.includes('/api/products') && init?.method === 'POST') {
+            productPosts.push(JSON.parse(String(init.body)));
+            return json({ id: 'p2' }, 201);
+        }
         if (url.includes('/api/products')) {
-            const product = user.role === 'recepcion' ? { ...PRODUCT, stock } : { ...PRODUCT, stock, cost: 80 };
+            // A recepción la API no le manda el costo (ni el campo).
+            const product = user.role === 'recepcion' ? { ...PRODUCT, stock } : { ...PRODUCT, stock, cost: opts.cost ?? 80 };
             return json([product]);
         }
         return json([]);
@@ -114,5 +122,56 @@ describe('Inventario para gerencia y consulta', () => {
         await waitFor(() => expect(screen.getByText('Costo:')).toBeInTheDocument());
         expect(screen.queryByRole('button', { name: 'Registrar entrada de Cera mate' })).toBeNull();
         expect(screen.queryByRole('button', { name: 'Editar Cera mate' })).toBeNull();
+    });
+});
+
+describe('Costo obligatorio del producto', () => {
+    it('gerencia: aviso de productos sin costo con acceso directo a capturarlo', async () => {
+        mockApi(MANAGER, { cost: 0 });
+        render(<Inventory />);
+        const alert = await screen.findByTestId('inventory-missing-cost');
+        expect(alert).toHaveTextContent('1 producto sin costo: la utilidad no es confiable hasta capturarlo.');
+        expect(alert).toHaveTextContent('Cera mate');
+        fireEvent.click(within(alert).getByRole('button', { name: 'Capturar costo' }));
+        expect(await screen.findByRole('heading', { name: 'Editar producto' })).toBeInTheDocument();
+        expect(screen.getByLabelText('Precio costo *')).toHaveValue(null);
+        expect(screen.getByText('Lo que te cuesta a ti cada pieza; se usa para calcular la utilidad.')).toBeInTheDocument();
+    });
+    it('consulta ve el aviso pero no el botón de capturar', async () => {
+        mockApi(VIEWER, { cost: 0 });
+        render(<Inventory />);
+        const alert = await screen.findByTestId('inventory-missing-cost');
+        expect(within(alert).queryByRole('button', { name: /Capturar costo/ })).toBeNull();
+        expect(within(alert).getByRole('button', { name: 'Ver cuáles' })).toBeInTheDocument();
+    });
+    it('recepción no ve nada del costo ni el aviso', async () => {
+        mockApi(RECEPTION, { cost: 0 });
+        render(<Inventory />);
+        expect(await screen.findByRole('button', { name: 'Registrar entrada de Cera mate' })).toBeInTheDocument();
+        expect(screen.queryByTestId('inventory-missing-cost')).toBeNull();
+        expect(screen.queryByText(/sin costo/i)).toBeNull();
+    });
+    it('con todos los costos capturados no hay aviso', async () => {
+        mockApi(MANAGER);
+        render(<Inventory />);
+        expect(await screen.findByRole('button', { name: 'Editar Cera mate' })).toBeInTheDocument();
+        expect(screen.queryByTestId('inventory-missing-cost')).toBeNull();
+    });
+    it('alta: sin costo no se manda; con costo sí', async () => {
+        mockApi(MANAGER);
+        render(<Inventory />);
+        fireEvent.click(await screen.findByRole('button', { name: /Agregar producto/ }));
+        fireEvent.change(screen.getByLabelText('Nombre del producto *'), { target: { value: 'Pomada nueva' } });
+        fireEvent.change(screen.getByLabelText('SKU (código) *'), { target: { value: 'POM-9' } });
+        fireEvent.change(screen.getByLabelText('Precio venta *'), { target: { value: '200' } });
+        fireEvent.click(screen.getByRole('button', { name: /Guardar producto/ }));
+        expect(await screen.findByText('Captura el costo del producto antes de activarlo.')).toBeInTheDocument();
+        expect(productPosts).toHaveLength(0);
+
+        fireEvent.change(screen.getByLabelText('Precio costo *'), { target: { value: '85.5' } });
+        expect(screen.queryByText('Captura el costo del producto antes de activarlo.')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: /Guardar producto/ }));
+        await waitFor(() => expect(productPosts).toHaveLength(1));
+        expect(productPosts[0]).toMatchObject({ name: 'Pomada nueva', sku: 'POM-9', cost: 85.5, price: 200 });
     });
 });

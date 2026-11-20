@@ -110,7 +110,20 @@ describe('buildSaleBreakdown: descuento', () => {
         expect(l.baseNote).toContain('$10.00');
         expect(b.shop?.keeps).toBe(65); // 140 − 75
     });
-    it('producto: la comisión va sobre el precio con descuento y se avisa que no es el de lista', () => {
+    it('producto (venta nueva): la comisión va sobre el precio de lista, igual que el servicio', () => {
+        const b = buildSaleBreakdown({
+            sale: sale({ total_amount: 160 }),
+            items: [item({ id: 'i2', item_type: 'product', item_name_snapshot: 'Pomada', unit_price: 180, discount_amount: 20, line_total: 160, employee_id: null, commission_employee_id: 'dani', unit_cost_snapshot: 45 })],
+            commissions: [commission({ sale_item_id: 'i2', employee_id: 'dani', basis: 'price_before_discount', basis_amount: 180, percentage_snapshot: 20, commission_amount: 36 })],
+            tips: [], payments: [{ method: 'cash', amount: 160, status: 'confirmed' }], names: NAMES,
+        }, 'full');
+        expect(b.lines[0]).toMatchObject({ base: 180, listAmount: 180, discount: 20, discounted: true, commission: 36 });
+        expect(b.lines[0].baseNote).toContain('Base sin descuento');
+        expect(b.lines[0].baseNote).toContain('$180.00');
+        expect(b.lines[0].baseNote).toContain('$20.00');
+        expect(b.shop?.keeps).toBe(79); // 160 − 36 − 45: el descuento lo absorbe la barbería
+    });
+    it('producto (venta anterior al cambio): muestra la base con descuento que quedó guardada, no la regla nueva', () => {
         const b = buildSaleBreakdown({
             sale: sale({ total_amount: 160 }),
             items: [item({ id: 'i2', item_type: 'product', item_name_snapshot: 'Pomada', unit_price: 180, discount_amount: 20, line_total: 160, employee_id: null, commission_employee_id: 'dani', unit_cost_snapshot: 45 })],
@@ -120,6 +133,7 @@ describe('buildSaleBreakdown: descuento', () => {
         expect(b.lines[0]).toMatchObject({ base: 160, listAmount: 180, discount: 20, discounted: true });
         expect(b.lines[0].baseNote).toContain('Base con descuento');
         expect(b.lines[0].baseNote).toContain('$180.00');
+        expect(b.lines[0].baseNote).toContain('las ventas nuevas usan el precio de lista');
         expect(b.shop?.keeps).toBe(83); // 160 − 32 − 45
     });
 });

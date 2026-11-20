@@ -82,3 +82,25 @@ export async function loadProducts(supabase: SupabaseClient, businessId: string,
     for (const row of (inventory ?? []) as unknown as InventoryRow[]) byProduct.set(row.product_id, row);
     return ((products ?? []) as unknown as ProductRow[]).map((p) => toProductView({ ...p, cost_price: costByProduct.get(p.id) ?? null }, byProduct.get(p.id)));
 }
+
+// Costo obligatorio (20261120120000_products_require_cost): la base rechaza un producto activo sin costo mayor que
+// cero. Los mismos textos se usan en la pantalla y en la validación del servidor.
+export const PRODUCT_COST_HELP = 'Lo que te cuesta a ti cada pieza; se usa para calcular la utilidad.';
+export const PRODUCT_COST_REQUIRED = 'Captura el costo del producto antes de activarlo.';
+export const PRODUCT_COST_MAX = 1_000_000;
+
+/** Problema con el costo capturado, o null si es válido (mayor que cero y no más de $1,000,000). */
+export function productCostProblem(value: unknown): string | null {
+    const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+    if (!Number.isFinite(n) || n <= 0) return PRODUCT_COST_REQUIRED;
+    if (n > PRODUCT_COST_MAX) return 'El costo no puede pasar de $1,000,000.';
+    return null;
+}
+
+/**
+ * Productos sin costo capturado. Solo cuenta los que traen el costo (gerencia): a recepción la API no le manda el
+ * campo, así que para ella la lista siempre sale vacía.
+ */
+export function productsWithoutCost<T extends Pick<Product, 'cost'>>(products: T[]): T[] {
+    return products.filter((p) => typeof p.cost === 'number' && !(p.cost > 0));
+}

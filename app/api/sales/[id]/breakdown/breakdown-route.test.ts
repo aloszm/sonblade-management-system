@@ -32,7 +32,12 @@ vi.mock('@/lib/supabase/server', () => ({
             };
             return query;
         },
-        rpc: (...args: unknown[]) => rpc(...args),
+        // Las funciones se encadenan (.order().range()) como en PostgREST; la respuesta la da `rpc`.
+        rpc: (...args: unknown[]) => {
+            const result = Promise.resolve(rpc(...args));
+            const chain = { order: () => chain, range: () => result, then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => result.then(ok, ko) };
+            return chain;
+        },
     }),
     getPublicConfig: () => ({ url: 'https://example.supabase.co', key: 'x' }),
 }));
@@ -46,7 +51,11 @@ beforeEach(() => {
     selects.length = 0;
     errors = {};
     rpc.mockReset();
-    rpc.mockResolvedValue({ data: [{ product_id: 'p1', cost_price: 45 }], error: null });
+    rpc.mockImplementation((fn: string) => fn === 'sale_item_costs'
+        // La base devuelve el costo guardado de los renglones de producto (public.sale_item_costs).
+        ? { data: (tables.sale_items as { id: string; item_type: string; unit_cost_snapshot?: unknown }[])
+            .filter((i) => i.item_type === 'product').map((i) => ({ sale_item_id: i.id, unit_cost_snapshot: i.unit_cost_snapshot ?? null })), error: null }
+        : { data: [{ product_id: 'p1', cost_price: 45 }], error: null });
     tables = {
         sales: { id: SALE_ID, folio: 'V2611-0177', status: 'paid', subtotal_amount: 330, discount_amount: 0, total_amount: 330 },
         sale_items: [
@@ -76,7 +85,9 @@ describe('GET /api/sales/[id]/breakdown: quién recibe qué', () => {
             expect(body.shop).toMatchObject({ productCost: 45, keeps: 174 }); // 330 − 111 − 45
             expect(body.summary).toMatchObject({ charged: 360, toTeam: 141 });
             expect(body.lines[0]).toMatchObject({ name: 'Pomada Negra', commission: 36, beneficiaryName: 'Sonia', cost: 45 });
-            expect(selects.find((s) => s.table === 'sale_items')?.columns).toContain('unit_cost_snapshot');
+            // El costo sale de la función que autoriza por puesto, no de la columna de sale_items.
+            expect(selects.find((s) => s.table === 'sale_items')?.columns).not.toContain('cost');
+            expect(rpc).toHaveBeenCalledWith('sale_item_costs', { p_branch_id: 'br1', p_sale_ids: [SALE_ID] });
             expect(selects.some((s) => s.table === 'commission_holds')).toBe(true);
         });
     }

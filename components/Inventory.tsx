@@ -19,6 +19,7 @@ import { HttpError, MSG_OFFLINE, readJson, toUserMessage } from '@/lib/utils/err
 import Field from '@/components/ui/Field';
 import { useNavUser } from '@/hooks/useNavUser';
 import { RECEIVE_COMMENT_MAX, RECEIVE_MAX, receiveCommentProblem, receiveQuantityProblem } from '@/lib/inventory/receive';
+import { PRODUCT_COST_HELP, productCostProblem, productsWithoutCost } from '@/lib/inventory/products-view';
 
 const Inventory: React.FC = () => {
     // Cuenta de consulta: ve existencias y exporta, sin agregar, editar ni dar de baja.
@@ -31,11 +32,13 @@ const Inventory: React.FC = () => {
     const canManage = writer && me?.role === 'admin';
     const canReceive = writer && (frontDesk || me?.role === 'admin');
     const [modalOpen, setModalOpen] = useState(false);
-    const [filter, setFilter] = useState<'all' | 'low'>('all');
+    const [filter, setFilter] = useState<'all' | 'low' | 'nocost'>('all');
     const [search, setSearch] = useState('');
     const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState('');
+    // Costo obligatorio: se avisa junto al campo antes de mandar nada.
+    const [costError, setCostError] = useState('');
     const [listError, setListError] = useState('');
     // Baja de producto pendiente de confirmar (reemplaza a window.confirm).
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -71,8 +74,12 @@ const Inventory: React.FC = () => {
     const { data: stats, refetch: refetchStats } = useSupabase<{ total: number; lowStock: number; outOfStock: number; totalValue: number }>(fetchStats);
 
     // Filter & search
+    // Productos sin costo: solo los ve quien recibe el costo de la API (gerencia y consulta); recepción no.
+    const missingCost = frontDesk ? [] : productsWithoutCost(products || []);
     const filteredProducts = (products || [])
-        .filter(p => filter === 'all' || ['low', 'critical', 'empty'].includes(p.status))
+        .filter(p => filter === 'all'
+            || (filter === 'low' && ['low', 'critical', 'empty'].includes(p.status))
+            || (filter === 'nocost' && missingCost.includes(p)))
         .filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase()));
 
     const editingProduct = editingId ? (products || []).find((p) => p.id === editingId) : undefined;
@@ -108,6 +115,9 @@ const Inventory: React.FC = () => {
     const handleSave = async () => {
         if (!form.name || !form.sku) return;
         setSaveError('');
+        const costProblem = productCostProblem(form.cost);
+        setCostError(costProblem ?? '');
+        if (costProblem) return;
         if (editingProduct && (stockChange !== 0 || minChanged)) { setStockPin(true); return; }
         setSaving(true);
         try {
@@ -134,6 +144,7 @@ const Inventory: React.FC = () => {
         });
         setEditingId(p.id);
         setSaveError('');
+        setCostError('');
         setModalOpen(true);
     };
 
@@ -237,6 +248,7 @@ const Inventory: React.FC = () => {
                     {canManage && <button onClick={() => {
                         setEditingId(null);
                         setSaveError('');
+                        setCostError('');
                         setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
                         setModalOpen(true);
                     }} className="min-h-[52px] flex items-center gap-2 px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:bg-bos-accent-strong transition-opacity">
@@ -247,6 +259,23 @@ const Inventory: React.FC = () => {
             <ReadOnlyNotice readOnly={readOnly} />
 
             {listError && <p role="alert" className={`${card} p-3 text-sm text-bos-danger`}>{listError}</p>}
+            {missingCost.length > 0 && (
+                <div role="alert" data-testid="inventory-missing-cost" className={`${card} p-4 flex flex-col sm:flex-row sm:items-center gap-3 border-bos-danger`}>
+                    <AlertTriangle aria-hidden="true" className="h-5 w-5 shrink-0 text-bos-danger" />
+                    <p className="text-sm flex-1">
+                        <strong>{missingCost.length === 1 ? '1 producto sin costo' : `${missingCost.length} productos sin costo`}</strong>: la utilidad no es confiable hasta capturarlo.
+                        {' '}<span className="text-bos-muted">{missingCost.slice(0, 3).map((p) => p.name).join(', ')}{missingCost.length > 3 ? '…' : ''}</span>
+                    </p>
+                    <div className="flex gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => setFilter('nocost')}>Ver cuáles</Button>
+                        {canManage && (
+                            <Button size="sm" onClick={() => handleEditClick(missingCost[0])}>
+                                {missingCost.length === 1 ? 'Capturar costo' : `Capturar costo de «${missingCost[0].name}»`}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            )}
             {notice && <p role="status" className={`${card} p-3 text-sm text-bos-text`}>{notice}</p>}
 
             {/* Resumen */}
@@ -275,7 +304,7 @@ const Inventory: React.FC = () => {
             {/* Filtros */}
             <div className="flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
                 <div role="group" aria-label="Filtro de stock" className="flex gap-2">
-                    {([['all', 'Todos'], ['low', 'Stock bajo']] as const).map(([key, text]) => (
+                    {([['all', 'Todos'], ['low', 'Stock bajo'], ...(missingCost.length > 0 ? [['nocost', 'Sin costo']] as const : [])] as const).map(([key, text]) => (
                         <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}
                             className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${filter === key ? 'border-bos-text bg-bos-text text-bos-bg' : 'border-bos-border bg-bos-surface text-bos-muted hover:text-bos-text'}`}>{text}</button>
                     ))}
@@ -457,8 +486,12 @@ const Inventory: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="p-cost" className={label}>Precio costo *</label>
-                                    <input id="p-cost" type="number" inputMode="decimal" step="0.01" required value={form.cost}
-                                        onChange={(e) => setForm(f => ({ ...f, cost: Number(e.target.value) }))} className={field} />
+                                    <input id="p-cost" type="number" inputMode="decimal" step="0.01" min="0.01" required
+                                        value={form.cost > 0 ? form.cost : ''} placeholder="Ej: 85.00"
+                                        aria-invalid={costError ? true : undefined} aria-describedby={costError ? 'p-cost-help p-cost-error' : 'p-cost-help'}
+                                        onChange={(e) => { setCostError(''); setForm(f => ({ ...f, cost: e.target.value === '' ? 0 : Number(e.target.value) })); }} className={field} />
+                                    <p id="p-cost-help" className="text-xs text-bos-muted mt-1.5">{PRODUCT_COST_HELP}</p>
+                                    {costError && <p id="p-cost-error" role="alert" className="text-xs text-bos-danger mt-1">{costError}</p>}
                                 </div>
                                 <div>
                                     <label htmlFor="p-price" className={label}>Precio venta *</label>

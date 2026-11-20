@@ -90,7 +90,20 @@ describe('Desglose de la venta: contenido', () => {
         expect(screen.getByTestId('sale-breakdown')).not.toHaveTextContent('$45.00');
     });
 
-    it('con descuento se nota que la base no es el precio de lista y cuál fue', async () => {
+    it('producto con descuento en una venta nueva: la base es el precio de lista y la nota lo dice', async () => {
+        stub(() => ({ body: full({
+            items: [{ id: 'i1', item_type: 'product', product_id: 'p1', item_name_snapshot: 'Pomada', quantity: 1, unit_price: 180, discount_amount: 20, line_total: 160, employee_id: null, commission_employee_id: 'dani', unit_cost_snapshot: 45 }],
+            commissions: [{ sale_item_id: 'i1', employee_id: 'dani', basis: 'price_before_discount', basis_amount: 180, calculation_type: 'percentage', percentage_snapshot: 20, fixed_amount_snapshot: null, commission_amount: 36, status: 'generated' }],
+            tips: [], payments: [{ method: 'cash', amount: 160, status: 'confirmed' }],
+        }) }));
+        render(<SaleBreakdownBlock saleId="s1" />);
+        const row = await screen.findByTestId('sale-breakdown-line');
+        expect(row).toHaveTextContent('Base sin descuento');
+        expect(row).toHaveTextContent('$180.00');
+        expect(row).toHaveTextContent('$36.00');
+    });
+
+    it('venta anterior con base con descuento: se nota que la base no es el precio de lista y cuál fue', async () => {
         stub(() => ({ body: full({
             items: [{ id: 'i1', item_type: 'product', product_id: 'p1', item_name_snapshot: 'Pomada', quantity: 1, unit_price: 180, discount_amount: 20, line_total: 160, employee_id: null, commission_employee_id: 'dani', unit_cost_snapshot: 45 }],
             commissions: [{ sale_item_id: 'i1', employee_id: 'dani', basis: 'price_after_discount', basis_amount: 160, calculation_type: 'percentage', percentage_snapshot: 20, fixed_amount_snapshot: null, commission_amount: 32, status: 'generated' }],

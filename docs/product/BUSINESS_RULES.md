@@ -29,7 +29,7 @@ Cada servicio puede tener una regla de comisión diferente. Otros servicios no h
 ### RB-06 — Comisión de productos: modelo de cálculo
 La comisión variable del producto se calcula sobre su precio de venta, no sobre la ganancia después de descontar el costo del producto.
 
-La base de cálculo de productos está definida como precio de venta; falta confirmar si la base será antes o después de descuentos. Mientras no se apruebe esa regla de descuentos, no debe inventarse una política definitiva.
+**Decidido por el dueño (20 nov 2026):** la base es el precio de lista, **antes** de descuentos, igual que en los servicios (RB-04): el descuento lo absorbe la barbería. Aplica a ventas nuevas (`20261120110000_product_commission_list_price`); las comisiones generadas antes conservan su base guardada. Pendiente a futuro: poder elegir en cada descuento si lo absorbe la barbería o el barbero (`docs/implementation/FASE_4.md`, "Pendiente: quién absorbe el descuento").
 
 ### RB-07 — Beneficiario de comisión por servicio
 La comisión del servicio corresponde al barbero responsable de realizarlo.
@@ -97,7 +97,7 @@ El precio, tasa, beneficiario y resultado deben quedar como fotografía históri
 
 ## 4. Decisiones pendientes — no codificar como política definitiva
 
-1. Comisión de producto antes o después de descuento.
+1. ~~Comisión de producto antes o después de descuento.~~ Decidido el 20 nov 2026: antes (precio de lista). Ver RB-06.
 2. Tasa o importe para cada producto.
 3. Si la tasa de productos puede variar también por barbero.
 4. Qué hacer si dos barberos originan una misma venta.

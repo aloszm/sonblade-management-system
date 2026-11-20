@@ -7,6 +7,7 @@ import {
     buildSaleBreakdown, type BreakdownCommission, type BreakdownHold, type BreakdownInput, type BreakdownItem,
     type BreakdownPayment, type BreakdownSale, type BreakdownTip,
 } from '@/lib/sales/breakdown';
+import { loadSaleItemCosts, withSaleItemCosts } from '@/lib/sales/item-costs';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ const ITEM_COLUMNS = 'id, item_type, product_id, item_name_snapshot, quantity, u
  *
  * Quién ve qué se decide AQUÍ, en el servidor, y no en la pantalla:
  * - Cuenta principal, gerencia y consulta (canSeeSaleCost): todo.
- * - Recepción: comisiones y propina; el costo (sale_items.unit_cost_snapshot, products.cost_price) ni siquiera se lee.
+ * - Recepción: comisiones y propina; el costo (public.sale_item_costs, public.product_costs) ni siquiera se lee.
  * - Barbero: 403, igual que el ticket (/api/sales/[id]); hoy no puede abrir ventas y esto no lo cambia.
  */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,9 +34,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         const supabase = await createSupabaseServerClient();
         const where = { business_id: context.businessId, branch_id: context.branchId };
 
-        const [sale, items, commissions, tips, payments, holds] = await Promise.all([
+        const [sale, items, commissions, tips, payments, holds, itemCosts] = await Promise.all([
             supabase.from('sales').select(SALE_COLUMNS).match(where).eq('id', id.data).maybeSingle(),
-            supabase.from('sale_items').select(withCost ? `${ITEM_COLUMNS}, unit_cost_snapshot` : ITEM_COLUMNS).match(where).eq('sale_id', id.data).order('id'),
+            // El costo guardado NO se pide a sale_items (columna que se cerrará a la API): gerencia lo lee con
+            // public.sale_item_costs; para recepción no se consulta.
+            supabase.from('sale_items').select(ITEM_COLUMNS).match(where).eq('sale_id', id.data).order('id'),
             supabase.from('commission_entries')
                 .select('sale_item_id, employee_id, basis, basis_amount, calculation_type, percentage_snapshot, fixed_amount_snapshot, commission_amount, status')
                 .match(where).eq('sale_id', id.data).order('id'),
@@ -45,11 +48,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
             withCost
                 ? supabase.from('commission_holds').select('sale_item_id, reason, resolved_at').match(where).eq('sale_id', id.data)
                 : Promise.resolve({ data: [], error: null }),
+            withCost ? loadSaleItemCosts(supabase, context.branchId, [id.data]) : Promise.resolve(null),
         ]);
         for (const result of [sale, items, commissions, tips, payments, holds]) if (result.error) throw result.error;
         if (!sale.data) throw new AuthorizationError('Venta no encontrada.', 404);
 
-        const itemRows = (items.data ?? []) as unknown as BreakdownItem[];
+        const baseItems = (items.data ?? []) as unknown as BreakdownItem[];
+        const itemRows: BreakdownItem[] = itemCosts ? withSaleItemCosts(baseItems, itemCosts) : baseItems;
         const commissionRows = (commissions.data ?? []) as unknown as BreakdownCommission[];
         const tipRows = (tips.data ?? []) as unknown as BreakdownTip[];
 

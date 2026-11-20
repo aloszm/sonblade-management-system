@@ -5,6 +5,7 @@ import {
     comparePeriods, computeProfit, previousPeriod, type CommissionRow, type EmployeeRow, type ExpenseRow, type PaymentRow,
     type ProductCostRow, type ProfitReport, type ProfitStatement, type SaleItemRow, type SaleRow, type StaffCostRow, type TipRow,
 } from '@/lib/admin/profit';
+import { loadSaleItemCosts, withSaleItemCosts } from '@/lib/sales/item-costs';
 
 // Lectura con el cliente del usuario (RLS): dueño y gerencia ('owner', 'admin') pueden leer
 // sales, sale_items, commission_entries, sale_tips, payments, expenses, employees y products de su sucursal.
@@ -75,10 +76,12 @@ async function loadStatement(
         .order('paid_at', { ascending: true }).order('id', { ascending: true }));
     const paidIds = sales.filter((s) => s.status === 'paid').map((s) => s.id);
 
-    const [items, commissions, tips, payments, expenses, staffCosts] = await Promise.all([
+    const [rawItems, itemCosts, commissions, tips, payments, expenses, staffCosts] = await Promise.all([
+        // El costo guardado al vender NO se pide a sale_items: sale de public.sale_item_costs (solo gerencia).
         fetchBySaleIds<SaleItemRow>(paidIds, (chunk) => supabase.from('sale_items')
-            .select('id, sale_id, item_type, product_id, item_name_snapshot, quantity, discount_amount, line_total, unit_cost_snapshot, employee_id, commission_employee_id')
+            .select('id, sale_id, item_type, product_id, item_name_snapshot, quantity, discount_amount, line_total, employee_id, commission_employee_id')
             .eq('business_id', businessId).eq('branch_id', branchId).in('sale_id', chunk).order('id')),
+        loadSaleItemCosts(supabase, branchId, paidIds),
         fetchBySaleIds<CommissionRow>(paidIds, (chunk) => supabase.from('commission_entries')
             .select('sale_id, sale_item_id, commission_amount, status, employee_id')
             .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'generated').in('sale_id', chunk).order('id')),
@@ -95,6 +98,7 @@ async function loadStatement(
         loadStaffCosts(supabase, branchId, window),
     ]);
 
+    const items = withSaleItemCosts(rawItems, itemCosts);
     const productIds = [...new Set(items.map((i) => i.product_id).filter((id): id is string => !!id))];
     // El costo se lee con public.product_costs (C1): la columna products.cost_price se cerrará a la API.
     const products = await loadProductCosts(supabase, businessId, branchId, productIds);

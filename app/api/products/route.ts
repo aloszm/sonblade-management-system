@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
-import { loadProducts } from '@/lib/inventory/products-view';
+import { PRODUCT_COST_MAX, PRODUCT_COST_REQUIRED, loadProducts } from '@/lib/inventory/products-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,8 @@ const CreateProductSchema = z.object({
     category: z.string().trim().min(2).max(160),
     stock: z.number().int().min(0).max(100_000),
     min_stock: z.number().int().min(0).max(100_000).optional(),
-    cost: z.number().min(0).max(1_000_000),
+    // Todo producto activo lleva costo mayor que cero (la base también lo exige: products_require_cost).
+    cost: z.number({ error: PRODUCT_COST_REQUIRED }).positive(PRODUCT_COST_REQUIRED).max(PRODUCT_COST_MAX),
     price: z.number().min(0).max(1_000_000),
 });
 

@@ -11,6 +11,9 @@
 // - Le queda a la barbería = ingreso − comisiones − costo de producto. NO incluye sueldos, bonos ni gastos: son del
 //   periodo, no de la venta (docs/GLOSARIO.md §6 lo define a nivel periodo; aquí es la misma fórmula a nivel venta).
 // - "En espera": renglón cobrado que no generó comisión (commission_holds abierta o sin beneficiario). No es $0.
+// - Base de la comisión con descuento: se muestra la que GUARDÓ la base (commission_entries.basis y basis_amount),
+//   no la regla vigente. Desde 20261120110000 servicio y producto usan el precio de lista (el descuento lo absorbe la
+//   barbería); las ventas de producto anteriores conservan su base con descuento y así se explican.
 //
 // Quién ve qué: con `scope: 'front_desk'` (recepción) NO se calcula ni se entrega el costo de producto ni lo que
 // le queda a la barbería; las claves ni siquiera existen en el resultado. Con `scope: 'full'` (cuenta principal,
@@ -199,7 +202,7 @@ export function buildSaleBreakdown(input: BreakdownInput, scope: BreakdownScope)
         if (discountCents > 0 && entry) {
             baseNote = entry.basis === 'price_before_discount'
                 ? `Base sin descuento: precio de lista ${money(listCents)}; el descuento de ${money(discountCents)} no la reduce.`
-                : `Base con descuento: el precio de lista era ${money(listCents)} (descuento ${money(discountCents)}).`;
+                : `Base con descuento: se calculó sobre lo cobrado; el precio de lista era ${money(listCents)} (descuento ${money(discountCents)}). Así quedó guardada; las ventas nuevas usan el precio de lista.`;
         } else if (discountCents > 0) {
             baseNote = `Precio de lista ${money(listCents)}; descuento ${money(discountCents)}.`;
         }

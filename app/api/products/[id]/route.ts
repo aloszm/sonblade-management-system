@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { loadProducts } from '@/lib/inventory/products-view';
+import { PRODUCT_COST_MAX, PRODUCT_COST_REQUIRED, loadProducts } from '@/lib/inventory/products-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 import { REASON_MAX, REASON_MIN } from '@/lib/cash/reasons';
@@ -16,7 +16,7 @@ const UpdateSchema = z.object({
     category: z.string().trim().min(2).max(160).optional(),
     stock: z.number().int().min(0).max(100_000).optional(),
     min_stock: z.number().int().min(0).max(100_000).optional(),
-    cost: z.number().min(0).max(1_000_000).optional(),
+    cost: z.number({ error: PRODUCT_COST_REQUIRED }).positive(PRODUCT_COST_REQUIRED).max(PRODUCT_COST_MAX).optional(),
     price: z.number().min(0).max(1_000_000).optional(),
     notes: z.string().trim().min(3).max(500).optional(),
     // Cambiar existencias o mínimo: siempre con PIN y comentario (dueño y gerencia).

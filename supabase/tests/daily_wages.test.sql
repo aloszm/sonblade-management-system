@@ -80,7 +80,8 @@ begin
     ('public', 'confirm_sale', 'f3cc545e5cf7483897e757c16848f7ad'),
     ('private', 'confirm_sale_impl', '7ba5b5e43bcf8ec2f3aaaad69c9a386b'),
     ('private', 'confirm_sale_with_approval_impl', '18cda0db3486f1d82dedb7453d2e3b13'),
-    ('private', 'generate_sale_commissions_impl', 'cbaba71a6ac7eddaaf5e2c09148d52f2'));
+    -- 20261120110000_product_commission_list_price cambió a propósito la base por omisión (huella nueva).
+    ('private', 'generate_sale_commissions_impl', '734e06a145fecd21193c0113a5350820'));
   r := r || E'\n1 ' || case when n = 4 then 'OK' else 'FALLA' end || ' huella (md5) de cobro y generación de comisiones sin cambio (' || n || ' de 4)';
 
   perform pg_temp.dw_sale(biz, b2, dani_e, svc, owner, (w1 + time '13:00') at time zone tz, 1000, 80, 'V2632-9801');

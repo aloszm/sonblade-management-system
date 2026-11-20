@@ -313,6 +313,25 @@ Lista pendiente, sin orden acordado:
 3. ✅ **Página "Estado del sistema" solo para el dueño** (hecha el 19 nov): versión publicada, última migración, si la llave está configurada, si las reservas están encendidas.
 4. **Cerrar todas las rutas "viejas" sin confirmación** una vez que la app nueva lleve una semana estable (S5 y similares).
 
+### B8 — Costos cerrados, comisión de producto sobre lista y costo obligatorio (20 nov; SOLO en desarrollo)
+
+| Migración | Qué hace | Estado |
+|---|---|---|
+| `20261120100000_sale_item_costs_read` | `public.sale_item_costs(branch, sale_ids)`: costo guardado de cada venta, solo dueño/gerencia/consulta. Cierra `inventory_movements.unit_cost_snapshot` a la API (nadie lo leía con sesión). | Aplicada en desarrollo |
+| `supabase/pending/close_sale_items_cost.sql` | Fase 2: retira `sale_items.unit_cost_snapshot` del permiso de lectura de la API (mismo mecanismo que `close_products_cost_price`). | **Sin aplicar.** Solo cuando el código que usa `sale_item_costs` esté publicado en producción y práctica (la app anterior lo pide para Finanzas, Panel y el desglose) |
+| `20261120110000_product_commission_list_price` | La base por omisión de la comisión se decide en `private.commission_default_basis` (servicio y producto: precio de lista). Una línea cambia en `generate_sale_commissions_impl`. | Aplicada en desarrollo |
+| `20261120120000_products_require_cost` | Producto activo ⇒ costo > 0 (disparador con mensaje + `check` validado). Venta de producto sin costo guardado: no se bloquea; queda `sale_item_without_cost` en la bitácora. | Aplicada en desarrollo |
+
+Pruebas: `supabase/tests/sale_item_costs_read.test.sql`, `product_discount_commission.test.sql`, `products_require_cost.test.sql` y `supabase/pending/close_sale_items_cost.test.sql`. `appointment_products` y `daily_wages` guardan la huella (md5) nueva de `generate_sale_commissions_impl`.
+
+### Pendiente: quién absorbe el descuento
+
+Decisión futura del dueño: **poder elegir en cada descuento si lo absorbe la barbería o el barbero**. No está construido; hoy siempre lo absorbe la barbería (comisión sobre precio de lista).
+
+- **Dónde se guarda la elección:** en la autorización del descuento, `private.discount_approvals`, que ya pide el PIN de quien autoriza y queda ligada a la venta (`sale_id`). Columna nueva, p. ej. `absorbed_by text not null default 'business' check (absorbed_by in ('business','staff'))` (texto con `check`, no un valor nuevo de enum). `public.issue_discount_approval` recibiría `p_absorbed_by text default 'business'` (parámetro nuevo con valor por omisión: la app vieja sigue funcionando). La bitácora `pin_confirmed_action` registraría la elección. Un descuento que el dueño o gerencia da sin aprobación previa (cobran ellos) usaría `'business'` salvo que se agregue el mismo campo a `confirm_sale`.
+- **Cómo cambia la base:** solo `private.commission_default_basis(p_target, p_sale_item_id)` (ya recibe el renglón): si la venta del renglón tiene una aprobación con `absorbed_by = 'staff'`, devuelve `'price_after_discount'`; si no, `'price_before_discount'`. `generate_sale_commissions_impl` no cambia; `commission_entries.basis` deja la elección en cada comisión y el desglose ya explica la base guardada. Las reglas explícitas de `commission_rules` seguirían mandando sobre la elección (decidir con el dueño si debe ser al revés).
+- **Pruebas que harían falta:** (1) aprobación `business` ⇒ comisión sobre lista (igual que hoy); (2) aprobación `staff` ⇒ comisión sobre el precio con descuento, en servicio y en producto; (3) venta mixta con una sola aprobación; (4) sin aprobación ⇒ `business`; (5) la app anterior (sin el parámetro) sigue cobrando; (6) anulación revierte el monto guardado; (7) Finanzas, Panel y reporte coinciden; (8) recepción no puede elegir `staff` sin PIN de quien autoriza; (9) huellas md5 de `confirm_sale_impl` y `generate_sale_commissions_impl` sin cambio.
+
 ### B2 — Descuento y anulación con PIN (19 nov; en desarrollo y producción)
 
 Migración `20261119180000_discount_and_reversal_with_pin` · prueba `supabase/tests/discount_and_reversal_with_pin.test.sql`.

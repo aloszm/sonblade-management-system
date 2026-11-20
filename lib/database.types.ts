@@ -3590,6 +3590,13 @@ export type Database = {
         }
         Returns: Json
       }
+      sale_item_costs: {
+        Args: { p_branch_id: string; p_sale_ids: string[] }
+        Returns: {
+          sale_item_id: string
+          unit_cost_snapshot: number
+        }[]
+      }
       save_appointment: {
         Args: {
           p_appointment_id?: string

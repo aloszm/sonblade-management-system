@@ -69,9 +69,14 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 ## 5. Dinero del equipo
 
 - **Semana de pago:** de domingo a sábado; cierra el sábado a las 8:00 p. m.
-- **Comisión de servicio:** 50 % para quien atendió.
+- **Comisión de servicio:** 50 % para quien atendió, sobre el **precio de lista**.
 - **Comisión de producto:** 20 % para **quien lo vendió** (por omisión el barbero de la cita; recepción puede
-  ponerlo a su nombre).
+  ponerlo a su nombre), también sobre el **precio de lista** (desde el 20 nov 2026; antes era sobre el precio con
+  descuento, y esas ventas conservan lo que se calculó).
+- **Descuento y comisión:** el descuento lo absorbe la barbería: no baja la comisión de nadie, ni en servicio ni en
+  producto. Una cortesía (descuento del 100 %) también paga comisión sobre el precio de lista.
+- **Costo del producto:** lo que le cuesta a la barbería cada pieza. Obligatorio para tener un producto activo; solo lo
+  ven dueño, gerencia y consulta.
 - **Propina:** 100 % para quien atendió.
 - **Sueldo por día:** solo recepción, $320 por día trabajado (Dago lunes a viernes, Emi sábado y domingo).
 - **Devengado:** lo ya ganado aunque todavía no se pague.

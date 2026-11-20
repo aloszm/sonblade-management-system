@@ -16,6 +16,7 @@ export const ACTION_LABELS: Record<string, string> = {
     sale_payment_recorded: 'Abono a una venta',
     sale_reversed: 'Venta anulada',
     discount_approval_used: 'Descuento autorizado con PIN',
+    sale_item_without_cost: 'Venta de producto sin costo capturado',
     pin_confirmed_action: 'Acción confirmada con PIN',
     inventory_adjusted: 'Ajuste de inventario',
     inventory_received: 'Entrada de mercancía',

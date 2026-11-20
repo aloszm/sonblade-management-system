@@ -28,7 +28,8 @@ begin
 
   -- 0 las funciones de dinero no cambiaron (huella del cuerpo vigente antes de esta migración)
   r := r || E'\n0 ' || case when md5(pg_get_functiondef('private.confirm_sale_impl'::regproc)) = '7ba5b5e43bcf8ec2f3aaaad69c9a386b'
-      and md5(pg_get_functiondef('private.generate_sale_commissions_impl'::regproc)) = 'cbaba71a6ac7eddaaf5e2c09148d52f2'
+      -- 20261120110000_product_commission_list_price cambió a propósito la base por omisión (huella nueva).
+      and md5(pg_get_functiondef('private.generate_sale_commissions_impl'::regproc)) = '734e06a145fecd21193c0113a5350820'
       and md5(pg_get_functiondef('private.confirm_sale_with_approval_impl'::regproc)) = '18cda0db3486f1d82dedb7453d2e3b13'
       then 'OK' else 'FALLA' end || ' confirm_sale_impl, confirm_sale_with_approval_impl y generate_sale_commissions_impl sin cambios';
 

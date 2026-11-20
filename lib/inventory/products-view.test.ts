@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { stockStatus, summarizeProducts, toProductView, type ProductRow } from './products-view';
+import { PRODUCT_COST_REQUIRED, productCostProblem, productsWithoutCost, stockStatus, summarizeProducts, toProductView, type ProductRow } from './products-view';
+
+describe('costo obligatorio del producto', () => {
+    it('productCostProblem: vacío, cero, negativo o no numérico no se aceptan', () => {
+        for (const v of [undefined, null, '', ' ', 0, -1, 'abc', Number.NaN]) expect(productCostProblem(v)).toBe(PRODUCT_COST_REQUIRED);
+        expect(productCostProblem(1_000_001)).toMatch(/no puede pasar/);
+        expect(productCostProblem(0.01)).toBeNull();
+        expect(productCostProblem('85.50')).toBeNull();
+    });
+    it('productsWithoutCost: solo cuenta productos que traen el costo y no es mayor que cero', () => {
+        const list = [{ id: 'a', cost: 0 }, { id: 'b', cost: 45 }, { id: 'c' } as { id: string; cost: number }];
+        expect(productsWithoutCost(list).map((p) => p.id)).toEqual(['a']);
+    });
+});
 
 const product: ProductRow = {
     id: 'p1',

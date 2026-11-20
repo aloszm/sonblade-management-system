@@ -267,7 +267,7 @@ export default function SettingsPage() {
                                 value={profile.productCommissionPct}
                                 onChange={e => setProfile({ ...profile, productCommissionPct: Number(e.target.value) })}
                                 className="w-32 h-14 px-4 rounded-xl bg-bos-surface border border-bos-border font-display text-2xl font-semibold tabular-nums text-bos-accent-text outline-none focus:border-bos-accent" />
-                            <p className="text-xs text-bos-muted mt-3">Sobre lo realmente cobrado por el producto, para quien lo vendió.</p>
+                            <p className="text-xs text-bos-muted mt-3">Sobre el precio de lista del producto, para quien lo vendió. Si se da un descuento, gana lo mismo.</p>
                         </div>
                     </div>
                 </section>
