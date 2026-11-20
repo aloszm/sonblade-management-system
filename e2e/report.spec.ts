@@ -49,7 +49,7 @@ test.describe.serial('reporte completo', () => {
             await expect(page.getByTestId(`section-${id}`)).toBeVisible();
         }
         await expect(page.getByRole('heading', { name: 'Ingresos por día' })).toBeVisible();
-        await expect(page.getByRole('heading', { name: 'Cortes por día' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Servicios por día' })).toBeVisible();
         await expect(page.getByTestId('section-resumen')).toContainText(/La (utilidad neta|pérdida) fue de \$/);
         const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
         month.from = `${today.slice(0, 8)}01`;

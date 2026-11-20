@@ -242,14 +242,14 @@ export default function Dashboard() {
                 <>
                     <section aria-label="Indicadores principales" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <BigStat title="Ingresos" hint="Total cobrado en el periodo." value={money(k.revenue)} current={k.revenue} previous={p.revenue} testId="kpi-revenue" accent />
-                        <BigStat title="Cortes" hint="Solo servicios de corte, sin productos." value={String(k.cuts)} current={k.cuts} previous={p.cuts} testId="kpi-cuts" />
+                        <BigStat title="Servicios" hint="Todos los servicios cobrados (corte, barba, etc.), sin productos." value={String(k.cuts)} current={k.cuts} previous={p.cuts} testId="kpi-cuts" />
                         <BigStat title="Ticket promedio" hint="Ingresos entre número de ventas." value={money(k.avg_ticket)} current={k.avg_ticket} previous={p.avg_ticket} testId="kpi-ticket" />
                         {netKind === 'contribution' ? (
                             <BigStat title="Aporte" hint="Ventas del barbero − sus comisiones − costo de sus productos. No incluye gastos generales." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
                         ) : netKind === 'profit' ? (
                             <BigStat title="Utilidad" hint="Ingresos − comisiones − sueldos − costo de producto − gastos." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
                         ) : barber ? (
-                            <BigStat title="Comisión generada" hint="Lo que ganó por sus servicios." value={money(k.commissions)} current={k.commissions} previous={p.commissions} testId="kpi-net" />
+                            <BigStat title="Comisión generada" hint="Su comisión por servicios y productos, sin propinas." value={money(k.commissions)} current={k.commissions} previous={p.commissions} testId="kpi-net" />
                         ) : (
                             <BigStat title="Utilidad" hint="Lo que queda tras comisiones, producto y gastos." value={money(k.net)} current={k.net} previous={p.net} testId="kpi-net" />
                         )}
@@ -261,7 +261,7 @@ export default function Dashboard() {
                         <SmallStat title="Clientes nuevos" hint="Dados de alta en el periodo" value={String(data.new_clients)} />
                         <SmallStat title="Productos vendidos" hint="Piezas, no servicios" value={String(k.products)} />
                         <SmallStat title="Propinas" hint="Son del barbero" value={money(k.tips)} />
-                        {barber ? <SmallStat title="Ventas registradas" hint="Cobros de este barbero" value={String(data.activity.length)} /> : <SmallStat title="Comisiones" hint="Pagadas a barberos" value={money(k.commissions)} />}
+                        {barber ? <SmallStat title="Ventas registradas" hint="Cobros de este barbero" value={String(data.activity.length)} /> : <SmallStat title="Comisiones" hint="De servicios y productos del periodo; se pagan en Pago semanal" value={money(k.commissions)} />}
                         {fromFinance && finance?.wages && <SmallStat title="Sueldos" hint={`${finance.wages.days} día${finance.wages.days === 1 ? '' : 's'} de sueldo`} value={money(finance.wages.total)} />}
                         {fromFinance && finance?.bonuses && finance.bonuses.total > 0 && <SmallStat title="Bonos" hint="Metas cumplidas" value={money(finance.bonuses.total)} />}
                     </section>
@@ -280,7 +280,7 @@ export default function Dashboard() {
 
                     <div className="grid gap-6 lg:grid-cols-2">
                         <section aria-labelledby="cuts-chart-title" className={`${card} p-5`}>
-                            <h2 id="cuts-chart-title" className="font-display text-lg font-semibold">{singleDay ? 'Cortes por hora' : 'Cortes por día'}</h2>
+                            <h2 id="cuts-chart-title" className="font-display text-lg font-semibold">{singleDay ? 'Servicios por hora' : 'Servicios por día'}</h2>
                             <p className="text-sm text-bos-muted mb-4">Servicios cobrados, {rangeLabel}. Cada barra es {singleDay ? "una hora" : "un día"}.</p>
                             <div className="h-64" data-testid="chart-cuts">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -288,8 +288,8 @@ export default function Dashboard() {
                                         <CartesianGrid vertical={false} stroke="var(--bos-border)" />
                                         <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={16} />
                                         <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={32} />
-                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Cortes']} />
-                                        <Bar dataKey="cuts" name="Cortes" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Servicios']} />
+                                        <Bar dataKey="cuts" name="Servicios" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} maxBarSize={36} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -314,28 +314,28 @@ export default function Dashboard() {
                     <div className="grid gap-6 lg:grid-cols-2">
                         <section aria-labelledby="hours-title" className={`${card} p-5`}>
                             <h2 id="hours-title" className="font-display text-lg font-semibold">Horas fuertes</h2>
-                            <p className="text-sm text-bos-muted mb-4">{peak === null ? 'Aún no hay cortes en este periodo.' : `La hora con más cortes es de ${hourLabel(peak)} a ${hourLabel(peak + 1)}.`}</p>
+                            <p className="text-sm text-bos-muted mb-4">{peak === null ? 'Aún no hay servicios en este periodo.' : `La hora con más servicios es de ${hourLabel(peak)} a ${hourLabel(peak + 1)}.`}</p>
                             <div className="h-56">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={hours} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                                         <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval={1} />
                                         <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={28} />
-                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Cortes']} />
-                                        <Bar dataKey="cuts" name="Cortes" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} />
+                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Servicios']} />
+                                        <Bar dataKey="cuts" name="Servicios" fill="var(--bos-accent)" radius={[6, 6, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         </section>
                         <section aria-labelledby="days-title" className={`${card} p-5`}>
                             <h2 id="days-title" className="font-display text-lg font-semibold">Días fuertes</h2>
-                            <p className="text-sm text-bos-muted mb-4">Cortes por día de la semana, {rangeLabel}.</p>
+                            <p className="text-sm text-bos-muted mb-4">Servicios por día de la semana, {rangeLabel}.</p>
                             <div className="h-56">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={weekdays} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                                         <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} />
                                         <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} width={28} />
-                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Cortes']} />
-                                        <Bar dataKey="cuts" name="Cortes" fill="var(--bos-text)" radius={[6, 6, 0, 0]} maxBarSize={44} />
+                                        <Tooltip {...TOOLTIP} formatter={(v) => [Number(v ?? 0), 'Servicios']} />
+                                        <Bar dataKey="cuts" name="Servicios" fill="var(--bos-text)" radius={[6, 6, 0, 0]} maxBarSize={44} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -344,12 +344,13 @@ export default function Dashboard() {
 
                     <section aria-labelledby="team-title" className={`${card} overflow-hidden`}>
                         <h2 id="team-title" className="font-display text-lg font-semibold px-5 pt-5">Equipo</h2>
+                        <p className="px-5 pt-1 text-sm text-bos-muted">{rangeLabel}. Ingresos = servicios + productos cobrados; Comisión = de servicios y productos, sin propinas.</p>
                         <div className="overflow-x-auto">
                             <table className="bos-stack w-full md:min-w-[720px] text-[15px] mt-3">
                                 <thead>
                                     <tr className="text-left text-[13px] text-bos-muted">
                                         <th className="px-5 py-3 font-semibold">Persona</th>
-                                        <th className="px-5 py-3 font-semibold">Cortes</th>
+                                        <th className="px-5 py-3 font-semibold">Servicios</th>
                                         <th className="px-5 py-3 font-semibold text-right">Ingresos</th>
                                         <th className="px-5 py-3 font-semibold text-right">Ticket prom.</th>
                                         <th className="px-5 py-3 font-semibold text-right">Propinas</th>
@@ -366,7 +367,7 @@ export default function Dashboard() {
                                                     {!b.is_barber && <span className="text-xs text-bos-muted">Recepción</span>}
                                                 </span>
                                             </td>
-                                            <td data-label="Cortes" className="px-5 py-3">
+                                            <td data-label="Servicios" className="px-5 py-3">
                                                 <span className="flex items-center gap-3">
                                                     <span className="w-8 font-semibold">{b.cuts}</span>
                                                     <span aria-hidden="true" className="hidden sm:block h-1.5 w-28 rounded-full bg-bos-raised overflow-hidden">

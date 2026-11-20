@@ -29,6 +29,15 @@ function mount(rows: unknown[], me: Record<string, unknown> = { role: 'admin', b
 }
 
 describe('Pago semanal: desglose', () => {
+    it('la cuenta de renglones ya no se llama "Servicios": cuenta servicios y productos con comisión y lo explica', async () => {
+        // Deya: 2 servicios + 1 producto = 3 comisiones. Equipo dice "Servicios: 2" y "Productos: 1"; aquí 3 "con comisión".
+        mount([{ ...BASE_ROW, entry_count: 3, gross_commission: 156, total_amount: 156 }]);
+        await screen.findByRole('button', { name: 'Ver desglose de Deya' });
+        expect(screen.getByRole('columnheader', { name: 'Con comisión' })).toBeInTheDocument();
+        expect(screen.queryByRole('columnheader', { name: 'Servicios' })).toBeNull();
+        expect(screen.getByTestId('entry-count-note')).toHaveTextContent('cada uno vale 1');
+    });
+
     it('sin los campos nuevos funciona igual: comisiones y neto, sin bonos ni avisos', async () => {
         mount([{ ...BASE_ROW, tips: 50, total_amount: 1050 }]);
         fireEvent.click(await screen.findByRole('button', { name: 'Ver desglose de Deya' }));

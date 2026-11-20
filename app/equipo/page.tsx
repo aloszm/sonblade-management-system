@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
-import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck, Wallet, Banknote } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck, Wallet, Banknote, ListChecks, UserRound } from 'lucide-react';
 import { DISPLAY_TITLE_MAX, PRIMARY_ACCOUNT_BADGE, isPrimaryAccount, personTitle, roleOptionLabel } from '@/lib/auth/roles';
 import { suggestLoginName } from '@/lib/auth/login-id';
 import type { BusinessRole } from '@/lib/auth/context';
@@ -20,12 +20,13 @@ import TeamLedger from '@/components/payroll/TeamLedger';
 import BonusGoalsManager from '@/components/payroll/BonusGoalsManager';
 import WageSection, { type WagesResponse } from '@/components/payroll/WageSection';
 import { rateSentence } from '@/lib/payroll/wage-ui';
+import WeekSummary, { type WeekWindowApi } from '@/components/team/WeekSummary';
+import WeekBreakdown from '@/components/team/WeekBreakdown';
+import type { PersonWeekApi } from '@/lib/team/person-week';
 import type { Barber } from '@/types';
 
-interface BarberLive {
-    id: string; name: string; status: string;
-    cuts: number; revenue: number; tips: number; rate: number; commission: number;
-}
+/** Lo que entrega /api/team-week: la semana de pago en curso de cada persona (servicios, productos, comisión, propinas). */
+interface TeamWeek { window: WeekWindowApi; people: PersonWeekApi[] }
 
 
 type Account = { userId: string; loginName: string | null; role: BusinessRole; isActive: boolean; mustChangePin: boolean; employeeId: string | null; displayTitle?: string | null; name: string; isSelf: boolean; canManage: boolean };
@@ -242,7 +243,7 @@ export default function TeamPage() {
     // Solo la cuenta principal ve y cambia el título visible (la base lo vuelve a exigir).
     const [isOwner, setIsOwner] = useState(false);
     const [barbers, setBarbers] = useState<Barber[]>([]);
-    const [liveStats, setLiveStats] = useState<BarberLive[]>([]);
+    const [teamWeek, setTeamWeek] = useState<TeamWeek | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<unknown>(null);
     const [saving, setSaving] = useState(false);
@@ -255,6 +256,8 @@ export default function TeamPage() {
     const [accessFor, setAccessFor] = useState<Barber | null>(null);
     // Movimientos (adelantos, préstamos, descuentos) de una persona, en un panel dentro de la página.
     const [ledgerFor, setLedgerFor] = useState<Barber | null>(null);
+    // Desglose de la semana (ventas una por una) de una persona.
+    const [weekFor, setWeekFor] = useState<Barber | null>(null);
     // Sueldo por día: resumen de cada tarjeta y la ficha abierta de una persona.
     const [wages, setWages] = useState<WagesResponse | null>(null);
     const [wageFor, setWageFor] = useState<Barber | null>(null);
@@ -271,10 +274,10 @@ export default function TeamPage() {
 
     const fetchLiveStats = async () => {
         try {
-            const res = await fetch('/api/admin/summary?period=week');
+            const res = await fetch('/api/team-week', { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
-                setLiveStats(data.barberSummaries || []);
+                if (Array.isArray(data?.people)) setTeamWeek({ window: data.window, people: data.people });
             }
         } catch (e) { console.error(e); }
     };
@@ -385,7 +388,7 @@ export default function TeamPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {barbers.map(barber => {
-                    const live = liveStats.find(l => l.id === barber.id);
+                    const live = teamWeek?.people.find((l) => l.employeeId === barber.id);
                     const active = barber.status === 'active';
                     const wageRow = (wages?.current ?? []).find((c) => c.employee_id === barber.id)?.current ?? null;
                     const wageRate = wageRow && wageRow.daily_amount > 0 ? wageRow : null;
@@ -410,18 +413,7 @@ export default function TeamPage() {
                                 </Link>
                             </div>
 
-                            {live && (
-                                <div className="mt-auto pt-3 border-t border-bos-border space-y-1">
-                                    <div className="flex items-baseline justify-between">
-                                        <span className="font-display text-2xl font-semibold tabular-nums">{live.cuts} <span className="text-xs font-medium text-bos-muted">cortes</span></span>
-                                        <span className="font-display text-sm font-semibold tabular-nums text-bos-accent-text">${live.revenue.toFixed(0)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-bos-muted">
-                                        <span>Comisión: ${live.commission.toFixed(0)}</span>
-                                        {live.cuts > 0 && <span>{live.rate}%</span>}
-                                    </div>
-                                </div>
-                            )}
+                            {live && <WeekSummary person={live} window={teamWeek?.window} hasWage={Boolean(wageRate)} />}
 
                             {wageRate && (
                                 <p data-testid="member-wage" className="mt-3 rounded-lg bg-bos-raised px-3 py-2 text-xs text-bos-text">
@@ -430,6 +422,14 @@ export default function TeamPage() {
                             )}
 
                             <div className={`${live || wageRate ? '' : 'mt-auto '}grid grid-cols-2 gap-2 pt-3`}>
+                                <button type="button" onClick={() => setWeekFor(barber)} aria-pressed={weekFor?.id === barber.id} aria-label={`Ver desglose de la semana de ${barber.name}`}
+                                    className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold bg-bos-accent text-bos-on-accent rounded-xl hover:bg-bos-accent-strong transition-colors">
+                                    <ListChecks className="w-4 h-4" /> Ver desglose
+                                </button>
+                                <Link href={`/barberos/${barber.id}`} aria-label={`Ver perfil de ${barber.name}`}
+                                    className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
+                                    <UserRound className="w-4 h-4" /> Ver perfil
+                                </Link>
                                 <button type="button" onClick={() => setLedgerFor(barber)} aria-pressed={ledgerFor?.id === barber.id} aria-label={`Movimientos de ${barber.name}`}
                                     className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
                                     <Wallet className="w-4 h-4" /> Movimientos
@@ -468,6 +468,15 @@ export default function TeamPage() {
                 <Modal title="Sueldo por día" subtitle={wageFor.name} size="lg" onClose={() => setWageFor(null)}>
                     <div data-testid="person-wage">
                         <WageSection key={wageFor.id} employee={{ id: wageFor.id, name: wageFor.name }} onChanged={fetchWages} />
+                    </div>
+                </Modal>
+            )}
+
+            {weekFor && (
+                <Modal title="Desglose de la semana" subtitle={weekFor.name} size="lg" onClose={() => setWeekFor(null)}>
+                    <div data-testid="person-week">
+                        <WeekBreakdown key={weekFor.id} employeeId={weekFor.id} name={weekFor.name} />
+                        <Link href={`/barberos/${weekFor.id}`} className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-bos-accent-text underline">Ver perfil completo de {weekFor.name}</Link>
                     </div>
                 </Modal>
             )}

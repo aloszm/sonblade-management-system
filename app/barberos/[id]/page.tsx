@@ -115,29 +115,29 @@ export default function BarberProfilePage({ params }: { params: Promise<{ id: st
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className={`${card} p-4`}>
-                            <span className="text-[13px] font-medium text-bos-muted">Cortes</span>
+                            <span className="text-[13px] font-medium text-bos-muted">Servicios</span>
                             <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{formatMoney(kpis.serviceRevenue, { cents: true })}</p>
                             <p className="text-xs text-bos-muted">{kpis.cuts} servicios realizados</p>
                         </div>
                         <div className={`${card} p-4`}>
-                            <span className="text-[13px] font-medium text-bos-muted">Comisión</span>
+                            <span className="text-[13px] font-medium text-bos-muted">Comisión de servicios</span>
                             <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{formatMoney(kpis.serviceCommission, { cents: true })}</p>
                             <p className="text-xs text-bos-muted">{kpis.commissionRate}% de servicios</p>
                         </div>
                         <div className={`${card} p-4`}>
                             <span className="text-[13px] font-medium text-bos-muted">Propina</span>
                             <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{formatMoney(kpis.tips, { cents: true })}</p>
-                            <p className="text-xs text-bos-muted">100% para el barbero</p>
+                            <p className="text-xs text-bos-muted">100% para el barbero; se suma aparte</p>
                         </div>
                         <div className={`${card} p-4 border-bos-accent`}>
-                            <span className="text-[13px] font-medium text-bos-muted">Total a recibir</span>
+                            <span className="text-[13px] font-medium text-bos-muted">Comisión total</span>
                             <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-bos-accent-text">{formatMoney(kpis.totalCommission, { cents: true })}</p>
-                            {kpis.productCommission > 0 && <p className="text-xs text-bos-muted">Incluye {formatMoney(kpis.productCommission, { cents: true })} por productos</p>}
+                            <p className="text-xs text-bos-muted">Servicios + productos{kpis.productCommission > 0 ? ` (productos: ${formatMoney(kpis.productCommission, { cents: true })})` : ''}. Sin propinas ni sueldo.</p>
                         </div>
                     </div>
 
                     <div className={`${card} p-5`}>
-                        <h3 className="font-display font-semibold mb-1">Comisión del periodo — {kpis.cuts} cortes</h3>
+                        <h3 className="font-display font-semibold mb-1">Comisión del periodo — {kpis.cuts} servicios</h3>
                         <p className="text-sm text-bos-muted">
                             Tasa vigente: <strong className="text-bos-text">{kpis.commissionRate}%</strong> sobre el precio de lista de cada servicio con regla de comisión.
                         </p>

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
     buildTeamSummary, type CommissionRow, type EmployeeRow, type ItemRow, type SaleRow, type TeamSummary, type TipRow,
 } from '@/lib/team/summary';
+import type { WeekCommissionRow, WeekData, WeekItemRow, WeekSaleRow, WeekTipRow } from '@/lib/team/person-week';
 
 // Lectura con el cliente del usuario (RLS). Recepción, caja, gerencia y dueño pueden leer sales, sale_items,
 // commission_entries y sale_tips de su sucursal (políticas sales_select_finance, sale_items_select_finance_or_own,
@@ -60,4 +61,33 @@ export async function loadTeamSummary(
             .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'generated').in('sale_id', chunk).order('id')),
     ]);
     return buildTeamSummary({ sales, items, commissions, tips, employees });
+}
+
+/**
+ * Lo que necesita la semana de cada persona (tarjeta de Equipo y su desglose): las mismas lecturas que
+ * `loadTeamSummary`, más folio, fecha de cobro, base y porcentaje de cada comisión. Solo lee.
+ */
+export async function loadTeamWeekData(
+    supabase: SupabaseClient,
+    scope: { businessId: string; branchId: string },
+    window: { start: string; end: string },
+    employees: EmployeeRow[],
+): Promise<WeekData> {
+    const { businessId, branchId } = scope;
+    const sales = await fetchAll<WeekSaleRow>(() => supabase.from('sales').select('id, folio, status, paid_at')
+        .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'paid')
+        .gte('paid_at', window.start).lt('paid_at', window.end).order('paid_at').order('id'));
+    const ids = sales.map((s) => s.id);
+    const [items, commissions, tips] = await Promise.all([
+        fetchBySaleIds<WeekItemRow>(ids, (chunk) => supabase.from('sale_items')
+            .select('id, sale_id, item_type, item_name_snapshot, quantity, line_total, employee_id, commission_employee_id')
+            .eq('business_id', businessId).eq('branch_id', branchId).in('sale_id', chunk).order('id')),
+        fetchBySaleIds<WeekCommissionRow>(ids, (chunk) => supabase.from('commission_entries')
+            .select('id, sale_id, sale_item_id, employee_id, status, commission_amount, basis_amount, percentage_snapshot')
+            .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'generated').in('sale_id', chunk).order('id')),
+        fetchBySaleIds<WeekTipRow>(ids, (chunk) => supabase.from('sale_tips')
+            .select('id, sale_id, amount, status, employee_id')
+            .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'generated').in('sale_id', chunk).order('id')),
+    ]);
+    return { sales, items, commissions, tips, employees };
 }

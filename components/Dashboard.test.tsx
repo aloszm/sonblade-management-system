@@ -46,15 +46,15 @@ describe('Panel del dueño', () => {
     it('señala la hora fuerte, el equipo y el registro con hora exacta', async () => {
         mockApi();
         render(<Dashboard />);
-        expect(await screen.findByText('La hora con más cortes es de 6pm a 7pm.')).toBeInTheDocument();
+        expect(await screen.findByText('La hora con más servicios es de 6pm a 7pm.')).toBeInTheDocument();
         expect(screen.getAllByTestId('team-row')).toHaveLength(1);
         expect(screen.getAllByTestId('log-row')[0]).toHaveTextContent('Deya');
     });
 
-    it('separa cortes e ingresos en dos gráficas, cada una con su título', async () => {
+    it('separa servicios e ingresos en dos gráficas, cada una con su título', async () => {
         mockApi();
         render(<Dashboard />);
-        expect(await screen.findByRole('heading', { name: 'Cortes por día' })).toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: 'Servicios por día' })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Ingresos por día' })).toBeInTheDocument();
         expect(screen.getByTestId('chart-cuts')).toBeInTheDocument();
         expect(screen.getByTestId('chart-revenue')).toBeInTheDocument();

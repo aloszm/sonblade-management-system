@@ -193,12 +193,14 @@ export default function LiquidacionesPage() {
                     ) : error ? (
                         <div className="p-4"><ErrorState title="No se pudieron cargar las liquidaciones" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={() => loadWeek(periodStart)} /></div>
                     ) : (
+                        <>
+                        <p data-testid="entry-count-note" className="px-4 pt-3 text-xs text-bos-muted">«Con comisión» cuenta los servicios y los productos que generaron comisión: cada uno vale 1.</p>
                         <div className="overflow-x-auto">
                             <table className="bos-stack w-full text-left text-sm">
                                 <thead className="text-bos-muted">
                                     <tr>
                                         <th className={th}>Persona</th>
-                                        <th className={`${th} text-center`}>Servicios</th>
+                                        <th className={`${th} text-center`} title="Servicios y productos que generaron comisión: cada uno cuenta 1, aunque sea un producto">Con comisión</th>
                                         <th className={`${th} text-right`}>Sueldo</th>
                                         <th className={`${th} text-right`}>Comisión</th>
                                         <th className={`${th} text-right`}>Ajustes</th>
@@ -223,7 +225,7 @@ export default function LiquidacionesPage() {
                                                     <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${expanded[r.employee_id] ? 'rotate-180' : ''}`} /> Ver desglose
                                                 </button>
                                             </td>
-                                            <td data-label="Servicios" className="px-4 py-3 text-center text-bos-muted tabular-nums">{r.entry_count}</td>
+                                            <td data-label="Con comisión" className="px-4 py-3 text-center text-bos-muted tabular-nums">{r.entry_count}</td>
                                             <td data-label="Sueldo" data-testid="row-wage" className={`px-4 py-3 text-right tabular-nums ${Number(r.wages) > 0 ? '' : 'text-bos-muted'}`}>{Number(r.wages) > 0 ? `+ ${money(Number(r.wages))}` : '—'}</td>
                                             <td data-label="Comisión" className="px-4 py-3 text-right tabular-nums">{money(r.gross_commission)}</td>
                                             <td data-label="Ajustes" className={`px-4 py-3 text-right tabular-nums ${r.deductions > 0 ? 'text-bos-danger' : 'text-bos-muted'}`}>{r.deductions > 0 ? `− ${money(r.deductions)}` : '—'}</td>
@@ -251,6 +253,7 @@ export default function LiquidacionesPage() {
                                 </tbody>
                             </table>
                         </div>
+                        </>
                     )}
                 </section>
             )}

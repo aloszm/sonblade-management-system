@@ -78,7 +78,7 @@ function PersonCard({ person }: { person: TeamPerson }) {
             </section>
 
             <section className="space-y-2 border-t border-bos-border pt-3">
-                <h4 className="text-[15px] font-semibold">Lo que lleva ganado</h4>
+                <h4 className="text-[15px] font-semibold">Lo que lleva ganado <span className="font-normal text-bos-muted">· comisiones y propinas, sin sueldo</span></h4>
                 <dl className="space-y-1 text-[15px]">
                     {person.isBarber && <Line title="Comisión de servicios" value={moneyC(person.earned.serviceCommissionCents)} />}
                     <Line title="Comisión de productos" value={moneyC(person.earned.productCommissionCents)} />
