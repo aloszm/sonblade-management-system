@@ -143,6 +143,8 @@ export interface CashSession {
     status: 'open' | 'closed';
     opened_at: string;
     closed_at: string | null;
+    /** Nombre visible de quien cerró la caja (null si sigue abierta o el servidor no lo sabe). */
+    closed_by?: string | null;
 }
 
 export interface CashMovement {

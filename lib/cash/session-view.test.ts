@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { buildSessionView, movementTag, toUiMovement, type CashMovementRow, type CashSessionRow } from './session-view';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { describe, expect, it, vi } from 'vitest';
+import { buildSessionView, loadClosedSessions, loadOpenSession, movementTag, toUiMovement, UNKNOWN_OPENER, type CashMovementRow, type CashSessionRow } from './session-view';
 
 const session: CashSessionRow = {
     id: 'sess-1',
@@ -120,5 +121,65 @@ describe('movementTag', () => {
         expect(movementTag(movement({ movement_type: 'withdrawal', direction: 'out' }))).toBe('Retiro');
         expect(movementTag(movement({ movement_type: 'deposit' }))).toBe('Entrada');
         expect(movementTag(movement({ movement_type: 'refund', direction: 'out' }))).toBe('Reembolso');
+    });
+});
+
+// Cliente falso: cada tabla devuelve sus filas y rpc('member_display_names') lo que diga la prueba.
+function fakeSupabase(tables: Record<string, unknown[]>, rpcResult: { data: unknown; error: unknown }) {
+    const fromCalls: string[] = [];
+    const rpc = vi.fn<(name: string, args: unknown) => Promise<typeof rpcResult>>(async () => rpcResult);
+    const builder = (rows: unknown[]) => {
+        const b: Record<string, unknown> = {};
+        for (const m of ['select', 'eq', 'in', 'order', 'limit']) b[m] = () => b;
+        b.then = (resolve: (v: unknown) => unknown) => resolve({ data: rows, error: null });
+        return b;
+    };
+    const client = { from: (t: string) => { fromCalls.push(t); return builder(tables[t] ?? []); }, rpc };
+    return { client: client as unknown as SupabaseClient, rpc, fromCalls };
+}
+
+describe('nombres de quien abrió y cerró la caja', () => {
+    const OWNER = '76c82fae-0000-4000-8000-000000000001';
+    const DAGO = 'afe3a615-0000-4000-8000-000000000002';
+
+    it('recepción recibe el nombre de la cuenta principal (sin leer perfiles ajenos)', async () => {
+        const { client, rpc, fromCalls } = fakeSupabase(
+            { cash_sessions: [{ ...session, opened_by: OWNER }], cash_movements: [] },
+            { data: [{ user_id: OWNER, display_name: 'Alonso' }], error: null },
+        );
+        const view = await loadOpenSession(client, 'biz-1', 'branch-1');
+        expect(view?.opened_by).toBe('Alonso');
+        expect(view?.closed_by).toBeNull();
+        expect(rpc).toHaveBeenCalledWith('member_display_names', { p_business_id: 'biz-1', p_user_ids: [OWNER] });
+        expect(fromCalls).not.toContain('profiles');
+    });
+
+    it('el historial trae quién abrió y quién cerró', async () => {
+        const closed = { ...session, status: 'closed' as const, opened_by: DAGO, closed_by: OWNER, closed_at: '2026-11-07T19:30:00Z' };
+        const { client, rpc } = fakeSupabase(
+            { cash_sessions: [closed], cash_movements: [] },
+            { data: [{ user_id: OWNER, display_name: 'Alonso' }, { user_id: DAGO, display_name: 'Dago' }], error: null },
+        );
+        const [view] = await loadClosedSessions(client, 'biz-1', 'branch-1');
+        expect(view.opened_by).toBe('Dago');
+        expect(view.closed_by).toBe('Alonso');
+        expect(rpc.mock.calls[0][1]).toEqual({ p_business_id: 'biz-1', p_user_ids: [DAGO, OWNER] });
+    });
+
+    it('si el nombre no llega, la caja sigue funcionando con el comodín', async () => {
+        const { client } = fakeSupabase(
+            { cash_sessions: [{ ...session, opened_by: OWNER }], cash_movements: [{ cash_session_id: 'sess-1', amount: 100, method: 'cash', movement_type: 'sale_payment', direction: 'in' }] },
+            { data: null, error: { code: '42883', message: 'function does not exist' } },
+        );
+        const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const view = await loadOpenSession(client, 'biz-1', 'branch-1');
+        errorLog.mockRestore();
+        expect(view?.opened_by).toBe(UNKNOWN_OPENER);
+        expect(view?.total_cash).toBe(100);
+    });
+
+    it('buildSessionView deja closed_by en null si nadie la ha cerrado', () => {
+        expect(buildSessionView(session, [], 'Dago').closed_by).toBeNull();
+        expect(buildSessionView(session, [], 'Dago', 'Sonia').closed_by).toBe('Sonia');
     });
 });

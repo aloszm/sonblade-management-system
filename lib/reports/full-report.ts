@@ -318,6 +318,28 @@ export function auditDetail(entry: AuditEntry): string {
     return text.length > 400 ? `${text.slice(0, 397)}...` : text;
 }
 
+/** Datos de inicio de sesión que nunca salen en la versión para el contador. */
+const ACCOUNTANT_HIDDEN_KEYS = ['login_name', 'email'];
+/** En las entradas sobre personas también se quita el teléfono (el de la sucursal sí se conserva). */
+const PEOPLE_TABLES = ['employees', 'business_memberships', 'profiles'];
+
+/**
+ * Entrada de la bitácora tal como la ve el contador: sin usuario de inicio de sesión, correo ni teléfono
+ * del personal; el nombre visible y el resto del cambio se conservan. La base ya lo hace
+ * (20261120031000_accountant_report_without_logins); esto cubre reportes armados antes de ese cambio.
+ */
+export function auditEntryForAccountant(entry: AuditEntry): AuditEntry {
+    const hidden = PEOPLE_TABLES.includes(entry.action.split('.')[0]) ? [...ACCOUNTANT_HIDDEN_KEYS, 'phone'] : ACCOUNTANT_HIDDEN_KEYS;
+    const strip = <T,>(o: Record<string, T> | undefined) =>
+        o === undefined ? undefined : Object.fromEntries(Object.entries(o).filter(([k]) => !hidden.includes(k)));
+    const d = entry.details ?? {};
+    const details: AuditEntry['details'] = {};
+    if (d.changes !== undefined) details.changes = strip(d.changes);
+    if (d.before !== undefined) details.before = strip(d.before);
+    if (d.after !== undefined) details.after = strip(d.after);
+    return { ...entry, details };
+}
+
 /** Párrafo de resumen en palabras, generado con las cifras del reporte. */
 export function executiveParagraph(report: FullReport): string {
     const { kpis: k, previous: p } = report.summary;
@@ -835,7 +857,7 @@ export function buildReportModel(report: FullReport, control: ReportControl = nu
             {
                 kind: 'table', empty: 'No hubo cambios sensibles en el periodo.',
                 columns: [T.dts('Fecha y hora'), T.text('Quién'), T.text('Puesto'), T.text('Qué pasó'), T.text('Detalle'), T.text('Motivo')],
-                rows: report.audit.map((a) => [a.at, a.actor, a.role ? roleLabel(a.role) : '', auditActionLabel(a.action), auditDetail(a), a.reason]),
+                rows: report.audit.map((a) => (internal ? a : auditEntryForAccountant(a))).map((a) => [a.at, a.actor, a.role ? roleLabel(a.role) : '', auditActionLabel(a.action), auditDetail(a), a.reason]),
             },
         ]);
 

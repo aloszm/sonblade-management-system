@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadMemberNames } from '@/lib/auth/member-names';
 import type { CashMovement, CashSession } from '@/types';
 
 // Filas tal como las devuelve la base (esquema v2).
@@ -11,6 +12,7 @@ export type CashSessionRow = {
     opened_by: string;
     opened_at: string;
     closed_at: string | null;
+    closed_by?: string | null;
     // Cierre guiado: lo que se dejó de fondo, lo apartado y lo retirado.
     opening_expected?: number | string | null;
     float_left?: number | string | null;
@@ -55,6 +57,7 @@ export function buildSessionView(
     session: CashSessionRow,
     movements: CashMovementRow[],
     openedByName: string,
+    closedByName: string | null = null,
 ): CashSession {
     let totalSales = 0;
     let totalTips = 0;
@@ -83,6 +86,7 @@ export function buildSessionView(
     return {
         id: session.id,
         opened_by: openedByName,
+        closed_by: closedByName,
         initial_amount: num(session.opening_cash),
         total_sales: round2(totalSales),
         total_tips: round2(totalTips),
@@ -145,39 +149,36 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
     };
 }
 
-const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
+const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, closed_by, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
 const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 
-/** Nombre que se usa cuando el servidor no puede decir quién abrió la caja (la ficha de la cuenta principal no la ve recepción). */
+/** Nombre que se usa cuando el servidor no puede decir quién abrió la caja. */
 export const UNKNOWN_OPENER = 'Usuario';
 
-async function toViews(supabase: SupabaseClient, sessions: CashSessionRow[]): Promise<CashSession[]> {
+async function toViews(supabase: SupabaseClient, businessId: string, sessions: CashSessionRow[]): Promise<CashSession[]> {
     if (sessions.length === 0) return [];
     const ids = sessions.map((s) => s.id);
-    const userIds = Array.from(new Set(sessions.map((s) => s.opened_by)));
 
-    // El nombre sale de la ficha de empleado (visible para todo el equipo); el perfil solo lo ve su dueño.
-    const [{ data: movements, error: movementsError }, { data: profiles }, { data: employees }] = await Promise.all([
+    // Nombres visibles de quien abrió y cerró: public.member_display_names los da a cualquier miembro activo
+    // del negocio (recepción no puede leer perfiles ajenos, y la cuenta principal no tiene ficha de empleado).
+    const [{ data: movements, error: movementsError }, names] = await Promise.all([
         supabase.from('cash_movements').select(MOVEMENT_COLUMNS).in('cash_session_id', ids).limit(5000),
-        supabase.from('profiles').select('user_id, full_name').in('user_id', userIds),
-        supabase.from('employees').select('user_id, display_name').in('user_id', userIds),
+        loadMemberNames(supabase, businessId, sessions.flatMap((s) => [s.opened_by, s.closed_by])),
     ]);
     if (movementsError) throw movementsError;
 
-    const names = new Map<string, string>();
-    for (const p of (profiles ?? []) as { user_id: string; full_name: string | null }[]) {
-        if (p.full_name) names.set(p.user_id, p.full_name);
-    }
-    for (const e of (employees ?? []) as { user_id: string | null; display_name: string }[]) {
-        if (e.user_id && !names.has(e.user_id)) names.set(e.user_id, e.display_name);
-    }
     const bySession = new Map<string, CashMovementRow[]>();
     for (const m of (movements ?? []) as unknown as CashMovementRow[]) {
         const list = bySession.get(m.cash_session_id) ?? [];
         list.push(m);
         bySession.set(m.cash_session_id, list);
     }
-    return sessions.map((s) => buildSessionView(s, bySession.get(s.id) ?? [], names.get(s.opened_by) ?? UNKNOWN_OPENER));
+    return sessions.map((s) => buildSessionView(
+        s,
+        bySession.get(s.id) ?? [],
+        names.get(s.opened_by) ?? UNKNOWN_OPENER,
+        s.closed_by ? names.get(s.closed_by) ?? null : null,
+    ));
 }
 
 export async function loadOpenSession(supabase: SupabaseClient, businessId: string, branchId: string): Promise<CashSession | null> {
@@ -185,14 +186,14 @@ export async function loadOpenSession(supabase: SupabaseClient, businessId: stri
         .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'open')
         .order('opened_at', { ascending: false }).limit(1);
     if (error) throw error;
-    return (await toViews(supabase, (data ?? []) as unknown as CashSessionRow[]))[0] ?? null;
+    return (await toViews(supabase, businessId, (data ?? []) as unknown as CashSessionRow[]))[0] ?? null;
 }
 
 export async function loadSessionById(supabase: SupabaseClient, businessId: string, branchId: string, sessionId: string): Promise<CashSession | null> {
     const { data, error } = await supabase.from('cash_sessions').select(SESSION_COLUMNS)
         .eq('business_id', businessId).eq('branch_id', branchId).eq('id', sessionId).limit(1);
     if (error) throw error;
-    return (await toViews(supabase, (data ?? []) as unknown as CashSessionRow[]))[0] ?? null;
+    return (await toViews(supabase, businessId, (data ?? []) as unknown as CashSessionRow[]))[0] ?? null;
 }
 
 export async function loadClosedSessions(supabase: SupabaseClient, businessId: string, branchId: string, limit = 30): Promise<CashSession[]> {
@@ -200,5 +201,5 @@ export async function loadClosedSessions(supabase: SupabaseClient, businessId: s
         .eq('business_id', businessId).eq('branch_id', branchId).eq('status', 'closed')
         .order('closed_at', { ascending: false }).limit(limit);
     if (error) throw error;
-    return toViews(supabase, (data ?? []) as unknown as CashSessionRow[]);
+    return toViews(supabase, businessId, (data ?? []) as unknown as CashSessionRow[]);
 }

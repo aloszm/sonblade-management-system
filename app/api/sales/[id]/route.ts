@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { FRONT_DESK_READ_ROLES } from '@/lib/auth/roles';
 import { toTicket, type TicketSaleRow } from '@/lib/sales/ticket';
+import { loadMemberNames } from '@/lib/auth/member-names';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 
@@ -41,12 +42,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         const [employees, client, cashier] = await Promise.all([
             employeeIds.length ? supabase.from('employees').select('id, display_name').in('id', employeeIds) : Promise.resolve({ data: [] }),
             row.client_id ? supabase.from('clients').select('full_name').eq('id', row.client_id).maybeSingle() : Promise.resolve({ data: null }),
-            row.created_by ? supabase.from('profiles').select('full_name').eq('user_id', row.created_by).maybeSingle() : Promise.resolve({ data: null }),
+            // Quién cobró: nombre visible para cualquier miembro (los perfiles ajenos no se leen por RLS).
+            loadMemberNames(supabase, context.businessId, [row.created_by]),
         ]);
         const ticket = toTicket(row, {
             employees: new Map(((employees.data ?? []) as unknown as { id: string; display_name: string }[]).map((e) => [e.id, e.display_name])),
             client: (client.data as unknown as { full_name: string } | null)?.full_name ?? null,
-            cashier: (cashier.data as unknown as { full_name: string | null } | null)?.full_name ?? null,
+            cashier: row.created_by ? cashier.get(row.created_by) ?? null : null,
         });
         return Response.json({ ...ticket, business: biz, branch: branch.data }, { headers: NO_STORE });
     } catch (error) {

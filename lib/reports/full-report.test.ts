@@ -184,6 +184,32 @@ describe('modelo del reporte', () => {
         expect(agenda.flatMap((t) => t.columns.map((c) => c.header))).not.toContain('Teléfono');
     });
 
+    it('la versión para el contador no trae login_name, correos sintéticos ni teléfonos de clientes o del personal', () => {
+        const withLogins = (a: 'interno' | 'contador') => {
+            const report = sampleReport(a);
+            report.audit.push(
+                { at: '2026-11-12T19:30:00+00:00', action: 'business_memberships.update', entity: 'business_memberships', entity_id: 'u', actor: 'Sistema', role: null, reason: null,
+                    details: { changes: { login_name: { from: null, to: 'alonso' }, must_change_pin: { from: false, to: true } } } },
+                { at: '2026-11-12T19:31:00+00:00', action: 'employees.update', entity: 'employees', entity_id: 'e', actor: 'Alonso', role: 'owner', reason: null,
+                    details: { changes: { display_name: { from: 'Dago', to: 'Dago R' }, phone: { from: '5511112222', to: '5533334444' }, email: { from: null, to: 'dago@gallo-420.barberos.invalid' } } } },
+                { at: '2026-11-12T19:32:00+00:00', action: 'cash_closed', entity: 'cash_session', entity_id: 'c', actor: 'Dago', role: 'receptionist', reason: null,
+                    details: { after: { counted_cash: 500, login_name: 'dago', email: 'dago@gallo-420.barberos.invalid' } } },
+            );
+            return JSON.stringify(buildReportModel(report, { folio: 'REP-1', sha256: 'a'.repeat(64) }));
+        };
+        const external = withLogins('contador');
+        expect(external).not.toMatch(/login_name/);
+        expect(external).not.toContain('@gallo-420.barberos.invalid');
+        for (const secret of ['5551234567', '5557654321', '5511112222', '5533334444', 'Juan Pérez', 'María López']) expect(external).not.toContain(secret);
+        // El nombre visible del personal sí sale (el contador ve comisiones y pagos).
+        expect(external).toContain('Dago R');
+        expect(external).toContain('Alonso');
+        // La versión interna no cambia.
+        const internal = withLogins('interno');
+        expect(internal).toContain('login_name');
+        expect(internal).toContain('5551234567');
+    });
+
     it('cada fila trae tantas celdas como columnas', () => {
         for (const audience of ['interno', 'contador'] as const) {
             for (const section of buildReportModel(sampleReport(audience)).sections) {

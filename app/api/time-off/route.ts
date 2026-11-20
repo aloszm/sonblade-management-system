@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { FRONT_DESK_ROLES } from '@/lib/auth/roles';
 import { REQUESTED_VIA, toTimeOffView, type TimeOffRow } from '@/lib/appointments/time-off';
+import { loadMemberNames } from '@/lib/auth/member-names';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +42,9 @@ export async function GET(request: NextRequest) {
         if (employeesError) throw employeesError;
         const list = (employees ?? []) as { id: string; user_id: string | null; display_name: string }[];
         const employeeNames = new Map(list.map((e) => [e.id, e.display_name]));
-        const userNames = new Map(list.filter((e) => e.user_id).map((e) => [e.user_id as string, e.display_name]));
+        // Quién registró o canceló: puede ser la cuenta principal, sin ficha de empleado (perfiles ajenos no se leen por RLS).
+        const userNames = await loadMemberNames(db, context.businessId, rows.flatMap((row) => [row.created_by, row.cancelled_by]));
+        for (const e of list) if (e.user_id && !userNames.has(e.user_id)) userNames.set(e.user_id, e.display_name);
         return Response.json(rows.map((row) => toTimeOffView(row, employeeNames, userNames)), { headers: NO_STORE });
     } catch (error) { return authErrorResponse(error); }
 }

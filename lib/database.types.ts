@@ -2396,6 +2396,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      member_display_names: {
+        Args: { p_business_id: string; p_user_ids: string[] }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
       my_account_status: { Args: never; Returns: Json }
       open_cash_session: {
         Args: {

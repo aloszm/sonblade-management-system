@@ -92,7 +92,10 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
                     <tbody>
                         {sessions.map((s) => (
                             <tr key={s.id} className="border-t border-bos-border tabular-nums">
-                                <td data-label="" className="px-4 py-3 font-semibold first-letter:uppercase max-md:order-first">{day(s.closed_at)}</td>
+                                <td data-label="" className="px-4 py-3 font-semibold first-letter:uppercase max-md:order-first">
+                                    {day(s.closed_at)}
+                                    {s.closed_by && <span className="block text-xs font-normal text-bos-muted">cerró {s.closed_by}</span>}
+                                </td>
                                 <td data-label="Vendido" className="px-4 py-3 text-right">{money(s.total_sales)}</td>
                                 <td data-label="Contado" className="px-4 py-3 text-right">{value(s.physical_count)}</td>
                                 <td data-label="Diferencia" className={`px-4 py-3 text-right font-semibold max-md:order-first ${s.difference === 0 ? 'text-bos-success' : 'text-bos-danger'}`}>
