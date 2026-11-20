@@ -42,10 +42,13 @@ begin
          (biz, b, s2, i3, dani_e, 'percentage', 'price_after_discount', 500, 50, 250, 'reversed', t0, t0, 'Venta anulada de prueba');
   insert into public.sale_tips (business_id, branch_id, sale_id, employee_id, amount, method, status, created_by, created_at)
   values (biz, b, s1, dani_e, 50, 'cash', 'generated', owner, t0);
-  insert into public.expenses (business_id, branch_id, status, category, description, amount, method, incurred_at, created_by, created_at)
-  values (biz, b, 'posted', 'Prueba', 'Gasto A hecho en el periodo', 120, 'cash', t0, owner, t0 + interval '30 days'),
-         (biz, b, 'posted', 'Prueba', 'Gasto B hecho fuera del periodo', 999, 'cash', t0 - interval '30 days', owner, t0),
-         (biz, b, 'cancelled', 'Prueba', 'Gasto C cancelado', 70, 'cash', t0, owner, t0);
+  -- Desde B6 (20261120041000) un gasto en efectivo sin caja sale del sobre (paid_from/envelope_id) y uno cancelado
+  -- lleva quién, cuándo y por qué; los importes, fechas y estados de la prueba no cambian.
+  insert into public.expenses (business_id, branch_id, status, category, description, amount, method, incurred_at, created_by, created_at,
+                               paid_from, envelope_id, cancelled_by, cancelled_at, cancel_reason)
+  values (biz, b, 'posted', 'Prueba', 'Gasto A hecho en el periodo', 120, 'cash', t0, owner, t0 + interval '30 days', 'envelope', private.default_envelope_id(b), null, null, null),
+         (biz, b, 'posted', 'Prueba', 'Gasto B hecho fuera del periodo', 999, 'cash', t0 - interval '30 days', owner, t0, 'envelope', private.default_envelope_id(b), null, null, null),
+         (biz, b, 'cancelled', 'Prueba', 'Gasto C cancelado', 70, 'cash', t0, owner, t0, 'envelope', private.default_envelope_id(b), owner, t0, 'Gasto de prueba cancelado');
 
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role', 'authenticated')::text, true);
   fin := private.report_financial_period(biz, b, v_start, v_end, false);

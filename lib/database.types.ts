@@ -405,6 +405,54 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_envelopes: {
+        Row: {
+          branch_id: string
+          business_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          business_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_envelopes_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "cash_envelopes_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_movements: {
         Row: {
           amount: number
@@ -1324,51 +1372,206 @@ export type Database = {
           },
         ]
       }
-      expenses: {
+      envelope_movements: {
         Row: {
           amount: number
           branch_id: string
           business_id: string
           cash_session_id: string | null
-          category: string
           created_at: string
           created_by: string
-          description: string
+          direction: Database["public"]["Enums"]["cash_direction"]
+          envelope_id: string
+          expense_id: string | null
           id: string
-          incurred_at: string
-          method: Database["public"]["Enums"]["payment_method"]
-          status: Database["public"]["Enums"]["expense_status"]
-          updated_at: string
+          idempotency_key: string | null
+          reason: string | null
+          source: string
         }
         Insert: {
           amount: number
           branch_id: string
           business_id: string
           cash_session_id?: string | null
-          category: string
           created_at?: string
           created_by: string
-          description: string
+          direction: Database["public"]["Enums"]["cash_direction"]
+          envelope_id: string
+          expense_id?: string | null
           id?: string
-          incurred_at?: string
-          method: Database["public"]["Enums"]["payment_method"]
-          status?: Database["public"]["Enums"]["expense_status"]
-          updated_at?: string
+          idempotency_key?: string | null
+          reason?: string | null
+          source: string
         }
         Update: {
           amount?: number
           branch_id?: string
           business_id?: string
           cash_session_id?: string | null
+          created_at?: string
+          created_by?: string
+          direction?: Database["public"]["Enums"]["cash_direction"]
+          envelope_id?: string
+          expense_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          reason?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "envelope_movements_business_id_branch_id_cash_session_id_fkey"
+            columns: ["business_id", "branch_id", "cash_session_id"]
+            isOneToOne: false
+            referencedRelation: "cash_sessions"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "envelope_movements_business_id_branch_id_envelope_id_fkey"
+            columns: ["business_id", "branch_id", "envelope_id"]
+            isOneToOne: false
+            referencedRelation: "cash_envelopes"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "envelope_movements_business_id_branch_id_expense_id_fkey"
+            columns: ["business_id", "branch_id", "expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "envelope_movements_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "envelope_movements_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_categories: {
+        Row: {
+          affects_profit: boolean
+          business_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          affects_profit?: boolean
+          business_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          affects_profit?: boolean
+          business_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          branch_id: string
+          business_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cash_session_id: string | null
+          category: string
+          category_id: string
+          created_at: string
+          created_by: string
+          description: string
+          envelope_id: string | null
+          id: string
+          idempotency_key: string | null
+          incurred_at: string
+          method: Database["public"]["Enums"]["payment_method"]
+          paid_from: string
+          receipt_path: string | null
+          recurring_expense_id: string | null
+          status: Database["public"]["Enums"]["expense_status"]
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          business_id: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cash_session_id?: string | null
+          category: string
+          category_id: string
+          created_at?: string
+          created_by: string
+          description: string
+          envelope_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          incurred_at?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          paid_from?: string
+          receipt_path?: string | null
+          recurring_expense_id?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          business_id?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cash_session_id?: string | null
           category?: string
+          category_id?: string
           created_at?: string
           created_by?: string
           description?: string
+          envelope_id?: string | null
           id?: string
+          idempotency_key?: string | null
           incurred_at?: string
           method?: Database["public"]["Enums"]["payment_method"]
+          paid_from?: string
+          receipt_path?: string | null
+          recurring_expense_id?: string | null
           status?: Database["public"]["Enums"]["expense_status"]
           updated_at?: string
+          vendor?: string | null
         }
         Relationships: [
           {
@@ -1391,6 +1594,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "businesses"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_category_fk"
+            columns: ["business_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "expenses_envelope_fk"
+            columns: ["business_id", "branch_id", "envelope_id"]
+            isOneToOne: false
+            referencedRelation: "cash_envelopes"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "expenses_recurring_fk"
+            columns: ["business_id", "branch_id", "recurring_expense_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_expenses"
+            referencedColumns: ["business_id", "branch_id", "id"]
           },
         ]
       }
@@ -1654,6 +1878,79 @@ export type Database = {
             columns: ["sale_item_id"]
             isOneToOne: false
             referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_expenses: {
+        Row: {
+          branch_id: string
+          business_id: string
+          category_id: string
+          created_at: string
+          created_by: string
+          day_of_month: number
+          id: string
+          is_active: boolean
+          method: Database["public"]["Enums"]["payment_method"]
+          name: string
+          paid_from: string
+          suggested_amount: number
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          branch_id: string
+          business_id: string
+          category_id: string
+          created_at?: string
+          created_by: string
+          day_of_month: number
+          id?: string
+          is_active?: boolean
+          method: Database["public"]["Enums"]["payment_method"]
+          name: string
+          paid_from: string
+          suggested_amount: number
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          branch_id?: string
+          business_id?: string
+          category_id?: string
+          created_at?: string
+          created_by?: string
+          day_of_month?: number
+          id?: string
+          is_active?: boolean
+          method?: Database["public"]["Enums"]["payment_method"]
+          name?: string
+          paid_from?: string
+          suggested_amount?: number
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_business_id_category_id_fkey"
+            columns: ["business_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
@@ -2242,6 +2539,10 @@ export type Database = {
         }
         Returns: Json
       }
+      cancel_expense: {
+        Args: { p_expense_id: string; p_reason: string }
+        Returns: Json
+      }
       cancel_time_off: {
         Args: { p_reason: string; p_time_off_id: string }
         Returns: Json
@@ -2354,6 +2655,61 @@ export type Database = {
         }
         Returns: Json
       }
+      envelope_adjust_confirmed: {
+        Args: {
+          p_comment: string
+          p_counted_balance: number
+          p_envelope_id: string
+          p_idempotency_key?: string
+        }
+        Returns: Json
+      }
+      envelope_balance: {
+        Args: { p_branch_id?: string }
+        Returns: {
+          balance: number
+          branch_id: string
+          envelope_id: string
+          is_active: boolean
+          is_default: boolean
+          last_movement_at: string
+          movements: number
+          name: string
+          total_in: number
+          total_out: number
+        }[]
+      }
+      envelope_bank_deposit_confirmed: {
+        Args: {
+          p_amount: number
+          p_comment: string
+          p_envelope_id: string
+          p_idempotency_key?: string
+        }
+        Returns: Json
+      }
+      envelope_movements_list: {
+        Args: {
+          p_envelope_id: string
+          p_from?: string
+          p_limit?: number
+          p_to?: string
+        }
+        Returns: {
+          amount: number
+          balance_after: number
+          cash_session_id: string
+          created_at: string
+          created_by: string
+          direction: Database["public"]["Enums"]["cash_direction"]
+          envelope_id: string
+          expense_id: string
+          id: string
+          reason: string
+          signed_amount: number
+          source: string
+        }[]
+      }
       get_settlement_receipt: {
         Args: { p_settlement_id: string }
         Returns: Json
@@ -2411,6 +2767,22 @@ export type Database = {
           p_opening_reason?: string
         }
         Returns: Json
+      }
+      pending_recurring_expenses: {
+        Args: { p_branch_id: string; p_month?: string }
+        Returns: {
+          category_id: string
+          category_name: string
+          day_of_month: number
+          due_on: string
+          id: string
+          is_overdue: boolean
+          method: Database["public"]["Enums"]["payment_method"]
+          name: string
+          paid_from: string
+          suggested_amount: number
+          vendor: string
+        }[]
       }
       pin_changed: { Args: never; Returns: boolean }
       preview_commission_settlement: {
@@ -2470,6 +2842,24 @@ export type Database = {
         }
         Returns: Json
       }
+      record_expense: {
+        Args: {
+          p_amount: number
+          p_branch_id: string
+          p_category_id: string
+          p_comment?: string
+          p_description: string
+          p_envelope_id?: string
+          p_idempotency_key?: string
+          p_incurred_on?: string
+          p_method?: Database["public"]["Enums"]["payment_method"]
+          p_paid_from: string
+          p_receipt_path?: string
+          p_recurring_expense_id?: string
+          p_vendor?: string
+        }
+        Returns: Json
+      }
       record_sale_payment: {
         Args: {
           p_amount: number
@@ -2526,6 +2916,31 @@ export type Database = {
         }
         Returns: Json
       }
+      save_expense_category: {
+        Args: {
+          p_business_id: string
+          p_id?: string
+          p_is_active?: boolean
+          p_name?: string
+          p_sort_order?: number
+        }
+        Returns: Json
+      }
+      save_recurring_expense: {
+        Args: {
+          p_branch_id: string
+          p_category_id?: string
+          p_day_of_month?: number
+          p_id?: string
+          p_is_active?: boolean
+          p_method?: Database["public"]["Enums"]["payment_method"]
+          p_name?: string
+          p_paid_from?: string
+          p_suggested_amount?: number
+          p_vendor?: string
+        }
+        Returns: Json
+      }
       server_pin_pepper: { Args: never; Returns: string }
       set_account_active: {
         Args: { p_active: boolean; p_business_id: string; p_user_id: string }
@@ -2568,6 +2983,10 @@ export type Database = {
       }
       set_employee_schedule: {
         Args: { p_days: Json; p_employee_id: string }
+        Returns: Json
+      }
+      set_expense_receipt: {
+        Args: { p_expense_id: string; p_receipt_path: string }
         Returns: Json
       }
       set_inventory_minimum: {
