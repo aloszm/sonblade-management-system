@@ -463,25 +463,22 @@ export default function TeamPage() {
                 })}
             </div>
 
+            {/* En ventana: antes se abrían al final de la página y en el celular parecía que el botón no hacía nada. */}
             {wageFor && (
-                <div data-testid="person-wage" className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-bos-muted">Sueldo por día de <strong className="text-bos-text">{wageFor.name}</strong></p>
-                        <Button variant="secondary" size="sm" onClick={() => setWageFor(null)}>Cerrar</Button>
+                <Modal title="Sueldo por día" subtitle={wageFor.name} size="lg" onClose={() => setWageFor(null)}>
+                    <div data-testid="person-wage">
+                        <WageSection key={wageFor.id} employee={{ id: wageFor.id, name: wageFor.name }} onChanged={fetchWages} />
                     </div>
-                    <WageSection key={wageFor.id} employee={{ id: wageFor.id, name: wageFor.name }} onChanged={fetchWages} />
-                </div>
+                </Modal>
             )}
 
             {ledgerFor && (
-                <div data-testid="person-ledger" className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-bos-muted">Movimientos de <strong className="text-bos-text">{ledgerFor.name}</strong></p>
-                        <Button variant="secondary" size="sm" onClick={() => setLedgerFor(null)}>Cerrar</Button>
+                <Modal title="Movimientos" subtitle={ledgerFor.name} size="lg" onClose={() => setLedgerFor(null)}>
+                    <div data-testid="person-ledger">
+                        <TeamLedger key={ledgerFor.id} people={[{ id: ledgerFor.id, name: ledgerFor.name }]} employeeId={ledgerFor.id}
+                            title={`Movimientos de ${ledgerFor.name}`} readOnly={readOnly} />
                     </div>
-                    <TeamLedger key={ledgerFor.id} people={[{ id: ledgerFor.id, name: ledgerFor.name }]} employeeId={ledgerFor.id}
-                        title={`Movimientos de ${ledgerFor.name}`} readOnly={readOnly} />
-                </div>
+                </Modal>
             )}
 
             {isOwner && <BonusGoalsManager people={barbers.filter((b) => (b as { isBarber?: boolean }).isBarber !== false).map((b) => ({ id: b.id, name: b.name }))} />}
