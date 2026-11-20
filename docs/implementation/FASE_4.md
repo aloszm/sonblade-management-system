@@ -485,11 +485,13 @@ Anotar aquí cada problema real: fecha, quién, pantalla, qué pasó, estado.
 
 **Encendido en producción:** Sobres, Gastos, adelantos/préstamos/descuentos/bonos, Pago semanal con desglose, página `/inicio`, etiqueta "En línea".
 
-**Apagado a propósito (cada uno requiere visto bueno del dueño):**
+**Encendido después, el mismo 20 nov, por instrucción del dueño ("hazlo todo"):**
 
-1. **Separación por dominios.** El código está listo (`lib/hosts.ts`, `lib/site-routing.ts`, `middleware.ts`) y se activa al poner `NEXT_PUBLIC_SITE_DOMAIN=barbergallo420.site` en Production del proyecto principal y volver a publicar. Efecto: raíz = portada, `citas.` = reservas, `admin.` = equipo; todo el equipo vuelve a iniciar sesión en `admin.barbergallo420.site`. Regla: toda ruta interna nueva debe agregarse a `INTERNAL_PREFIXES` de `lib/site-routing.ts`.
-2. **Reservas en línea en producción.** Antes de encender: subir `lookups_per_minute` de la configuración de reservas (hoy 20 por minuto por IP, lo aplica `private.booking_rate_limited`; varios clientes en el mismo Wi-Fi pueden toparse con el límite) y construir D1 (interruptor con PIN), D2 (reprogramar desde el enlace) y D3 (WhatsApp de un clic).
-3. **Saldo inicial real del sobre** en producción: `supabase/pending/envelope_opening_balance.sql` (decisión del dueño; no ejecutado).
+1. **Separación por dominios:** `NEXT_PUBLIC_SITE_DOMAIN=barbergallo420.site` en Production del proyecto principal. Raíz = portada, `citas.barbergallo420.site` = reservas, `admin.barbergallo420.site` = equipo (la sesión solo vive ahí). Para volver a "todo junto": borrar la variable y volver a publicar. Regla: toda ruta interna nueva debe agregarse a `INTERNAL_PREFIXES` de `lib/site-routing.ts`. Práctica no cambia.
+2. **Tope de consultas de reservas:** de 20 a 60 por minuto por huella de red (`20261120070000_booking_lookup_limit`, en ambas bases; 85 migraciones).
+3. **Reservas en línea en producción:** `businesses.settings.booking.enabled = true`, cambiado por SQL con registro en la bitácora (`booking_enabled`). Para apagarlas: mismo campo en `false`. Siguen sin construir D1 (interruptor con PIN en pantalla), D2 (reprogramar desde el enlace) y D3 (WhatsApp de un clic).
+
+**Sigue pendiente del dueño:** saldo inicial real del sobre en producción (contar el sobre físico y registrar "Ajustar por conteo" en Sobres; `supabase/pending/envelope_opening_balance.sql` solo aplica si hubo cierres previos).
 
 **Sin verificar (dicho al dueño):** Safari/iPhone (el entorno de pruebas no tiene WebKit); letrero "Abierto ahora" en vivo; cancelación real con menos de 2 horas; cuenta de consulta (Lucía) en las pantallas nuevas; un bono dentro de un recibo real; restauración de un respaldo.
 
