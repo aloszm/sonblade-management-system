@@ -3,6 +3,7 @@ import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { checkAdminKey } from '@/lib/system/health';
 import { latestBundledMigration } from '@/lib/system/migrations';
+import { OWNER_ONLY_ROLES } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 /** Estado del sistema para el dueño. No incluye llaves ni direcciones: solo qué funciona y qué versión corre. */
 export async function GET() {
     try {
-        const context = await requireAuthContext(['owner']);
+        const context = await requireAuthContext(OWNER_ONLY_ROLES);
         const [key, business] = await Promise.all([
             checkAdminKey(),
             (await createSupabaseServerClient()).from('businesses').select('settings').eq('id', context.businessId).maybeSingle(),

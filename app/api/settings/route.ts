@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { OWNER_ONLY_ROLES } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
 /** Guarda el perfil con update_business_profile (queda en la auditoría). Solo el dueño. */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner']);
+        const context = await requireAuthContext(OWNER_ONLY_ROLES);
         const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

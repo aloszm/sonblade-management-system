@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
+import { MANAGEMENT_READ_ROLES, MANAGEMENT_ROLES } from '@/lib/auth/roles';
 import { PRODUCT_COST_MAX, PRODUCT_COST_REQUIRED, loadProducts } from '@/lib/inventory/products-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -44,7 +44,7 @@ export async function GET() {
 /** Alta de producto con existencias iniciales, en una sola operación atómica. Solo dueño y administrador. */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const parsed = CreateProductSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

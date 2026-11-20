@@ -4,6 +4,7 @@ import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { DaySchema, IdSchema, NO_STORE, badRequest, num } from '@/lib/money/api';
 import { BONUS_METRICS, BONUS_METRIC_LABELS, type BonusMetric } from '@/lib/payroll/ledger';
+import { OWNER_ONLY_ROLES } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,6 @@ export const dynamic = 'force-dynamic';
  * Metas de bono (B7). Configurables y APAGADAS: no hay metas por omisión; sin una meta activa no se calcula ni se
  * muestra nada de bonos. Solo la cuenta principal las ve aquí y las cambia (la base también lo exige al guardar).
  */
-const OWNER_ONLY = ['owner'] as const;
 
 const name = z.string({ message: 'El nombre de la meta lleva de 2 a 80 letras.' }).trim()
     .min(2, 'El nombre de la meta lleva de 2 a 80 letras.').max(80, 'El nombre de la meta lleva de 2 a 80 letras.');
@@ -90,7 +90,7 @@ async function employeeNames(supabase: Awaited<ReturnType<typeof createSupabaseS
 /** Metas de la sucursal (activas e inactivas). */
 export async function GET() {
     try {
-        const context = await requireAuthContext([...OWNER_ONLY]);
+        const context = await requireAuthContext(OWNER_ONLY_ROLES);
         const supabase = await createSupabaseServerClient();
         const { data, error } = await supabase.from('bonus_goals')
             .select('id, branch_id, name, metric, threshold, bonus_amount, applies_to, employee_id, valid_from, valid_to, is_active, created_by, created_at, updated_at')
@@ -108,7 +108,7 @@ export async function GET() {
 /** Crea una meta (solo la cuenta principal). */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext([...OWNER_ONLY]);
+        const context = await requireAuthContext(OWNER_ONLY_ROLES);
         const parsed = CreateSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return badRequest(parsed.error);
         const d = parsed.data;
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 /** Cambia una meta (solo lo que llega). `valid_to: null` la deja sin fecha de fin; `is_active: false` la apaga. */
 export async function PATCH(request: NextRequest) {
     try {
-        const context = await requireAuthContext([...OWNER_ONLY]);
+        const context = await requireAuthContext(OWNER_ONLY_ROLES);
         const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return badRequest(parsed.error);
         const d = parsed.data;

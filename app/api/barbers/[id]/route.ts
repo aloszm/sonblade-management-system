@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { DISPLAY_TITLE_MAX, DISPLAY_TITLE_MIN, PRIMARY_ACCOUNT_LABEL, isPrimaryAccount } from '@/lib/auth/roles';
+import { MANAGEMENT_ROLES, DISPLAY_TITLE_MAX, DISPLAY_TITLE_MIN, PRIMARY_ACCOUNT_LABEL, isPrimaryAccount } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ const UpdateSchema = z.object({
 /** Edita un barbero. Los PIN de la versión 1 ya no existen: se entra con correo y contraseña. */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const id = z.string().uuid().safeParse((await params).id);
         if (!id.success) return Response.json({ error: 'Barbero no encontrado.' }, { status: 404, headers: NO_STORE });
         const body = await request.json().catch(() => null);

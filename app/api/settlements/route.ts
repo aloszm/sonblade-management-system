@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { PAY_RECEIPT_ROLES } from '@/lib/auth/roles';
+import { MANAGEMENT_ROLES, PAY_RECEIPT_ROLES } from '@/lib/auth/roles';
 import { addDays, isSunday, latestClosedWeekStart } from '@/lib/settlements/week';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const parsed = SettleSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });

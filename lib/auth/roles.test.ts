@@ -153,6 +153,6 @@ describe('API: excepciones revisadas', () => {
         const src = readFileSync(path.join(apiDir, 'services/[id]/route.ts'), 'utf8');
         const blocks = src.split(/(?=export async function )/);
         expect(blocks.find((b) => b.startsWith('export async function PUT'))).toMatch(/return PATCH\(/);
-        expect(blocks.find((b) => b.startsWith('export async function PATCH'))).toMatch(/requireAuthContext\(\['owner', 'admin'\]\)/);
+        expect(blocks.find((b) => b.startsWith('export async function PATCH'))).toMatch(/requireAuthContext\(MANAGEMENT_ROLES\)/);
     });
 });

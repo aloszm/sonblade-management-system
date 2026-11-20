@@ -5,6 +5,7 @@ import { PRODUCT_COST_MAX, PRODUCT_COST_REQUIRED, loadProducts } from '@/lib/inv
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 import { REASON_MAX, REASON_MIN } from '@/lib/cash/reasons';
+import { MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ const UpdateSchema = z.object({
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const id = IdSchema.safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Producto no encontrado.', 404);
         const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
@@ -96,7 +97,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 /** Da de baja un producto (no se borra: el historial de ventas y movimientos se conserva). */
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const id = IdSchema.safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Producto no encontrado.', 404);
         const supabase = await createSupabaseServerClient();

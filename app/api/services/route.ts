@@ -4,6 +4,7 @@ import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sortServices } from '@/lib/services/categories';
 import { DurationSchema, ServiceCategorySchema, SortOrderSchema } from '@/lib/services/schema';
+import { MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 const ServiceSchema = z.object({ name: z.string().trim().min(2).max(120), price: z.number().finite().min(0).max(100000), duration_minutes: DurationSchema.default(30), category: ServiceCategorySchema.default('otros'), sort_order: SortOrderSchema.default(0), description: z.string().max(500).optional().nullable(), is_active: z.boolean().default(true), variable_price: z.boolean().default(false) })
@@ -23,7 +24,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const parsed = ServiceSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Los datos del servicio no son válidos.' }, { status: 400 });
         const { data, error } = await (await createSupabaseServerClient()).from('services').insert({

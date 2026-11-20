@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { canSeeStaffPhones } from '@/lib/auth/privacy';
-import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
+import { MANAGEMENT_READ_ROLES, MANAGEMENT_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const parsed = EmployeeSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return NextResponse.json({ error: 'Los datos del empleado no son válidos.' }, { status: 400 });
         const { data, error } = await (await createSupabaseServerClient()).from('employees').insert({

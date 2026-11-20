@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, FRONT_DESK_ROLES, cashMovementNeedsPin } from '@/lib/auth/roles';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         const parsed = MovementSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400 });
         // Gerencia: siempre con PIN (record_cash_movement_confirmed, que también lo exige en la base).
-        if (context.role === 'admin') {
+        if (cashMovementNeedsPin(context.role)) {
             if (!parsed.data.pin) return Response.json({ error: 'Confirma con tu PIN para registrar este movimiento.', needs_pin: true }, { status: 428, headers: { 'Cache-Control': 'no-store' } });
             const outcome = await runWithPin(context, parsed.data.pin, async (client) => {
                 const { data, error } = await client.rpc('record_cash_movement_confirmed', {

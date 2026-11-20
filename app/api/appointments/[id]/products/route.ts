@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { AuthorizationError, authErrorResponse, requireAuthContext, type BusinessRole } from '@/lib/auth/context';
+import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { APPOINTMENT_PRODUCT_EDITOR_ROLES, APPOINTMENT_PRODUCT_READ_ROLES } from '@/lib/barber/permissions';
 import { loadAppointmentProducts, toProductLine, type ExtrasClient } from '@/lib/appointments/extras';
 import { NO_STORE } from '@/lib/money/api';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -14,8 +15,6 @@ export const dynamic = 'force-dynamic';
  *  - Vendedor por omisión: el barbero de la cita. El barbero no elige; recepción y gerencia sí.
  *  - No mueve inventario; la lectura trae existencias para avisar "no hay suficientes".
  */
-const PRODUCT_EDITOR_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist', 'barber'];
-const READ_ROLES: BusinessRole[] = [...PRODUCT_EDITOR_ROLES, 'viewer'];
 
 const IdSchema = z.string().uuid();
 const AddSchema = z.object({
@@ -31,7 +30,7 @@ type SellerOption = { id: string; name: string; is_barber: boolean };
 /** Productos de la cita con vendedor, capturista y existencias; para recepción y gerencia, también los vendedores elegibles. */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext(READ_ROLES);
+        const context = await requireAuthContext(APPOINTMENT_PRODUCT_READ_ROLES);
         const id = IdSchema.safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Cita no encontrada.', 404);
         const db = await createSupabaseServerClient();
@@ -55,7 +54,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 /** Agrega un producto a una cita abierta (si ya hay línea del mismo producto y vendedor, suma la cantidad). */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        await requireAuthContext(PRODUCT_EDITOR_ROLES);
+        await requireAuthContext(APPOINTMENT_PRODUCT_EDITOR_ROLES);
         const id = IdSchema.safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Cita no encontrada.', 404);
         const parsed = AddSchema.safeParse(await request.json().catch(() => null));

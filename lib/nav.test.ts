@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { ADMIN_ONLY_PATHS } from '@/lib/auth/route-access';
 import { PAGE_TITLES, isNavActive, menuItems, menuSections, moreSections, navProfile, quickItems } from './nav';
 
 const labels = (items: { label: string }[]) => items.map((i) => i.label);
@@ -104,11 +105,12 @@ describe('Sobres en el menú', () => {
         expect(labels(menuItems(front))).not.toContain('Sobres');
         expect(labels(menuItems(barber))).not.toContain('Sobres');
     });
-    it('tiene título de pantalla y la ruta está protegida en el middleware igual que /gastos', () => {
+    it('tiene título de pantalla y la ruta está protegida (lib/auth/route-access.ts, que aplica el middleware) igual que /gastos', () => {
         expect(PAGE_TITLES['/sobres']).toBe('Sobres');
+        expect(ADMIN_ONLY_PATHS).toContain('/gastos');
+        expect(ADMIN_ONLY_PATHS).toContain('/sobres');
+        // El middleware usa esa misma regla (no una lista propia).
         const source = readFileSync(path.resolve(__dirname, '../middleware.ts'), 'utf8');
-        const list = source.match(/const adminOnly = \[([^\]]*)\]/)?.[1] ?? '';
-        expect(list).toContain("'/gastos'");
-        expect(list).toContain("'/sobres'");
+        expect(source).toContain('routeVerdict(');
     });
 });

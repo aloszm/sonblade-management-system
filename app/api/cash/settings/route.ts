@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { FRONT_DESK_READ_ROLES, MANAGEMENT_READ_ROLES, MANAGEMENT_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, MANAGEMENT_READ_ROLES, MANAGEMENT_ROLES, cashMovementNeedsPin } from '@/lib/auth/roles';
 import { PinConfirmSchema, pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -41,7 +41,7 @@ export async function GET() {
             // Dueño y gerencia, siempre con PIN y comentario (set_cash_settings_confirmed).
             can_edit: MANAGEMENT_ROLES.includes(context.role),
             // Gerencia confirma con PIN sus gastos, retiros y entradas manuales.
-            movement_needs_pin: context.role === 'admin',
+            movement_needs_pin: cashMovementNeedsPin(context.role),
             can_see_history: MANAGEMENT_READ_ROLES.includes(context.role),
         }, { headers: NO_STORE });
     } catch (error) {

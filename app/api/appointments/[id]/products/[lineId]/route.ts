@@ -1,14 +1,13 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { AuthorizationError, authErrorResponse, requireAuthContext, type BusinessRole } from '@/lib/auth/context';
+import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { APPOINTMENT_PRODUCT_EDITOR_ROLES, APPOINTMENT_PRODUCT_SELLER_ROLES } from '@/lib/barber/permissions';
 import { toProductLine } from '@/lib/appointments/extras';
 import { NO_STORE } from '@/lib/money/api';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-const EDITOR_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist', 'barber'];
-const SELLER_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist'];
 const IdSchema = z.string().uuid();
 const SellerSchema = z.object({
     seller_employee_id: z.string({ message: 'Elige quién vendió el producto.' }).uuid('Vendedor no válido.'),
@@ -32,7 +31,7 @@ async function checkLine(params: Promise<{ id: string; lineId: string }>, branch
 /** Cambia a quién se apunta la venta (dueño, gerencia y recepción; el barbero no). Queda en la bitácora. */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; lineId: string }> }) {
     try {
-        const context = await requireAuthContext(SELLER_ROLES);
+        const context = await requireAuthContext(APPOINTMENT_PRODUCT_SELLER_ROLES);
         const parsed = SellerSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });
         const { db, lineId } = await checkLine(params, context.branchId);
@@ -50,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
  */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string; lineId: string }> }) {
     try {
-        const context = await requireAuthContext(EDITOR_ROLES);
+        const context = await requireAuthContext(APPOINTMENT_PRODUCT_EDITOR_ROLES);
         const rawQuantity = request.nextUrl.searchParams.get('quantity');
         const quantity = rawQuantity === null ? null : QuantitySchema.safeParse(rawQuantity);
         if (quantity && !quantity.success) return Response.json({ error: 'La cantidad debe ser de 1 a 50.' }, { status: 400, headers: NO_STORE });

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { MANAGEMENT_ROLES } from '@/lib/auth/roles';
+import { MANAGEMENT_ROLES, OWNER_ONLY_ROLES } from '@/lib/auth/roles';
 import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 import { NO_STORE, PinSchema, badRequest, needsPin } from '@/lib/money/api';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -47,7 +47,7 @@ export async function GET() {
 /** Enciende o apaga las reservas en línea (y ajusta sus reglas). Solo la cuenta principal, con PIN. */
 export async function PUT(request: NextRequest) {
     try {
-        const context = await requireAuthContext(['owner']);
+        const context = await requireAuthContext(OWNER_ONLY_ROLES);
         const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return badRequest(parsed.error);
         const input = parsed.data;

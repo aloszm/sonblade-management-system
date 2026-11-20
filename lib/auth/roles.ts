@@ -17,6 +17,17 @@ export const MANAGEMENT_ROLES: BusinessRole[] = ['owner', 'admin'];
  */
 export const READ_ONLY_ROLES: BusinessRole[] = ['viewer'];
 
+/** Solo la cuenta principal (owner): configuración del negocio, sueldos, metas, reservas en línea, estado del sistema. */
+export const OWNER_ONLY_ROLES: BusinessRole[] = ['owner'];
+
+/**
+ * Si el movimiento de efectivo de la caja (entrada o salida) exige el PIN de quien lo hace: la gerencia siempre
+ * (record_cash_movement_confirmed lo exige también en la base). Lo usan la API de movimientos y la de ajustes de caja.
+ */
+export function cashMovementNeedsPin(role: BusinessRole): boolean {
+    return role === 'admin';
+}
+
 /** Para LEER lo que lee gerencia (paneles, reportes, cuadre, bitácora...). Nunca en métodos que escriben. */
 export const MANAGEMENT_READ_ROLES: BusinessRole[] = [...MANAGEMENT_ROLES, ...READ_ONLY_ROLES];
 

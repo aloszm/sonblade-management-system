@@ -3,7 +3,8 @@ import {
     Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins,
     type LucideIcon,
 } from 'lucide-react';
-import { canSeePayReceipts } from '@/lib/auth/roles';
+import { canSeePayReceipts, canWrite, screenRole } from '@/lib/auth/roles';
+import type { BusinessRole } from '@/lib/auth/context';
 
 /**
  * Única fuente del menú por puesto. Lo usan el menú lateral, la barra inferior del celular
@@ -18,6 +19,14 @@ export interface NavUser {
     isOwner?: boolean;
     readOnly?: boolean;
     mustChangePin?: boolean;
+}
+
+/**
+ * El usuario de menú de un puesto interno, igual que lo arma /api/auth/me (role de pantalla, cuenta principal, solo lectura).
+ * Sirve para ver el menú de cualquier puesto sin iniciar sesión con él (Configuración → «Quién ve qué»).
+ */
+export function navUserForRole(role: BusinessRole): NavUser {
+    return { role: screenRole(role), isOwner: role === 'owner', readOnly: !canWrite(role) };
 }
 
 export interface NavItem {
@@ -138,6 +147,7 @@ export const PAGE_TITLES: Record<string, string> = {
     '/admin/auditoria': 'Bitácora',
     '/configuracion': 'Configuración',
     '/configuracion/reservas': 'Reservas en línea',
+    '/configuracion/quien-ve-que': 'Quién ve qué',
     '/mi-cuenta': 'Mi cuenta',
 };
 

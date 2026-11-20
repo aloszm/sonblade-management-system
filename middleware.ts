@@ -5,7 +5,7 @@ import { SESSION_COOKIE_OPTIONS } from '@/lib/supabase/cookie-options';
 import { isCrossOriginWrite } from '@/lib/security/origin';
 import { siteFromHost, siteOrigin, type Site } from '@/lib/hosts';
 import { routeForSite } from '@/lib/site-routing';
-import { canSeePayReceipts } from '@/lib/auth/roles';
+import { routeVerdict } from '@/lib/auth/route-access';
 
 // /reservar, /privacidad y /api/public son la puerta de reservas para clientes: sin sesión a propósito; la base valida todo.
 const PUBLIC_PATHS = ['/login', '/onboarding', '/auth/callback', '/api/auth/login', '/api/health', '/api/public', '/reservar', '/privacidad'];
@@ -105,35 +105,12 @@ async function internalMiddleware(request: NextRequest): Promise<NextResponse> {
             return NextResponse.redirect(new URL('/mi-cuenta', request.url));
         }
 
-        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/sobres', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
-        // Recepción y caja entran a Inventario para registrar entradas de mercancía (decisión del dueño, 19 nov 2026).
-        const frontDeskInventory = (membership.role === 'receptionist' || membership.role === 'cashier')
-            && (pathname === '/inventario' || pathname.startsWith('/inventario/'));
-        if (!frontDeskInventory && adminOnly.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !['owner', 'admin', 'viewer'].includes(membership.role)) {
-            if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
-            return NextResponse.redirect(new URL('/pos', request.url));
+        // Qué pantallas corresponden a cada puesto: lib/auth/route-access.ts (la misma regla alimenta Configuración → «Quién ve qué»).
+        const verdict = routeVerdict(membership.role, pathname);
+        if (!verdict.allowed) {
+            if (verdict.reason === 'admin-only' && pathname.startsWith('/api/')) return NextResponse.json({ error: 'No tienes permiso.' }, { status: 403, headers: NO_CACHE });
+            return NextResponse.redirect(new URL(verdict.redirectTo, request.url));
         }
-
-        // Configuración del negocio (datos, comisiones, fondo de caja): solo el dueño. Excepción: la gerencia puede VER
-        // «Reservas en línea» (la pantalla es de solo lectura para ella; cambiar exige la cuenta principal y su PIN).
-        const managerCanSee = pathname === '/configuracion/reservas' && membership.role === 'admin';
-        if ((pathname === '/configuracion' || pathname.startsWith('/configuracion/')) && membership.role !== 'owner' && !managerCanSee) {
-            return NextResponse.redirect(new URL('/admin', request.url));
-        }
-
-        // Pantallas que no corresponden al puesto: se manda al Punto de Venta. Las APIs validan su propio rol.
-        const role = membership.role;
-        // La consulta (viewer) ve las pantallas de gerencia en modo de solo lectura; no cobra ni tiene "Mi semana".
-        const isAdmin = role === 'owner' || role === 'admin' || role === 'viewer';
-        const matches = (paths: string[]) => paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-        const notForRole = (!isAdmin && pathname === '/')
-            || (role === 'barber' && matches(['/caja', '/pos', '/equipo-hoy']))
-            // Recepción entra a «Mi semana» (/barbero) para ver SU sueldo y comisiones; la ficha de otros barberos (/barberos) no.
-            || ((role === 'receptionist' || role === 'cashier') && matches(['/barberos']))
-            || (role === 'viewer' && matches(['/pos', '/barbero']))
-            // Recibos de pago: solo owner, admin y consulta (decisión temporal del dueño, 20 nov 2026; ver canSeePayReceipts).
-            || (!canSeePayReceipts(role) && matches(['/liquidaciones']));
-        if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : role === 'viewer' ? '/' : '/pos', request.url));
     }
 
     return response;

@@ -28,3 +28,11 @@ export function mayReadRankingMoney(role: BusinessRole, ownEmployeeId: string | 
 
 /** Quién puede abrir "Barberos hoy": el equipo de mostrador y la dirección; el barbero no. */
 export const TEAM_SUMMARY_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist'];
+
+/**
+ * Productos en una cita (propuesta sin efecto de dinero). Agregar o quitar: mostrador, dirección y el barbero
+ * (en sus propias citas: lo valida la base). Cambiar a quién se apunta la venta: sin el barbero. Leer: además la consulta.
+ */
+export const APPOINTMENT_PRODUCT_EDITOR_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist', 'barber'];
+export const APPOINTMENT_PRODUCT_SELLER_ROLES: BusinessRole[] = ['owner', 'admin', 'cashier', 'receptionist'];
+export const APPOINTMENT_PRODUCT_READ_ROLES: BusinessRole[] = [...APPOINTMENT_PRODUCT_EDITOR_ROLES, 'viewer'];

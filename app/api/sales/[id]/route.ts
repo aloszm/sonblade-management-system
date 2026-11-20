@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { FRONT_DESK_READ_ROLES } from '@/lib/auth/roles';
+import { FRONT_DESK_READ_ROLES, MANAGEMENT_ROLES } from '@/lib/auth/roles';
 import { toTicket, type TicketSaleRow } from '@/lib/sales/ticket';
 import { loadMemberNames } from '@/lib/auth/member-names';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -65,7 +65,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
  */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const context = await requireAuthContext(['owner', 'admin']);
+        const context = await requireAuthContext(MANAGEMENT_ROLES);
         const id = z.string().uuid().safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Venta no encontrada.', 404);
         const body = ReasonSchema.safeParse(await request.json().catch(() => null));

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { MANAGEMENT_READ_ROLES } from '@/lib/auth/roles';
+import { MANAGEMENT_READ_ROLES, OWNER_ONLY_ROLES } from '@/lib/auth/roles';
 import { loadMemberNames } from '@/lib/auth/member-names';
 import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 import { loadBusinessTimezone } from '@/lib/business/timezone';
@@ -14,7 +14,6 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 /** Solo la cuenta principal cambia el sueldo por día (la base también lo exige, con PIN). */
-const OWNER_ONLY = ['owner'] as const;
 
 const ListSchema = z.object({ employee_id: IdSchema.optional() });
 
@@ -114,7 +113,7 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
     try {
-        const context = await requireAuthContext([...OWNER_ONLY]);
+        const context = await requireAuthContext(OWNER_ONLY_ROLES);
         const parsed = SaveSchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return badRequest(parsed.error);
         const d = parsed.data;
