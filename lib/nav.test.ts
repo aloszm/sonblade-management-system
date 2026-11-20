@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { menuItems, moreSections, navProfile, quickItems } from './nav';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { PAGE_TITLES, menuItems, menuSections, moreSections, navProfile, quickItems } from './nav';
 
 const labels = (items: { label: string }[]) => items.map((i) => i.label);
 const owner = { role: 'admin', isOwner: true };
@@ -59,5 +61,28 @@ describe('menú por puesto', () => {
 
     it('sin sesión no hay nada', () => {
         expect(menuItems(null)).toEqual([]);
+    });
+});
+
+describe('Sobres en el menú', () => {
+    it('dueño, gerencia y consulta lo ven en el grupo Negocio, junto a Gastos', () => {
+        for (const u of [owner, manager, viewer]) {
+            const negocio = menuSections(u).find((s) => s.title === 'Negocio')!;
+            const names = labels(negocio.items);
+            expect(names).toContain('Sobres');
+            expect(names.indexOf('Sobres')).toBe(names.indexOf('Gastos') + 1);
+            expect(labels(moreSections(u).flatMap((s) => s.items))).toContain('Sobres');
+        }
+    });
+    it('recepción y barbero no lo ven', () => {
+        expect(labels(menuItems(front))).not.toContain('Sobres');
+        expect(labels(menuItems(barber))).not.toContain('Sobres');
+    });
+    it('tiene título de pantalla y la ruta está protegida en el middleware igual que /gastos', () => {
+        expect(PAGE_TITLES['/sobres']).toBe('Sobres');
+        const source = readFileSync(path.resolve(__dirname, '../middleware.ts'), 'utf8');
+        const list = source.match(/const adminOnly = \[([^\]]*)\]/)?.[1] ?? '';
+        expect(list).toContain("'/gastos'");
+        expect(list).toContain("'/sobres'");
     });
 });

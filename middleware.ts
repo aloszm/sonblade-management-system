@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/mi-cuenta', request.url));
         }
 
-        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
+        const adminOnly = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/sobres', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
         // Recepción y caja entran a Inventario para registrar entradas de mercancía (decisión del dueño, 19 nov 2026).
         const frontDeskInventory = (membership.role === 'receptionist' || membership.role === 'cashier')
             && (pathname === '/inventario' || pathname.startsWith('/inventario/'));

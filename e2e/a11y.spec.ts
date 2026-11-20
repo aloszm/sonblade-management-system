@@ -11,7 +11,7 @@ const RULES = ['color-contrast', 'label', 'select-name', 'button-name', 'link-na
 // Pantallas públicas: se miden sin sesión.
 const PUBLIC_SCREENS = ['/login', '/privacidad', '/reservar'];
 
-const SCREENS = ['/', '/barbero', '/pos', '/caja', '/citas', '/clientes', '/liquidaciones', '/ventas/historial', '/cuadre', '/gastos', '/inventario', '/servicios', '/equipo', '/reportes', '/administracion', '/admin/auditoria', '/configuracion', ...PUBLIC_SCREENS];
+const SCREENS = ['/', '/barbero', '/pos', '/caja', '/citas', '/clientes', '/liquidaciones', '/ventas/historial', '/cuadre', '/gastos', '/sobres', '/inventario', '/servicios', '/equipo', '/reportes', '/administracion', '/admin/auditoria', '/configuracion', ...PUBLIC_SCREENS];
 
 const ROLES = [
     { name: 'dueño', email: USERS.owner },

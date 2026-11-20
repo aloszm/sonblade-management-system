@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, Settings2, TriangleAlert } from 'lucide-react';
+import EnvelopeNote from '@/app/sobres/_components/EnvelopeNote';
 import PinConfirm from '@/components/ui/PinConfirm';
 import Modal from '@/components/ui/Modal';
 import CashSettingsEditor from '@/components/CashSettingsEditor';
@@ -327,6 +328,7 @@ export default function CashRegister() {
                                 </dd>
                             </div>
                         </dl>
+                        {closeResult.reserve > 0 && <EnvelopeNote />}
                     </section>
                 )}
 
@@ -561,6 +563,7 @@ export default function CashRegister() {
                         <div className="space-y-2">
                             <label htmlFor="close-reserve" className={label}>Apartado · {settings?.reserve_label ?? 'Apartado'}</label>
                             <input id="close-reserve" type="number" min={0} step="0.5" inputMode="decimal" value={reserve} onChange={(e) => setReserve(e.target.value)} className={field} />
+                            {(Number(reserve) || 0) > 0 && <EnvelopeNote />}
                         </div>
                         <div className="rounded-2xl bg-bos-raised p-4 flex items-baseline justify-between">
                             <span className="text-[15px] text-bos-muted">Retiro (lo que sobra)</span>

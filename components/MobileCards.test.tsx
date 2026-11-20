@@ -4,6 +4,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import LiquidacionesPage from '@/app/liquidaciones/page';
 import GastosPage from '@/app/gastos/page';
+import { renderWithQuery } from '@/app/citas/_components/test-utils';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -38,11 +39,19 @@ describe('Tarjetas en celular (bos-stack)', () => {
     });
 
     it('Gastos: la tabla es tarjeta en celular', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ([{ id: 'g1', description: 'Agua', amount: 80, created_at: '2026-11-10T15:00:00Z', payment_method: 'cash' }]) })));
-        const { container } = render(<GastosPage />);
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+            const u = String(url);
+            const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
+            if (u.includes('/api/expenses')) return ok({ expenses: [{ id: 'g1', status: 'posted', description: 'Agua', category: 'Servicios', category_id: 'c1', amount: 80, method: 'cash', paid_from: 'envelope', incurred_at: '2026-11-10T15:00:00Z', created_at: '2026-11-10T15:00:00Z', vendor: null, has_receipt: false, created_by_name: 'Sonia', cancel_reason: null }], totals: { posted: 80, cancelled: 0, by_paid_from: { envelope: 80 } }, can_edit: false });
+            if (u.includes('/api/expense-categories')) return ok({ categories: [], can_edit: false });
+            if (u.includes('/api/recurring-expenses')) return ok({ pending: [] });
+            return ok({});
+        }));
+        const { container } = renderWithQuery(<GastosPage />);
         await screen.findByText('Agua');
         expect(stackTables(container)).toHaveLength(1);
         expect(container.querySelector('td[data-label="Monto"]')).not.toBeNull();
+        expect(container.querySelector('td[data-label="Pagado desde"]')).not.toBeNull();
     });
 
     it('Historial de ventas y cierres anteriores de caja: usan bos-stack con etiquetas y sin min-w fijo', () => {
