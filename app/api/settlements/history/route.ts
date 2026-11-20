@@ -1,4 +1,5 @@
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { PAY_RECEIPT_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -8,10 +9,13 @@ type SettlementRow = {
     total_amount: number | string; paid_at: string | null; status: string;
 };
 
-/** Recibos de pago: dueño y administrador ven todos; cada barbero solo los suyos (lo aplica la base con RLS). */
+/**
+ * Recibos de pago: dueño, gerencia y consulta (PAY_RECEIPT_ROLES). Barberos y recepción no los ven, ni los suyos
+ * (decisión temporal del dueño, 20 nov 2026). A nivel de base cada persona todavía puede leer sus filas; cerrarlo exigiría una migración.
+ */
 export async function GET() {
     try {
-        const context = await requireAuthContext();
+        const context = await requireAuthContext(PAY_RECEIPT_ROLES);
         const supabase = await createSupabaseServerClient();
         const { data, error } = await supabase.from('commission_settlements')
             .select('id, employee_id, receipt_number, period_start, period_end, total_amount, paid_at, status')

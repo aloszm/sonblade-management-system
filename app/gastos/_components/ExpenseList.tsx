@@ -9,12 +9,11 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
 import Field, { FIELD_CLASS } from '@/components/ui/Field';
 import Skeleton from '@/components/ui/Skeleton';
-import { useToast } from '@/components/ui/Toast';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDate } from '@/lib/utils/dates';
 import { isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import { endOfMonthKey, startOfMonthKey, startOfWeekKey, addDaysKey, todayInBusiness } from '@/lib/ui/date-picker';
-import { getJson } from '@/lib/money/client';
+import ReceiptViewer from './ReceiptViewer';
 import { paidFromLabel, type Expense, type ExpenseCategory, type ExpenseFilters, type ExpenseTotals, type PaidFrom } from './data';
 
 const money = (n: number) => formatMoney(n, { cents: true });
@@ -109,29 +108,16 @@ export function Totals({ totals }: { totals: ExpenseTotals }) {
     );
 }
 
-/** Abre el comprobante (enlace firmado de 60 s) en una pestaña nueva. */
-function ReceiptButton({ expenseId }: { expenseId: string }) {
-    const toast = useToast();
-    const [busy, setBusy] = useState(false);
-    const open = async () => {
-        // La pestaña se abre en el clic (los navegadores bloquean ventanas abiertas después de esperar).
-        const tab = window.open('about:blank', '_blank');
-        if (tab) tab.opener = null;
-        setBusy(true);
-        try {
-            const { url } = await getJson<{ url: string }>(`/api/expenses/${expenseId}/receipt`);
-            if (tab) tab.location.href = url; else window.open(url, '_blank', 'noopener');
-        } catch (e) {
-            tab?.close();
-            toast.error(toUserMessage(e, 'No se pudo abrir el comprobante.'));
-        } finally {
-            setBusy(false);
-        }
-    };
+/** Abre el visor del comprobante dentro de la aplicación (el visor pide su propio enlace firmado nuevo). */
+function ReceiptButton({ expense }: { expense: Expense }) {
+    const [open, setOpen] = useState(false);
     return (
-        <Button variant="secondary" size="sm" onClick={open} loading={busy} aria-label="Ver comprobante">
-            <Eye aria-hidden="true" className="h-4 w-4" /> Ver
-        </Button>
+        <>
+            <Button variant="secondary" size="sm" onClick={() => setOpen(true)} aria-label="Ver comprobante" aria-haspopup="dialog">
+                <Eye aria-hidden="true" className="h-4 w-4" /> Ver
+            </Button>
+            {open && <ReceiptViewer expense={expense} onClose={() => setOpen(false)} />}
+        </>
     );
 }
 
@@ -195,7 +181,7 @@ export function ExpenseTable({ expenses, loading, error, canEdit, filtered, onRe
                                     </td>
                                     <td data-label="Registró" className="px-4 py-3 text-bos-muted">{x.created_by_name ?? '—'}</td>
                                     <td data-label="Comprobante" className="px-4 py-3">
-                                        {x.has_receipt ? <ReceiptButton expenseId={x.id} /> : <span className="text-bos-muted">—</span>}
+                                        {x.has_receipt ? <ReceiptButton expense={x} /> : <span className="text-bos-muted">Sin comprobante</span>}
                                     </td>
                                     <td data-label="Estado" className="px-4 py-3">
                                         {cancelled ? (

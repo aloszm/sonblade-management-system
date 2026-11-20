@@ -100,15 +100,27 @@ describe('Gastos: lista', () => {
         expect(within(rows[2]).queryByRole('button', { name: /Cancelar/ })).toBeNull();
     });
 
-    it('"Ver" abre el comprobante firmado en una pestaña nueva', async () => {
-        setup();
-        const tab = { location: { href: '' }, close: vi.fn(), opener: {} };
-        const open = vi.fn(() => tab);
+    it('"Ver" abre el visor dentro de la aplicación (no una pestaña) y pide un enlace nuevo', async () => {
+        const pdf = () => ({ ok: true, status: 200, blob: async () => new Blob([new Uint8Array(4000)], { type: 'application/pdf' }), headers: new Headers() }) as unknown as Response;
+        const fetchMock = setup({ extra: [[/files\.example/, pdf]] });
+        const open = vi.fn();
         vi.stubGlobal('open', open);
         renderWithQuery(<GastosPage />);
         fireEvent.click(await screen.findByRole('button', { name: 'Ver comprobante' }));
-        expect(open).toHaveBeenCalledWith('about:blank', '_blank');
-        await waitFor(() => expect(tab.location.href).toBe('https://files.example/receipt.pdf'));
+        const viewer = await screen.findByRole('dialog', { name: 'Comprobante' });
+        expect(viewer).toHaveTextContent('Pago de luz');
+        expect(await within(viewer).findByRole('button', { name: /Abrir PDF/ })).toBeInTheDocument();
+        expect(open).not.toHaveBeenCalled();
+        expect(fetchMock.mock.calls.filter(([u]) => String(u).endsWith('/receipt'))).toHaveLength(1);
+    });
+
+    it('los gastos sin comprobante no tienen botón "Ver": dicen "Sin comprobante"', async () => {
+        setup();
+        renderWithQuery(<GastosPage />);
+        const rows = await screen.findAllByTestId('expense-row');
+        expect(within(rows[0]).getByRole('button', { name: 'Ver comprobante' })).toBeInTheDocument();
+        expect(within(rows[1]).queryByRole('button', { name: 'Ver comprobante' })).toBeNull();
+        expect(rows[1]).toHaveTextContent('Sin comprobante');
     });
 
     it('los atajos de periodo piden el rango de la semana o del mes', async () => {
@@ -246,12 +258,26 @@ describe('Gastos: registrar', () => {
         expect(await within(form).findByText('El comprobante no puede pasar de 5 MB.')).toBeInTheDocument();
         fireEvent.change(within(form).getByLabelText(/Comprobante/), { target: { files: [new File(['%PDF'], 'luz.pdf', { type: 'application/pdf' })] } });
         expect(await within(form).findByTestId('receipt-preview')).toHaveTextContent('luz.pdf');
+        expect(within(form).queryByTestId('receipt-thumb')).toBeNull();
         fill(form, { amount: '150', category: 'c-serv', description: 'Pago de luz octubre' });
         fireEvent.click(within(form).getByRole('button', { name: 'Continuar' }));
         await pin();
         await waitFor(() => expect(bodyOf(fetchMock, /\/api\/expenses$/, 'POST')).toBeDefined());
         expect(upload).toHaveBeenCalledWith('biz/br/2026-11/abc.pdf', 'tok', expect.any(File));
         expect(bodyOf(fetchMock, /\/api\/expenses$/, 'POST').receipt_path).toBe('biz/br/2026-11/abc.pdf');
+    });
+
+    it('comprobante: una foto muestra su miniatura y un archivo de 0 bytes se rechaza con mensaje claro', async () => {
+        vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:miniatura'), revokeObjectURL: vi.fn() }));
+        setup();
+        renderWithQuery(<GastosPage />);
+        const form = await openForm();
+        fireEvent.change(within(form).getByLabelText(/Comprobante/), { target: { files: [new File([], 'vacio.png', { type: 'image/png' })] } });
+        expect(await within(form).findByText(/El archivo está vacío \(0 bytes\)/)).toBeInTheDocument();
+        expect(within(form).queryByTestId('receipt-preview')).toBeNull();
+        fireEvent.change(within(form).getByLabelText(/Comprobante/), { target: { files: [new File(['abc'], 'foto.png', { type: 'image/png' })] } });
+        expect(await within(form).findByTestId('receipt-thumb')).toHaveAttribute('src', 'blob:miniatura');
+        expect(within(form).getByTestId('receipt-preview')).toHaveTextContent('foto.png');
     });
 
     it('si la subida del comprobante falla, lo dice y no pide el PIN', async () => {

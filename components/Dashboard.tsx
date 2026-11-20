@@ -11,6 +11,8 @@ import {
     type Kpis, type Metrics, type PresetId,
 } from '@/lib/reports/metrics';
 import DateRangePicker from '@/components/ui/DateRangePicker';
+import ErrorState from '@/components/ui/ErrorState';
+import { isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import Ranking from '@/components/Ranking';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDateTime } from '@/lib/utils/dates';
@@ -84,6 +86,7 @@ export default function Dashboard() {
     const [finance, setFinance] = useState<Finance | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [errorOffline, setErrorOffline] = useState(false);
     const [search, setSearch] = useState('');
     const [kind, setKind] = useState<'all' | 'service' | 'product'>('all');
     const [shown, setShown] = useState(25);
@@ -120,7 +123,7 @@ export default function Dashboard() {
             setData(body as Metrics);
             setError('');
             setShown(25);
-        } catch (e) { setError(e instanceof Error ? e.message : 'No se pudieron cargar las métricas.'); }
+        } catch (e) { console.error(e); setError(toUserMessage(e, 'No se pudieron cargar las métricas.')); setErrorOffline(isOfflineError(e)); }
         finally { setLoading(false); }
     }, [range, barber]);
 
@@ -232,7 +235,7 @@ export default function Dashboard() {
                 </Link>
             </div>
 
-            {error && <p role="alert" className={`${card} p-4 text-bos-danger`}>{error}</p>}
+            {error && <ErrorState title="No se pudieron cargar las métricas" message={error} offline={errorOffline} onRetry={() => void load()} />}
             {!data && loading && <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>}
 
             {data && k && p && (

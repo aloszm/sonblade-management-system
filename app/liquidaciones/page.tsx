@@ -12,7 +12,9 @@ import { buildBreakdown, type PayInput } from '@/lib/payroll/breakdown';
 import { addDays, weekLabel } from '@/lib/settlements/week';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDateTime } from '@/lib/utils/dates';
+import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
+import { canSeePayReceipts } from '@/lib/auth/roles';
 import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 
 // Los campos de PayInput (bonos, adelantos, préstamos, descuentos, arrastre) son opcionales: la pantalla funciona igual si no llegan.
@@ -49,6 +51,7 @@ export default function LiquidacionesPage() {
     // Domingo de la última semana cerrada: se aprende al abrir la pantalla. La semana en curso (la siguiente) también se puede ver.
     const [latestClosed, setLatestClosed] = useState<string | null>(null);
     const [history, setHistory] = useState<HistoryRow[]>([]);
+    const [historyError, setHistoryError] = useState<unknown>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<unknown>(null);
     const [paying, setPaying] = useState<Row | null>(null);
@@ -60,7 +63,8 @@ export default function LiquidacionesPage() {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
     const loadHistory = useCallback(async () => {
-        try { setHistory(await api<HistoryRow[]>('/api/settlements/history')); } catch { /* se muestra vacío */ }
+        setHistoryError(null);
+        try { setHistory(await api<HistoryRow[]>('/api/settlements/history')); } catch (e) { console.error(e); setHistoryError(e); }
     }, []);
 
     const loadWeek = useCallback(async (start: string | null, quiet = false) => {
@@ -74,17 +78,20 @@ export default function LiquidacionesPage() {
         finally { setLoading(false); }
     }, []);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const me = await api<{ user: { role: 'admin' | 'recepcion' | 'barber'; readOnly?: boolean } }>('/api/auth/me');
-                setRole(me.user.role);
-                setReadOnly(Boolean(me.user.readOnly));
-                if (me.user.role === 'admin') await loadWeek(null); else setLoading(false);
-            } catch (e) { setLoading(false); setError(e); }
-            loadHistory();
-        })();
+    const init = useCallback(async () => {
+        setLoading(true); setError(null);
+        try {
+            const me = await api<{ user: { role: 'admin' | 'recepcion' | 'barber'; readOnly?: boolean } }>('/api/auth/me');
+            setRole(me.user.role);
+            setReadOnly(Boolean(me.user.readOnly));
+            // Los recibos de pago solo los ven dueño, gerencia y consulta (decisión temporal del dueño, 20 nov 2026).
+            if (!canSeePayReceipts(me.user.role)) { setLoading(false); return; }
+            if (me.user.role === 'admin') await loadWeek(null); else setLoading(false);
+        } catch (e) { setLoading(false); setError(e); return; }
+        loadHistory();
     }, [loadHistory, loadWeek]);
+
+    useEffect(() => { void init(); }, [init]);
 
     const openPay = (row: Row) => {
         setPaying(row); setCash(String(row.total_amount)); setTransfer(''); setReference(''); setFormError(null);
@@ -135,6 +142,27 @@ export default function LiquidacionesPage() {
     const th = 'px-4 py-3 text-[13px] font-medium';
     const input = 'mt-1.5 w-full h-12 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text';
     const chip = 'min-h-11 px-4 rounded-full border border-bos-border text-sm font-semibold text-bos-muted hover:text-bos-text hover:bg-bos-raised';
+
+    // Sin sesión cargada: cargando o error con Reintentar (nunca una pantalla con tablas vacías que parecen "sin recibos").
+    if (role === null) {
+        return (
+            <div className="max-w-6xl mx-auto space-y-6">
+                <h1 className="font-display text-3xl font-semibold tracking-tight">Pago semanal</h1>
+                {error
+                    ? <ErrorState title="No se pudo cargar la pantalla" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={() => void init()} />
+                    : <div className="p-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-bos-muted" /></div>}
+            </div>
+        );
+    }
+    if (!canSeePayReceipts(role)) {
+        return (
+            <div className="max-w-2xl mx-auto space-y-6">
+                <h1 className="font-display text-3xl font-semibold tracking-tight">Pago semanal</h1>
+                <div className={card}><EmptyState title="Los recibos de pago los ve la administración"
+                    description="Por ahora los recibos de pago semanales solo los consultan la cuenta principal y la gerencia. Tu sueldo, comisiones y propinas siguen en Mi semana." /></div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
@@ -210,6 +238,9 @@ export default function LiquidacionesPage() {
                                         {expanded[r.employee_id] && (
                                             <tr className="border-t border-bos-border bg-bos-bg">
                                                 <td id={panelId} colSpan={8} data-label="" className="px-4 py-3">
+                                                    {r.entry_count === 0 && Number(r.total_amount) === 0 && Number(r.wages ?? 0) === 0 && (
+                                                        <p data-testid="breakdown-empty" className="mb-2 text-sm text-bos-muted">Sin movimientos en esta semana: no hay servicios, propinas, sueldo ni descuentos.</p>
+                                                    )}
                                                     <PayBreakdown data={r} className="max-w-xl" />
                                                 </td>
                                             </tr>
@@ -230,6 +261,9 @@ export default function LiquidacionesPage() {
 
             <section className={card}>
                 <div className="p-4 border-b border-bos-border"><h2 className="font-display font-semibold">{role === 'admin' ? 'Recibos emitidos' : 'Recibos'}</h2></div>
+                {historyError ? (
+                    <div className="p-4"><ErrorState title="No se pudieron cargar los recibos" message={toUserMessage(historyError)} offline={isOfflineError(historyError)} onRetry={loadHistory} /></div>
+                ) : (
                 <div className="overflow-x-auto">
                     <table className="bos-stack w-full text-left text-sm">
                         <thead className="text-bos-muted">
@@ -261,6 +295,7 @@ export default function LiquidacionesPage() {
                         </tbody>
                     </table>
                 </div>
+                )}
             </section>
 
             {role === 'admin' && (

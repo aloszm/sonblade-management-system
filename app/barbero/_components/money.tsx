@@ -52,10 +52,11 @@ export function GoalBar({ goal, mine, name }: { goal: GoalProgress; mine: boolea
     );
 }
 
-function entryStatus(e: LedgerEntry): string {
+function entryStatus(e: LedgerEntry, receiptsVisible: boolean): string {
     if (e.entry_type === 'reversal') return 'Cancelación';
     if (e.is_cancelled) return 'Cancelado';
-    if (e.settlement_id) return `Descontado en el recibo ${e.receipt_number ?? ''}`.trim();
+    // El número de recibo solo lo ve quien puede ver recibos de pago (canSeePayReceipts).
+    if (e.settlement_id) return receiptsVisible ? `Descontado en el recibo ${e.receipt_number ?? ''}`.trim() : 'Ya descontado en el pago semanal';
     if (e.is_pending) return 'Se descontará en tu próximo recibo';
     return '';
 }
@@ -64,7 +65,7 @@ function entryStatus(e: LedgerEntry): string {
  * Dinero de la semana del barbero: lo que se descontará en el próximo recibo, su historial y —solo si hay metas activas—
  * su avance hacia cada bono. Solo lectura: no hay botones de registrar ni cancelar.
  */
-export function MyMoneySections({ employeeId, mine, name, showProgress }: { employeeId: string; mine: boolean; name: string; showProgress: boolean }) {
+export function MyMoneySections({ employeeId, mine, name, showProgress, receiptsVisible = true }: { employeeId: string; mine: boolean; name: string; showProgress: boolean; receiptsVisible?: boolean }) {
     const ledger = useLedger(employeeId);
     const progress = useBonusProgress(employeeId, showProgress);
 
@@ -110,7 +111,7 @@ export function MyMoneySections({ employeeId, mine, name, showProgress }: { empl
                             <li key={e.id} className={`py-3 text-sm ${e.is_cancelled ? 'opacity-70' : ''}`}>
                                 <p className={`font-semibold ${e.is_cancelled ? 'line-through' : ''}`}>{e.label} · {money(e.amount)}</p>
                                 <p className="break-words text-bos-muted">{e.reason}</p>
-                                <p className="text-xs text-bos-muted">{formatDateTime(e.created_at)}{entryStatus(e) ? ` · ${entryStatus(e)}` : ''}</p>
+                                <p className="text-xs text-bos-muted">{formatDateTime(e.created_at)}{entryStatus(e, receiptsVisible) ? ` · ${entryStatus(e, receiptsVisible)}` : ''}</p>
                             </li>
                         ))}
                     </ul>

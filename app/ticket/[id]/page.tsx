@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
+import ErrorState from '@/components/ui/ErrorState';
+import EmptyState from '@/components/ui/EmptyState';
+import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import type { Ticket } from '@/lib/sales/ticket';
 import { SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
@@ -20,20 +23,39 @@ const METHOD_LABELS = PAYMENT_METHOD_LABELS;
 export default function TicketPage() {
     const { id } = useParams<{ id: string }>();
     const [ticket, setTicket] = useState<TicketData | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<unknown>(null);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch(`/api/sales/${id}`, { cache: 'no-store' });
-                const body = await res.json().catch(() => null);
-                if (!res.ok) throw new Error(body?.error ?? 'No se pudo cargar el ticket.');
-                setTicket(body as TicketData);
-            } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo cargar el ticket.'); }
-        })();
+    const load = useCallback(async () => {
+        setError(null);
+        try {
+            const res = await fetch(`/api/sales/${id}`, { cache: 'no-store' });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) throw new HttpError(res.status, body?.error);
+            setTicket(body as TicketData);
+        } catch (e) { console.error(e); setError(e); }
     }, [id]);
 
-    if (error) return <div className="max-w-md mx-auto rounded-xl border border-bos-border bg-bos-surface p-8 text-bos-danger" role="alert">{error}</div>;
+    useEffect(() => { void load(); }, [load]);
+
+    if (error) {
+        const status = error instanceof HttpError ? error.status : 0;
+        const back = <Link href="/pos" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-bos-control px-4 text-sm font-semibold text-bos-text hover:bg-bos-raised">Volver al cobro</Link>;
+        // Ticket inexistente o sin permiso: se explica y se ofrece volver (reintentar no lo arreglaría).
+        if (status === 404 || status === 403) {
+            return (
+                <div className="max-w-md mx-auto rounded-xl border border-bos-border bg-bos-surface">
+                    <EmptyState title={status === 403 ? 'No puedes ver este ticket' : 'No encontramos este ticket'}
+                        description={status === 403 ? 'Tu puesto no tiene permiso para ver tickets.' : 'Puede que el enlace esté mal escrito o que la venta no exista en esta sucursal.'} action={back} />
+                </div>
+            );
+        }
+        return (
+            <div className="max-w-md mx-auto space-y-3">
+                <ErrorState title="No se pudo cargar el ticket" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={load} />
+                <div className="flex justify-center">{back}</div>
+            </div>
+        );
+    }
     if (!ticket) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>;
 
     const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: ticket.business.currency }).format(n);

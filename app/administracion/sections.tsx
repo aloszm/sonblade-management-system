@@ -246,7 +246,8 @@ export function Trend({ data }: { data: ProfitReport }) {
             </div>
             <details className="mt-3 text-sm print:hidden">
                 <summary className="cursor-pointer font-medium text-bos-accent-text">Ver los datos día por día</summary>
-                <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-bos-border">
+                {rows.length === 0 && <p data-testid="daily-empty" className="mt-2 rounded-lg bg-bos-raised px-3 py-3 text-bos-muted">No hay días con datos en este periodo.</p>}
+                {rows.length > 0 && <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-bos-border">
                     <table className="w-full text-left text-sm">
                         <caption className="sr-only">Ingresos y egresos por día</caption>
                         <thead className="sticky top-0 bg-bos-raised text-[13px] font-medium text-bos-muted">
@@ -263,7 +264,7 @@ export function Trend({ data }: { data: ProfitReport }) {
                             ))}
                         </tbody>
                     </table>
-                </div>
+                </div>}
             </details>
         </section>
     );

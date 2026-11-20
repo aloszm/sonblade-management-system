@@ -1,14 +1,15 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
+import { PAY_RECEIPT_ROLES } from '@/lib/auth/roles';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-/** Datos del recibo de pago. Dueño/administrador y el propio barbero; lo valida la base. */
+/** Datos del recibo de pago. Dueño, gerencia y consulta (PAY_RECEIPT_ROLES); barberos y recepción no, ni el suyo (decisión temporal, 20 nov 2026). */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        await requireAuthContext();
+        await requireAuthContext(PAY_RECEIPT_ROLES);
         const id = z.string().uuid().safeParse((await params).id);
         if (!id.success) throw new AuthorizationError('Recibo no encontrado.', 404);
         const supabase = await createSupabaseServerClient();

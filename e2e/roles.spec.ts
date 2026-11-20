@@ -11,13 +11,25 @@ test.describe('acceso por puesto', () => {
 
         expect((await page.request.get('/api/admin/summary?period=week')).status()).toBe(403);
         expect((await page.request.get('/api/settlements')).status()).toBe(403);
-        expect((await page.request.get('/api/settlements/history')).status()).toBe(200); // sus propios recibos
+        // Recibos de pago: solo cuenta principal, gerencia y consulta (decisión temporal del dueño, 20 nov 2026); ni los suyos.
+        expect((await page.request.get('/api/settlements/history')).status()).toBe(403);
+        await page.goto('/liquidaciones');
+        await expect(page).toHaveURL(/\/pos$/);
+        await expect(page.getByRole('navigation').getByRole('link', { name: 'Pago semanal' })).toHaveCount(0);
     });
 
     test('un barbero ve lo suyo y nada de los demás', async ({ page }) => {
         await login(page, USERS.barber);
         await expect(page).toHaveURL(/\/barbero$/);
         await expect(page.getByTestId('week-earned')).toBeVisible();
+
+        // Recibos de pago: no ve la sección, ni el menú, ni la pantalla, ni la API (decisión temporal del dueño, 20 nov 2026).
+        await expect(page.getByRole('heading', { name: /recibos de pago/i })).toHaveCount(0);
+        await expect(page.getByRole('link', { name: /Ver (todos )?(mis )?recibos/ })).toHaveCount(0);
+        await expect(page.getByRole('navigation').getByRole('link', { name: 'Pago semanal' })).toHaveCount(0);
+        expect((await page.request.get('/api/settlements/history')).status()).toBe(403);
+        await page.goto('/liquidaciones');
+        await expect(page).toHaveURL(/\/barbero$/);
 
         // Podio: todos ven los cortes de todos, pero nunca dinero.
         await expect(page.getByTestId('podium')).toBeVisible();
@@ -46,6 +58,7 @@ test.describe('acceso por puesto', () => {
 
         expect((await page.request.get('/api/admin/summary?period=week')).status()).toBe(200);
         expect((await page.request.get('/api/settlements')).status()).toBe(200);
+        expect((await page.request.get('/api/settlements/history')).status()).toBe(200); // la gerencia sí ve los recibos
         expect((await page.request.get('/api/cash/history')).status()).toBe(200);
 
         const cash = await (await page.request.get('/api/cash/settings')).json();

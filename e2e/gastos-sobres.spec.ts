@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import {
-    USERS, businessToday, defaultEnvelope, ensureOpenCashSession, expectedCash, fillPinDialog, login, pinFor, shiftDay, stamp, submitPinDialog, tinyPng,
+    USERS, businessToday, defaultEnvelope, ensureOpenCashSession, expectedCash, fillPinDialog, login, pinFor, shiftDay, stamp, submitPinDialog, receiptPng, RECEIPT_FIXTURE,
 } from './helpers';
 
 // Sobres y Gastos de punta a punta con la interfaz, como la cuenta principal (alonso) y como gerencia (sonia).
@@ -324,7 +324,7 @@ test.describe.serial('Gastos', () => {
         expect((await expensesOf(page.request)).expenses.some((e) => e.description.includes('Prueba fecha futura'))).toBe(false);
     });
 
-    test('comprobante: se sube un PNG a Storage, el gasto lo muestra y "Ver" abre la imagen', async ({ page }) => {
+    test('comprobante: se sube un PNG a Storage, el gasto lo muestra y "Ver" abre el visor con una imagen de verdad', async ({ page }) => {
         const failures: string[] = [];
         page.on('console', (m) => { if (m.type() === 'error') failures.push(`consola: ${m.text().slice(0, 300)}`); });
         page.on('requestfailed', (r) => failures.push(`FALLÓ ${r.method()} ${r.url().slice(0, 140)} · ${r.failure()?.errorText}`));
@@ -332,8 +332,11 @@ test.describe.serial('Gastos', () => {
         await login(page, USERS.owner);
         await page.goto('/gastos', { waitUntil: 'networkidle' });
         const form = await openExpenseForm(page, { amount: '11', description: receiptDesc, bank: true, method: 'transfer' });
-        await form.locator('#exp-receipt').setInputFiles({ name: 'comprobante-prueba.png', mimeType: 'image/png', buffer: tinyPng() });
+        await form.locator('#exp-receipt').setInputFiles({ name: 'comprobante-prueba.png', mimeType: 'image/png', buffer: receiptPng() });
         await expect(form.getByTestId('receipt-preview')).toContainText('comprobante-prueba.png');
+        // La vista previa antes de subir también se ve (miniatura con dimensiones reales).
+        await expect(form.getByTestId('receipt-thumb')).toBeVisible();
+        expect(await form.getByTestId('receipt-thumb').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(100);
         await form.getByRole('button', { name: 'Continuar' }).click();
         // O llega al PIN (subida correcta) o aparece el error de la subida: en ese caso se informa con la red exacta.
         const pin = page.getByTestId('pin-confirm');
@@ -345,16 +348,25 @@ test.describe.serial('Gastos', () => {
 
         const row = page.getByTestId('expense-row').filter({ hasText: receiptDesc });
         await expect(row.getByRole('button', { name: 'Ver comprobante' })).toBeVisible();
-        const popupPromise = page.waitForEvent('popup', { timeout: 20_000 });
+        // "Ver" abre el visor dentro de la aplicación (sin pestaña nueva): carga la imagen y la muestra con dimensiones reales.
+        let popped = false;
+        page.on('popup', () => { popped = true; });
         await row.getByRole('button', { name: 'Ver comprobante' }).click();
-        const popup = await popupPromise;
-        await popup.waitForLoadState('load').catch(() => undefined);
-        await expect.poll(() => popup.url(), { timeout: 20_000 }).toMatch(/^https:\/\/.+\/storage\/v1\/object\/sign\//);
-        const signed = await page.request.get(popup.url());
-        expect(signed.status(), `el enlace firmado debe abrir. Red: ${failures.join(' | ')}`).toBe(200);
-        expect(signed.headers()['content-type']).toMatch(/image\/png/);
-        expect((await signed.body()).length).toBe(tinyPng().length);
-        await popup.close();
+        const viewer = page.getByRole('dialog', { name: 'Comprobante' });
+        await expect(viewer).toBeVisible();
+        await expect(viewer).toContainText(receiptDesc);
+        const image = viewer.getByTestId('receipt-image');
+        await expect(image, `el visor debe mostrar la imagen. Red: ${failures.join(' | ')}`).toBeVisible({ timeout: 20_000 });
+        const size = await image.evaluate((img: HTMLImageElement) => ({ w: img.naturalWidth, h: img.naturalHeight, src: img.src, complete: img.complete }));
+        expect(size.complete).toBe(true);
+        expect(size.w, 'ancho real de la imagen').toBe(RECEIPT_FIXTURE.width);
+        expect(size.h, 'alto real de la imagen').toBe(RECEIPT_FIXTURE.height);
+        expect(size.src).toMatch(/^blob:/); // la política de seguridad solo deja mostrar blob: (no el dominio de Supabase)
+        await expect(viewer.getByText('No se puede mostrar el comprobante')).toHaveCount(0);
+        await expect(viewer.getByRole('button', { name: /Tamaño completo/ })).toBeVisible();
+        expect(popped).toBe(false);
+        await page.keyboard.press('Escape');
+        await expect(viewer).toHaveCount(0);
     });
 
     test('un PIN incorrecto da un mensaje claro y no registra nada', async ({ page }) => {

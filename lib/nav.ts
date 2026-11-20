@@ -3,6 +3,7 @@ import {
     Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins,
     type LucideIcon,
 } from 'lucide-react';
+import { canSeePayReceipts } from '@/lib/auth/roles';
 
 /**
  * Única fuente del menú por puesto. Lo usan el menú lateral, la barra inferior del celular
@@ -27,6 +28,8 @@ export interface NavItem {
     ownerOnly?: boolean;
     /** Pantallas que solo sirven para escribir (cobrar) o propias de quien trabaja: la consulta no las ve. */
     writesOnly?: boolean;
+    /** Pantalla de recibos de pago: solo los puestos que canSeePayReceipts permite. */
+    payReceipts?: boolean;
 }
 
 export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
@@ -41,7 +44,8 @@ export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
             { href: '/equipo-hoy', label: 'Barberos hoy', icon: Trophy, roles: ['admin', 'recepcion'] },
             { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },
             { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'recepcion', 'barber'] },
-            { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet, roles: ['admin', 'recepcion', 'barber'] },
+            // Los recibos de pago los ven solo dueño, gerencia y consulta (canSeePayReceipts): barbero y recepción no tienen esta entrada.
+            { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet, roles: ['admin', 'recepcion', 'barber'], payReceipts: true },
         ],
     },
     {
@@ -71,7 +75,7 @@ export const QUICK_LINKS: Record<NavProfile, string[]> = {
     admin: ['/', '/citas', '/caja', '/administracion'],
     // El cobro se hace sobre todo en computadora: en el celular el mostrador usa Caja, Agenda, Barberos hoy y Clientes.
     recepcion: ['/caja', '/citas', '/equipo-hoy', '/clientes'],
-    barber: ['/barbero', '/citas', '/clientes', '/liquidaciones'],
+    barber: ['/barbero', '/citas', '/clientes'],
     viewer: ['/', '/citas', '/administracion', '/equipo-hoy'],
 };
 
@@ -87,7 +91,8 @@ export function menuSections(user: NavUser | null): { title: string | null; item
     if (!user || user.mustChangePin) return [];
     const allowed = (item: NavItem) => (item.roles as string[]).includes(user.role)
         && (!item.ownerOnly || Boolean(user.isOwner))
-        && !(item.writesOnly && user.readOnly);
+        && !(item.writesOnly && user.readOnly)
+        && (!item.payReceipts || canSeePayReceipts(user.role));
     return NAV_SECTIONS.map((s) => ({ title: s.title, items: s.items.filter(allowed) })).filter((s) => s.items.length > 0);
 }
 

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 /** Usuarios de las cuentas de demostración (se entra con usuario + PIN, sin correo). */
@@ -121,7 +123,11 @@ export async function expectedCash(request: APIRequestContext): Promise<number |
     return session ? Number(session.expected_cash) : null;
 }
 
-/** Un PNG válido de 1x1 píxel, generado aquí mismo (para probar la subida de comprobantes). */
-export function tinyPng(): Buffer {
-    return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+/**
+ * Comprobante de prueba VISIBLE (imagen de 900 x 1200 px, e2e/fixtures/comprobante-prueba.png). Un archivo de 1 píxel
+ * se subía bien pero el visor no tenía nada que enseñar: para probar "Ver" hace falta una imagen con dimensiones reales.
+ */
+export const RECEIPT_FIXTURE = { path: path.join(__dirname, 'fixtures', 'comprobante-prueba.png'), width: 900, height: 1200 };
+export function receiptPng(): Buffer {
+    return readFileSync(RECEIPT_FIXTURE.path);
 }

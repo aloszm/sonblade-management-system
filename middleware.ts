@@ -5,6 +5,7 @@ import { SESSION_COOKIE_OPTIONS } from '@/lib/supabase/cookie-options';
 import { isCrossOriginWrite } from '@/lib/security/origin';
 import { siteFromHost, siteOrigin, type Site } from '@/lib/hosts';
 import { routeForSite } from '@/lib/site-routing';
+import { canSeePayReceipts } from '@/lib/auth/roles';
 
 // /reservar, /privacidad y /api/public son la puerta de reservas para clientes: sin sesión a propósito; la base valida todo.
 const PUBLIC_PATHS = ['/login', '/onboarding', '/auth/callback', '/api/auth/login', '/api/health', '/api/public', '/reservar', '/privacidad'];
@@ -129,7 +130,9 @@ async function internalMiddleware(request: NextRequest): Promise<NextResponse> {
             || (role === 'barber' && matches(['/caja', '/pos', '/equipo-hoy']))
             // Recepción entra a «Mi semana» (/barbero) para ver SU sueldo y comisiones; la ficha de otros barberos (/barberos) no.
             || ((role === 'receptionist' || role === 'cashier') && matches(['/barberos']))
-            || (role === 'viewer' && matches(['/pos', '/barbero']));
+            || (role === 'viewer' && matches(['/pos', '/barbero']))
+            // Recibos de pago: solo owner, admin y consulta (decisión temporal del dueño, 20 nov 2026; ver canSeePayReceipts).
+            || (!canSeePayReceipts(role) && matches(['/liquidaciones']));
         if (notForRole && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL(role === 'barber' ? '/barbero' : role === 'viewer' ? '/' : '/pos', request.url));
     }
 

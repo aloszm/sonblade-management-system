@@ -4,6 +4,7 @@ import { BUSINESS_TIME_ZONE } from '@/lib/utils/dates';
 import React, { useEffect, useRef, useState } from 'react';
 import { PERIODS, PERIOD_LABELS, type MyWeek, type Period } from '@/lib/barber/my-week';
 import { SectionError, SectionSkeleton, Skeleton, card } from '@/app/barbero/_components/ui';
+import { canSeePayReceipts } from '@/lib/auth/roles';
 import { ClientsSection, EarningsSection, ReceiptsSection, ServicesSection, TipsSection, TodaySection } from '@/app/barbero/_components/sections';
 import Ranking from '@/components/Ranking';
 import { MyMoneySections } from '@/app/barbero/_components/money';
@@ -124,11 +125,11 @@ export default function BarberDashboard() {
             </div>}
 
             {frontDesk ? (
-                /* Recepción: su sueldo por día, lo que lleva por cobrar, lo que se le descontará y sus recibos. Sin agenda, cortes, clientes ni ranking. */
+                /* Recepción: su sueldo por día, lo que lleva por cobrar, lo que se le descontará (sus recibos de pago solo los ven dueño, gerencia y consulta). Sin agenda, cortes, clientes ni ranking. */
                 <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2" data-testid="front-desk-week">
-                    <FrontDeskWeek employeeId={selectedId} data={data} mine={mine} />
-                    <MyMoneySections employeeId={selectedId} mine={mine} name={shownName || 'esta persona'} showProgress={false} />
-                    {data && <ReceiptsSection data={data} mine={mine} />}
+                    <FrontDeskWeek employeeId={selectedId} data={data} mine={mine} receiptsVisible={canSeePayReceipts(me.role)} />
+                    <MyMoneySections employeeId={selectedId} mine={mine} name={shownName || 'esta persona'} showProgress={false} receiptsVisible={canSeePayReceipts(me.role)} />
+                    {data && canSeePayReceipts(me.role) && <ReceiptsSection data={data} mine={mine} />}
                     {statsError && !data && <SectionError message={statsError} onRetry={() => setStatsKey((k) => k + 1)} />}
                 </div>
             ) : statsError && !data ? (
@@ -148,7 +149,7 @@ export default function BarberDashboard() {
                     )}
 
                     {/* Lo que se le descontará y su avance de bono van antes del ranking: es dinero suyo y en el teléfono quedaba al final. */}
-                    <MyMoneySections employeeId={selectedId} mine={mine} name={shownName || 'esta persona'} showProgress={period === 'week'} />
+                    <MyMoneySections employeeId={selectedId} mine={mine} name={shownName || 'esta persona'} showProgress={period === 'week'} receiptsVisible={canSeePayReceipts(me.role)} />
 
                     <Ranking highlightId={selectedId} mine={mine} />
 
@@ -157,7 +158,7 @@ export default function BarberDashboard() {
                             <ServicesSection data={data} mine={mine} />
                             <ClientsSection data={data} mine={mine} />
                             <TipsSection data={data} mine={mine} />
-                            <ReceiptsSection data={data} mine={mine} />
+                            {canSeePayReceipts(me.role) && <ReceiptsSection data={data} mine={mine} />}
                         </>
                     )}
                 </div>

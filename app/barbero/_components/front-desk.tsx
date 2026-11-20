@@ -43,8 +43,10 @@ function useMyWage(employeeId: string) {
  * comisiones de producto y propinas) y sus recibos. Es la misma pantalla del barbero sin lo que solo aplica a quien
  * corta: agenda del día, cortes, clientes y ranking. Solo lectura y solo lo suyo.
  */
-export function FrontDeskWeek({ employeeId, data, mine }: { employeeId: string; data: MyWeek | null; mine: boolean }) {
+export function FrontDeskWeek({ employeeId, data, mine, receiptsVisible }: { employeeId: string; data: MyWeek | null; mine: boolean; receiptsVisible?: boolean }) {
     const { week, person, error, reload, loading } = useMyWage(employeeId);
+    // Recibos de pago: solo si el puesto puede verlos (canSeePayReceipts) y el servidor los mandó.
+    const showReceipts = (receiptsVisible ?? true) && Boolean(data?.receiptsVisible);
 
     if (loading) return <SectionSkeleton title="Mi sueldo" rows={4} />;
     if (error || !week) return <SectionError message={error || 'No se pudo cargar tu sueldo.'} onRetry={reload} />;
@@ -103,7 +105,7 @@ export function FrontDeskWeek({ employeeId, data, mine }: { employeeId: string; 
                             </ul>
                         )}
                         <p className="rounded-lg bg-bos-raised px-4 py-3 text-sm text-bos-text">
-                            {person.settled ? `Esta semana ya se pagó${person.receipt_number ? ` (recibo ${person.receipt_number})` : ''}.` : 'Se paga en tu recibo semanal, con corte el sábado a las 8:00 p. m.'}
+                            {person.settled ? `Esta semana ya se pagó${person.receipt_number && showReceipts ? ` (recibo ${person.receipt_number})` : ''}.` : 'Se paga en tu recibo semanal, con corte el sábado a las 8:00 p. m.'}
                         </p>
                     </>
                 )}
@@ -124,9 +126,12 @@ export function FrontDeskWeek({ employeeId, data, mine }: { employeeId: string; 
                     <div className="flex justify-between gap-4"><dt className="text-bos-muted">{mine ? 'Propinas (100 % tuyas)' : 'Propinas (100 % suyas)'}</dt><dd className="font-semibold tabular-nums">{moneyC(tips)}</dd></div>
                 </dl>
                 {!data && <p className="text-sm text-bos-muted">Las comisiones y propinas se están cargando…</p>}
-                <Link href="/liquidaciones" className="flex min-h-12 items-center justify-between rounded-xl border border-bos-border px-4 text-[15px] font-semibold hover:bg-bos-raised">
-                    {mine ? 'Ver mis recibos' : 'Ver recibos'} <ChevronRight aria-hidden="true" className="h-5 w-5 text-bos-muted" />
-                </Link>
+                {/* Solo quien puede ver recibos de pago (canSeePayReceipts; el servidor lo manda en data.receiptsVisible). */}
+                {showReceipts && (
+                    <Link href="/liquidaciones" className="flex min-h-12 items-center justify-between rounded-xl border border-bos-border px-4 text-[15px] font-semibold hover:bg-bos-raised">
+                        {mine ? 'Ver mis recibos' : 'Ver recibos'} <ChevronRight aria-hidden="true" className="h-5 w-5 text-bos-muted" />
+                    </Link>
+                )}
             </section>
         </>
     );

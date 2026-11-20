@@ -179,6 +179,10 @@ test.describe.serial('sueldo por día', () => {
         await expect(page.getByRole('heading', { name: /Mis servicios|Mis clientes/ })).toHaveCount(0);
         const text = await page.locator('body').innerText();
         for (const other of ['Deya', 'Dani', 'Sonia', 'Emi', 'Alonso']) expect(text, `no debe nombrar a ${other}`).not.toContain(other);
+        // Recibos de pago: Dago no los ve (decisión temporal del dueño, 20 nov 2026), pero su sueldo y lo que lleva siguen ahí.
+        await expect(page.getByRole('heading', { name: /recibos de pago/i })).toHaveCount(0);
+        await expect(page.getByRole('link', { name: /Ver (todos )?(mis )?recibos/ })).toHaveCount(0);
+        expect((await page.request.get('/api/settlements/history')).status()).toBe(403);
         // Y la API le niega las cifras de otra persona.
         const barbers = await (await page.request.get('/api/barbers')).json() as { id: string; name: string }[];
         const other = barbers.find((b) => b.name === 'Deya')!;

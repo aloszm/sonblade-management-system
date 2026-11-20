@@ -9,6 +9,7 @@ import PayBreakdown from '@/components/payroll/PayBreakdown';
 import type { PayInput } from '@/lib/payroll/breakdown';
 import BrandLogo from '@/components/BrandLogo';
 import PracticePrintMark from '@/components/PracticePrintMark';
+import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
 import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
@@ -50,7 +51,25 @@ export default function ReciboPage() {
 
     useEffect(() => { load(); }, [load]);
 
-    if (error) return <div className="max-w-2xl mx-auto"><ErrorState title="No se pudo cargar el recibo" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={load} /></div>;
+    if (error) {
+        const status = error instanceof HttpError ? error.status : 0;
+        const back = <Link href="/liquidaciones" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-bos-control px-4 text-sm font-semibold text-bos-text hover:bg-bos-raised">Volver al pago semanal</Link>;
+        // Recibo inexistente, de otra persona o sin permiso: se explica y se ofrece volver (reintentar no lo arreglaría).
+        if (status === 404 || status === 403) {
+            return (
+                <div className="max-w-2xl mx-auto rounded-xl border border-bos-border bg-bos-surface">
+                    <EmptyState title={status === 403 ? 'No puedes ver este recibo' : 'No encontramos este recibo'}
+                        description={status === 403 ? 'Los recibos de pago los ven la cuenta principal y la gerencia.' : 'Puede que el enlace esté mal escrito o que el recibo ya no exista.'} action={back} />
+                </div>
+            );
+        }
+        return (
+            <div className="max-w-2xl mx-auto space-y-3">
+                <ErrorState title="No se pudo cargar el recibo" message={toUserMessage(error)} offline={isOfflineError(error)} onRetry={load} />
+                <div className="flex justify-center">{back}</div>
+            </div>
+        );
+    }
     if (!receipt) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>;
 
     const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: receipt.business.currency }).format(n);

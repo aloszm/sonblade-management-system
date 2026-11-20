@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FileText, Paperclip, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
@@ -74,6 +74,14 @@ export default function ExpenseForm({ categories, initial, title = 'Registrar ga
     const [envelopeId, setEnvelopeId] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [receiptPath, setReceiptPath] = useState('');
+    // Miniatura local del archivo elegido (solo imágenes); se libera al cambiar o cerrar.
+    const [thumb, setThumb] = useState('');
+    useEffect(() => {
+        if (!file || !file.type.startsWith('image/')) { setThumb(''); return; }
+        const url = URL.createObjectURL(file);
+        setThumb(url);
+        return () => URL.revokeObjectURL(url);
+    }, [file]);
     const [errors, setErrors] = useState<Errors>({});
     const [uploading, setUploading] = useState(false);
     const [step, setStep] = useState<'form' | 'pin'>('form');
@@ -105,6 +113,7 @@ export default function ExpenseForm({ categories, initial, title = 'Registrar ga
     const pickFile = (f: File | null) => {
         setReceiptPath('');
         if (!f) { setFile(null); setErrors((p) => ({ ...p, receipt: undefined })); return; }
+        if (f.size === 0) { setFile(null); setErrors((p) => ({ ...p, receipt: 'El archivo está vacío (0 bytes). Elige otra foto o PDF del comprobante.' })); return; }
         if (!(f.type in RECEIPT_TYPES)) { setFile(null); setErrors((p) => ({ ...p, receipt: 'El comprobante debe ser una foto (JPG, PNG, WEBP, HEIC) o un PDF.' })); return; }
         if (f.size > RECEIPT_MAX_BYTES) { setFile(null); setErrors((p) => ({ ...p, receipt: 'El comprobante no puede pasar de 5 MB.' })); return; }
         setFile(f);
@@ -249,8 +258,16 @@ export default function ExpenseForm({ categories, initial, title = 'Registrar ga
                     <label htmlFor="exp-receipt" className={LABEL_CLASS}>Comprobante (opcional)</label>
                     {file ? (
                         <div className="flex items-center gap-3 rounded-xl border border-bos-border bg-bos-raised px-3 py-2" data-testid="receipt-preview">
-                            {file.type === 'application/pdf' ? <FileText aria-hidden="true" className="h-5 w-5 shrink-0 text-bos-muted" /> : <Paperclip aria-hidden="true" className="h-5 w-5 shrink-0 text-bos-muted" />}
-                            <span className="min-w-0 flex-1 truncate text-sm">{file.name} <span className="text-bos-muted">({(file.size / 1024).toFixed(0)} KB)</span></span>
+                            {file.type === 'application/pdf' ? (
+                                <FileText aria-hidden="true" className="h-10 w-10 shrink-0 text-bos-muted" />
+                            ) : thumb ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- miniatura local (blob:); next/image no aplica
+                                <img src={thumb} alt="" data-testid="receipt-thumb" className="h-14 w-14 shrink-0 rounded-lg border border-bos-border bg-bos-bg object-cover"
+                                    onError={() => setThumb('')} />
+                            ) : (
+                                <Paperclip aria-hidden="true" className="h-10 w-10 shrink-0 text-bos-muted" />
+                            )}
+                            <span className="min-w-0 flex-1 truncate text-sm">{file.name} <span className="text-bos-muted">({file.size >= 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`})</span></span>
                             <button type="button" aria-label="Quitar comprobante" onClick={() => pickFile(null)}
                                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-bos-muted hover:bg-bos-bg hover:text-bos-text">
                                 <X aria-hidden="true" className="h-4 w-4" />

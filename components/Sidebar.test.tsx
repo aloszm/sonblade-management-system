@@ -45,11 +45,12 @@ describe('Menú lateral', () => {
         expect(screen.queryByRole('link', { name: 'Equipo' })).not.toBeInTheDocument();
     });
 
-    it('un barbero ve su semana, la agenda (solo lectura), clientes y recibos', async () => {
+    it('un barbero ve su semana, la agenda (solo lectura) y clientes; no ve recibos de pago', async () => {
         mockMe({ name: 'Deya', role: 'barber', title: 'Barbero' });
         render(<Sidebar isOpen={true} />);
         expect(await screen.findByRole('link', { name: 'Mi semana' })).toBeInTheDocument();
-        for (const label of ['Agenda', 'Clientes', 'Pago semanal']) expect(screen.getByRole('link', { name: label })).toBeInTheDocument();
+        for (const label of ['Agenda', 'Clientes']) expect(screen.getByRole('link', { name: label })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Pago semanal' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Cobro' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Caja' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Barberos hoy' })).not.toBeInTheDocument();

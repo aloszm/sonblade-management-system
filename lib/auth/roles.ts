@@ -23,6 +23,22 @@ export const MANAGEMENT_READ_ROLES: BusinessRole[] = [...MANAGEMENT_ROLES, ...RE
 /** Para LEER lo que lee el mostrador (caja, ventas, citas). Nunca en métodos que escriben. */
 export const FRONT_DESK_READ_ROLES: BusinessRole[] = [...FRONT_DESK_ROLES, ...READ_ONLY_ROLES];
 
+/**
+ * Quién puede ver los RECIBOS DE PAGO semanales (pantalla /liquidaciones, recibo, historial y sus API).
+ * Decisión temporal del dueño (20 nov 2026): solo la cuenta principal (owner), gerencia (admin) y consulta (viewer).
+ * Para devolverles sus recibos a barberos y recepción, basta incluir barber, receptionist y cashier aquí.
+ */
+export const PAY_RECEIPT_ROLES: BusinessRole[] = ['owner', 'admin', 'viewer'];
+
+/**
+ * Único punto de verdad de la regla anterior. Acepta el puesto interno (owner, admin, viewer, receptionist, cashier,
+ * barber) o el rol de pantalla que entrega /api/auth/me ('admin' = dueño, gerencia y consulta; 'recepcion'; 'barber').
+ * Sin puesto conocido: no.
+ */
+export function canSeePayReceipts(role: BusinessRole | 'recepcion' | string | null | undefined): boolean {
+    return typeof role === 'string' && (PAY_RECEIPT_ROLES as string[]).includes(role);
+}
+
 export function isReadOnlyRole(role: BusinessRole): boolean {
     return READ_ONLY_ROLES.includes(role);
 }

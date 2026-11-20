@@ -369,6 +369,8 @@ export interface MyWeek {
     clients: ClientsSummary;
     today: TodaySummary;
     receipts: { id: string; number: string; weekStart: string; weekEnd: string; paidAt: string | null; totalCents: number }[];
+    /** false: esta persona no ve recibos de pago (canSeePayReceipts); el servidor ni siquiera los consulta. */
+    receiptsVisible: boolean;
 }
 
 export function buildMyWeek(input: {
@@ -384,6 +386,8 @@ export function buildMyWeek(input: {
     recentSettlements: SettlementInput[];
     clientRows: AppointmentInput[];
     todayRows: AppointmentInput[];
+    /** Por omisión true; el servidor pasa false cuando quien pide no puede ver recibos. */
+    receiptsVisible?: boolean;
 }): MyWeek {
     const services = buildServices(input.current, input.previous, input.counts);
     return {
@@ -396,6 +400,7 @@ export function buildMyWeek(input: {
         tips: buildTips(input.tips, input.previousTips, services.count),
         clients: buildClients(input.clientRows, input.window),
         today: buildToday(input.todayRows, input.now),
+        receiptsVisible: input.receiptsVisible ?? true,
         receipts: input.recentSettlements.filter((s) => s.status === 'paid').map((s) => ({
             id: s.id, number: s.receipt_number, weekStart: s.period_start, weekEnd: s.period_end, paidAt: s.paid_at, totalCents: toCents(s.total_amount),
         })),

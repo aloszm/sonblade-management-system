@@ -91,6 +91,12 @@ const HEADLINE = {
 
 function payoutNote(data: MyWeek, mine: boolean): string {
     const { payout, window } = data;
+    // Sin permiso para ver recibos (canSeePayReceipts): el aviso no menciona recibos ni números de recibo.
+    if (!data.receiptsVisible) {
+        if (window.period === 'month') return 'El pago es cada semana, con corte el sábado a las 8:00 p. m.';
+        if (payout.status === 'closed') return 'La semana ya cerró. Administración registra el pago.';
+        return `Se paga el ${longDay(window.endDay)}, con corte a las 8:00 p. m.`;
+    }
     if (window.period === 'month') {
         return payout.paidCents > 0
             ? `Ya pagado este mes: ${moneyC(payout.paidCents)} en ${plural(payout.receipts.length, 'recibo', 'recibos')}. El pago es cada semana, con corte el sábado a las 8:00 p. m.`
@@ -303,6 +309,8 @@ export function TipsSection({ data, mine }: SectionProps) {
 // ---------------------------------------------------------------------------------------------
 
 export function ReceiptsSection({ data, mine }: SectionProps) {
+    // Decisión temporal del dueño (20 nov 2026): barbero y recepción no ven recibos de pago; la sección ni se dibuja.
+    if (!data.receiptsVisible) return null;
     const tz = data.window.timezone;
     return (
         <section aria-labelledby="receipts-title" className={`${card} space-y-3 p-4 sm:p-6`}>

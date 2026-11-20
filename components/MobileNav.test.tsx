@@ -13,11 +13,11 @@ const bar = () => screen.getByRole('navigation', { name: 'Principal' });
 const names = () => within(bar()).getAllByRole('link').map((l) => l.textContent);
 
 describe('Menú inferior del celular', () => {
-    it('el barbero ve Mi semana, Agenda, Clientes y Pago semanal; no cobra ni maneja caja', async () => {
+    it('el barbero ve Mi semana, Agenda y Clientes (sin Pago semanal); no cobra ni maneja caja', async () => {
         mockMe({ role: 'barber' });
         render(<MobileNav />);
         await screen.findByRole('link', { name: /Mi semana/ });
-        expect(names()).toEqual(['Mi semana', 'Agenda', 'Clientes', 'Pago semanal']);
+        expect(names()).toEqual(['Mi semana', 'Agenda', 'Clientes']);
     });
 
     it('recepción: Caja, Agenda, Barberos hoy y Clientes; el resto en Más', async () => {
@@ -28,7 +28,7 @@ describe('Menú inferior del celular', () => {
         fireEvent.click(screen.getByRole('button', { name: /Más/ }));
         const sheet = screen.getByRole('dialog', { name: 'Más' });
         expect(within(sheet).getByRole('link', { name: 'Cobro' })).toBeInTheDocument();
-        expect(within(sheet).getByRole('link', { name: 'Pago semanal' })).toBeInTheDocument();
+        expect(within(sheet).queryByRole('link', { name: 'Pago semanal' })).toBeNull();
         expect(within(sheet).getByRole('link', { name: 'Cobro' }).className).toContain('min-h-11');
     });
 

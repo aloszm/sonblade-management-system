@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { MANAGEMENT_READ_ROLES, readerRole } from '@/lib/auth/roles';
+import { MANAGEMENT_READ_ROLES, canSeePayReceipts, readerRole } from '@/lib/auth/roles';
 import { fetchBusinessReport, sumEmployeeTips, toBarberProfile, toBarberStats, type ReportPeriod } from '@/lib/reports/business-report';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { businessDayRange, loadBusinessTimezone } from '@/lib/business/timezone';
@@ -45,7 +45,7 @@ const APPOINTMENT_COLUMNS = 'id, client_id, customer_name, scheduled_start_at, s
  * Solo usa lo que la base ya le deja leer a ese barbero: su reporte, sus propinas, sus recibos y las citas
  * de la sucursal filtradas a las suyas. No toca ventas de otros ni ingresos del negocio.
  */
-async function myWeek(db: Db, branchId: string, employeeId: string, rate: number, timeZone: string, period: Period) {
+async function myWeek(db: Db, branchId: string, employeeId: string, rate: number, timeZone: string, period: Period, receiptsVisible: boolean) {
     const now = new Date();
     const window = periodWindow(period, now, timeZone);
     // Semana y mes en curso, para mostrar ambos conteos sin importar el periodo elegido (si coincide, no se pide dos veces).
@@ -64,10 +64,11 @@ async function myWeek(db: Db, branchId: string, employeeId: string, rate: number
         loadReport(db, branchId, employeeId, window.previous),
         loadTips(db, branchId, employeeId, window),
         loadTips(db, branchId, employeeId, window.previous),
-        db.from('commission_settlements').select(SETTLEMENT_COLUMNS).eq('branch_id', branchId).eq('employee_id', employeeId)
-            .gte('period_start', window.startDay).lte('period_start', window.endDay),
-        db.from('commission_settlements').select(SETTLEMENT_COLUMNS).eq('branch_id', branchId).eq('employee_id', employeeId)
-            .eq('status', 'paid').order('paid_at', { ascending: false }).limit(3),
+        // Sin permiso para ver recibos de pago (barbero y recepción, por ahora) ni se consultan.
+        receiptsVisible ? db.from('commission_settlements').select(SETTLEMENT_COLUMNS).eq('branch_id', branchId).eq('employee_id', employeeId)
+            .gte('period_start', window.startDay).lte('period_start', window.endDay) : Promise.resolve({ data: [], error: null }),
+        receiptsVisible ? db.from('commission_settlements').select(SETTLEMENT_COLUMNS).eq('branch_id', branchId).eq('employee_id', employeeId)
+            .eq('status', 'paid').order('paid_at', { ascending: false }).limit(3) : Promise.resolve({ data: [], error: null }),
         db.from('appointments').select(APPOINTMENT_COLUMNS).eq('branch_id', branchId).eq('assigned_employee_id', employeeId)
             .gte('scheduled_start_at', dayRange.from).lt('scheduled_start_at', dayRange.to).order('scheduled_start_at'),
         db.from('appointments').select(APPOINTMENT_COLUMNS).eq('branch_id', branchId).eq('assigned_employee_id', employeeId)
@@ -87,6 +88,7 @@ async function myWeek(db: Db, branchId: string, employeeId: string, rate: number
         recentSettlements: (recentSettlements.data ?? []) as unknown as SettlementInput[],
         todayRows: (todayRows.data ?? []) as unknown as AppointmentInput[],
         clientRows: (clientRows.data ?? []) as unknown as AppointmentInput[],
+        receiptsVisible,
     });
 }
 
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (query.get('view') === 'my-week') {
             const period = MyWeekPeriodSchema.parse(query.get('period') ?? undefined);
             const timeZone = await loadBusinessTimezone(supabase, context.businessId);
-            return Response.json({ ...(await myWeek(supabase, context.branchId, employeeId, rate, timeZone, period)), barber: { id: employeeId, name } }, {
+            return Response.json({ ...(await myWeek(supabase, context.branchId, employeeId, rate, timeZone, period, canSeePayReceipts(context.role))), barber: { id: employeeId, name } }, {
                 headers: { 'Cache-Control': 'no-store' },
             });
         }
