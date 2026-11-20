@@ -1,6 +1,6 @@
 import {
     BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, Package, Scissors,
-    Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins,
+    Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins, Target,
     type LucideIcon,
 } from 'lucide-react';
 import { canSeePayReceipts, canWrite, screenRole } from '@/lib/auth/roles';
@@ -63,6 +63,8 @@ export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
             { href: '/ventas/historial', label: 'Ventas', icon: FileText, roles: ['admin'] },
             { href: '/cuadre', label: 'Cuadre', icon: Scale, roles: ['admin'] },
             { href: '/administracion', label: 'Finanzas', icon: PiggyBank, roles: ['admin'] },
+            // Cuenta principal, gerencia y consulta (solo lectura). Recepción y barbero no: muestra costos del negocio.
+            { href: '/punto-de-equilibrio', label: 'Punto de equilibrio', icon: Target, roles: ['admin'] },
             { href: '/gastos', label: 'Gastos', icon: TrendingDown, roles: ['admin'] },
             { href: '/sobres', label: 'Sobres', icon: HandCoins, roles: ['admin'] },
             { href: '/inventario', label: 'Inventario', icon: Package, roles: ['admin', 'recepcion'] },
@@ -141,6 +143,7 @@ export const PAGE_TITLES: Record<string, string> = {
     '/reportes': 'Reportes',
     '/cuadre': 'Cuadre',
     '/administracion': 'Finanzas',
+    '/punto-de-equilibrio': 'Punto de equilibrio',
     '/equipo-hoy': 'Barberos hoy',
     '/reportes/verificar': 'Verificar reporte',
     '/admin': 'Administración',

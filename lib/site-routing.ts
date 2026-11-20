@@ -24,7 +24,7 @@ export type RouteDecision =
 export const INTERNAL_PREFIXES = [
     'admin', 'administracion', 'auth', 'barbero', 'barberos', 'caja', 'citas', 'clientes', 'configuracion', 'cuadre',
     'equipo', 'equipo-hoy', 'gastos', 'inventario', 'liquidaciones', 'login', 'mi-cuenta', 'onboarding', 'pos',
-    'productos', 'reportes', 'servicios', 'sobres', 'ticket', 'ventas',
+    'productos', 'punto-de-equilibrio', 'reportes', 'servicios', 'sobres', 'ticket', 'ventas',
 ] as const;
 
 /** Rutas públicas de la aplicación que no son del sistema interno (para la prueba de cobertura). */

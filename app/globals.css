@@ -99,6 +99,17 @@
 .bos-fade { animation: bos-fade .18s ease-out both }
 .bos-sheet { animation: bos-sheet .22s cubic-bezier(.2, .8, .2, 1) both }
 .bos-grow { transform-origin: bottom; animation: bos-grow .6s cubic-bezier(.2, .8, .2, 1) both }
+/* Punto de equilibrio: el anillo entra girando (solo transform/opacity) y, al cubrir el mes, un destello dorado sobrio. */
+@keyframes be-ring-in { from { transform: rotate(-110deg); opacity: 0 } to { transform: rotate(0); opacity: 1 } }
+@keyframes be-glow { 0% { transform: scale(.7); opacity: 0 } 35% { opacity: .85 } 100% { transform: scale(1.35); opacity: 0 } }
+.be-ring-in { animation: be-ring-in 1s cubic-bezier(.2, .8, .2, 1) both }
+.be-glow { animation: be-glow 1.8s ease-out .5s 2 both }
+.be-fill { transform-origin: left; transition: transform 1s cubic-bezier(.2, .8, .2, 1) }
+@media (prefers-reduced-motion: reduce) {
+  .be-ring-in { animation: none }
+  .be-glow { animation: none; opacity: 0 }
+  .be-fill { transition: none }
+}
 @media (prefers-reduced-motion: reduce) {
   .bos-pop, .bos-ring, .bos-draw, .bos-rise, .bos-grow, .bos-fade, .bos-sheet { animation: none; stroke-dashoffset: 0 }
   .bos-float { animation: none; opacity: 0 }

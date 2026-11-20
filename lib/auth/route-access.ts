@@ -9,7 +9,7 @@ import { canSeePayReceipts } from '@/lib/auth/roles';
  */
 
 /** Pantallas de dirección: gerencia y consulta además de la cuenta principal. Los demás puestos van al cobro. */
-export const ADMIN_ONLY_PATHS = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/sobres', '/reportes', '/cuadre', '/administracion', '/configuracion', '/ventas'];
+export const ADMIN_ONLY_PATHS = ['/admin', '/equipo', '/inventario', '/servicios', '/productos', '/gastos', '/sobres', '/reportes', '/cuadre', '/administracion', '/punto-de-equilibrio', '/configuracion', '/ventas'];
 
 /** Puestos que entran a las pantallas de dirección. */
 const ADMIN_AREA_ROLES = ['owner', 'admin', 'viewer'];

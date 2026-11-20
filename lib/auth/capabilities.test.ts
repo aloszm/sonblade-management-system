@@ -103,6 +103,9 @@ describe('catálogo de capacidades', () => {
         'cifras.panel': 'si si si no no',
         'cifras.ventas': 'si si si no no',
         'cifras.finanzas': 'si si si no no',
+        'cifras.equilibrio': 'si si si no no',
+        // La API de gastos fijos deja a gerencia; en la pantalla de punto de equilibrio solo edita la cuenta principal.
+        'cifras.equilibrio-editar': 'si ver ver no no',
         'cifras.cuadre': 'si si si no no',
         'cifras.cuadre-revisar': 'si si ver no no',
         'cifras.reportes': 'si si si no no',

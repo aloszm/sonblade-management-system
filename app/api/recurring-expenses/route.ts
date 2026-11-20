@@ -18,6 +18,11 @@ const Fields = {
     // Cadena vacía quita el proveedor.
     vendor: z.string().trim().max(120, 'El nombre del proveedor es muy largo (máximo 120 letras).').optional(),
     is_active: z.boolean().optional(),
+    // Punto de equilibrio: cada cuántos meses se paga (luz bimestral = 2), orden de las cubetas y monto estimado.
+    every_months: z.number({ message: 'Cada cuántos meses se paga: de 1 a 12.' }).int('Cada cuántos meses se paga: de 1 a 12.')
+        .min(1, 'Cada cuántos meses se paga: de 1 a 12.').max(12, 'Cada cuántos meses se paga: de 1 a 12.').optional(),
+    sort_order: z.number({ message: 'El orden va de 0 a 10,000.' }).int().min(0, 'El orden va de 0 a 10,000.').max(10_000, 'El orden va de 0 a 10,000.').optional(),
+    is_estimate: z.boolean().optional(),
 };
 const CreateSchema = z.object(Fields);
 const UpdateSchema = z.object({
@@ -25,11 +30,13 @@ const UpdateSchema = z.object({
     name: Fields.name.optional(), category_id: Fields.category_id.optional(), suggested_amount: Fields.suggested_amount.optional(),
     day_of_month: Fields.day_of_month.optional(), paid_from: Fields.paid_from.optional(), method: Fields.method,
     vendor: Fields.vendor, is_active: Fields.is_active,
+    every_months: Fields.every_months, sort_order: Fields.sort_order, is_estimate: Fields.is_estimate,
 });
 
 type TemplateRow = {
     id: string; name: string; category_id: string; suggested_amount: number | string; day_of_month: number; paid_from: string;
     method: string; vendor: string | null; is_active: boolean; created_at: string; updated_at: string;
+    every_months?: number; sort_order?: number; is_estimate?: boolean;
 };
 const shape = (row: TemplateRow) => ({ ...row, suggested_amount: num(row.suggested_amount) });
 
@@ -39,7 +46,7 @@ export async function GET(request: NextRequest) {
         const context = await requireAuthContext(MANAGEMENT_READ_ROLES);
         const supabase = await createSupabaseServerClient();
         let query = supabase.from('recurring_expenses')
-            .select('id, name, category_id, suggested_amount, day_of_month, paid_from, method, vendor, is_active, created_at, updated_at')
+            .select('id, name, category_id, suggested_amount, day_of_month, paid_from, method, vendor, is_active, created_at, updated_at, every_months, sort_order, is_estimate')
             .eq('business_id', context.businessId).eq('branch_id', context.branchId).order('day_of_month').order('name');
         if (request.nextUrl.searchParams.get('all') !== '1') query = query.eq('is_active', true);
         const { data, error } = await query;
@@ -64,6 +71,9 @@ async function save(branchId: string, input: SaveInput) {
         p_method: input.method,
         p_vendor: input.vendor,
         p_is_active: input.is_active,
+        p_every_months: input.every_months,
+        p_sort_order: input.sort_order,
+        p_is_estimate: input.is_estimate,
     });
     if (error) throw error;
     return shape(data as unknown as TemplateRow);

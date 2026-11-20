@@ -14,6 +14,7 @@ import DateRangePicker from '@/components/ui/DateRangePicker';
 import ErrorState from '@/components/ui/ErrorState';
 import { isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import Ranking from '@/components/Ranking';
+import BreakEvenSummary from '@/components/BreakEvenSummary';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDateTime } from '@/lib/utils/dates';
 
@@ -234,6 +235,8 @@ export default function Dashboard() {
                     <ArrowRight aria-hidden="true" className="h-4 w-4" /> Ver reportes
                 </Link>
             </div>
+
+            <BreakEvenSummary />
 
             {error && <ErrorState title="No se pudieron cargar las métricas" message={error} offline={errorOffline} onRetry={() => void load()} />}
             {!data && loading && <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-bos-muted" /></div>}

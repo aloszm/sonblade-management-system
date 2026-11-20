@@ -103,6 +103,15 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 - **Cascada:** la gráfica que muestra cómo el ingreso baja paso a paso hasta la utilidad.
 - **Ticket promedio:** ingreso entre número de ventas.
 - **KPI:** indicador clave; un número que resume cómo va el negocio.
+- **Costo fijo (gasto fijo):** lo que se paga se venda o no: renta, luz, internet y los sueldos por día de recepción.
+  Se captura como plantilla con su monto y **cada cuántos meses** se paga (luz $1,000 cada 2 meses = $500 al mes).
+  "Estimado" = monto aproximado que falta confirmar.
+- **Margen:** lo que deja la operación para cubrir los fijos = ingreso (sin propinas) − comisiones − costo de producto.
+  Es la misma fórmula de Finanzas, antes de sueldos y gastos.
+- **Punto de equilibrio:** el momento del mes en que el margen acumulado alcanza los costos fijos. Desde ahí, todo lo
+  que entra es ganancia. La pantalla dice el avance ("llevas cubierto el 66 %"), unos cuántos servicios faltan
+  (aproximado: cada servicio deja distinto) y el día en que se cubrió. Ritmo de referencia: los últimos 28 días con
+  ventas; con menos de 14 dice "aún estamos aprendiendo tu ritmo". Los gastos no fijos no entran en esta meta.
 
 ## 7. Reservas y avisos
 

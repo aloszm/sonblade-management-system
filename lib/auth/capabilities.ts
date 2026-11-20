@@ -126,6 +126,13 @@ export const CAPABILITIES: Capability[] = [
         evaluate: (r) => si(canEnter(r, '/ventas/historial')) },
     { id: 'cifras.finanzas', screen: 'Cifras del negocio', label: 'Ver Finanzas', source: 'lib/auth/route-access.ts · canEnter',
         evaluate: (r) => si(canEnter(r, '/administracion')) },
+    { id: 'cifras.equilibrio', screen: 'Cifras del negocio', label: 'Ver Punto de equilibrio', source: 'lib/auth/route-access.ts · canEnter · GET /api/break-even · MANAGEMENT_READ_ROLES',
+        evaluate: (r) => si(canEnter(r, '/punto-de-equilibrio') && MANAGEMENT_READ_ROLES.includes(r)) },
+    { id: 'cifras.equilibrio-editar', screen: 'Cifras del negocio', label: 'Editar gastos fijos desde Punto de equilibrio (monto, cada cuántos meses, orden)',
+        source: 'GET /api/break-even · can_edit = OWNER_ONLY_ROLES; PATCH /api/recurring-expenses y /reorder · MANAGEMENT_ROLES',
+        evaluate: (r) => OWNER_ONLY_ROLES.includes(r) ? { level: 'si' }
+            : MANAGEMENT_ROLES.includes(r) ? { level: 'ver', note: 'En esta pantalla solo ve; los gastos fijos los puede cambiar desde Gastos.' }
+                : { level: canEnter(r, '/punto-de-equilibrio') ? 'ver' : 'no' } },
     { id: 'cifras.cuadre', screen: 'Cifras del negocio', label: 'Ver el Cuadre', source: 'lib/auth/route-access.ts · canEnter',
         evaluate: (r) => si(canEnter(r, '/cuadre')) },
     { id: 'cifras.cuadre-revisar', screen: 'Cifras del negocio', label: 'Revisar diferencias del Cuadre', source: 'POST /api/reconciliation · MANAGEMENT_ROLES',

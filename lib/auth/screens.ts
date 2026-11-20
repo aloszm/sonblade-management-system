@@ -37,6 +37,7 @@ export const SCREENS: Screen[] = [
     { route: '/ventas/historial', sample: '/ventas/historial', group: 'Negocio', title: t('/ventas/historial', 'Ventas') },
     { route: '/cuadre', sample: '/cuadre', group: 'Negocio', title: t('/cuadre', 'Cuadre') },
     { route: '/administracion', sample: '/administracion', group: 'Negocio', title: t('/administracion', 'Finanzas') },
+    { route: '/punto-de-equilibrio', sample: '/punto-de-equilibrio', group: 'Negocio', title: t('/punto-de-equilibrio', 'Punto de equilibrio') },
     { route: '/gastos', sample: '/gastos', group: 'Negocio', title: t('/gastos', 'Gastos') },
     { route: '/sobres', sample: '/sobres', group: 'Negocio', title: t('/sobres', 'Sobres') },
     { route: '/inventario', sample: '/inventario', group: 'Negocio', title: t('/inventario', 'Inventario') },

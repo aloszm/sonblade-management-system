@@ -113,4 +113,12 @@ describe('Sobres en el menú', () => {
         const source = readFileSync(path.resolve(__dirname, '../middleware.ts'), 'utf8');
         expect(source).toContain('routeVerdict(');
     });
+    it('Punto de equilibrio en el menú de cuenta principal, gerencia y consulta; no en recepción ni barbero', () => {
+        const has = (user: Parameters<typeof menuItems>[0]) => menuItems(user).some((i) => i.href === '/punto-de-equilibrio');
+        expect(has({ role: 'admin', isOwner: true })).toBe(true);
+        expect(has({ role: 'admin' })).toBe(true);
+        expect(has({ role: 'admin', readOnly: true })).toBe(true);
+        expect(has({ role: 'recepcion' })).toBe(false);
+        expect(has({ role: 'barber' })).toBe(false);
+    });
 });

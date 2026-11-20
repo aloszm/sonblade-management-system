@@ -1,4 +1,4 @@
-# Módulo "Punto de equilibrio" — plan (sin aprobar, sin empezar)
+# Módulo "Punto de equilibrio" — CONSTRUIDO (20 nov 2026; en desarrollo, sin publicar)
 
 > Redactado el 20 nov 2026 a petición del dueño. No se ejecuta hasta que él lo apruebe.
 > Lo construyen agentes (Opus la base, Sonnet la pantalla, Haiku la documentación); el agente principal
@@ -96,3 +96,25 @@ desactualizarse. No muestra datos de personas; la vista real con datos ("Ver com
 pendiente para una etapa posterior. Sin cambios de base. Agente: Sonnet.
 
 Pendiente del dueño para arrancar el punto de equilibrio: sus gastos fijos (concepto, monto mensual, día de pago).
+
+## 10. Estado: construido (20 nov 2026, en desarrollo; producción pendiente del visto bueno)
+
+- **Base:** migración `20261120140000_break_even` (aplicada en `sonblade-dev`; NO en producción). `recurring_expenses` gana
+  `every_months` (1..12), `sort_order` e `is_estimate`; `save_recurring_expense` acepta `p_every_months`, `p_sort_order` y
+  `p_is_estimate` (con valor por omisión: la app publicada sigue igual); `reorder_recurring_expenses` (orden de cubetas, con
+  bitácora); `pending_recurring_expenses` respeta la periodicidad; `public.break_even_period(sucursal, mes)` de solo lectura
+  (cuenta principal, gerencia y consulta). Prueba: `supabase/tests/break_even.test.sql` (29 casos).
+- **Cuentas (en la base):** fijos = plantillas activas ÷ every_months + Sueldos del mes completo (`private.wage_days`: días
+  pasados reales; días por venir = días fijos × tarifa vigente ese día). Margen = `report_financial_period` (ingreso −
+  comisiones − costo de producto). Referencia = últimos 28 días con ventas antes de hoy (hasta 120 días atrás); ritmos por
+  día de calendario. Día en que se cubrió = primer día cuyo margen acumulado alcanza los fijos. Día estimado = hoy +
+  ⌈faltante ÷ margen diario de los últimos 7 días⌉. Plantillas de hoy también para meses pasados (no hay historia de montos).
+- **API:** `GET /api/break-even?month=AAAA-MM` (owner, admin, viewer; `can_edit` solo cuenta principal);
+  `POST/PATCH /api/recurring-expenses` con `every_months`, `sort_order`, `is_estimate`; `POST /api/recurring-expenses/reorder`.
+- **Pantalla:** `/punto-de-equilibrio` (menú Negocio, junto a Finanzas; protegida como Finanzas en `lib/auth/route-access.ts`),
+  resumen de una línea en el Panel. Edición solo para la cuenta principal (sin PIN: los gastos fijos nunca lo han pedido; no
+  mueven dinero).
+- **Datos iniciales (estimados):** Renta $7,500/mes, Luz $1,000 cada 2 meses, Internet $450/mes, cargados en desarrollo;
+  para producción: `supabase/pending/break_even_initial_templates.sql` (idempotente, por nombre de negocio y sucursal).
+- **Pendiente:** replicar migración y datos a producción con visto bueno; "¿Y si…?" (segunda versión); préstamo del negocio
+  como fijo (decisión del dueño); tablero para el equipo sin montos (decisión del dueño).

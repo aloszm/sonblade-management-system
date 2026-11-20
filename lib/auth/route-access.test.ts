@@ -68,4 +68,12 @@ describe('canEnter / routeVerdict', () => {
             expect(canEnter('cashier', path)).toBe(canEnter('receptionist', path));
         }
     });
+    it('Punto de equilibrio: como Finanzas (cuenta principal, gerencia y consulta); recepción y barbero, fuera', () => {
+        for (const role of ['owner', 'admin', 'viewer']) expect(canEnter(role, '/punto-de-equilibrio')).toBe(true);
+        expect(ADMIN_ONLY_PATHS).toContain('/punto-de-equilibrio');
+        expect(routeVerdict('receptionist', '/punto-de-equilibrio')).toEqual({ allowed: false, reason: 'admin-only', redirectTo: '/pos' });
+        expect(routeVerdict('cashier', '/punto-de-equilibrio').allowed).toBe(false);
+        expect(routeVerdict('barber', '/punto-de-equilibrio').allowed).toBe(false);
+        for (const role of ROLES) expect(canEnter(role, '/punto-de-equilibrio')).toBe(canEnter(role, '/administracion'));
+    });
 });

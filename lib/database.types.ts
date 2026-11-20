@@ -2461,11 +2461,14 @@ export type Database = {
           created_at: string
           created_by: string
           day_of_month: number
+          every_months: number
           id: string
           is_active: boolean
+          is_estimate: boolean
           method: Database["public"]["Enums"]["payment_method"]
           name: string
           paid_from: string
+          sort_order: number
           suggested_amount: number
           updated_at: string
           vendor: string | null
@@ -2477,11 +2480,14 @@ export type Database = {
           created_at?: string
           created_by: string
           day_of_month: number
+          every_months?: number
           id?: string
           is_active?: boolean
+          is_estimate?: boolean
           method: Database["public"]["Enums"]["payment_method"]
           name: string
           paid_from: string
+          sort_order?: number
           suggested_amount: number
           updated_at?: string
           vendor?: string | null
@@ -2493,11 +2499,14 @@ export type Database = {
           created_at?: string
           created_by?: string
           day_of_month?: number
+          every_months?: number
           id?: string
           is_active?: boolean
+          is_estimate?: boolean
           method?: Database["public"]["Enums"]["payment_method"]
           name?: string
           paid_from?: string
+          sort_order?: number
           suggested_amount?: number
           updated_at?: string
           vendor?: string | null
@@ -3103,6 +3112,10 @@ export type Database = {
         }
         Returns: Json
       }
+      break_even_period: {
+        Args: { p_branch_id: string; p_month?: string }
+        Returns: Json
+      }
       business_full_report: {
         Args: {
           p_audience: string
@@ -3569,6 +3582,10 @@ export type Database = {
         Args: { p_line_id: string; p_quantity?: number }
         Returns: Json
       }
+      reorder_recurring_expenses: {
+        Args: { p_branch_id: string; p_ids: string[] }
+        Returns: Json
+      }
       reverse_sale: {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
@@ -3645,11 +3662,14 @@ export type Database = {
           p_branch_id: string
           p_category_id?: string
           p_day_of_month?: number
+          p_every_months?: number
           p_id?: string
           p_is_active?: boolean
+          p_is_estimate?: boolean
           p_method?: Database["public"]["Enums"]["payment_method"]
           p_name?: string
           p_paid_from?: string
+          p_sort_order?: number
           p_suggested_amount?: number
           p_vendor?: string
         }
