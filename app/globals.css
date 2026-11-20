@@ -183,3 +183,166 @@ input[type='checkbox'].bos-check:checked { background: var(--bos-accent); border
 input[type='checkbox'].bos-check:checked::after { transform: rotate(45deg) scale(1); }
 input[type='checkbox'].bos-check[aria-invalid='true'] { border-color: var(--bos-danger); }
 @media (prefers-reduced-motion: reduce) { input[type='checkbox'].bos-check::after { transition: none; } }
+
+/* ───────────────────────── Página pública de inicio (app/inicio) ─────────────────────────
+ * Todo con prefijo gi-. Colores nuevos solo para esta página; los tokens --bos-* no cambian.
+ * El texto siempre va en --bos-text, --bos-muted o --bos-accent-text sobre --bos-bg, --gi-band o
+ * --gi-paper: ≥ 4.5:1 en los dos temas (tabla de contrastes en el informe de diseño de la página). */
+.gi-page {
+  --gi-band: #100E0B;
+  --gi-paper: #15120E;
+  --gi-line: color-mix(in srgb, var(--bos-accent) 30%, transparent);
+  --gi-line-strong: color-mix(in srgb, var(--bos-accent) 62%, transparent);
+  --gi-glow: rgba(201, 164, 106, .20);
+  --gi-vignette: rgba(0, 0, 0, .72);
+  --gi-ornament: color-mix(in srgb, var(--bos-accent) 70%, transparent);
+  --gi-grain-opacity: .09;
+}
+[data-theme='light'] .gi-page {
+  --gi-band: #EFE9DE;
+  --gi-paper: #FBF8F2;
+  --gi-line: color-mix(in srgb, var(--bos-accent) 34%, transparent);
+  --gi-line-strong: color-mix(in srgb, var(--bos-accent) 70%, transparent);
+  --gi-glow: rgba(176, 134, 74, .16);
+  --gi-vignette: rgba(122, 91, 50, .14);
+  --gi-ornament: color-mix(in srgb, var(--bos-accent) 78%, transparent);
+  --gi-grain-opacity: .07;
+}
+
+/* Titulares: serif de letrero (Playfair Display, servida por Next desde el propio dominio). */
+.gi-serif {
+  font-family: var(--font-gi-serif), 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-feature-settings: 'lnum' 1;
+  letter-spacing: -0.005em;
+}
+/* Rótulos en versalitas espaciadas (letra del cuerpo). */
+.gi-caps { text-transform: uppercase; letter-spacing: .22em; font-size: .75rem; line-height: 1rem; font-weight: 600; }
+
+.gi-band { background-color: var(--gi-band); }
+.gi-paper { background-color: var(--gi-paper); }
+
+/* Grano de papel muy tenue (SVG en data:, permitido por la CSP). */
+.gi-grain { position: relative; isolation: isolate; }
+.gi-grain::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: var(--gi-grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .4 0 0 0 0 .25 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Primer pantallazo: resplandor bronce detrás del logo, viñeta y grano. */
+.gi-hero {
+  background:
+    radial-gradient(55% 42% at 50% 30%, var(--gi-glow), transparent 72%),
+    radial-gradient(140% 100% at 50% 20%, transparent 50%, var(--gi-vignette) 100%),
+    var(--bos-bg);
+}
+.gi-sunburst {
+  color: var(--bos-accent);
+  opacity: .10;
+  -webkit-mask-image: radial-gradient(circle at center, #000 18%, transparent 68%);
+  mask-image: radial-gradient(circle at center, #000 18%, transparent 68%);
+}
+[data-theme='light'] .gi-sunburst { opacity: .09; }
+
+/* Marco de letrero: doble filete con esquinas. */
+.gi-frame { position: absolute; inset: .75rem; border: 1px solid var(--gi-line); pointer-events: none; }
+.gi-frame::after { content: ''; position: absolute; inset: 5px; border: 1px solid var(--gi-line); opacity: .55; }
+@media (min-width: 768px) { .gi-frame { inset: 1.5rem; } }
+.gi-corner { position: absolute; width: 2.25rem; height: 2.25rem; color: var(--gi-ornament); }
+.gi-corner--tl { top: -1px; left: -1px; }
+.gi-corner--tr { top: -1px; right: -1px; transform: scaleX(-1); }
+.gi-corner--bl { bottom: -1px; left: -1px; transform: scaleY(-1); }
+.gi-corner--br { bottom: -1px; right: -1px; transform: scale(-1); }
+
+/* Franja de poste de barbero en bronce. */
+.gi-pole {
+  height: 6px;
+  background: repeating-linear-gradient(-45deg, var(--bos-accent) 0 7px, transparent 7px 14px);
+  opacity: .7;
+}
+
+/* Carta de servicios: línea de puntos entre el nombre y el precio. */
+.gi-leader { flex: 1 1 auto; min-width: 1.5rem; border-bottom: 2px dotted var(--gi-line-strong); transform: translateY(-.32em); }
+
+/* Barra inferior de celular con la acción principal. Aparece al pasar el primer pantallazo cuando el
+   navegador sabe animar con el desplazamiento (sin JavaScript); si no, o con menos movimiento, se queda fija. */
+.gi-dock {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+  padding: .625rem 1rem calc(.625rem + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bos-bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--gi-line);
+}
+.gi-dock-spacer { height: calc(4.75rem + env(safe-area-inset-bottom)); }
+@media (min-width: 768px) { .gi-dock, .gi-dock-spacer { display: none; } }
+@keyframes gi-dock-in {
+  0%, 80% { transform: translateY(110%); visibility: hidden; }
+  100% { transform: none; visibility: visible; }
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .gi-dock { animation: gi-dock-in linear both; animation-timeline: scroll(root); animation-range: 0 80vh; }
+  }
+}
+
+/* Poste de barbero pequeño con franjas en movimiento (solo transform sobre un mosaico de 16px). */
+.gi-barberpole { position: relative; overflow: hidden; border-radius: 999px; border: 1px solid var(--gi-line-strong); }
+.gi-barberpole > span {
+  position: absolute; inset: -16px 0 0 0;
+  background-image: linear-gradient(-45deg, var(--bos-accent) 25%, transparent 25% 50%, var(--bos-accent) 50% 75%, transparent 75%);
+  background-size: 16px 16px; opacity: .8;
+}
+
+/* Subrayado dorado que se traza al pasar o enfocar (además del subrayado tenue de siempre). */
+.gi-underline { position: relative; }
+.gi-underline::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: .55rem; height: 1.5px; background: var(--bos-accent-text);
+  transform: scaleX(0); transform-origin: left;
+}
+.gi-underline:is(:hover, :focus-visible, :active)::after { transform: scaleX(1); }
+
+/* ── Movimiento. Todo solo con transform/opacity (y trazo de SVG pequeños). Fuera de este bloque la
+   página es estática y completa: con "reducir movimiento" no entra ninguna de estas reglas. ── */
+@keyframes gi-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes gi-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gi-logo { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+/* Tailwind 4 centra con la propiedad `translate`, así que aquí basta girar y escalar. */
+@keyframes gi-sun { from { opacity: 0; transform: rotate(-12deg) scale(.85); } to { transform: none; } }
+@keyframes gi-stamp { 0% { opacity: 0; transform: scale(1.9) rotate(-6deg); } 70% { opacity: 1; transform: scale(.94); } 100% { opacity: 1; transform: none; } }
+@keyframes gi-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes gi-grow-x { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes gi-shine { 0%, 78% { transform: translateX(-120%) skewX(-20deg); } 100% { transform: translateX(260%) skewX(-20deg); } }
+@keyframes gi-stripes { to { transform: translateY(16px); } }
+@keyframes gi-pulse { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(2.6); opacity: 0; } }
+@keyframes gi-price { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Entrada del primer pantallazo (≈1 s). Los botones no esperan: se pueden tocar desde el primer cuadro. */
+  .gi-hero .gi-sunburst { animation: gi-sun 1.1s cubic-bezier(.2, .7, .2, 1) both; }
+  .gi-enter-logo { animation: gi-logo .7s cubic-bezier(.2, .7, .2, 1) both; }
+  .gi-enter { animation: gi-in .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: var(--gi-delay, 0ms); }
+  .gi-stamp { animation: gi-stamp .5s cubic-bezier(.3, .8, .3, 1.2) both; animation-delay: var(--gi-delay, 0ms); }
+  .gi-draw path { stroke-dasharray: 1; animation: gi-draw .7s ease-out both; animation-delay: var(--gi-delay, 0ms); }
+  .gi-frame { animation: gi-fade .9s ease-out both; }
+  .gi-frame .gi-corner path { stroke-dasharray: 1; animation: gi-draw .8s ease-out .25s both; }
+
+  /* Brillo que recorre el botón principal de vez en cuando. */
+  .gi-shine { position: relative; overflow: hidden; isolation: isolate; }
+  .gi-shine::after {
+    content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; z-index: -1; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .38), transparent);
+    animation: gi-shine 6s ease-in-out 1.4s infinite both;
+  }
+  [data-theme='light'] .gi-shine::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .22), transparent); }
+
+  .gi-barberpole > span { animation: gi-stripes 1.2s linear infinite; }
+  .gi-live::after { content: ''; position: absolute; inset: 0; border-radius: 999px; background: var(--bos-success); animation: gi-pulse 2s ease-out infinite; }
+  .gi-underline::after { transition: transform .3s cubic-bezier(.2, .7, .2, 1); }
+
+  /* Revelado al hacer scroll, sin JavaScript, solo donde el navegador lo sabe hacer (Chrome/Edge,
+     Safari 26+). En los demás el contenido simplemente ya está visible. */
+  @supports (animation-timeline: view()) {
+    .gi-reveal { animation: gi-in linear both; animation-timeline: view(); animation-range: entry 0% entry 55%; }
+    .gi-reveal-x { animation: gi-grow-x linear both; animation-timeline: view(); animation-range: entry 20% entry 80%; }
+    .gi-price { animation: gi-price linear both; animation-timeline: view(); animation-range: entry 10% entry 70%; }
+  }
+}
