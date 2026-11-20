@@ -62,18 +62,13 @@ test.describe('interfaz', () => {
         test('la casilla del aviso de privacidad se ve como casilla y se marca', async ({ page }) => {
             await page.goto('/reservar', { waitUntil: 'networkidle' });
             await page.waitForTimeout(1500);
+            // Flujo rediseñado: tocar una opción la elige y avanza (servicio, barbero, hora).
             await page.locator('label', { hasText: /^Corte adulto/ }).click();
-            await page.getByRole('button', { name: /Continuar/ }).click();
-            await page.getByRole('button', { name: /Elegir horario/ }).click();
-            const days = page.getByRole('button', { name: /con horarios/ });
-            await expect(days.first()).toBeVisible();
-            await days.last().click();
+            await expect(page.getByRole('heading', { name: '¿Con quién?' })).toBeVisible();
+            await page.locator('label', { hasText: /^Cualquier barbero/ }).click();
             const slots = page.locator('label:has(input[name="slot"])');
-            await expect(slots.first()).toBeVisible();
+            await expect(slots.first()).toBeVisible({ timeout: 30_000 });
             await slots.last().click();
-            const barbers = page.getByRole('group', { name: /Libres a las/ }).locator('label');
-            if (await barbers.count()) await barbers.first().click();
-            await page.getByRole('button', { name: /^Continuar · / }).click();
             const box = page.locator('#bk-accept');
             await expect(box).toBeVisible();
             await expect(box).toHaveClass(/bos-check/);

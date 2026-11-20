@@ -27,19 +27,19 @@ test.describe('público', () => {
         await expect(page.getByRole('heading', { name: '¿Qué te hacemos?' })).toBeVisible();
         await expect(page.getByText('Paso 1 de 4')).toBeVisible();
 
-        // Tocar una opción la elige y avanza (sin botón "Continuar").
-        await page.getByRole('radio', { name: /^Corte adulto/ }).click({ force: true });
+        // Tocar una opción la elige y avanza (sin botón "Continuar"). Se toca la etiqueta como lo haría un dedo.
+        await page.locator('label', { hasText: /^Corte adulto/ }).click();
         await expect(page.getByRole('heading', { name: '¿Con quién?' })).toBeVisible();
-        await page.getByRole('radio', { name: /Cualquier barbero disponible/ }).click({ force: true });
+        await page.locator('label', { hasText: /^Cualquier barbero/ }).click();
         await expect(page.getByRole('heading', { name: '¿Cuándo?' })).toBeVisible();
 
         // El último día con horas de la tira y su última hora: lejos de las citas de la agenda real.
-        const days = page.locator('input[name="day"]:not([disabled])');
-        await expect(days.first()).toBeAttached();
-        await days.last().click({ force: true });
-        const slots = page.locator('input[name="slot"]');
-        await expect(slots.first()).toBeAttached();
-        await slots.last().click({ force: true });
+        const days = page.locator('label[data-day]:has(input[name="day"]:not([disabled]))');
+        await expect(days.first()).toBeVisible({ timeout: 30_000 });
+        await days.last().click();
+        const slots = page.locator('label:has(input[name="slot"])');
+        await expect(slots.first()).toBeVisible({ timeout: 30_000 });
+        await slots.last().click();
 
         await expect(page.getByRole('heading', { name: '¿A nombre de quién?' })).toBeVisible();
         await expect(page.getByText('Paso 4 de 4')).toBeVisible();

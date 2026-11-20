@@ -29,7 +29,7 @@ test.describe('página pública /inicio (todo junto)', () => {
 
     test('con reservas encendidas: servicios del catálogo, "Reservar cita" y equipo; si no, WhatsApp', async ({ page }) => {
         await page.goto('/inicio', { waitUntil: 'networkidle' });
-        const book = page.getByRole('link', { name: 'Reservar cita' });
+        const book = page.getByRole('link', { name: 'Reservar cita' }).first(); // hay uno arriba y otro al cierre
         if (await book.count()) {
             await expect(book).toHaveAttribute('href', '/reservar');
             await expect(page.getByRole('region', { name: 'Servicios y precios' }).locator('li').first()).toBeVisible();
@@ -71,7 +71,7 @@ test.describe('página pública /inicio (todo junto)', () => {
         await first.click({ force: true });
         await expect(page.getByRole('heading', { name: '¿Cuándo?' })).toBeVisible();
         await expect(page.getByText(/Con Deya/)).toBeVisible();
-        await page.getByRole('button', { name: 'cambiar' }).click();
+        await page.getByRole('button', { name: 'cambiar', exact: true }).click();
         await expect(page.getByRole('radio', { name: 'Deya' })).toBeChecked();
 
         await page.goto('/reservar?barbero=nadie-existe', { waitUntil: 'networkidle' });

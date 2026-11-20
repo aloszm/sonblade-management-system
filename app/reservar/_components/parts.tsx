@@ -82,12 +82,26 @@ export function BackButton({ onClick, children = 'Atrás' }: { onClick: () => vo
 
 /** Barra fija inferior: resumen tocable arriba y la acción principal abajo. Deja su propio espacio al final. */
 export function BottomBar({ summary, children }: { summary?: React.ReactNode; children?: React.ReactNode }) {
-    if (!summary && !children) return null;
+    const barRef = useRef<HTMLDivElement>(null);
+    const present = Boolean(summary || children);
+    // El alto real de la barra (con la zona segura) se publica como --gr-bar-h: el relleno de abajo y el margen de
+    // desplazamiento del navegador lo usan, así ninguna hora, campo ni botón queda tapado por la barra fija.
+    useEffect(() => {
+        const bar = barRef.current;
+        if (!bar) return;
+        const root = document.documentElement;
+        const publish = () => root.style.setProperty('--gr-bar-h', `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+        publish();
+        const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish);
+        observer?.observe(bar);
+        return () => { observer?.disconnect(); root.style.removeProperty('--gr-bar-h'); };
+    }, [present]);
+    if (!present) return null;
     return (
         <>
             <div className="gr-bar-spacer" aria-hidden="true" />
-            <div className="gr-bar" data-testid="booking-bar">
-                <div className="mx-auto w-full max-w-[640px] space-y-2">
+            <div ref={barRef} className="gr-bar" data-testid="booking-bar">
+                <div className="mx-auto w-full max-w-[608px] space-y-2">
                     {summary}
                     {children}
                 </div>

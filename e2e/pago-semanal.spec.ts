@@ -81,6 +81,7 @@ test.afterAll(async ({ browser, baseURL }) => { await safetyNet(browser, baseURL
 test.describe.serial('pago semanal: desglose, adelantos, descuento y préstamo', () => {
     let envelopeStart = 0;
     let netBefore = 0;
+    let deyaWeekPaid = false; // si la semana de Deya ya se pagó (recibo emitido), el desglose muestra ese recibo y no la vista previa
 
     test('la vista previa muestra el desglose de cada persona y "Movimientos del equipo"; sin metas no se habla de bonos', async ({ page, request }) => {
         void request;
@@ -90,6 +91,7 @@ test.describe.serial('pago semanal: desglose, adelantos, descuento y préstamo',
         await page.goto('/liquidaciones', { waitUntil: 'networkidle' });
         await expect(page.getByRole('heading', { name: 'Pago semanal', level: 1 })).toBeVisible();
         await expect(page.getByTestId('week-label')).toContainText('Semana del');
+        deyaWeekPaid = (await page.getByRole('row').filter({ hasText: 'Deya' }).first().innerText()).includes('Pagada');
         const breakdown = await openBreakdown(page, 'Deya');
         await expect(breakdown.getByTestId('line-commission')).toBeVisible();
         netBefore = cents(await breakdown.getByTestId('breakdown-net').innerText());
@@ -173,6 +175,7 @@ test.describe.serial('pago semanal: desglose, adelantos, descuento y préstamo',
     });
 
     test('lo registrado sale como "pendiente por descontar" y la vista previa de Deya lo resta', async ({ page }) => {
+        test.skip(deyaWeekPaid, 'La semana de Deya ya está pagada: no hay vista previa que restar (se pagó en una verificación real).');
         await login(page, USERS.owner);
         await page.goto('/liquidaciones', { waitUntil: 'networkidle' });
         const pending = page.getByTestId('ledger-pending');
