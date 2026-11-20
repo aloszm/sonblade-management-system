@@ -136,9 +136,10 @@ export default function BarberDashboard() {
                         </>
                     )}
 
-                    <Ranking highlightId={selectedId} mine={mine} />
-
+                    {/* Lo que se le descontará y su avance de bono van antes del ranking: es dinero suyo y en el teléfono quedaba al final. */}
                     <MyMoneySections employeeId={selectedId} mine={mine} name={shownName || 'esta persona'} showProgress={period === 'week'} />
+
+                    <Ranking highlightId={selectedId} mine={mine} />
 
                     {data && (
                         <>

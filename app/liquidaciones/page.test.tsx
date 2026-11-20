@@ -58,6 +58,8 @@ describe('Pago semanal: desglose', () => {
         fireEvent.click(within(within(bd).getByTestId('line-bonus')).getByRole('button', { name: /Bonos por metas/ }));
         expect(within(bd).getByText('Meta 25: 27 de 25 servicios')).toBeVisible();
         expect(within(bd).getByTestId('breakdown-net')).toHaveTextContent('$950.00');
+        // La fila de la tabla también dice cuánto se descontó (adelantos 200 + abonos 150 + descuentos 60).
+        expect(screen.getByTestId('row-discounted')).toHaveTextContent('Ya descontado: − $410.00');
     });
 
     it('neto negativo: "Se paga $0. Quedan $X pendientes para la próxima semana."', async () => {

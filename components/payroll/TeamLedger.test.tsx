@@ -67,6 +67,26 @@ describe('Movimientos del equipo', () => {
         expect(calls.some((c) => c.method === 'POST')).toBe(false);
     });
 
+    it('no pasa al PIN mientras todavía se consulta el saldo del sobre (el servidor es quien decide, pero la pantalla no adivina)', async () => {
+        const base = routes();
+        void base;
+        const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+            if (String(url).startsWith('/api/envelopes')) return new Promise(() => undefined); // nunca contesta
+            const body = LEDGER;
+            return { ok: true, status: 200, json: async () => body, init };
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        renderWithClient(<TeamLedger people={PEOPLE} />);
+        fireEvent.click(await screen.findByRole('button', { name: /Registrar/ }));
+        const form = await screen.findByTestId('ledger-form');
+        fireEvent.change(within(form).getByLabelText('Persona'), { target: { value: 'b1' } });
+        fireEvent.change(within(form).getByLabelText('Monto ($)'), { target: { value: '5600' } });
+        fireEvent.change(within(form).getByLabelText('Motivo (obligatorio)'), { target: { value: 'Adelanto para la renta' } });
+        fireEvent.click(within(form).getByRole('button', { name: 'Continuar' }));
+        expect(await screen.findByText(/se está consultando el saldo del sobre/)).toBeInTheDocument();
+        expect(screen.queryByTestId('pin-confirm')).toBeNull();
+    });
+
     it('alta de adelanto desde el sobre: un 409 por saldo insuficiente se muestra en la ventana del PIN y el reintento usa la misma clave', async () => {
         let attempt = 0;
         const calls = routes((c) => {

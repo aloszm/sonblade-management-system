@@ -77,6 +77,51 @@ export async function barberIdByName(request: APIRequestContext, name: string): 
 export async function fillPinDialog(page: Page, username: string, comment?: string): Promise<void> {
     const dialog = page.getByTestId('pin-confirm');
     await expect(dialog).toBeVisible();
-    if (comment !== undefined) await dialog.getByLabel(/Comentario/).fill(comment);
+    // El campo se llama «Comentario» en la mayoría de las confirmaciones y «Motivo» al cancelar un movimiento.
+    if (comment !== undefined) await dialog.getByLabel(/Comentario|Motivo/).fill(comment);
     await dialog.locator('input[type="password"]').fill(pinFor(username));
+}
+
+/** Pulsa el botón de confirmar de la ventana de PIN y espera a que se cierre (el servidor ya respondió). */
+export async function submitPinDialog(page: Page): Promise<void> {
+    await page.getByTestId('pin-confirm').getByRole('button', { name: /con PIN/ }).click();
+    await expect(page.getByTestId('pin-confirm')).toHaveCount(0, { timeout: 25_000 });
+}
+
+/** PIN de la cuenta para mandarlo en el cuerpo de las llamadas a la API (nunca se imprime). */
+export const pinBody = (username: string) => pinFor(username);
+
+/** Hoy como "AAAA-MM-DD" en el reloj de la barbería. */
+export function businessToday(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+}
+
+/** Suma (o resta) días a un "AAAA-MM-DD". */
+export function shiftDay(day: string, delta: number): string {
+    const d = new Date(`${day}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + delta);
+    return d.toISOString().slice(0, 10);
+}
+
+/** Saldo del sobre principal. */
+export async function defaultEnvelope(request: APIRequestContext): Promise<{ id: string; name: string; balance: number }> {
+    const res = await request.get('/api/envelopes');
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const list = (await res.json()).envelopes as { id: string; name: string; balance: number; is_default: boolean }[];
+    const found = list.find((e) => e.is_default) ?? list[0];
+    expect(found, 'debe existir el sobre principal').toBeTruthy();
+    return found;
+}
+
+/** Efectivo que la caja abierta espera tener (null si no hay caja abierta). */
+export async function expectedCash(request: APIRequestContext): Promise<number | null> {
+    const res = await request.get('/api/cash/session');
+    expect(res.ok()).toBeTruthy();
+    const session = await res.json() as { expected_cash: number } | null;
+    return session ? Number(session.expected_cash) : null;
+}
+
+/** Un PNG válido de 1x1 píxel, generado aquí mismo (para probar la subida de comprobantes). */
+export function tinyPng(): Buffer {
+    return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 }

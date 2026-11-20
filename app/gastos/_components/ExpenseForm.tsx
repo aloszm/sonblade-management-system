@@ -89,6 +89,7 @@ export default function ExpenseForm({ categories, initial, title = 'Registrar ga
         if (Number.isNaN(amount) || amount <= 0) e.amount = 'Escribe el monto del gasto (más de $0).';
         else if (amount > 1_000_000) e.amount = 'El monto no puede pasar de 1,000,000.';
         else if (!hasValidCents(amount)) e.amount = 'El monto lleva máximo 2 decimales.';
+        else if (paidFrom === 'envelope' && !envelope) e.amount = envelopesQ.isLoading ? 'Espera un momento: se está consultando el saldo del sobre.' : 'No se pudo consultar el saldo del sobre. Recarga la página o elige Banco.';
         else if (notEnough && envelope) e.amount = `No alcanza: el sobre tiene ${money(envelope.balance)}. Elige Banco o baja el monto.`;
         if (!categoryId) e.category = 'Elige una categoría.';
         const d = description.trim();

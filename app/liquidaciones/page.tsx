@@ -28,6 +28,8 @@ type HistoryRow = {
 
 const money = (n: number) => formatMoney(n, { cents: true });
 const cents = (n: number) => Math.round(n * 100);
+/** Lo que ya se restó del pago por adelantos, abonos de préstamo, descuentos y lo que viene de la semana anterior. */
+const discounted = (r: PayInput) => Math.round((Number(r.advances ?? 0) + Number(r.loan_payments ?? 0) + Number(r.staff_deductions ?? 0) + Number(r.carryover_in ?? 0)) * 100) / 100;
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, { ...init, cache: 'no-store', headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) } });
@@ -190,6 +192,7 @@ export default function LiquidacionesPage() {
                                             <td data-label="Propinas" className={`px-4 py-3 text-right tabular-nums ${Number(r.tips) > 0 ? 'text-bos-success' : 'text-bos-muted'}`}>{Number(r.tips) > 0 ? `+ ${money(Number(r.tips))}` : '—'}</td>
                                             <td data-label="A pagar" className="px-4 py-3 text-right font-display font-semibold tabular-nums max-md:order-first max-md:text-lg">
                                                 {money(r.total_amount)}
+                                                {discounted(r) > 0 && <span data-testid="row-discounted" className="block text-xs font-medium text-bos-muted">Ya descontado: − {money(discounted(r))}</span>}
                                                 {b.pending > 0 && <span className="block text-xs font-medium text-bos-accent-text">Pendiente: {money(b.pending)}</span>}
                                             </td>
                                             <td data-label="" className="px-4 py-2 md:whitespace-nowrap">{statusCell(r)}</td>

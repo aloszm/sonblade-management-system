@@ -69,6 +69,7 @@ export default function LedgerForm({ people, employeeId, loans, onClose, onDone 
         if (Number.isNaN(amount) || amount <= 0) e.amount = 'Escribe el monto (más de $0).';
         else if (amount > 1_000_000) e.amount = 'El monto no puede pasar de 1,000,000.';
         else if (!hasValidCents(amount)) e.amount = 'El monto lleva máximo 2 decimales.';
+        else if (givesMoney && paidFrom === 'envelope' && !envelope) e.amount = envelopesQ.isLoading ? 'Espera un momento: se está consultando el saldo del sobre.' : 'No se pudo consultar el saldo del sobre. Recarga la página o elige otra salida.';
         else if (givesMoney && paidFrom === 'envelope' && envelope && amount > envelope.balance) e.amount = `No alcanza: el sobre tiene ${money(envelope.balance)}. Elige otra salida o baja el monto.`;
         else if (type === 'loan_payment' && chosenLoan && amount > chosenLoan.outstanding) e.amount = `El préstamo solo debe ${money(chosenLoan.outstanding)}.`;
         const problem = reasonProblem(reason, 'el motivo');

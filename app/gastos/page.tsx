@@ -44,11 +44,12 @@ export default function GastosPage() {
             <section aria-labelledby="gastos-lista" className="space-y-4">
                 <h2 id="gastos-lista" className="sr-only">Lista de gastos</h2>
                 <Filters filters={filters} onChange={setFilters} categories={categories} />
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                    <div className="md:col-span-1">
+                {/* Los totales van arriba y la tabla ocupa todo el ancho: al lado, la columna "Estado" (con Cancelar) quedaba fuera de pantalla en 1440 px. */}
+                <div className="space-y-4">
+                    <div className="max-w-sm">
                         {expensesQ.data ? <Totals totals={expensesQ.data.totals} /> : null}
                     </div>
-                    <div className="md:col-span-3">
+                    <div>
                         <ExpenseTable expenses={expensesQ.data?.expenses} loading={expensesQ.isLoading} error={expensesQ.isError ? expensesQ.error : null}
                             canEdit={canEdit} filtered={filtered} onRetry={() => expensesQ.refetch()} onCancel={setCancelling} />
                     </div>

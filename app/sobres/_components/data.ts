@@ -69,6 +69,8 @@ export const SOURCE_LABELS: Record<string, string> = {
     expense_cancel: 'Devolución por gasto cancelado',
     bank_deposit: 'Depósito al banco',
     adjustment: 'Ajuste por conteo',
+    staff_payout: 'Adelanto o préstamo al equipo',
+    staff_payback: 'Devolución de adelanto o préstamo',
 };
 
 export function sourceLabel(source: string): string {
