@@ -46,6 +46,32 @@ describe('semana de una persona', () => {
         expect(api).toMatchObject({ saleId: 's2', folio: 'V2611-0002', kind: 'product', revenue: 180, base: 180, percent: 20, commission: 36 });
     });
 
+    it('un producto regalado (cortesía, $0) cuenta como pieza pero sin base, % ni comisión, y no rompe el 20 %', () => {
+        const data: WeekData = {
+            ...DATA,
+            items: [...DATA.items, { id: 'i5', sale_id: 's2', item_type: 'product', item_name_snapshot: 'Cera', quantity: 2, line_total: '0.00', employee_id: null, commission_employee_id: 'e1' }],
+            commissions: [...DATA.commissions, { sale_id: 's2', sale_item_id: 'i5', employee_id: 'e1', status: 'generated', commission_amount: '0.00', basis_amount: '0.00', percentage_snapshot: '0.0000' }],
+        };
+        const lines = buildPersonLines(data, 'e1');
+        const gift = lines.find((l) => l.key === 'item-i5')!;
+        expect(gift).toMatchObject({ courtesy: true, revenueCents: 0, baseCents: null, percent: null, commissionCents: 0, quantity: 2 });
+        expect(lineApi(gift)).toMatchObject({ courtesy: true, base: null, percent: null, commission: 0 });
+        expect(lines.filter((l) => l.key !== 'item-i5').every((l) => !l.courtesy)).toBe(true);
+        const s = summarizePerson(data, { id: 'e1', name: 'Deya', isBarber: true });
+        expect(s.products).toEqual({ count: 3, revenueCents: 18000, commissionCents: 3600, percent: 20 });
+        expect(s.earnedCents).toBe(17600);
+    });
+
+    it('una venta vieja que sí pagó comisión por un producto en $0 se muestra como se pagó, no como cortesía', () => {
+        const data: WeekData = {
+            ...DATA,
+            items: [...DATA.items, { id: 'i5', sale_id: 's2', item_type: 'product', item_name_snapshot: 'Cera', quantity: 1, line_total: '0.00', employee_id: null, commission_employee_id: 'e1' }],
+            commissions: [...DATA.commissions, { sale_id: 's2', sale_item_id: 'i5', employee_id: 'e1', status: 'generated', commission_amount: '36.00', basis_amount: '180.00', percentage_snapshot: '20.0000' }],
+        };
+        const old = buildPersonLines(data, 'e1').find((l) => l.key === 'item-i5')!;
+        expect(old).toMatchObject({ courtesy: false, baseCents: 18000, percent: 20, commissionCents: 3600 });
+    });
+
     it('si hubo varios porcentajes no inventa uno', () => {
         const data: WeekData = { ...DATA, commissions: DATA.commissions.map((c) => (c.sale_item_id === 'i2' ? { ...c, percentage_snapshot: '40.0000', commission_amount: '48.00' } : c)) };
         const s = summarizePerson(data, { id: 'e1', name: 'Deya', isBarber: true });

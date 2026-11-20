@@ -46,8 +46,8 @@ describe('tarjeta: resumen de la semana', () => {
 });
 
 const LINES: PersonLineApi[] = [
-    { key: 'a', saleId: 's2', folio: 'V2611-0002', paidAt: '2026-11-17T18:00:00Z', kind: 'product', concept: 'Cera', quantity: 1, revenue: 180, base: 180, percent: 20, commission: 36, tip: 0 },
-    { key: 'b', saleId: 's1', folio: 'V2611-0001', paidAt: '2026-11-16T17:00:00Z', kind: 'service', concept: 'Barba', quantity: 1, revenue: 120, base: 120, percent: 50, commission: 60, tip: 20 },
+    { key: 'a', saleId: 's2', folio: 'V2611-0002', paidAt: '2026-11-17T18:00:00Z', kind: 'product', concept: 'Cera', quantity: 1, revenue: 180, base: 180, percent: 20, commission: 36, tip: 0, courtesy: false },
+    { key: 'b', saleId: 's1', folio: 'V2611-0001', paidAt: '2026-11-16T17:00:00Z', kind: 'service', concept: 'Barba', quantity: 1, revenue: 120, base: 120, percent: 50, commission: 60, tip: 20, courtesy: false },
 ];
 
 function stub(reply: () => { ok: boolean; status?: number; body: unknown } | Promise<never>) {
@@ -75,6 +75,18 @@ describe('ventana: desglose de la semana', () => {
         expect(within(totals).getByTestId('totals-products')).toHaveTextContent('Productos: 1 · $180 → comisión 20 % = $36');
         expect(within(totals).getByTestId('totals-revenue')).toHaveTextContent('Ventas: $420');
         expect(within(totals).getByTestId('totals-earned')).toHaveTextContent('Gana: $176');
+    });
+
+    it('un producto regalado dice "Cortesía · sin comisión", sin base ni %', async () => {
+        const gift: PersonLineApi = { key: 'c', saleId: 's3', folio: 'V2611-0003', paidAt: '2026-11-18T18:00:00Z', kind: 'product', concept: 'Cera', quantity: 1, revenue: 0, base: null, percent: null, commission: 0, tip: 0, courtesy: true };
+        stub(() => ({ ok: true, body: { timezone: 'America/Mexico_City', window: WINDOW, summary: PERSON, lines: [gift, ...LINES] } }));
+        render(<WeekBreakdown employeeId="e1" name="Deya" />);
+        const rows = await screen.findAllByTestId('week-line');
+        expect(within(rows[0]).getByTestId('week-line-courtesy')).toHaveTextContent('Cortesía · sin comisión');
+        expect(rows[0]).toHaveTextContent('Cobrado$0');
+        expect(rows[0]).toHaveTextContent('Base de comisión—');
+        expect(rows[0]).not.toHaveTextContent('En espera');
+        expect(within(rows[1]).queryByTestId('week-line-courtesy')).toBeNull();
     });
 
     it('sin ventas dice "Sin ventas esta semana"', async () => {

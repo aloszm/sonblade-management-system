@@ -74,7 +74,10 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
   ponerlo a su nombre), también sobre el **precio de lista** (desde el 20 nov 2026; antes era sobre el precio con
   descuento, y esas ventas conservan lo que se calculó).
 - **Descuento y comisión:** el descuento lo absorbe la barbería: no baja la comisión de nadie, ni en servicio ni en
-  producto. Una cortesía (descuento del 100 %) también paga comisión sobre el precio de lista.
+  producto.
+- **Cortesía (regalo):** de **servicio**, sí paga comisión al barbero sobre el precio de lista; de **producto** (renglón
+  cobrado en $0, el descuento cubre todo su precio) **no paga comisión**, pero su costo sí cuenta y sale del inventario.
+  Un producto que queda en $0.01 no es cortesía (desde el 20 nov 2026; las ventas anteriores conservan lo calculado).
 - **Costo del producto:** lo que le cuesta a la barbería cada pieza. Obligatorio para tener un producto activo; solo lo
   ven dueño, gerencia y consulta.
 - **Propina:** 100 % para quien atendió.

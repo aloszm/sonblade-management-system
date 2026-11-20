@@ -9,6 +9,8 @@
 // - Ventas = line_total (neto de descuento). Comisión: commission_entries.employee_id. Propina: sale_tips.employee_id.
 // - El porcentaje es el que quedó guardado en cada comisión (percentage_snapshot); nunca se calcula dividiendo.
 // - Dinero en centavos enteros.
+// - Cortesía de producto (20261120130000): renglón de producto cobrado en $0 que no pagó comisión. Cuenta como pieza
+//   vendida (sale del inventario) pero no tiene base ni % y no entra al % de la tarjeta; se muestra "Cortesía · sin comisión".
 
 export type LineKind = 'service' | 'product' | 'tip';
 
@@ -52,6 +54,8 @@ export interface PersonLine {
     percent: number | null;
     commissionCents: number;
     tipCents: number;
+    /** Producto regalado (cobrado en $0) sin comisión. */
+    courtesy: boolean;
 }
 
 export interface KindSummary {
@@ -98,14 +102,17 @@ export function buildPersonLines(data: WeekData, employeeId: string): PersonLine
         const item = itemById.get(id)!;
         const sale = sales.get(item.sale_id)!;
         const own = entries.filter((c) => c.sale_item_id === id);
+        const commissionCents = own.reduce((t, c) => t + cents(c.commission_amount), 0);
+        const courtesy = item.item_type === 'product' && cents(item.line_total) === 0 && commissionCents === 0;
         lines.push({
             key: `item-${id}`, saleId: sale.id, folio: sale.folio, paidAt: sale.paid_at, kind: item.item_type,
             concept: item.item_name_snapshot, quantity: num(item.quantity),
             revenueCents: mine(item) ? cents(item.line_total) : 0,
-            baseCents: own.length > 0 ? own.reduce((t, c) => t + cents(c.basis_amount ?? item.line_total), 0) : null,
-            percent: uniquePercent(own.map((c) => (c.percentage_snapshot === null || c.percentage_snapshot === undefined ? null : num(c.percentage_snapshot)))),
-            commissionCents: own.reduce((t, c) => t + cents(c.commission_amount), 0),
+            baseCents: !courtesy && own.length > 0 ? own.reduce((t, c) => t + cents(c.basis_amount ?? item.line_total), 0) : null,
+            percent: courtesy ? null : uniquePercent(own.map((c) => (c.percentage_snapshot === null || c.percentage_snapshot === undefined ? null : num(c.percentage_snapshot)))),
+            commissionCents,
             tipCents: 0,
+            courtesy,
         });
     }
     // Comisiones sin concepto conocido (no debería pasar): se muestran para que el total siga cuadrando.
@@ -116,6 +123,7 @@ export function buildPersonLines(data: WeekData, employeeId: string): PersonLine
             key: `comm-${c.sale_id}-${c.sale_item_id ?? 'x'}`, saleId: sale.id, folio: sale.folio, paidAt: sale.paid_at, kind: 'service',
             concept: 'Comisión', quantity: 0, revenueCents: 0, baseCents: c.basis_amount === null ? null : cents(c.basis_amount),
             percent: c.percentage_snapshot === null ? null : num(c.percentage_snapshot), commissionCents: cents(c.commission_amount), tipCents: 0,
+            courtesy: false,
         });
     }
     // Propinas: van en el primer renglón de esa venta; si la persona no tiene renglón ahí, en uno propio.
@@ -128,7 +136,7 @@ export function buildPersonLines(data: WeekData, employeeId: string): PersonLine
         else {
             lines.push({
                 key: `tip-${sale.id}`, saleId: sale.id, folio: sale.folio, paidAt: sale.paid_at, kind: 'tip', concept: 'Propina', quantity: 0,
-                revenueCents: 0, baseCents: null, percent: null, commissionCents: 0, tipCents: cents(t.amount),
+                revenueCents: 0, baseCents: null, percent: null, commissionCents: 0, tipCents: cents(t.amount), courtesy: false,
             });
         }
     }
@@ -192,6 +200,8 @@ export interface PersonWeekApi {
 export interface PersonLineApi {
     key: string; saleId: string; folio: string | null; paidAt: string | null; kind: LineKind; concept: string; quantity: number;
     revenue: number; base: number | null; percent: number | null; commission: number; tip: number;
+    /** Producto regalado (cobrado en $0) sin comisión. */
+    courtesy: boolean;
 }
 const kindApi = (k: KindSummary): KindSummaryApi => ({ count: k.count, revenue: pesos(k.revenueCents), commission: pesos(k.commissionCents), percent: k.percent });
 
@@ -205,5 +215,6 @@ export function lineApi(l: PersonLine): PersonLineApi {
     return {
         key: l.key, saleId: l.saleId, folio: l.folio, paidAt: l.paidAt, kind: l.kind, concept: l.concept, quantity: l.quantity,
         revenue: pesos(l.revenueCents), base: l.baseCents === null ? null : pesos(l.baseCents), percent: l.percent, commission: pesos(l.commissionCents), tip: pesos(l.tipCents),
+        courtesy: l.courtesy,
     };
 }

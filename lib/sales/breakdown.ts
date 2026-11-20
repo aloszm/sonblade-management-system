@@ -11,6 +11,10 @@
 // - Le queda a la barbería = ingreso − comisiones − costo de producto. NO incluye sueldos, bonos ni gastos: son del
 //   periodo, no de la venta (docs/GLOSARIO.md §6 lo define a nivel periodo; aquí es la misma fórmula a nivel venta).
 // - "En espera": renglón cobrado que no generó comisión (commission_holds abierta o sin beneficiario). No es $0.
+// - Cortesía de producto (desde 20261120130000): renglón de producto cobrado en $0 (line_total = 0). No paga comisión:
+//   la base guarda una comisión de $0 (o, si no tenía vendedor, la deja en commission_holds como a todo producto sin
+//   vendedor). Se muestra "Cortesía · sin comisión", nunca "en espera". Si una venta vieja sí pagó comisión por un
+//   producto regalado (antes de esa migración), se muestra lo que se pagó: no se reinterpreta.
 // - Base de la comisión con descuento: se muestra la que GUARDÓ la base (commission_entries.basis y basis_amount),
 //   no la regla vigente. Desde 20261120110000 servicio y producto usan el precio de lista (el descuento lo absorbe la
 //   barbería); las ventas de producto anteriores conservan su base con descuento y así se explican.
@@ -93,6 +97,8 @@ export type BreakdownLine = {
     commission: number | null;
     /** Renglón cobrado sin comisión generada: se dice "en espera", no $0. */
     pending: boolean;
+    /** Cortesía de producto (renglón en $0): no paga comisión. Nunca está "en espera". */
+    courtesy: boolean;
     pendingReason: string | null;
     /** La venta se anuló y la comisión se revirtió. */
     reversed: boolean;
@@ -134,6 +140,8 @@ export type SaleBreakdown = {
     /** Cuántas comisiones (o propinas) existen para esta venta. 0 = todavía no se generan. */
     generatedCount: number;
     pendingCount: number;
+    /** Renglones de producto regalados (cortesía, sin comisión). */
+    courtesyCount: number;
     summary: BreakdownSummary;
     /** Ausente para recepción. */
     shop?: BreakdownShop;
@@ -179,7 +187,7 @@ export function buildSaleBreakdown(input: BreakdownInput, scope: BreakdownScope)
     for (const h of input.holds ?? []) if (!h.resolved_at) holdByItem.set(h.sale_item_id, h);
 
     let incomeCents = 0, commissionsCents = 0, costCents = 0, unitsWithoutCost = 0;
-    let generatedCount = 0, pendingCount = 0;
+    let generatedCount = 0, pendingCount = 0, courtesyCount = 0;
 
     const lines: BreakdownLine[] = input.items.map((item) => {
         const quantity = Number(item.quantity);
@@ -193,13 +201,18 @@ export function buildSaleBreakdown(input: BreakdownInput, scope: BreakdownScope)
         const commissionCents = entry ? toCents(entry.commission_amount) : null;
         if (commissionCents !== null) { commissionsCents += commissionCents; generatedCount += 1; }
 
+        // Cortesía de producto: renglón en $0 que no pagó comisión (la de $0 guardada o ninguna).
+        const courtesy = item.item_type === 'product' && toCents(item.line_total) === 0 && (commissionCents === null || commissionCents === 0);
+        if (courtesy) courtesyCount += 1;
         // Sin comisión en una venta vigente = en espera. En una anulada sin comisión revertida no hay nada que revertir.
-        const pending = !entry && !voided;
+        const pending = !entry && !voided && !courtesy;
         if (pending) pendingCount += 1;
         const hold = holdByItem.get(item.id);
 
         let baseNote: string | null = null;
-        if (discountCents > 0 && entry) {
+        if (courtesy) {
+            baseNote = `Producto regalado: precio de lista ${money(listCents)}, cobrado ${money(0)}. Las cortesías de producto no pagan comisión.`;
+        } else if (discountCents > 0 && entry) {
             baseNote = entry.basis === 'price_before_discount'
                 ? `Base sin descuento: precio de lista ${money(listCents)}; el descuento de ${money(discountCents)} no la reduce.`
                 : `Base con descuento: se calculó sobre lo cobrado; el precio de lista era ${money(listCents)} (descuento ${money(discountCents)}). Así quedó guardada; las ventas nuevas usan el precio de lista.`;
@@ -214,15 +227,16 @@ export function buildSaleBreakdown(input: BreakdownInput, scope: BreakdownScope)
             quantity,
             listAmount: fromCents(listCents),
             discount: fromCents(discountCents),
-            base: base === null ? null : fromCents(base),
+            base: courtesy || base === null ? null : fromCents(base),
             discounted: discountCents > 0,
             baseNote,
-            percentage: entry && entry.calculation_type === 'percentage' && entry.percentage_snapshot !== null ? Number(entry.percentage_snapshot) : null,
-            fixedAmount: entry && entry.calculation_type === 'fixed_amount' ? Number(entry.fixed_amount_snapshot ?? entry.commission_amount) : null,
+            percentage: !courtesy && entry && entry.calculation_type === 'percentage' && entry.percentage_snapshot !== null ? Number(entry.percentage_snapshot) : null,
+            fixedAmount: !courtesy && entry && entry.calculation_type === 'fixed_amount' ? Number(entry.fixed_amount_snapshot ?? entry.commission_amount) : null,
             // En espera no hay beneficiario: no se muestra un nombre que aún no tiene la comisión.
             beneficiaryName: pending ? null : firstName(input.names[beneficiaryId ?? '']),
-            commission: commissionCents === null ? null : fromCents(commissionCents),
+            commission: courtesy ? 0 : commissionCents === null ? null : fromCents(commissionCents),
             pending,
+            courtesy,
             pendingReason: pending ? (hold ? HOLD_REASON_LABELS[hold.reason] ?? PENDING_DEFAULT : PENDING_DEFAULT) : null,
             reversed: voided && !!entry,
         };
@@ -273,7 +287,7 @@ export function buildSaleBreakdown(input: BreakdownInput, scope: BreakdownScope)
 
     const result: SaleBreakdown = {
         saleId: sale.id, folio: sale.folio, scope, voided, lines, tips,
-        generatedCount, pendingCount, summary,
+        generatedCount, pendingCount, courtesyCount, summary,
     };
     if (showCost) {
         result.shop = {

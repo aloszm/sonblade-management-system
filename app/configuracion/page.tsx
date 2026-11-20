@@ -259,7 +259,7 @@ export default function SettingsPage() {
                                 value={profile.serviceCommissionPct}
                                 onChange={e => setProfile({ ...profile, serviceCommissionPct: Number(e.target.value) })}
                                 className="w-32 h-14 px-4 rounded-xl bg-bos-surface border border-bos-border font-display text-2xl font-semibold tabular-nums text-bos-accent-text outline-none focus:border-bos-accent" />
-                            <p className="text-xs text-bos-muted mt-3">Sobre el precio de lista del servicio. Si se da un descuento, el barbero gana lo mismo.</p>
+                            <p className="text-xs text-bos-muted mt-3">Sobre el precio de lista del servicio. Si se da un descuento, el barbero gana lo mismo, también en una cortesía.</p>
                         </div>
                         <div className="rounded-xl border border-bos-border bg-bos-bg p-5">
                             <label htmlFor="product-commission" className="block font-medium text-sm mb-3">Productos (%)</label>
@@ -267,7 +267,7 @@ export default function SettingsPage() {
                                 value={profile.productCommissionPct}
                                 onChange={e => setProfile({ ...profile, productCommissionPct: Number(e.target.value) })}
                                 className="w-32 h-14 px-4 rounded-xl bg-bos-surface border border-bos-border font-display text-2xl font-semibold tabular-nums text-bos-accent-text outline-none focus:border-bos-accent" />
-                            <p className="text-xs text-bos-muted mt-3">Sobre el precio de lista del producto, para quien lo vendió. Si se da un descuento, gana lo mismo.</p>
+                            <p className="text-xs text-bos-muted mt-3">Sobre el precio de lista del producto, para quien lo vendió. Si se da un descuento, gana lo mismo; un producto regalado (cortesía, cobrado en $0) no paga comisión.</p>
                         </div>
                     </div>
                 </section>

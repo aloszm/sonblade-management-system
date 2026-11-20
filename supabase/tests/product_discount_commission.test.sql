@@ -1,5 +1,7 @@
 -- Pruebas de 20261120110000_product_commission_list_price.sql: con descuento, la comisión de PRODUCTO se calcula sobre el
--- precio de lista (como la de servicio). Simulacro: begin; <migración>; <este archivo>; rollback; — el DO termina con RAISE.
+-- precio de lista (como la de servicio). Y de 20261120130000_product_courtesy_no_commission.sql: una CORTESÍA de producto
+-- (renglón de producto con line_total = 0) no paga comisión (se guarda una de $0, source 'product_courtesy'); una cortesía
+-- de servicio sí paga sobre lista. Simulacro: begin; <migración>; <este archivo>; rollback; — el DO termina con RAISE.
 -- Arma su propio estado: un servicio de $200 y un producto de $180 (costo $45) de prueba, tasas 50 % / 20 %, puestos
 -- y caja abierta. Cobra con public.confirm_sale como el dueño (que puede autorizar su propio descuento).
 -- Para Finanzas y el pago semanal, las ventas se mueven a semanas lejanas (marzo de 2032, sin datos) dentro del simulacro.
@@ -31,6 +33,7 @@ declare
   t1 timestamptz; t2 timestamptz; w1s timestamptz; w1e timestamptz; w2s timestamptz; w2e timestamptz;
   fin1 jsonb; fin2 jsonb; m jsonb; fr jsonb; br jsonb; pv jsonb; v jsonb; n int; x text;
   p_item jsonb; s_item jsonb;
+  sj uuid; sk uuid; sk2 uuid; sl uuid; sm uuid; q0 numeric; q1 numeric; t3 timestamptz; w3s timestamptz; w3e timestamptz;
 begin
   update public.business_memberships set must_change_pin = false;
   update public.business_memberships set role = 'owner' where business_id = biz and user_id = owner;
@@ -72,11 +75,16 @@ begin
   r := r || E'\n4 ' || case when x = '36.00/180.00/price_before_discount/generated | 100.00/200.00/price_before_discount/generated'
       and (select total_amount from public.sales where id = sd) = 320 then 'OK' else 'FALLA' end || ' (d) mixta: ' || x;
 
-  -- (i) descuento del 100 % en el producto (cortesía) junto con un servicio: comisión sobre lista (36), renglón en $0
+  -- (i) descuento del 100 % en el producto (cortesía) junto con un servicio: SIN comisión ($0 guardado con rastro), renglón en $0
   si_ := pg_temp.sell(b, jsonb_build_array(s_item, p_item || jsonb_build_object('discount_amount', 180)), 200, 'Cortesía');
   x := pg_temp.comm(si_, 'product');
-  r := r || E'\n5 ' || case when x = '36.00/180.00/price_before_discount/generated'
-      and (select line_total from public.sale_items where sale_id = si_ and item_type = 'product') = 0 then 'OK' else 'FALLA' end || ' (i1) cortesía: ' || x;
+  r := r || E'\n5 ' || case when x = '0.00/0.00/price_after_discount/generated'
+      and (select line_total from public.sale_items where sale_id = si_ and item_type = 'product') = 0
+      and exists (select 1 from public.commission_entries ce join public.sale_items i on i.id = ce.sale_item_id
+                  where ce.sale_id = si_ and i.item_type = 'product' and ce.employee_id = dago_e and ce.commission_rule_id is null
+                    and ce.calculation_type = 'percentage' and ce.percentage_snapshot = 0
+                    and ce.rule_snapshot ->> 'source' = 'product_courtesy' and ce.rule_snapshot ->> 'name' = 'Cortesía de producto: sin comisión')
+      then 'OK' else 'FALLA' end || ' (i1) cortesía de producto sin comisión: ' || x;
   -- una venta SOLO con el producto en cortesía no se puede cobrar (total $0): regla anterior, sin cambio
   begin
     perform pg_temp.sell(b, jsonb_build_array(p_item || jsonb_build_object('discount_amount', 180)), 0.01, 'Cortesía');
@@ -132,10 +140,92 @@ begin
   x := pg_temp.comm(so, 'product');
   r := r || E'\n12 ' || case when x = '30.00/150.00/price_after_discount/reversed' then 'OK' else 'FALLA' end || ' (f2) anulación vieja: ' || x;
 
+  -- ===== Cortesías (20261120130000) =====
+  -- (j) cortesía de SERVICIO (100 % de descuento) junto con un producto cobrado: el servicio sí paga 50 % sobre lista
+  sj := pg_temp.sell(b, jsonb_build_array(s_item || jsonb_build_object('discount_amount', 200), p_item), 180, 'Cortesía');
+  x := pg_temp.comm(sj, 'service') || ' | ' || pg_temp.comm(sj, 'product');
+  r := r || E'\n14 ' || case when x = '100.00/200.00/price_before_discount/generated | 36.00/180.00/price_before_discount/generated'
+      and (select line_total from public.sale_items where sale_id = sj and item_type = 'service') = 0 then 'OK' else 'FALLA' end
+    || ' (j) cortesía de servicio paga sobre lista: ' || x;
+
+  -- (k) producto regalado + servicio cobrado: solo la comisión del servicio; (o) el inventario se descuenta igual
+  select quantity_on_hand into q0 from public.branch_inventory where branch_id = b and product_id = prod;
+  sk := pg_temp.sell(b, jsonb_build_array(s_item, p_item || jsonb_build_object('discount_amount', 180)), 200, 'Cortesía');
+  select quantity_on_hand into q1 from public.branch_inventory where branch_id = b and product_id = prod;
+  x := pg_temp.comm(sk, 'service') || ' | ' || pg_temp.comm(sk, 'product');
+  r := r || E'\n15 ' || case when x = '100.00/200.00/price_before_discount/generated | 0.00/0.00/price_after_discount/generated'
+      and (select sum(commission_amount) from public.commission_entries where sale_id = sk and status = 'generated') = 100
+      and not exists (select 1 from public.commission_holds where sale_id = sk) then 'OK' else 'FALLA' end
+    || ' (k) producto regalado + servicio: solo comisión del servicio: ' || x;
+  r := r || E'\n16 ' || case when q0 - q1 = 1
+      and (select unit_cost_snapshot from public.sale_items where sale_id = sk and item_type = 'product') = 45 then 'OK' else 'FALLA' end
+    || ' (o) inventario: ' || q0::text || ' -> ' || q1::text || ' (−1) y costo guardado del regalo 45';
+
+  -- (l) descuento parcial que deja el producto en $0.01: NO es cortesía, paga 20 % sobre lista (36)
+  sl := pg_temp.sell(b, jsonb_build_array(p_item || jsonb_build_object('discount_amount', 179.99)), 0.01, 'Casi regalo');
+  x := pg_temp.comm(sl, 'product');
+  r := r || E'\n17 ' || case when x = '36.00/180.00/price_before_discount/generated' then 'OK' else 'FALLA' end || ' (l) $0.01 no es cortesía: ' || x;
+  -- (l2) descuento parcial normal ($30) sigue sobre lista (ver también (b))
+  sl := pg_temp.sell(b, jsonb_build_array(p_item || jsonb_build_object('discount_amount', 30)), 150, 'Cliente frecuente');
+  x := pg_temp.comm(sl, 'product');
+  r := r || E'\n18 ' || case when x = '36.00/180.00/price_before_discount/generated' then 'OK' else 'FALLA' end || ' (l2) descuento parcial sobre lista: ' || x;
+
+  -- (m) dos unidades con descuento del 100 % en el renglón (360): sin comisión, inventario −2
+  select quantity_on_hand into q0 from public.branch_inventory where branch_id = b and product_id = prod;
+  sm := pg_temp.sell(b, jsonb_build_array(s_item, p_item || jsonb_build_object('quantity', 2, 'discount_amount', 360)), 200, 'Cortesía');
+  select quantity_on_hand into q1 from public.branch_inventory where branch_id = b and product_id = prod;
+  x := pg_temp.comm(sm, 'product');
+  r := r || E'\n19 ' || case when x = '0.00/0.00/price_after_discount/generated' and q0 - q1 = 2
+      and (select quantity from public.sale_items where sale_id = sm and item_type = 'product') = 2 then 'OK' else 'FALLA' end
+    || ' (m) 2 unidades regaladas: ' || x || '; inventario −' || (q0 - q1)::text;
+  -- anular la venta con cortesía revierte lo generado (servicio 100 y el $0 del regalo)
+  v := public.reverse_sale(sm, 'Prueba de anulación con cortesía');
+  x := pg_temp.comm(sm, 'service') || ' | ' || pg_temp.comm(sm, 'product');
+  r := r || E'\n20 ' || case when x = '100.00/200.00/price_before_discount/reversed | 0.00/0.00/price_after_discount/reversed' then 'OK' else 'FALLA' end
+    || ' (m2) anulación con cortesía: ' || x;
+
+  -- (k2) cortesía de producto SIN vendedor: no se paga nada. confirm_sale_impl (sin cambio) la deja en commission_holds
+  -- 'beneficiary_missing' como a todo producto sin vendedor; la app la muestra como "Cortesía · sin comisión".
+  sk2 := pg_temp.sell(b, jsonb_build_array(s_item, jsonb_build_object('item_type', 'product', 'catalog_id', prod, 'quantity', 1, 'discount_amount', 180)), 200, 'Cortesía');
+  select count(*) into n from public.commission_entries ce join public.sale_items i on i.id = ce.sale_item_id where ce.sale_id = sk2 and i.item_type = 'product';
+  r := r || E'\n21 ' || case when n = 0 and pg_temp.comm(sk2, 'service') = '100.00/200.00/price_before_discount/generated'
+      and (select count(*) from public.commission_holds h join public.sale_items i on i.id = h.sale_item_id
+           where h.sale_id = sk2 and i.item_type = 'product' and h.reason = 'beneficiary_missing') = 1 then 'OK' else 'FALLA' end
+    || ' (k2) cortesía sin vendedor: sin comisión de producto (queda la marca beneficiary_missing de siempre); servicio 100';
+
+  -- (n) Finanzas = Panel = reporte en una venta con producto regalado: 200 − 100 (servicio) − 0 − 45 (costo del regalo) = 55
+  t3 := ('2032-03-24 13:00')::timestamp at time zone tz;  w3s := ('2032-03-21')::timestamp at time zone tz;  w3e := ('2032-03-28')::timestamp at time zone tz;
+  update public.sales set paid_at = t3, created_at = t3 where id = sk;
+  update public.commission_entries set generated_at = t3 where sale_id = sk;
+  fin1 := private.report_financial_period(biz, b, w3s, w3e, false);
+  m := public.business_metrics(b, '2032-03-21', '2032-03-27', null);
+  fr := public.business_full_report(b, '2032-03-21', '2032-03-27', 'interno');
+  br := public.business_report(b, 'week', null, w3s, w3e);
+  r := r || E'\n22 ' || case when (fin1 ->> 'profit')::numeric = 55 and (m -> 'kpis' ->> 'net')::numeric = 55
+      and (m -> 'kpis' ->> 'product_cost')::numeric = 45 and (fr -> 'summary' -> 'kpis' ->> 'net')::numeric = 55
+      and (fr -> 'financial' -> 'current' ->> 'profit')::numeric = 55 and (br -> 'kpis' -> 'profit' ->> 'net')::numeric = 55
+      and (br -> 'kpis' -> 'profit' ->> 'product_cost')::numeric = 45 then 'OK' else 'FALLA' end
+    || ' (n) utilidad con cortesía 200 − 100 − 45 = Finanzas ' || coalesce(fin1 ->> 'profit', 'null') || ' / Panel ' || coalesce(m -> 'kpis' ->> 'net', 'null')
+    || ' (costo ' || coalesce(m -> 'kpis' ->> 'product_cost', 'null') || ') / completo ' || coalesce(fr -> 'summary' -> 'kpis' ->> 'net', 'null')
+    || ' / business_report ' || coalesce(br -> 'kpis' -> 'profit' ->> 'net', 'null');
+  pv := public.preview_commission_settlement(b, dago_e, '2032-03-21', '2032-03-27');
+  v := public.preview_commission_settlement(b, dani_e, '2032-03-21', '2032-03-27');
+  r := r || E'\n23 ' || case when (pv ->> 'gross_commission')::numeric = 0 and (v ->> 'gross_commission')::numeric = 100 then 'OK' else 'FALLA' end
+    || ' (n2) pago semanal W3: vendedor del regalo ' || (pv ->> 'gross_commission') || ', barbero ' || (v ->> 'gross_commission');
+
+  -- (i3) una regla explícita de producto (fijo $10) no se aplica a la cortesía; sí a la venta cobrada
+  insert into public.commission_rules (business_id, name, target_type, product_id, calculation_type, basis, fixed_amount)
+  values (biz, 'Prueba fijo pomada', 'product', prod, 'fixed_amount', 'price_before_discount', 10);
+  sj := pg_temp.sell(b, jsonb_build_array(s_item, p_item || jsonb_build_object('discount_amount', 180)), 200, 'Cortesía');
+  sl := pg_temp.sell(b, jsonb_build_array(p_item), 180, null);
+  x := pg_temp.comm(sj, 'product') || ' | ' || pg_temp.comm(sl, 'product');
+  r := r || E'\n24 ' || case when x = '0.00/0.00/price_after_discount/generated | 10.00/180.00/price_before_discount/generated' then 'OK' else 'FALLA' end
+    || ' (i3) regla fija: cortesía ' || x;
+
   -- la regla vive en un solo lugar y no se puede llamar desde la API
   select count(*) into n from information_schema.routine_privileges
    where routine_schema = 'private' and routine_name = 'commission_default_basis' and grantee in ('anon', 'authenticated', 'PUBLIC');
-  r := r || E'\n13 ' || case when n = 0 and private.commission_default_basis('product') = 'price_before_discount'
+  r := r || E'\n25 ' || case when n = 0 and private.commission_default_basis('product') = 'price_before_discount'
       and private.commission_default_basis('service') = 'price_before_discount' then 'OK' else 'FALLA' end || ' (z) base por omisión en un solo lugar, sin permiso para la API';
 
   raise exception 'RESULTADOS (todo se revierte):%', r;

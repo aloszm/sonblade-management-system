@@ -138,6 +138,72 @@ describe('buildSaleBreakdown: descuento', () => {
     });
 });
 
+describe('buildSaleBreakdown: cortesía', () => {
+    // Corte de Sonia cobrado ($150, 50 % = $75) + 2 pomadas regaladas (lista 2 × $180, descuento $360, cobrado $0, costo $45 c/u).
+    const gift = item({ id: 'i2', item_type: 'product', product_id: 'p1', item_name_snapshot: 'Pomada', quantity: 2, unit_price: 180, discount_amount: 360, line_total: 0, employee_id: null, commission_employee_id: 'dani', unit_cost_snapshot: 45 });
+    const giftEntry = commission({ sale_item_id: 'i2', employee_id: 'dani', basis: 'price_after_discount', basis_amount: 0, percentage_snapshot: 0, commission_amount: 0 });
+    const input = (over: Partial<BreakdownInput> = {}): BreakdownInput => ({
+        sale: sale({ subtotal_amount: 510, discount_amount: 360, total_amount: 150 }),
+        items: [item({ id: 'i1' }), gift],
+        commissions: [commission({ sale_item_id: 'i1' }), giftEntry],
+        tips: [], payments: [{ method: 'cash', amount: 150, status: 'confirmed' }], names: NAMES, ...over,
+    });
+
+    it('producto regalado: "cortesía", sin base ni %, comisión $0, nunca en espera; el costo sí cuenta', () => {
+        const b = buildSaleBreakdown(input(), 'full');
+        expect(b.lines[1]).toMatchObject({ courtesy: true, pending: false, base: null, percentage: null, fixedAmount: null, commission: 0, listAmount: 360, discount: 360, beneficiaryName: 'Dani', cost: 90 });
+        expect(b.lines[1].baseNote).toContain('no pagan comisión');
+        expect(b.lines[0].courtesy).toBe(false);
+        expect(b).toMatchObject({ courtesyCount: 1, pendingCount: 0 });
+        expect(b.summary).toMatchObject({ income: 150, commissionsTotal: 75, toTeam: 75 });
+        expect(b.shop).toMatchObject({ productCost: 90, keeps: -15 }); // 150 − 75 − 90
+    });
+
+    it('sin vendedor (queda la marca de la base): sigue siendo cortesía, no "en espera"', () => {
+        const b = buildSaleBreakdown(input({
+            items: [item({ id: 'i1' }), { ...gift, commission_employee_id: null }],
+            commissions: [commission({ sale_item_id: 'i1' })],
+            holds: [{ sale_item_id: 'i2', reason: 'beneficiary_missing', resolved_at: null }],
+        }), 'full');
+        expect(b.lines[1]).toMatchObject({ courtesy: true, pending: false, pendingReason: null, commission: 0, beneficiaryName: null });
+        expect(b.pendingCount).toBe(0);
+    });
+
+    it('servicio regalado sí paga sobre lista (no es cortesía de producto)', () => {
+        const b = buildSaleBreakdown({
+            sale: sale({ total_amount: 180 }),
+            items: [item({ id: 'i1', discount_amount: 150, line_total: 0 }), item({ id: 'i2', item_type: 'product', unit_price: 180, line_total: 180, employee_id: null, commission_employee_id: 'dani' })],
+            commissions: [commission({ sale_item_id: 'i1' }), commission({ sale_item_id: 'i2', employee_id: 'dani', basis_amount: 180, percentage_snapshot: 20, commission_amount: 36 })],
+            tips: [], payments: [{ method: 'cash', amount: 180, status: 'confirmed' }], names: NAMES,
+        }, 'full');
+        expect(b.lines[0]).toMatchObject({ courtesy: false, base: 150, percentage: 50, commission: 75 });
+        expect(b.courtesyCount).toBe(0);
+    });
+
+    it('producto que queda en $0.01 no es cortesía', () => {
+        const b = buildSaleBreakdown(input({
+            items: [item({ id: 'i1' }), { ...gift, quantity: 1, discount_amount: 179.99, line_total: 0.01 }],
+            commissions: [commission({ sale_item_id: 'i1' }), commission({ sale_item_id: 'i2', employee_id: 'dani', basis_amount: 180, percentage_snapshot: 20, commission_amount: 36 })],
+        }), 'full');
+        expect(b.lines[1]).toMatchObject({ courtesy: false, base: 180, commission: 36 });
+    });
+
+    it('venta vieja que sí pagó comisión por un producto en $0: se muestra lo pagado', () => {
+        const b = buildSaleBreakdown(input({
+            commissions: [commission({ sale_item_id: 'i1' }), commission({ sale_item_id: 'i2', employee_id: 'dani', basis_amount: 360, percentage_snapshot: 20, commission_amount: 72 })],
+        }), 'full');
+        expect(b.lines[1]).toMatchObject({ courtesy: false, base: 360, commission: 72 });
+        expect(b.summary.commissionsTotal).toBe(147);
+    });
+
+    it('venta anulada con cortesía: el $0 se revierte y sigue diciendo cortesía', () => {
+        const base = input();
+        const b = buildSaleBreakdown({ ...base, sale: sale({ status: 'refunded', total_amount: 150 }), commissions: base.commissions.map((c) => ({ ...c, status: 'reversed' })) }, 'full');
+        expect(b.lines[1]).toMatchObject({ courtesy: true, reversed: true, pending: false, commission: 0 });
+        expect(b.summary.commissionsTotal).toBe(75);
+    });
+});
+
 describe('buildSaleBreakdown: venta anulada', () => {
     const base = mixedSale();
     const voided: BreakdownInput = {

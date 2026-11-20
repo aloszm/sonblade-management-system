@@ -25,6 +25,17 @@ declare
   w5 date := '2026-08-30'; w6 date := '2026-09-06'; w7 date := '2026-09-13';
 begin
   update public.business_memberships set must_change_pin = false;
+  -- Puestos que esta prueba supone (FASE_4 §2.4). En desarrollo pueden cambiar a petición del dueño (p. ej. Sonia y Lucía
+  -- como cuenta principal para la práctica): se fijan aquí, dentro de la transacción del simulacro, igual que el PIN temporal.
+  update public.business_memberships m set role = x.role::public.business_role
+  from (values ('76c82fae-6754-4be2-916e-b883890e524f'::uuid, 'owner'),          -- Alonso: cuenta principal
+               ('0760694d-ea50-462b-8e11-b9478e564607'::uuid, 'admin'),          -- Sonia: gerencia
+               ('6a8d153e-cf8d-4dd7-8029-01bc42481159'::uuid, 'viewer'),         -- Lucía: consulta
+               ('a3b429be-3d7b-4c46-90fd-e15722193e27'::uuid, 'receptionist'),   -- Emi
+               ('afe3a615-74ec-4c50-81b8-98c39fa4741a'::uuid, 'receptionist'),   -- Dago
+               ('bfae5380-f99c-4c62-ae7d-17130f832cf4'::uuid, 'barber'),         -- Dani
+               ('cb89067a-6cb5-4473-8ff5-ff1fcf83bd12'::uuid, 'barber')) x(u, role)  -- Deya
+  where m.business_id = 'e9ee2431-110b-4105-96bc-63f362c84c09' and m.user_id = x.u and m.role::text <> x.role;
   select br.business_id, bz.timezone into biz, tz from public.branches br join public.businesses bz on bz.id = br.business_id where br.id = b;
   select id into svc from public.services where business_id = biz order by name limit 1;
   today := (now() at time zone tz)::date;
@@ -80,8 +91,8 @@ begin
     ('public', 'confirm_sale', 'f3cc545e5cf7483897e757c16848f7ad'),
     ('private', 'confirm_sale_impl', '7ba5b5e43bcf8ec2f3aaaad69c9a386b'),
     ('private', 'confirm_sale_with_approval_impl', '18cda0db3486f1d82dedb7453d2e3b13'),
-    -- 20261120110000_product_commission_list_price cambió a propósito la base por omisión (huella nueva).
-    ('private', 'generate_sale_commissions_impl', '734e06a145fecd21193c0113a5350820'));
+    -- 20261120110000 (base por omisión) y 20261120130000 (cortesía de producto sin comisión) la cambiaron a propósito.
+    ('private', 'generate_sale_commissions_impl', 'f2ea3cd2a3c53af142ffdf578c1dc83b'));
   r := r || E'\n1 ' || case when n = 4 then 'OK' else 'FALLA' end || ' huella (md5) de cobro y generación de comisiones sin cambio (' || n || ' de 4)';
 
   perform pg_temp.dw_sale(biz, b2, dani_e, svc, owner, (w1 + time '13:00') at time zone tz, 1000, 80, 'V2632-9801');

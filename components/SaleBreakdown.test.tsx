@@ -127,6 +127,25 @@ describe('Desglose de la venta: contenido', () => {
         expect(screen.getByTestId('sale-breakdown-partial')).toHaveTextContent('1 renglón');
     });
 
+    it('producto regalado (cortesía): dice "Cortesía · sin comisión", no "en espera", y el costo sí se resta', async () => {
+        stub(() => ({ body: full({
+            sale: { id: 's1', folio: 'V2611-0178', status: 'paid', subtotal_amount: 330, discount_amount: 180, total_amount: 150 },
+            items: [input().items[0], { ...input().items[1], discount_amount: 180, line_total: 0 }],
+            commissions: [input().commissions[0], { ...input().commissions[1], basis: 'price_after_discount', basis_amount: 0, percentage_snapshot: 0, commission_amount: 0 }],
+            tips: [], payments: [{ method: 'cash', amount: 150, status: 'confirmed' }],
+        }) }));
+        render(<SaleBreakdownBlock saleId="s1" />);
+        const rows = await screen.findAllByTestId('sale-breakdown-line');
+        expect(within(rows[1]).getByTestId('sale-breakdown-courtesy')).toHaveTextContent('Cortesía · sin comisión');
+        expect(rows[1]).toHaveTextContent('Producto regalado');
+        expect(rows[1]).not.toHaveTextContent('En espera');
+        expect(rows[1]).not.toHaveTextContent('0 %');
+        expect(screen.queryByTestId('sale-breakdown-partial')).toBeNull();
+        expect(screen.getByTestId('sale-breakdown-summary')).toHaveTextContent('Comisiones $75.00');
+        // 150 − 75 − 45 (el regalo sí cuesta)
+        expect(screen.getByTestId('sale-breakdown-keeps')).toHaveTextContent('$30.00');
+    });
+
     it('sin comisiones generadas todavía: explica qué pasa', async () => {
         stub(() => ({ body: full({ commissions: [], tips: [] }) }));
         render(<SaleBreakdownBlock saleId="s1" />);

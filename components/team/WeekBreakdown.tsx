@@ -34,7 +34,7 @@ function LineItem({ line, timezone }: { line: PersonLineApi; timezone: string })
                 {line.kind !== 'tip' && <div><dt className="text-xs text-bos-muted">Cobrado</dt><dd>{formatMoney(line.revenue)}</dd></div>}
                 {line.kind !== 'tip' && <div><dt className="text-xs text-bos-muted">Base de comisión</dt><dd>{hasCommission ? formatMoney(line.base) : '—'}</dd></div>}
                 {line.kind !== 'tip' && <div><dt className="text-xs text-bos-muted">%</dt><dd>{line.percent === null ? '—' : `${percentFormat.format(line.percent)} %`}</dd></div>}
-                {line.kind !== 'tip' && <div><dt className="text-xs text-bos-muted">Comisión</dt><dd className="font-semibold">{formatMoney(line.commission)}</dd></div>}
+                {line.kind !== 'tip' && <div><dt className="text-xs text-bos-muted">Comisión</dt><dd className="font-semibold">{line.courtesy ? <span data-testid="week-line-courtesy">Cortesía · sin comisión</span> : formatMoney(line.commission)}</dd></div>}
                 <div><dt className="text-xs text-bos-muted">Propina</dt><dd>{line.tip > 0 ? formatMoney(line.tip) : '—'}</dd></div>
             </dl>
         </li>

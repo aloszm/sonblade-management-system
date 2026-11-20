@@ -85,7 +85,7 @@ function Failure({ error, onRetry }: { error: unknown; onRetry: () => void }) {
 
 function Body({ data }: { data: SaleBreakdown }) {
     const struck = data.voided ? 'line-through text-bos-muted' : '';
-    const hasMoney = data.generatedCount > 0 || data.voided;
+    const hasMoney = data.generatedCount > 0 || data.courtesyCount > 0 || data.voided;
     return (
         <div className="space-y-4">
             {data.voided && (
@@ -93,7 +93,7 @@ function Body({ data }: { data: SaleBreakdown }) {
                     Venta anulada: las comisiones y la propina se revirtieron. Los montos de abajo son los que se revirtieron y ya no cuentan.
                 </p>
             )}
-            {!data.voided && data.generatedCount === 0 && (
+            {!data.voided && data.generatedCount === 0 && data.pendingCount > 0 && (
                 <p role="status" data-testid="sale-breakdown-empty" className="rounded-xl border border-bos-border bg-bos-surface px-4 py-3 text-sm text-bos-text">
                     Esta venta todavía no tiene comisiones generadas. Cada renglón aparece «en espera» hasta que se defina quién recibe su comisión.
                 </p>
@@ -148,6 +148,7 @@ function LineRow({ line, voided }: { line: BreakdownLine; voided: boolean }) {
                 <span className="block text-xs text-bos-muted">{line.type === 'service' ? 'Servicio' : 'Producto'}</span>
                 {line.reversed && <span className="text-xs font-semibold text-bos-danger">Revertida</span>}
                 {line.pending && line.pendingReason && <span className="block text-xs text-bos-muted">{line.pendingReason}</span>}
+                {line.courtesy && <span data-testid="sale-breakdown-courtesy" className="block text-xs font-semibold text-bos-text">Cortesía · sin comisión</span>}
             </td>
             <td data-label="Base" className={`px-4 py-3 text-right ${struck}`}>
                 {line.base === null ? '—' : money(line.base)}
@@ -160,7 +161,7 @@ function LineRow({ line, voided }: { line: BreakdownLine; voided: boolean }) {
                 {line.pending ? <span className="font-semibold text-bos-text">En espera · sin beneficiario</span> : line.beneficiaryName ?? '—'}
             </td>
             <td data-label="Comisión" className={`px-4 py-3 text-right font-semibold ${line.pending ? '' : struck}`}>
-                {line.pending ? 'En espera' : line.commission === null ? '—' : money(line.commission)}
+                {line.pending ? 'En espera' : line.courtesy ? <span className="font-normal">Cortesía · sin comisión</span> : line.commission === null ? '—' : money(line.commission)}
             </td>
         </tr>
     );
