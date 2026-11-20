@@ -5,13 +5,16 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import { weekLabel } from '@/lib/settlements/week';
+import PayBreakdown from '@/components/payroll/PayBreakdown';
+import type { PayInput } from '@/lib/payroll/breakdown';
 import BrandLogo from '@/components/BrandLogo';
 import PracticePrintMark from '@/components/PracticePrintMark';
 import ErrorState from '@/components/ui/ErrorState';
 import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
-type Receipt = {
+// Los campos de PayInput (bonos, adelantos, préstamos, descuentos, arrastre, carryover_next) son opcionales.
+type Receipt = PayInput & {
     receipt_number: string;
     status: string;
     business: { name: string; currency: string; timezone: string };
@@ -120,16 +123,13 @@ export default function ReciboPage() {
                     </tbody>
                 </table></div>
 
-                <section className="mt-4 ml-auto w-full max-w-xs text-sm space-y-1">
-                    <div className="flex justify-between"><span>Comisiones</span><span>{money(Number(receipt.gross_commission))}</span></div>
-                    {Number(receipt.deductions) > 0 && <div className="flex justify-between text-bos-danger"><span>Ajustes</span><span>− {money(Number(receipt.deductions))}</span></div>}
-                    {Number(receipt.tips_total ?? 0) > 0 && <div className="flex justify-between text-bos-success"><span>Propinas</span><span data-testid="receipt-tips">+ {money(Number(receipt.tips_total))}</span></div>}
-                    <div className="flex justify-between font-display text-lg font-semibold border-t-2 border-bos-text pt-2"><span>Total pagado</span><span data-testid="receipt-total">{money(Number(receipt.total_amount))}</span></div>
+                <section className="mt-4 ml-auto w-full max-w-sm text-sm" aria-label="Desglose del pago">
+                    <PayBreakdown data={{ ...receipt, adjustment_lines: receipt.adjustment_lines }} expandable={false} variant="receipt" />
                 </section>
 
                 <section className="mt-6 text-sm">
                     <p className="text-[13px] font-medium text-bos-muted mb-1">Forma de pago</p>
-                    {receipt.payments.length === 0 ? <p className="text-bos-muted">Sin pago (la comisión se compensó con ajustes).</p> : (
+                    {receipt.payments.length === 0 ? <p className="text-bos-muted">Sin pago en efectivo ni transferencia: los descuentos y ajustes cubrieron el total.</p> : (
                         <ul className="space-y-1">
                             {receipt.payments.map((p, i) => (
                                 <li key={i} className="flex justify-between border-b border-bos-border py-1">

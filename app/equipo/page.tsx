@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
 import Link from 'next/link';
-import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, RefreshCw, Clock, KeyRound, ShieldCheck, Wallet } from 'lucide-react';
 import { DISPLAY_TITLE_MAX, PRIMARY_ACCOUNT_BADGE, isPrimaryAccount, personTitle, roleOptionLabel } from '@/lib/auth/roles';
 import { suggestLoginName } from '@/lib/auth/login-id';
 import type { BusinessRole } from '@/lib/auth/context';
@@ -16,6 +16,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { HttpError, MSG_OFFLINE, isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 import BarberScheduleModal from '@/components/BarberScheduleModal';
+import TeamLedger from '@/components/payroll/TeamLedger';
+import BonusGoalsManager from '@/components/payroll/BonusGoalsManager';
 import type { Barber } from '@/types';
 
 interface BarberLive {
@@ -249,6 +251,8 @@ export default function TeamPage() {
     const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
     const [scheduleFor, setScheduleFor] = useState<Barber | null>(null);
     const [accessFor, setAccessFor] = useState<Barber | null>(null);
+    // Movimientos (adelantos, préstamos, descuentos) de una persona, en un panel dentro de la página.
+    const [ledgerFor, setLedgerFor] = useState<Barber | null>(null);
     const [formData, setFormData] = useState({ name: '', phone: '', status: 'active', canAuthorizeDiscounts: false, isBarber: true, displayTitle: '' });
 
     const fetchBarbers = async () => {
@@ -356,7 +360,8 @@ export default function TeamPage() {
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Equipo</h1>
                     <p className="text-sm text-bos-muted mt-1">Rendimiento en tiempo real · Semana actual</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    {isOwner && <a href="#metas-de-bono" className="min-h-[52px] px-4 inline-flex items-center justify-center rounded-xl border border-bos-border text-sm font-semibold text-bos-text hover:bg-bos-raised">Metas de bono</a>}
                     <button onClick={() => { fetchBarbers(); fetchLiveStats(); }} aria-label="Actualizar" title="Actualizar" className="h-[52px] w-[52px] inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><RefreshCw className="h-4 w-4" /></button>
                     {!readOnly && <Button onClick={() => openModal()}>
                         <Plus className="w-4 h-4" />Agregar persona
@@ -403,6 +408,13 @@ export default function TeamPage() {
                                 </div>
                             )}
 
+                            <div className={`${live ? '' : 'mt-auto '}pt-3`}>
+                                <button type="button" onClick={() => setLedgerFor(barber)} aria-pressed={ledgerFor?.id === barber.id} aria-label={`Movimientos de ${barber.name}`}
+                                    className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
+                                    <Wallet className="w-4 h-4" /> Movimientos
+                                </button>
+                            </div>
+
                             {!readOnly && <div className="mt-4 pt-4 border-t border-bos-border flex flex-wrap gap-2">
                                 <button onClick={() => openModal(barber)} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
                                     <Edit2 className="w-4 h-4" /> Editar
@@ -425,6 +437,19 @@ export default function TeamPage() {
                     );
                 })}
             </div>
+
+            {ledgerFor && (
+                <div data-testid="person-ledger" className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-bos-muted">Movimientos de <strong className="text-bos-text">{ledgerFor.name}</strong></p>
+                        <Button variant="secondary" size="sm" onClick={() => setLedgerFor(null)}>Cerrar</Button>
+                    </div>
+                    <TeamLedger key={ledgerFor.id} people={[{ id: ledgerFor.id, name: ledgerFor.name }]} employeeId={ledgerFor.id}
+                        title={`Movimientos de ${ledgerFor.name}`} readOnly={readOnly} />
+                </div>
+            )}
+
+            {isOwner && <BonusGoalsManager people={barbers.filter((b) => (b as { isBarber?: boolean }).isBarber !== false).map((b) => ({ id: b.id, name: b.name }))} />}
 
             <AccessPanel barbers={barbers} readOnly={readOnly} createFor={accessFor} onCreateHandled={() => setAccessFor(null)} onChanged={fetchBarbers} />
 

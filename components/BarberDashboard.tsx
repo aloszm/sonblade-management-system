@@ -6,6 +6,7 @@ import { PERIODS, PERIOD_LABELS, type MyWeek, type Period } from '@/lib/barber/m
 import { SectionError, SectionSkeleton, Skeleton, card } from '@/app/barbero/_components/ui';
 import { ClientsSection, EarningsSection, ReceiptsSection, ServicesSection, TipsSection, TodaySection } from '@/app/barbero/_components/sections';
 import Ranking from '@/components/Ranking';
+import { MyMoneySections } from '@/app/barbero/_components/money';
 
 type Me = { id: string; role: 'admin' | 'recepcion' | 'barber'; employeeId: string | null };
 type Barber = { id: string; name: string };
@@ -136,6 +137,8 @@ export default function BarberDashboard() {
                     )}
 
                     <Ranking highlightId={selectedId} mine={mine} />
+
+                    <MyMoneySections employeeId={selectedId} mine={mine} name={shownName || 'esta persona'} showProgress={period === 'week'} />
 
                     {data && (
                         <>

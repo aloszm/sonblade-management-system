@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import LiquidacionesPage from '@/app/liquidaciones/page';
@@ -29,7 +29,7 @@ describe('Tarjetas en celular (bos-stack)', () => {
             if (u.includes('/api/settlements')) return { ok: true, json: async () => ({ period_start: '2026-11-01', period_end: '2026-11-07', timezone: 'America/Mexico_City', is_latest_closed: true, rows: [{ employee_id: 'e1', name: 'Deya', gross_commission: 1000, deductions: 0, tips: 200, total_amount: 1200, entry_count: 8, can_settle: true, reason: null, settlement_id: null, receipt_number: null }] }) };
             return { ok: true, json: async () => ({}) };
         }));
-        const { container } = render(<LiquidacionesPage />);
+        const { container } = renderWithQuery(<LiquidacionesPage />);
         await screen.findByText('R-1');
         expect(stackTables(container)).toHaveLength(2);
         expect(container.querySelector('td[data-label="A pagar"]')!.className).toContain('max-md:order-first');

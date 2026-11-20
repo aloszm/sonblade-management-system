@@ -3,15 +3,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, ChevronLeft, ChevronRight, Loader2, Receipt, Wallet } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Loader2, Receipt, Wallet } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import PayBreakdown from '@/components/payroll/PayBreakdown';
+import TeamLedger from '@/components/payroll/TeamLedger';
+import { buildBreakdown, type PayInput } from '@/lib/payroll/breakdown';
 import { addDays, weekLabel } from '@/lib/settlements/week';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDateTime } from '@/lib/utils/dates';
 import ErrorState from '@/components/ui/ErrorState';
 import { HttpError, isOfflineError, toUserMessage } from '@/lib/utils/errors';
 
-type Row = {
+// Los campos de PayInput (bonos, adelantos, préstamos, descuentos, arrastre) son opcionales: la pantalla funciona igual si no llegan.
+type Row = PayInput & {
     employee_id: string; name: string; gross_commission: number; deductions: number; tips: number; total_amount: number;
     entry_count: number; can_settle: boolean; reason: string | null; settlement_id: string | null; receipt_number: string | null;
 };
@@ -48,6 +52,7 @@ export default function LiquidacionesPage() {
     const [reference, setReference] = useState('');
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
     const loadHistory = useCallback(async () => {
         try { setHistory(await api<HistoryRow[]>('/api/settlements/history')); } catch { /* se muestra vacío */ }
@@ -165,17 +170,40 @@ export default function LiquidacionesPage() {
                                 </thead>
                                 <tbody>
                                     {week?.rows.length === 0 && <tr className="border-t border-bos-border"><td colSpan={7} data-label="" className="p-6 text-center text-bos-muted">No hay barberos activos.</td></tr>}
-                                    {week?.rows.map((r) => (
-                                        <tr key={r.employee_id} className="border-t border-bos-border hover:bg-bos-raised">
-                                            <td data-label="" className="px-4 py-3 font-semibold">{r.name}</td>
+                                    {week?.rows.map((r) => {
+                                        const b = buildBreakdown(r);
+                                        const panelId = `breakdown-${r.employee_id}`;
+                                        return (
+                                        <React.Fragment key={r.employee_id}>
+                                        <tr className="border-t border-bos-border hover:bg-bos-raised">
+                                            <td data-label="" className="px-4 py-3 font-semibold">
+                                                {r.name}
+                                                <button type="button" aria-expanded={Boolean(expanded[r.employee_id])} aria-controls={panelId} aria-label={`Ver desglose de ${r.name}`}
+                                                    onClick={() => setExpanded((p) => ({ ...p, [r.employee_id]: !p[r.employee_id] }))}
+                                                    className="mt-1 flex min-h-11 items-center gap-1.5 text-sm font-medium text-bos-muted hover:text-bos-text">
+                                                    <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${expanded[r.employee_id] ? 'rotate-180' : ''}`} /> Ver desglose
+                                                </button>
+                                            </td>
                                             <td data-label="Servicios" className="px-4 py-3 text-center text-bos-muted tabular-nums">{r.entry_count}</td>
                                             <td data-label="Comisión" className="px-4 py-3 text-right tabular-nums">{money(r.gross_commission)}</td>
                                             <td data-label="Ajustes" className={`px-4 py-3 text-right tabular-nums ${r.deductions > 0 ? 'text-bos-danger' : 'text-bos-muted'}`}>{r.deductions > 0 ? `− ${money(r.deductions)}` : '—'}</td>
                                             <td data-label="Propinas" className={`px-4 py-3 text-right tabular-nums ${Number(r.tips) > 0 ? 'text-bos-success' : 'text-bos-muted'}`}>{Number(r.tips) > 0 ? `+ ${money(Number(r.tips))}` : '—'}</td>
-                                            <td data-label="A pagar" className="px-4 py-3 text-right font-display font-semibold tabular-nums max-md:order-first max-md:text-lg">{money(r.total_amount)}</td>
+                                            <td data-label="A pagar" className="px-4 py-3 text-right font-display font-semibold tabular-nums max-md:order-first max-md:text-lg">
+                                                {money(r.total_amount)}
+                                                {b.pending > 0 && <span className="block text-xs font-medium text-bos-accent-text">Pendiente: {money(b.pending)}</span>}
+                                            </td>
                                             <td data-label="" className="px-4 py-2 md:whitespace-nowrap">{statusCell(r)}</td>
                                         </tr>
-                                    ))}
+                                        {expanded[r.employee_id] && (
+                                            <tr className="border-t border-bos-border bg-bos-bg">
+                                                <td id={panelId} colSpan={7} data-label="" className="px-4 py-3">
+                                                    <PayBreakdown data={r} className="max-w-xl" />
+                                                </td>
+                                            </tr>
+                                        )}
+                                        </React.Fragment>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -218,9 +246,14 @@ export default function LiquidacionesPage() {
                 </div>
             </section>
 
+            {role === 'admin' && (
+                <TeamLedger people={(week?.rows ?? []).map((r) => ({ id: r.employee_id, name: r.name }))} readOnly={readOnly} onChanged={() => loadWeek(periodStart)} />
+            )}
+
             {paying && (
                 <Modal title={`Pagar a ${paying.name}`} onClose={() => setPaying(null)}>
                     <div className="space-y-4">
+                        <PayBreakdown data={paying} expandable={false} />
                         <div className="flex justify-between items-end">
                             <span className="text-sm text-bos-muted">Total a pagar</span>
                             <span className="font-display text-3xl font-semibold tabular-nums text-bos-accent-text">{money(paying.total_amount)}</span>
