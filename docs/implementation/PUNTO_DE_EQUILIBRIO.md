@@ -85,3 +85,14 @@ No se necesitan llaves ni accesos nuevos.
 
 Prueba SQL contra la fórmula de utilidad; Vitest de estados y redondeos; prueba de navegador en práctica con la
 semana simulada; revisión de capturas en celular; contraste AA; que recepción y barberos reciban 403.
+
+## 9. Aprobado por el dueño (20 nov 2026) y añadido: página "Quién ve qué"
+
+El dueño aprobó este módulo y pidió entregar junto con él una página **Configuración → "Quién ve qué"**, solo
+para la cuenta principal: por cada puesto (cuenta principal, gerencia, consulta, recepción, barbero) muestra su
+menú, las pantallas a las que entra y qué puede hacer en cada una. **Se genera de las mismas reglas que usa el
+sistema** (`lib/nav.ts`, `lib/auth/roles.ts`, guardas de `middleware.ts`), no se escribe a mano, para que no pueda
+desactualizarse. No muestra datos de personas; la vista real con datos ("Ver como…", solo lectura) queda
+pendiente para una etapa posterior. Sin cambios de base. Agente: Sonnet.
+
+Pendiente del dueño para arrancar el punto de equilibrio: sus gastos fijos (concepto, monto mensual, día de pago).
