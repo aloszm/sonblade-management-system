@@ -2,6 +2,7 @@
 
 Antes de modificar el código, lee estos documentos en este orden:
 0. `docs/implementation/FASE_4.md` — **estado actual, lista de trabajo vigente, reglas y procedimientos** (empieza aquí)
+0b. `docs/implementation/FASE_5.md` — fase siguiente, planeada: manual, presentaciones y tutorial; incluye cómo pedir cambios desde otra conversación (§8)
 1. `docs/product/PRD.md`
 2. `docs/product/BUSINESS_RULES.md`
 3. `docs/implementation/ROADMAP.md`
