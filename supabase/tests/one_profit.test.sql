@@ -9,6 +9,8 @@
 -- Gasto A $120 hecho (incurred_at) en el periodo pero capturado después; gasto B $999 capturado en el
 -- periodo pero hecho fuera; gasto C $70 cancelado. Esperado: ingresos 500, comisiones 190, costo 80,
 -- gastos 120, utilidad 110. Aporte de Dani: 300 − 150 = 150 (sin gastos generales).
+-- B7 (20261120052000): además un bono por meta de $30 a Dani en esa semana (asiento `bonus` del libro, ligado a una meta
+-- y a un recibo). El bono es costo como las comisiones: utilidad 110 − 30 = 80; aporte de Dani 150 − 30 = 120.
 do $t$
 declare
   r text := '';
@@ -19,7 +21,7 @@ declare
   biz uuid; tz text; s1 uuid := gen_random_uuid(); s2 uuid := gen_random_uuid();
   i1 uuid := gen_random_uuid(); i2 uuid := gen_random_uuid(); i3 uuid := gen_random_uuid();
   t0 timestamptz; v_start timestamptz; v_end timestamptz;
-  svc uuid; prod uuid; m jsonb; md jsonb; fr jsonb; br jsonb; fin jsonb; n int;
+  svc uuid; prod uuid; g1 uuid := gen_random_uuid(); st uuid := gen_random_uuid(); m jsonb; md jsonb; fr jsonb; br jsonb; fin jsonb; n int;
 begin
   update public.business_memberships set must_change_pin = false;
   select b2.business_id, bs.timezone into biz, tz from public.branches b2 join public.businesses bs on bs.id = b2.business_id where b2.id = b;
@@ -50,6 +52,17 @@ begin
          (biz, b, 'posted', 'Prueba', 'Gasto B hecho fuera del periodo', 999, 'cash', t0 - interval '30 days', owner, t0, 'envelope', private.default_envelope_id(b), null, null, null),
          (biz, b, 'cancelled', 'Prueba', 'Gasto C cancelado', 70, 'cash', t0, owner, t0, 'envelope', private.default_envelope_id(b), owner, t0, 'Gasto de prueba cancelado');
 
+  -- B7: bono de $30 a Dani (meta + recibo de esa semana + asiento del libro, fechado al cierre de la semana).
+  insert into public.bonus_goals (id, business_id, branch_id, name, metric, threshold, bonus_amount, applies_to, employee_id, valid_from, created_by)
+  values (g1, biz, b, 'Meta prueba utilidad', 'services_count', 1, 30, 'employee', dani_e, '2031-03-01', owner);
+  insert into public.commission_settlements (id, business_id, branch_id, employee_id, period_start, period_end, total_amount, status, paid_at, paid_by,
+                                             created_by, receipt_number, window_start, window_end, bonus_amount)
+  values (st, biz, b, dani_e, '2031-03-02', '2031-03-08', 230, 'paid', t0, owner, owner, 'P3110-97',
+          ('2031-03-01 20:00')::timestamp at time zone tz, ('2031-03-08 20:00')::timestamp at time zone tz, 30);
+  insert into public.employee_ledger (business_id, branch_id, employee_id, entry_type, amount, reason, bonus_goal_id, settlement_id,
+                                      generated_by_settlement, week_start, effective_at, created_by)
+  values (biz, b, dani_e, 'bonus', 30, 'Bono por meta de prueba', g1, st, true, '2031-03-02', ('2031-03-08 20:00')::timestamp at time zone tz, owner);
+
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role', 'authenticated')::text, true);
   fin := private.report_financial_period(biz, b, v_start, v_end, false);
   m := public.business_metrics(b, '2031-03-02', '2031-03-08', null);
@@ -57,26 +70,26 @@ begin
   fr := public.business_full_report(b, '2031-03-02', '2031-03-08', 'interno');
   br := public.business_report(b, 'week', null, v_start, v_end);
 
-  r := r || E'\n1 ' || case when (fin ->> 'profit')::numeric = 110 then 'OK' else 'FALLA' end || ' Finanzas: utilidad 110 = ' || (fin ->> 'profit');
-  r := r || E'\n2 ' || case when (m -> 'kpis' ->> 'net')::numeric = 110 and m -> 'kpis' ->> 'net_kind' = 'profit' then 'OK' else 'FALLA' end
+  r := r || E'\n1 ' || case when (fin ->> 'profit')::numeric = 80 and (fin -> 'bonuses' ->> 'total')::numeric = 30 then 'OK' else 'FALLA' end || ' Finanzas: utilidad 500 − 190 − 30 bono − 80 − 120 = 80 = ' || (fin ->> 'profit');
+  r := r || E'\n2 ' || case when (m -> 'kpis' ->> 'net')::numeric = 80 and m -> 'kpis' ->> 'net_kind' = 'profit' and (m -> 'kpis' ->> 'bonuses')::numeric = 30 then 'OK' else 'FALLA' end
          || ' Panel sin filtro: net = ' || (m -> 'kpis' ->> 'net');
   r := r || E'\n3 ' || case when (m -> 'kpis' ->> 'product_cost')::numeric = 80 and (m -> 'kpis' ->> 'expenses')::numeric = 120
                               and (m -> 'kpis' ->> 'commissions')::numeric = 190 and (m -> 'kpis' ->> 'revenue')::numeric = 500 then 'OK' else 'FALLA' end
          || ' Panel: ingresos 500, comisiones 190, costo 80, gastos 120 (incurred_at) ' || (m -> 'kpis')::text;
   r := r || E'\n4 ' || case when (fr -> 'summary' -> 'kpis' ->> 'net')::numeric = (fr -> 'financial' -> 'current' ->> 'profit')::numeric
-                              and (fr -> 'summary' -> 'kpis' ->> 'net')::numeric = 110 then 'OK' else 'FALLA' end
+                              and (fr -> 'summary' -> 'kpis' ->> 'net')::numeric = 80 then 'OK' else 'FALLA' end
          || ' Reporte completo: resumen = financiero = ' || (fr -> 'summary' -> 'kpis' ->> 'net');
   r := r || E'\n5 ' || case when (fr -> 'summary' -> 'kpis' ->> 'expenses')::numeric = 120 and (fr -> 'summary' -> 'kpis' ->> 'product_cost')::numeric = 80 then 'OK' else 'FALLA' end
          || ' Reporte completo: gastos 120 y costo 80';
   select count(*) into n from jsonb_array_elements(fr -> 'expenses') x where x ->> 'concept' like 'Gasto A%';
   r := r || E'\n6 ' || case when n = 1 and not exists (select 1 from jsonb_array_elements(fr -> 'expenses') x where x ->> 'concept' like 'Gasto B%') then 'OK' else 'FALLA' end
          || ' Reporte completo: la lista de gastos usa incurred_at (A sí, B no)';
-  r := r || E'\n7 ' || case when (br -> 'kpis' -> 'profit' ->> 'net')::numeric = 110 and (br -> 'kpis' -> 'profit' ->> 'product_cost')::numeric = 80 then 'OK' else 'FALLA' end
+  r := r || E'\n7 ' || case when (br -> 'kpis' -> 'profit' ->> 'net')::numeric = 80 and (br -> 'kpis' -> 'profit' ->> 'product_cost')::numeric = 80 then 'OK' else 'FALLA' end
          || ' business_report: kpis.profit.net = ' || coalesce(br -> 'kpis' -> 'profit' ->> 'net', 'null');
-  r := r || E'\n8 ' || case when md -> 'kpis' ->> 'net_kind' = 'contribution' and (md -> 'kpis' ->> 'net')::numeric = 150
+  r := r || E'\n8 ' || case when md -> 'kpis' ->> 'net_kind' = 'contribution' and (md -> 'kpis' ->> 'net')::numeric = 120 and (md -> 'kpis' ->> 'bonuses')::numeric = 30
                               and (md -> 'kpis' ->> 'expenses')::numeric = 0 and (md -> 'kpis' ->> 'commissions')::numeric = 150
                               and (md -> 'kpis' ->> 'revenue')::numeric = 300 then 'OK' else 'FALLA' end
-         || ' Panel con Dani: aporte 150 sin gastos ' || (md -> 'kpis')::text;
+         || ' Panel con Dani: aporte 300 − 150 − 30 bono = 120, sin gastos ' || (md -> 'kpis')::text;
   r := r || E'\n9 ' || case when (md -> 'kpis' ->> 'tips')::numeric = 50 and (m -> 'kpis' ->> 'tips')::numeric = 50 then 'OK' else 'FALLA' end
          || ' propinas 50 aparte (no entran a la utilidad)';
   r := r || E'\n10 ' || case when (m -> 'previous' ->> 'net')::numeric = 0 and m -> 'previous' ->> 'net_kind' = 'profit' then 'OK' else 'FALLA' end

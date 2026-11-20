@@ -224,6 +224,82 @@ export type Database = {
           },
         ]
       }
+      bonus_goals: {
+        Row: {
+          applies_to: string
+          bonus_amount: number
+          branch_id: string
+          business_id: string
+          created_at: string
+          created_by: string
+          employee_id: string | null
+          id: string
+          is_active: boolean
+          metric: string
+          name: string
+          threshold: number
+          updated_at: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          applies_to: string
+          bonus_amount: number
+          branch_id: string
+          business_id: string
+          created_at?: string
+          created_by: string
+          employee_id?: string | null
+          id?: string
+          is_active?: boolean
+          metric: string
+          name: string
+          threshold: number
+          updated_at?: string
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          applies_to?: string
+          bonus_amount?: number
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          employee_id?: string | null
+          id?: string
+          is_active?: boolean
+          metric?: string
+          name?: string
+          threshold?: number
+          updated_at?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_goals_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "bonus_goals_business_id_employee_id_fkey"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "bonus_goals_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branch_inventory: {
         Row: {
           branch_id: string
@@ -1132,12 +1208,18 @@ export type Database = {
       }
       commission_settlements: {
         Row: {
+          advance_amount: number
+          bonus_amount: number
           branch_id: string
           business_id: string
+          carryover_in_amount: number
+          carryover_out_amount: number
           created_at: string
           created_by: string
+          deduction_amount: number
           employee_id: string
           id: string
+          loan_payment_amount: number
           paid_at: string | null
           paid_by: string | null
           paid_via: Database["public"]["Enums"]["payment_method"] | null
@@ -1151,12 +1233,18 @@ export type Database = {
           window_start: string
         }
         Insert: {
+          advance_amount?: number
+          bonus_amount?: number
           branch_id: string
           business_id: string
+          carryover_in_amount?: number
+          carryover_out_amount?: number
           created_at?: string
           created_by: string
+          deduction_amount?: number
           employee_id: string
           id?: string
+          loan_payment_amount?: number
           paid_at?: string | null
           paid_by?: string | null
           paid_via?: Database["public"]["Enums"]["payment_method"] | null
@@ -1170,12 +1258,18 @@ export type Database = {
           window_start: string
         }
         Update: {
+          advance_amount?: number
+          bonus_amount?: number
           branch_id?: string
           business_id?: string
+          carryover_in_amount?: number
+          carryover_out_amount?: number
           created_at?: string
           created_by?: string
+          deduction_amount?: number
           employee_id?: string
           id?: string
+          loan_payment_amount?: number
           paid_at?: string | null
           paid_by?: string | null
           paid_via?: Database["public"]["Enums"]["payment_method"] | null
@@ -1202,6 +1296,241 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      employee_ledger: {
+        Row: {
+          amount: number
+          bonus_goal_id: string | null
+          branch_id: string
+          business_id: string
+          cash_movement_id: string | null
+          cash_session_id: string | null
+          created_at: string
+          created_by: string
+          details: Json | null
+          effective_at: string
+          employee_id: string
+          entry_type: string
+          envelope_id: string | null
+          envelope_movement_id: string | null
+          generated_by_settlement: boolean
+          id: string
+          idempotency_key: string | null
+          loan_id: string | null
+          method: Database["public"]["Enums"]["payment_method"] | null
+          origin_settlement_id: string | null
+          paid_from: string | null
+          reason: string
+          receipt_effect: number | null
+          reverses_entry_id: string | null
+          settlement_id: string | null
+          week_start: string
+        }
+        Insert: {
+          amount: number
+          bonus_goal_id?: string | null
+          branch_id: string
+          business_id: string
+          cash_movement_id?: string | null
+          cash_session_id?: string | null
+          created_at?: string
+          created_by: string
+          details?: Json | null
+          effective_at?: string
+          employee_id: string
+          entry_type: string
+          envelope_id?: string | null
+          envelope_movement_id?: string | null
+          generated_by_settlement?: boolean
+          id?: string
+          idempotency_key?: string | null
+          loan_id?: string | null
+          method?: Database["public"]["Enums"]["payment_method"] | null
+          origin_settlement_id?: string | null
+          paid_from?: string | null
+          reason: string
+          receipt_effect?: number | null
+          reverses_entry_id?: string | null
+          settlement_id?: string | null
+          week_start: string
+        }
+        Update: {
+          amount?: number
+          bonus_goal_id?: string | null
+          branch_id?: string
+          business_id?: string
+          cash_movement_id?: string | null
+          cash_session_id?: string | null
+          created_at?: string
+          created_by?: string
+          details?: Json | null
+          effective_at?: string
+          employee_id?: string
+          entry_type?: string
+          envelope_id?: string | null
+          envelope_movement_id?: string | null
+          generated_by_settlement?: boolean
+          id?: string
+          idempotency_key?: string | null
+          loan_id?: string | null
+          method?: Database["public"]["Enums"]["payment_method"] | null
+          origin_settlement_id?: string | null
+          paid_from?: string | null
+          reason?: string
+          receipt_effect?: number | null
+          reverses_entry_id?: string | null
+          settlement_id?: string | null
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_ledger_bonus_goal_fk"
+            columns: ["bonus_goal_id"]
+            isOneToOne: false
+            referencedRelation: "bonus_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_business_id_branch_id_cash_session_id_fkey"
+            columns: ["business_id", "branch_id", "cash_session_id"]
+            isOneToOne: false
+            referencedRelation: "cash_sessions"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_business_id_branch_id_employee_id_loan_id_fkey"
+            columns: ["business_id", "branch_id", "employee_id", "loan_id"]
+            isOneToOne: false
+            referencedRelation: "employee_loans"
+            referencedColumns: ["business_id", "branch_id", "employee_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_business_id_branch_id_employee_id_settleme_fkey"
+            columns: [
+              "business_id",
+              "branch_id",
+              "employee_id",
+              "settlement_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "commission_settlements"
+            referencedColumns: ["business_id", "branch_id", "employee_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_business_id_branch_id_envelope_id_fkey"
+            columns: ["business_id", "branch_id", "envelope_id"]
+            isOneToOne: false
+            referencedRelation: "cash_envelopes"
+            referencedColumns: ["business_id", "branch_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_business_id_employee_id_fkey"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_cash_movement_id_fkey"
+            columns: ["cash_movement_id"]
+            isOneToOne: false
+            referencedRelation: "cash_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_envelope_movement_id_fkey"
+            columns: ["envelope_movement_id"]
+            isOneToOne: false
+            referencedRelation: "envelope_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_origin_settlement_id_fkey"
+            columns: ["origin_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "commission_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_ledger_reverses_entry_id_fkey"
+            columns: ["reverses_entry_id"]
+            isOneToOne: false
+            referencedRelation: "employee_ledger"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_loans: {
+        Row: {
+          branch_id: string
+          business_id: string
+          created_at: string
+          created_by: string
+          employee_id: string
+          id: string
+          principal: number
+          reason: string
+          weekly_amount: number
+        }
+        Insert: {
+          branch_id: string
+          business_id: string
+          created_at?: string
+          created_by: string
+          employee_id: string
+          id?: string
+          principal: number
+          reason: string
+          weekly_amount: number
+        }
+        Update: {
+          branch_id?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          id?: string
+          principal?: number
+          reason?: string
+          weekly_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_loans_business_id_branch_id_fkey"
+            columns: ["business_id", "branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_loans_business_id_employee_id_fkey"
+            columns: ["business_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "employee_loans_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2459,6 +2788,14 @@ export type Database = {
         }
         Returns: Json
       }
+      bonus_goal_progress: {
+        Args: {
+          p_branch_id: string
+          p_employee_id?: string
+          p_period_start?: string
+        }
+        Returns: Json
+      }
       booking_availability: {
         Args: {
           p_barber_id: string
@@ -2537,6 +2874,10 @@ export type Database = {
           p_period: string
           p_to?: string
         }
+        Returns: Json
+      }
+      cancel_employee_ledger_entry: {
+        Args: { p_entry_id: string; p_reason: string }
         Returns: Json
       }
       cancel_expense: {
@@ -2654,6 +2995,55 @@ export type Database = {
           p_starts_at: string
         }
         Returns: Json
+      }
+      employee_ledger_list: {
+        Args: {
+          p_branch_id?: string
+          p_employee_id?: string
+          p_from?: string
+          p_limit?: number
+          p_to?: string
+        }
+        Returns: {
+          amount: number
+          bonus_goal_id: string
+          branch_id: string
+          created_at: string
+          created_by: string
+          effective_at: string
+          employee_id: string
+          employee_name: string
+          entry_type: string
+          id: string
+          is_pending: boolean
+          loan_id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          origin_settlement_id: string
+          paid_from: string
+          reason: string
+          receipt_effect: number
+          receipt_number: string
+          reversed_by_entry_id: string
+          reverses_entry_id: string
+          settlement_id: string
+          week_start: string
+        }[]
+      }
+      employee_loans_with_balance: {
+        Args: { p_branch_id?: string; p_employee_id?: string }
+        Returns: {
+          branch_id: string
+          created_at: string
+          created_by: string
+          employee_id: string
+          id: string
+          outstanding: number
+          paid: number
+          principal: number
+          reason: string
+          status: string
+          weekly_amount: number
+        }[]
       }
       envelope_adjust_confirmed: {
         Args: {
@@ -2842,6 +3232,22 @@ export type Database = {
         }
         Returns: Json
       }
+      record_employee_ledger_entry: {
+        Args: {
+          p_amount: number
+          p_branch_id: string
+          p_employee_id: string
+          p_entry_type: string
+          p_envelope_id?: string
+          p_idempotency_key?: string
+          p_loan_id?: string
+          p_method?: Database["public"]["Enums"]["payment_method"]
+          p_paid_from?: string
+          p_reason: string
+          p_weekly_amount?: number
+        }
+        Returns: Json
+      }
       record_expense: {
         Args: {
           p_amount: number
@@ -2913,6 +3319,23 @@ export type Database = {
           p_notes?: string
           p_service_ids?: string[]
           p_start?: string
+        }
+        Returns: Json
+      }
+      save_bonus_goal: {
+        Args: {
+          p_applies_to?: string
+          p_bonus_amount?: number
+          p_branch_id: string
+          p_clear_valid_to?: boolean
+          p_employee_id?: string
+          p_id?: string
+          p_is_active?: boolean
+          p_metric?: string
+          p_name?: string
+          p_threshold?: number
+          p_valid_from?: string
+          p_valid_to?: string
         }
         Returns: Json
       }

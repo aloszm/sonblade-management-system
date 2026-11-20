@@ -24,6 +24,13 @@ const SettleSchema = z.object({
 type Preview = {
     window_start: string; window_end: string; gross_commission: number; deductions: number; tips: number; total_amount: number;
     entry_count: number; can_settle: boolean; reason: string | null; settlement_id: string | null; receipt_number: string | null;
+    // B7 (opcionales; la base los manda desde 20261120052000). `deductions` siguen siendo solo los ajustes por anulaciones.
+    // total_amount = gross_commission − deductions + tips + bonuses − advances − loan_payments − staff_deductions − carryover_in,
+    // con piso en 0; si el neto (net_amount) es negativo, carryover_out pasa a la semana siguiente.
+    bonuses?: number; advances?: number; loan_payments?: number; staff_deductions?: number;
+    carryover_in?: number; carryover_out?: number; net_amount?: number;
+    ledger_lines?: unknown[]; loan_scheduled_lines?: unknown[]; loans_waiting?: unknown[];
+    bonus_lines?: unknown[]; bonus_goals?: unknown[]; bonus_goals_enabled?: boolean;
 };
 
 /**
