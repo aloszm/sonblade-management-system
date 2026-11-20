@@ -477,6 +477,25 @@ Anotar aquí cada problema real: fecha, quién, pantalla, qué pasó, estado.
 | 3 | Cobro agrupado, agenda de 30 min, Cuadre con acciones, semana simulada, ranking, "Mi semana", "Barberos hoy", selectores de fecha | `FASE_3.md` |
 | 17 nov | Auditoría de seguridad y correcciones (bloqueo, roles, PIN con HMAC, sesiones, descuentos, reservas, caja); usuario + PIN; Lucía en consulta; base de producción creada y cargada; v2 publicada en `main`; caja con motivo y PIN de gerencia | `ACCESOS.md`, `PRODUCCION.md`, este archivo |
 | 18–19 nov | Llave de producción cambiada y primera entrada del dueño; respaldo y visita diaria en GitHub; `/api/health` y Estado del sistema; descuento y anulación con PIN; entradas de inventario en recepción; título visible; aviso de privacidad v1.0; modo práctica; componentes base de interfaz; teléfonos filtrados (S5 y S8) | Este archivo, `PRODUCCION.md`, `RESERVAS.md` |
+| 20 nov | Entregas 2 y 3 publicadas (`7cdefce`, 84 migraciones en ambas bases): agenda con servicios y reprogramación, ficha de cliente, una sola utilidad; **sobres** (`cash_envelopes`), **gastos completos** (categorías, sobre o banco, comprobante, cancelación con PIN, gastos fijos), **libro del empleado** (adelantos, préstamos, descuentos, bonos por metas) y recibo semanal con desglose; página pública `/inicio` con catálogo real (`public_catalog`), reserva rediseñada en 4 pantallas, etiqueta "En línea" en la agenda; dominio `barbergallo420.site` con `practica.`, `admin.` y `citas.` creados | Este archivo (sección 8b) |
+
+## 8b. Estado al 20 nov 2026 (después de publicar `7cdefce`)
+
+**Verificado antes de publicar:** suite de navegador completa contra desarrollo, 116 pasadas / 0 falladas / 7 omitidas; 1,236 pruebas unitarias; `tsc`, lint y build sin errores; md5 de las 84 migraciones igual en desarrollo, repositorio y producción; `/api/health` con `ok: true` en `barbergallo420.site` y `practica.barbergallo420.site`.
+
+**Encendido en producción:** Sobres, Gastos, adelantos/préstamos/descuentos/bonos, Pago semanal con desglose, página `/inicio`, etiqueta "En línea".
+
+**Apagado a propósito (cada uno requiere visto bueno del dueño):**
+
+1. **Separación por dominios.** El código está listo (`lib/hosts.ts`, `lib/site-routing.ts`, `middleware.ts`) y se activa al poner `NEXT_PUBLIC_SITE_DOMAIN=barbergallo420.site` en Production del proyecto principal y volver a publicar. Efecto: raíz = portada, `citas.` = reservas, `admin.` = equipo; todo el equipo vuelve a iniciar sesión en `admin.barbergallo420.site`. Regla: toda ruta interna nueva debe agregarse a `INTERNAL_PREFIXES` de `lib/site-routing.ts`.
+2. **Reservas en línea en producción.** Antes de encender: subir `lookups_per_minute` de la configuración de reservas (hoy 20 por minuto por IP, lo aplica `private.booking_rate_limited`; varios clientes en el mismo Wi-Fi pueden toparse con el límite) y construir D1 (interruptor con PIN), D2 (reprogramar desde el enlace) y D3 (WhatsApp de un clic).
+3. **Saldo inicial real del sobre** en producción: `supabase/pending/envelope_opening_balance.sql` (decisión del dueño; no ejecutado).
+
+**Sin verificar (dicho al dueño):** Safari/iPhone (el entorno de pruebas no tiene WebKit); letrero "Abierto ahora" en vivo; cancelación real con menos de 2 horas; cuenta de consulta (Lucía) en las pantallas nuevas; un bono dentro de un recibo real; restauración de un respaldo.
+
+**Pendiente de construir:** número de cliente (`G-0001`), puntos (1 por cada $10), referidos, cuenta de cliente con Google, aviso de privacidad v2, comisión de terminal de tarjeta, compras de inventario (B8), reembolso parcial (B9), métricas de agenda (C3).
+
+**Práctica (base de desarrollo):** las cuentas alonso, dago, deya y sonia quedaron con `must_change_pin = true` y un PIN que nadie conoce; el dueño fija el suyo con `scripts/emergency-reset-pin.sql` en `sonblade-dev` y restablece los demás desde Equipo. Hay datos de ensayo "Prueba …" que no se borran (regla de no borrar dinero).
 
 ## 9. Preguntas abiertas para el dueño (resumen)
 
