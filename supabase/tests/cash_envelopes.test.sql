@@ -15,18 +15,25 @@ declare
   dani uuid := 'bfae5380-f99c-4c62-ae7d-17130f832cf4';
   lucia uuid := '6a8d153e-cf8d-4dd7-8029-01bc42481159';
   biz uuid; b2 uuid; env uuid; s1 uuid; s2 uuid; sid uuid; v jsonb; n int; bal numeric; bad int;
-  biz3 uuid; b3 uuid; env3 uuid; who uuid; k text;
+  biz3 uuid; b3 uuid; env3 uuid; who uuid; k text; ledger_before int;
 begin
   update public.business_memberships set must_change_pin = false;
   select business_id into biz from public.branches where id = b;
 
-  -- 1 cada sucursal existente tiene su sobre por omisión, en saldo 0 (la migración no inventa saldos)
+  -- 1 cada sucursal existente tiene su sobre por omisión, y la migración no inventa saldos: toda entrada de cierre
+  --   que ya exista corresponde a una caja cerrada con ese mismo apartado (no se exige libro vacío: en desarrollo
+  --   ya hay cierres reales con apartado). Se toma la foto del libro para medir el efecto de la prueba (4b).
   select count(*) into n from public.branches br
    where not exists (select 1 from public.cash_envelopes e where e.branch_id = br.id and e.is_default and e.is_active);
-  select count(*) into bad from public.envelope_movements;
-  r := r || E'\n1 ' || case when n = 0 and bad = 0 then 'OK' else 'FALLA' end || ' sobre por omisión en cada sucursal y libro vacío (' || bad || ' movimientos)';
+  select count(*) into bad from public.envelope_movements m
+   where m.source = 'cash_close'
+     and not exists (select 1 from public.cash_sessions s where s.id = m.cash_session_id and s.status = 'closed'
+                       and s.reserve_amount = m.amount and m.direction = 'in');
+  select count(*) into ledger_before from public.envelope_movements;
+  r := r || E'\n1 ' || case when n = 0 and bad = 0 then 'OK' else 'FALLA' end || ' sobre por omisión en cada sucursal; entradas de cierre = apartados de cajas cerradas ('
+    || ledger_before || ' movimientos previos, ' || bad || ' sin respaldo)';
 
-  -- Sucursal de prueba con su propia caja (la caja abierta real del 16 nov no se toca).
+  -- Sucursal de prueba con su propia caja (las cajas reales no se tocan).
   insert into public.branches (business_id, name) values (biz, 'Sucursal de prueba sobres (se revierte)') returning id into b2;
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role', 'authenticated')::text, true);
   v := public.open_cash_session(b2, 500, 'Prueba de sobres');
@@ -58,6 +65,9 @@ begin
   v := public.close_cash_session(s2, 500, null, 500, 0, null, null);
   select count(*) into n from public.envelope_movements where cash_session_id = s2;
   r := r || E'\n4 ' || case when n = 0 then 'OK' else 'FALLA' end || ' cierre con apartado 0 no crea entrada';
+  -- 4b efecto relativo: hasta aquí la prueba agregó exactamente UNA fila al libro (la entrada de $600 de s1)
+  select count(*) - ledger_before into n from public.envelope_movements;
+  r := r || E'\n4b ' || case when n = 1 then 'OK' else 'FALLA' end || ' el libro creció exactamente 1 movimiento (' || n || ')';
 
   -- 5 cash_available y el cuadre no cambian
   if to_regclass('pg_temp.envelope_test_cash_before') is not null then

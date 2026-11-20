@@ -28,6 +28,8 @@ export interface BookingDatabase {
             }>;
             booking_get: Fn<{ p_slug: string; p_token: string }>;
             booking_cancel: Fn<{ p_slug: string; p_token: string }>;
+            /** Catálogo de la página de inicio (servicios, barberos, horario); responde aunque las reservas estén apagadas. */
+            public_catalog: Fn<{ p_slug: string }>;
         };
         Enums: Record<string, never>;
         CompositeTypes: Record<string, never>;
@@ -45,7 +47,7 @@ function bookingClient() {
     });
 }
 
-/** Llama una función de reservas y devuelve su JSON (o lanza si la base falla). */
+/** Llama una función de reservas (o el catálogo público) y devuelve su JSON (o lanza si la base falla). */
 export async function callBooking<F extends BookingFunction>(
     fn: F,
     args: BookingDatabase['public']['Functions'][F]['Args'],

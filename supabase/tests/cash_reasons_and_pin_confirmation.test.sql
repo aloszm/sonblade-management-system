@@ -130,7 +130,8 @@ begin
   exception when others then r := r || E'\n15 FALLA '||sqlerrm; end;
   -- 16 movimiento manual por gerencia (abre caja como Emi primero)
   perform set_config('request.jwt.claims', json_build_object('sub', emi, 'role','authenticated')::text, true);
-  perform public.open_cash_session(b, 500);
+  -- (abre con lo que dejó el último cierre, sea cual sea: no depende de los cierres previos de esta prueba)
+  perform public.open_cash_session(b, (select float_left from public.cash_sessions where branch_id=b and status='closed' order by closed_at desc limit 1));
   select id into s from public.cash_sessions where branch_id=b and status='open';
   sid := gen_random_uuid();
   insert into auth.sessions (id, user_id, created_at, updated_at) values (sid, sonia, now(), now());

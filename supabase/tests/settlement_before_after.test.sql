@@ -65,7 +65,7 @@ select pg_temp.b7_snapshot('before');
 do $t$
 declare
   r text := '';
-  n_before int; n_after int; n_diff int; n_settle int; n_receipts int; n_new_nonzero int; detail text;
+  n_before int; n_after int; n_diff int; n_settle int; n_receipts int; n_new_nonzero int; n_checked int; detail text;
 begin
   perform pg_temp.b7_snapshot('after');
   select count(*) into n_before from b7_snap where phase = 'before';
@@ -87,16 +87,34 @@ begin
   r := r || E'\n1 ' || case when n_diff = 0 and n_before = n_after and n_before > 0 then 'OK' else 'FALLA' end
          || ' mismas cifras antes y después: ' || n_before || ' fotos (' || n_settle || ' liquidaciones simuladas, '
          || n_receipts || ' recibos existentes); diferencias: ' || n_diff || coalesce(' [' || left(detail, 400) || ']', '');
-  -- Las claves nuevas valen 0 (sin libro ni metas).
+  -- Las claves nuevas valen 0 (sin libro ni metas). No se supone que el libro real de desarrollo esté vacío: solo se
+  -- exige en las fotos de personas sin asientos en esa sucursal, de sucursales sin metas de bono.
+  select count(*) into n_checked from b7_snap a
+  where a.phase = 'after' and a.kind in ('preview', 'receipt') and not exists (
+    select 1 from (
+      select split_part(a.key, '/', 1) as branch_id, split_part(a.key, '/', 2) as employee_id where a.kind = 'preview'
+      union all
+      select cs.branch_id::text, cs.employee_id::text from public.commission_settlements cs where a.kind = 'receipt' and cs.id::text = a.key
+    ) who
+    where exists (select 1 from public.employee_ledger l where l.branch_id::text = who.branch_id and l.employee_id::text = who.employee_id)
+       or exists (select 1 from public.bonus_goals g where g.branch_id::text = who.branch_id));
   select count(*) into n_new_nonzero from b7_snap a
-  where a.phase = 'after' and (
+  where a.phase = 'after' and not exists (
+    select 1 from (
+      select split_part(a.key, '/', 1) as branch_id, split_part(a.key, '/', 2) as employee_id where a.kind = 'preview'
+      union all
+      select cs.branch_id::text, cs.employee_id::text from public.commission_settlements cs where a.kind = 'receipt' and cs.id::text = a.key
+    ) who
+    where exists (select 1 from public.employee_ledger l where l.branch_id::text = who.branch_id and l.employee_id::text = who.employee_id)
+       or exists (select 1 from public.bonus_goals g where g.branch_id::text = who.branch_id)) and (
     (a.kind = 'preview' and ((a.payload ->> 'bonuses')::numeric <> 0 or (a.payload ->> 'advances')::numeric <> 0
                               or (a.payload ->> 'loan_payments')::numeric <> 0 or (a.payload ->> 'staff_deductions')::numeric <> 0
                               or (a.payload ->> 'carryover_in')::numeric <> 0 or (a.payload ->> 'carryover_out')::numeric <> 0
                               or (a.payload ->> 'net_amount')::numeric <> (a.payload ->> 'total_amount')::numeric))
     or (a.kind = 'receipt' and ((a.payload ->> 'bonuses')::numeric <> 0 or (a.payload ->> 'advances')::numeric <> 0
                                  or jsonb_array_length(a.payload -> 'ledger_lines') <> 0)));
-  r := r || E'\n2 ' || case when n_new_nonzero = 0 then 'OK' else 'FALLA' end || ' desglose nuevo en 0 sin libro (' || n_new_nonzero || ' con algo)';
+  r := r || E'\n2 ' || case when n_new_nonzero = 0 and n_checked > 0 then 'OK' else 'FALLA' end || ' desglose nuevo en 0 sin libro ('
+         || n_checked || ' fotos sin asientos ni metas revisadas, ' || n_new_nonzero || ' con algo)';
   select count(*) into n_diff from b7_snap where kind = 'settle_error';
   r := r || E'\n3 ' || case when n_diff = 0 then 'OK' else 'FALLA' end || ' ninguna liquidación simulada falló (' || n_diff || ')';
   raise exception 'RESULTADOS (todo se revierte):%', r;

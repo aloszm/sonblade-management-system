@@ -3203,6 +3203,7 @@ export type Database = {
         }
         Returns: Json
       }
+      public_catalog: { Args: { p_slug: string }; Returns: Json }
       receive_inventory_stock: {
         Args: {
           p_branch_id: string

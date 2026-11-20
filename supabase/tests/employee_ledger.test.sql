@@ -282,8 +282,9 @@ begin
   r := r || E'\n28 ' || case when n = 0 and m > 0 and x = 0 and y = m then 'OK' else 'FALLA' end || ' barbero ve solo su libro (' || m || ' suyos, ' || n || ' ajenos)';
   perform pg_temp.b7_as(emi, false);
   execute 'set local role authenticated';
-  select count(*) into n from public.employee_ledger;
-  select count(*) into m from public.employee_loans;
+  -- (solo cuentan los asientos de OTROS: si en desarrollo Emi tuviera asientos propios, verlos es correcto)
+  select count(*) into n from public.employee_ledger l where not exists (select 1 from public.employees e where e.id = l.employee_id and e.user_id = emi);
+  select count(*) into m from public.employee_loans l where not exists (select 1 from public.employees e where e.id = l.employee_id and e.user_id = emi);
   execute 'reset role';
   r := r || E'\n29 ' || case when n = 0 and m = 0 then 'OK' else 'FALLA' end || ' recepción no ve el libro de otros';
   perform pg_temp.b7_as(lucia, false);

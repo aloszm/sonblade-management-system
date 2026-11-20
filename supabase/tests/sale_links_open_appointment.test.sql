@@ -16,8 +16,11 @@ declare
 begin
   update public.business_memberships set must_change_pin = false;
   select business_id into biz from public.branches where id = b;
+  -- Cobrar necesita caja abierta: si en desarrollo no hay, la prueba abre una (como Emi) que se revierte con todo.
   if not exists (select 1 from public.cash_sessions where branch_id = b and status = 'open') then
-    raise exception 'La prueba necesita una caja abierta en la sucursal de desarrollo.';
+    perform set_config('request.jwt.claims', json_build_object('sub', emi, 'role', 'authenticated')::text, true);
+    perform public.open_cash_session(b, coalesce((select float_left from public.cash_sessions where branch_id = b and status = 'closed' order by closed_at desc limit 1),
+      (select cash_float_target from public.branches where id = b)));
   end if;
   select s.id, s.price into svc, price from public.services s where s.business_id = biz and s.is_active and not s.variable_price and s.price > 0 order by s.name limit 1;
   slot := date_trunc('hour', now()) + case when extract(minute from now()) >= 30 then interval '30 minutes' else interval '0' end;
