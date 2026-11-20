@@ -3,6 +3,7 @@
 import React, { Suspense, useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Calendar } from 'lucide-react';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ErrorState from '@/components/ui/ErrorState';
 import { useToast } from '@/components/ui/Toast';
 import type { Appointment, AppointmentStatus } from '@/types';
@@ -24,6 +25,9 @@ import { ReasonModal, TimeOffFormModal, TimeOffList } from './_components/TimeOf
 import type { ClientValue } from './_components/ClientPicker';
 import { useAgendaData, useNow } from './_components/useAgendaData';
 import { useAgendaLinks } from './_components/useAgendaLinks';
+import TomorrowReminders, { pendingCount, useTomorrowReminders } from './_components/TomorrowReminders';
+import { AddProductModal } from './_components/products';
+import type { AppointmentProductLine } from '@/lib/appointments/extras';
 import { BARBER_COLORS, MONTHS, NO_BARBER_COLOR, dayOf, longDayTitle, timeOf, weekRangeTitle } from './_components/agenda-ui';
 
 const WIDE_QUERY = '(min-width: 1024px)';
@@ -61,12 +65,19 @@ function AgendaScreen() {
     const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
     const [offForm, setOffForm] = useState<{ barberId: string; date: string } | null>(null);
     const [offCancel, setOffCancel] = useState<TimeOffView | null>(null);
+    // Recordatorios de mañana y productos de la cita (cada uno se abre solo: la ventana del día se oculta mientras tanto).
+    const [tomorrowOpen, setTomorrowOpen] = useState(false);
+    const [productAddId, setProductAddId] = useState<string | null>(null);
+    const [productRemove, setProductRemove] = useState<{ aptId: string; line: AppointmentProductLine } | null>(null);
+    const [productBusyId, setProductBusyId] = useState<string | null>(null);
+    const [productError, setProductError] = useState('');
 
     const year = cursor.getFullYear();
     const month = cursor.getMonth();
     const todayKey = localDateKey(now);
     const data = useAgendaData(year, month);
-    const { canManage, ownBarberId, schedule, refresh } = data;
+    const { canManage, ownBarberId, schedule, refresh, canPickSeller } = data;
+    const tomorrow = useTomorrowReminders(canManage);
     const readOnly = ownBarberId !== null;
 
     const activeBarbers = useMemo(() => data.barbers.filter((b) => b.status === 'active'), [data.barbers]);
@@ -128,6 +139,32 @@ function AgendaScreen() {
             return false;
         } finally { setBusyId(null); }
     };
+    const changeProductSeller = async (apt: Appointment, line: AppointmentProductLine, sellerId: string) => {
+        setProductError('');
+        setProductBusyId(line.id);
+        try {
+            await readJson(await fetch(`/api/appointments/${apt.id}/products/${line.id}`, {
+                method: 'PATCH', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seller_employee_id: sellerId }),
+            }));
+            await refresh();
+            toast.success('Cambiaste quién vendió el producto.');
+        } catch (err) {
+            setProductError(toUserMessage(err, 'No se pudo cambiar el vendedor.'));
+        } finally { setProductBusyId(null); }
+    };
+    const removeProduct = async () => {
+        if (!productRemove) return;
+        setProductError('');
+        setProductBusyId(productRemove.line.id);
+        try {
+            await readJson(await fetch(`/api/appointments/${productRemove.aptId}/products/${productRemove.line.id}`, { method: 'DELETE', cache: 'no-store' }));
+            await refresh();
+            setProductRemove(null);
+            toast.success('Producto quitado de la cita.');
+        } catch (err) {
+            setProductError(toUserMessage(err, 'No se pudo quitar el producto.'));
+        } finally { setProductBusyId(null); }
+    };
     const confirmOffCancel = async (reason: string) => {
         if (!offCancel) return;
         setActionError('');
@@ -173,7 +210,9 @@ function AgendaScreen() {
     const dayAll = openDay ? (byDay.get(openDay) ?? []) : [];
     const dayList = onlyApt ? dayAll.filter((a) => a.id === onlyApt) : dayAll;
     const pickDay = (key: string) => { goToDay(key); setView('day'); };
-    const nothingOpen = !formState && !cancelTarget && !offForm && !offCancel;
+    const nothingOpen = !formState && !cancelTarget && !offForm && !offCancel && !tomorrowOpen && !productAddId && !productRemove;
+    const productApt = productAddId ? data.appointments.find((a) => a.id === productAddId) ?? null : null;
+    const removeApt = productRemove ? data.appointments.find((a) => a.id === productRemove.aptId) ?? null : null;
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
@@ -184,7 +223,8 @@ function AgendaScreen() {
                 barbers={activeBarbers} colorOf={colorOf} onScope={setScope} onBarber={pickBarber} onShift={shift} onView={changeView}
                 onToday={() => { goToDay(todayKey); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); }}
                 onNewAppointment={() => openForm(view === 'day' ? dayKey : todayKey, '', barberFilter)}
-                onNewTimeOff={() => setOffForm({ barberId: barberFilter, date: view === 'day' ? dayKey : todayKey })} />
+                onNewTimeOff={() => setOffForm({ barberId: barberFilter, date: view === 'day' ? dayKey : todayKey })}
+                reminders={canManage ? { pending: pendingCount(tomorrow.data?.appointments), onOpen: () => setTomorrowOpen(true) } : null} />
 
             {data.warning && <p role="alert" className="rounded-xl border border-bos-border bg-bos-surface p-4 text-bos-danger">{data.warning}</p>}
 
@@ -235,7 +275,28 @@ function AgendaScreen() {
                     onStatus={(apt, status) => { void changeStatus(apt, status); }}
                     onCancel={(apt) => { setActionError(''); setCancelTarget(apt); }}
                     onReschedule={(apt) => { setActionError(''); setFormState({ mode: 'reschedule', appointment: apt }); }}
-                    onNewHere={(day) => openForm(day)} />
+                    onNewHere={(day) => openForm(day)}
+                    ownEmployeeId={ownBarberId} onNotified={refresh} productBusyId={productBusyId} productError={productError}
+                    onAddProduct={(apt) => { setProductError(''); setProductAddId(apt.id); }}
+                    onRemoveProduct={(apt, line) => { setProductError(''); setProductRemove({ aptId: apt.id, line }); }}
+                    onProductSeller={(apt, line, sellerId) => { void changeProductSeller(apt, line, sellerId); }} />
+            )}
+
+            {tomorrowOpen && <TomorrowReminders onClose={() => setTomorrowOpen(false)} onChanged={refresh} />}
+
+            {productApt && (
+                <AddProductModal apt={productApt} canPickOther={canPickSeller} showPrices={!readOnly} onClose={() => setProductAddId(null)}
+                    onAdded={async () => { await refresh(); setProductAddId(null); toast.success('Producto agregado a la cita.'); }} />
+            )}
+
+            {productRemove && (
+                <ConfirmDialog title="Quitar producto" variant="danger" confirmLabel="Quitar" loading={productBusyId === productRemove.line.id}
+                    message={<>
+                        <p>¿Quitar <strong>{productRemove.line.name}</strong>{removeApt ? <> de la cita de {removeApt.client_name}</> : null}?</p>
+                        <p className="mt-1 text-sm text-bos-muted">No se cobra ni baja del inventario. Queda registrado en la bitácora.</p>
+                        {productError && <p role="alert" className="mt-2 text-sm font-medium text-bos-danger">{productError}</p>}
+                    </>}
+                    onConfirm={() => { void removeProduct(); }} onCancel={() => { setProductRemove(null); setProductError(''); }} />
             )}
 
             {formState && (

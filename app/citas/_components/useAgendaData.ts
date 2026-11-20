@@ -78,6 +78,8 @@ export function useAgendaData(year: number, month: number) {
         meLoaded: !meQ.isLoading,
         canManage,
         canSeePhones: frontDesk,
+        /** Gerencia y cuenta principal (pantalla «admin», con escritura): pueden apuntar un producto a «Otra persona». */
+        canPickSeller: role === 'admin' && !meQ.data?.user?.readOnly,
         ownBarberId,
     };
 }

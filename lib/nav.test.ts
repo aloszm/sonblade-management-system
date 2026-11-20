@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { PAGE_TITLES, menuItems, menuSections, moreSections, navProfile, quickItems } from './nav';
+import { PAGE_TITLES, isNavActive, menuItems, menuSections, moreSections, navProfile, quickItems } from './nav';
 
 const labels = (items: { label: string }[]) => items.map((i) => i.label);
 const owner = { role: 'admin', isOwner: true };
@@ -48,6 +48,22 @@ describe('menú por puesto', () => {
         for (const l of ['Cobro', 'Mi semana', 'Configuración']) expect(all).not.toContain(l);
         expect(all).toContain('Caja');
         expect(labels(moreSections(viewer).flatMap((s) => s.items))).toContain('Reportes');
+    });
+
+    it('«Reservas en línea»: dueño y gerencia la ven; recepción, barbero y consulta no', () => {
+        expect(labels(menuItems(owner))).toContain('Reservas en línea');
+        expect(labels(menuItems(manager))).toContain('Reservas en línea');
+        for (const u of [front, barber, viewer]) expect(labels(menuItems(u))).not.toContain('Reservas en línea');
+        expect(PAGE_TITLES['/configuracion/reservas']).toBe('Reservas en línea');
+    });
+
+    it('en «/configuracion/reservas» solo se marca esa entrada y no también «Configuración»', () => {
+        const hrefs = menuItems(owner).map((i) => i.href);
+        expect(isNavActive('/configuracion/reservas', '/configuracion/reservas', hrefs)).toBe(true);
+        expect(isNavActive('/configuracion', '/configuracion/reservas', hrefs)).toBe(false);
+        expect(isNavActive('/configuracion', '/configuracion', hrefs)).toBe(true);
+        expect(isNavActive('/configuracion', '/configuracion/estado', hrefs)).toBe(true);
+        expect(isNavActive('/', '/citas', hrefs)).toBe(false);
     });
 
     it('con PIN temporal no hay menú ni atajos', () => {

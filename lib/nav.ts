@@ -1,6 +1,6 @@
 import {
     BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, Package, Scissors,
-    Settings, ShoppingCart, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins,
+    Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -57,6 +57,8 @@ export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
             { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['admin'] },
             { href: '/admin/auditoria', label: 'Bitácora', icon: Layers, roles: ['admin'] },
             { href: '/configuracion', label: 'Configuración', icon: Settings, roles: ['admin'], ownerOnly: true },
+            // Dueño y gerencia la ven; solo la cuenta principal cambia (la pantalla y la API lo imponen). La consulta no la ve.
+            { href: '/configuracion/reservas', label: 'Reservas en línea', icon: Globe, roles: ['admin'], writesOnly: true },
         ],
     },
 ];
@@ -129,5 +131,16 @@ export const PAGE_TITLES: Record<string, string> = {
     '/admin': 'Administración',
     '/admin/auditoria': 'Bitácora',
     '/configuracion': 'Configuración',
+    '/configuracion/reservas': 'Reservas en línea',
     '/mi-cuenta': 'Mi cuenta',
 };
+
+/**
+ * ¿Está activa esta entrada del menú? Coincide por prefijo, salvo que otra entrada del menú coincida con una
+ * dirección más larga (en «/configuracion/reservas» solo se marca «Reservas en línea», no también «Configuración»).
+ */
+export function isNavActive(href: string, pathname: string, allHrefs: string[]): boolean {
+    const matches = (h: string) => (h === '/' ? pathname === '/' : pathname === h || pathname.startsWith(`${h}/`));
+    if (!matches(href)) return false;
+    return !allHrefs.some((other) => other !== href && other.length > href.length && other.startsWith(`${href}/`) && matches(other));
+}

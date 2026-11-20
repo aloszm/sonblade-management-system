@@ -377,4 +377,29 @@ describe('cobro desde la agenda: productos de la cita con su vendedor', () => {
             expect.objectContaining({ item_type: 'product', catalog_id: 'p1', quantity: 2, commission_employee_ids: ['e-dago'] }),
         ]);
     });
+
+    it('cada producto precargado muestra a quién se apunta ("Vendido por Dago") y no pide un vendedor general', async () => {
+        window.history.replaceState(null, '', '/pos?cita=a1');
+        mockApi({ appointment: APT, products: PRODUCTS });
+        render(<POS />);
+        expect(await screen.findByTestId('pos-line-seller')).toHaveTextContent('Vendido por Dago');
+        expect(screen.queryByLabelText('Vendió el producto')).not.toBeInTheDocument();
+        expect(screen.getByText('Cada producto se apunta a quien lo vendió en la cita.')).toBeInTheDocument();
+        expect(screen.queryByTestId('pos-preload-skipped')).not.toBeInTheDocument();
+    });
+
+    it('avisa qué producto no se pudo cargar y cuál se cargó con menos piezas, y por qué', async () => {
+        window.history.replaceState(null, '', '/pos?cita=a1');
+        const lines = [
+            { ...APT.products.lines[0], quantity: 3 },
+            { ...APT.products.lines[0], id: 'l2', product_id: 'p2', name: 'Prueba pomada', seller_employee_id: 'b1', seller_name: 'Deya', quantity: 1 },
+        ];
+        const products = [{ ...PRODUCTS[0], stock: 1 }, { ...PRODUCTS[0], id: 'p2', name: 'Prueba pomada', stock: 0 }];
+        mockApi({ appointment: { ...APT, products: { ...APT.products, lines } }, products });
+        render(<POS />);
+        const warning = await screen.findByTestId('pos-preload-skipped');
+        expect(warning).toHaveTextContent('«Prueba cera» se cargó con menos piezas de las que pidió la cita, porque no hay suficientes en existencia.');
+        expect(warning).toHaveTextContent('«Prueba pomada» no tiene existencias, así que no se cargó al cobro.');
+        expect(warning).toHaveAttribute('role', 'alert');
+    });
 });

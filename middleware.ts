@@ -113,8 +113,10 @@ async function internalMiddleware(request: NextRequest): Promise<NextResponse> {
             return NextResponse.redirect(new URL('/pos', request.url));
         }
 
-        // Configuración del negocio (datos, comisiones, fondo de caja): solo el dueño.
-        if ((pathname === '/configuracion' || pathname.startsWith('/configuracion/')) && membership.role !== 'owner') {
+        // Configuración del negocio (datos, comisiones, fondo de caja): solo el dueño. Excepción: la gerencia puede VER
+        // «Reservas en línea» (la pantalla es de solo lectura para ella; cambiar exige la cuenta principal y su PIN).
+        const managerCanSee = pathname === '/configuracion/reservas' && membership.role === 'admin';
+        if ((pathname === '/configuracion' || pathname.startsWith('/configuracion/')) && membership.role !== 'owner' && !managerCanSee) {
             return NextResponse.redirect(new URL('/admin', request.url));
         }
 

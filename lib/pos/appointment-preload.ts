@@ -72,3 +72,12 @@ export function appointmentCartLines(
 export function productLineSeller(item: Pick<CartItem, 'type' | 'seller_id'>, fallback: string): string {
     return item.type === 'product' && item.seller_id ? item.seller_id : fallback;
 }
+
+/** Texto para recepción: qué producto de la cita no se pudo cargar al cobro (o se cargó incompleto) y por qué. */
+export function skipMessage(skip: PreloadSkip): string {
+    switch (skip.reason) {
+        case 'inactive': return `«${skip.name}» ya no está disponible en el catálogo, así que no se cargó al cobro.`;
+        case 'no_stock': return `«${skip.name}» no tiene existencias, así que no se cargó al cobro.`;
+        case 'short_stock': return `«${skip.name}» se cargó con menos piezas de las que pidió la cita, porque no hay suficientes en existencia.`;
+    }
+}

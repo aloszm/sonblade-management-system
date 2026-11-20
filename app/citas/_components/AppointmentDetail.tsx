@@ -12,6 +12,9 @@ import { servicesText } from '@/lib/appointments/booking';
 import { Avatar } from './parts';
 import { NO_BARBER_COLOR, STATUS_STYLE, money } from './agenda-ui';
 import { formatPhone } from '@/lib/utils/phone';
+import type { AppointmentProductLine } from '@/lib/appointments/extras';
+import { WhatsAppActions } from './whatsapp';
+import { AppointmentProductsSection } from './products';
 
 // En la agenda solo se usan estas acciones: confirmar, marcar que llegó y cancelar.
 const UI_ACTIONS: AppointmentStatus[] = ['confirmed', 'checked_in', 'cancelled'];
@@ -37,10 +40,19 @@ interface AppointmentDetailProps {
     onStatus: (apt: Appointment, status: AppointmentStatus) => void;
     onCancel: (apt: Appointment) => void;
     onReschedule: (apt: Appointment) => void;
+    /** Empleado de quien mira (barbero): solo quita los productos que se apuntan a su nombre. */
+    ownEmployeeId?: string | null;
+    /** Se mandó un WhatsApp: refresca la agenda para mostrar quién y cuándo. */
+    onNotified?: () => void | Promise<void>;
+    productBusyId?: string | null;
+    productError?: string;
+    onAddProduct?: (apt: Appointment) => void;
+    onRemoveProduct?: (apt: Appointment, line: AppointmentProductLine) => void;
+    onProductSeller?: (apt: Appointment, line: AppointmentProductLine, sellerId: string) => void;
 }
 
 /** Detalle de una cita: cliente, horario, barbero, servicios y las acciones que le tocan a quien la mira. */
-export default function AppointmentDetail({ apt, barberColor, canManage, canSeePhones, showPrices, busy, onStatus, onCancel, onReschedule }: AppointmentDetailProps) {
+export default function AppointmentDetail({ apt, barberColor, canManage, canSeePhones, showPrices, busy, onStatus, onCancel, onReschedule, ownEmployeeId = null, onNotified, productBusyId = null, productError = '', onAddProduct, onRemoveProduct, onProductSeller }: AppointmentDetailProps) {
     const open = canCharge(apt);
     const actions = actionsFor(apt.status);
     const services = apt.services ?? [];
@@ -111,6 +123,8 @@ export default function AppointmentDetail({ apt, barberColor, canManage, canSeeP
                             <Receipt aria-hidden="true" className="h-4 w-4" /> Cobrada · {money(apt.sale.total)} · Ver ticket
                         </Link>
                     )}
+                    <AppointmentProductsSection apt={apt} ownEmployeeId={ownEmployeeId} showPrices={showPrices} busyLineId={productBusyId} error={productError}
+                        onAdd={(a) => onAddProduct?.(a)} onRemove={(a, l) => onRemoveProduct?.(a, l)} onSeller={(a, l, id) => onProductSeller?.(a, l, id)} />
                     {canManage && (actions.length > 0 || open) && (
                         <div className="mt-4 flex flex-wrap gap-2 border-t border-bos-border pt-4">
                             {open && (
@@ -130,6 +144,7 @@ export default function AppointmentDetail({ apt, barberColor, canManage, canSeeP
                             ))}
                         </div>
                     )}
+                    <WhatsAppActions apt={apt} canSend={canManage} onSent={() => onNotified?.()} />
                 </div>
             </div>
         </li>

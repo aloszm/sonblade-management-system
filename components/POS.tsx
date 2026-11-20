@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Check, Loader2, Lock, Minus, Plus, Search, X } from 'lucide-react';
+import { AlertTriangle, Check, Loader2, Lock, Minus, Plus, Search, X } from 'lucide-react';
 import { usePOS, MAX_FREE_PRICE, MIN_FREE_PRICE, parseFreePrice, type CartItem, type PaymentType, type PosError, type PosErrorField } from '@/hooks/usePOS';
 import { useCountUp } from '@/hooks/useCountUp';
 import { groupServices, isTestName, formatDuration, type ServiceCategory } from '@/lib/services/categories';
@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { formatPhone } from '@/lib/utils/phone';
 import { paymentMethodLabel } from '@/lib/utils/payment';
+import { skipMessage } from '@/lib/pos/appointment-preload';
 
 const money = (n: number) => formatMoney(n);
 const METHODS: { id: PaymentType; label: string }[] = [
@@ -64,7 +65,7 @@ export default function POS() {
         selectedBarber, selectedClient, servicePayment, serviceSplit, serviceTotal, productPayment, cart, tip, tipPayment,
         clientSearch, submitting, showSuccess, lastSale, loadingBarbers, loadingServices,
         visibleBarbers, filteredClients, services, products, serviceItems, productItems, subtotal, total,
-        discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, appointment, appointmentError, appointmentSuggestions,
+        discountTotal, discountReason, discountAuthorizer, authorizers, sellers, productSeller, appointment, appointmentError, appointmentSuggestions, preloadSkipped,
         discountPinOpen, userId,
         error, cashStatus, canCharge,
     } = state;
@@ -113,6 +114,7 @@ export default function POS() {
                 <div className="min-w-0">
                     <p className="text-[15px] font-medium text-bos-text truncate">{item.name}</p>
                     <p className="text-xs text-bos-muted">{item.variable_price && item.price === 0 ? 'Precio al cobrar' : `${item.quantity} × ${money(item.price)}`}</p>
+                    {item.type === 'product' && item.seller_name && <p data-testid="pos-line-seller" className="text-xs font-medium text-bos-text">Vendido por {item.seller_name}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {item.type === 'product' && (
@@ -184,6 +186,14 @@ export default function POS() {
                         <button type="button" onClick={clearAppointment} className="min-h-11 px-4 rounded-xl border border-bos-border text-sm font-semibold hover:bg-bos-raised">
                             {appointment ? 'Quitar la cita' : 'Cerrar'}
                         </button>
+                    </div>
+                )}
+                {preloadSkipped.length > 0 && (
+                    <div data-testid="pos-preload-skipped" role="alert" className="space-y-2 rounded-xl border border-bos-warn bg-bos-surface p-4">
+                        <p className="flex items-center gap-2 text-sm font-semibold text-bos-text"><AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0 text-bos-warn" /> Revisa los productos de la cita</p>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-bos-text">
+                            {preloadSkipped.map((skip) => <li key={`${skip.name}-${skip.reason}`}>{skipMessage(skip)}</li>)}
+                        </ul>
                     </div>
                 )}
                 <section aria-labelledby="pos-barber" className="space-y-3">
@@ -445,11 +455,18 @@ export default function POS() {
                                     <div className="space-y-2">
                                         <p className={sectionTitle}>{serviceItems.length > 0 ? 'Pago de productos' : 'Forma de pago'}</p>
                                         <MethodPicker label="Forma de pago de los productos" value={productPayment} onChange={setProductPayment} />
-                                        <label htmlFor="pos-product-seller" className={`${sectionTitle} block pt-2`}>Vendió el producto</label>
-                                        <select id="pos-product-seller" value={productSeller} onChange={(e) => setProductSellerChoice(e.target.value)} className={fieldClass}>
-                                            <option value="">¿Quién lo vendió?</option>
-                                            {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
+                                        {productItems.some((i) => !i.seller_id) ? (
+                                            <>
+                                                <label htmlFor="pos-product-seller" className={`${sectionTitle} block pt-2`}>Vendió el producto</label>
+                                                <select id="pos-product-seller" value={productSeller} onChange={(e) => setProductSellerChoice(e.target.value)} className={fieldClass}>
+                                                    <option value="">¿Quién lo vendió?</option>
+                                                    {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                </select>
+                                                {productItems.some((i) => i.seller_id) && <p className="text-xs text-bos-muted">Elige a quién se apuntan solo los productos que no traen vendedor.</p>}
+                                            </>
+                                        ) : (
+                                            <p className="pt-2 text-sm text-bos-muted">Cada producto se apunta a quien lo vendió en la cita.</p>
+                                        )}
                                         <InlineError error={error} field="seller" />
                                     </div>
                                 )}

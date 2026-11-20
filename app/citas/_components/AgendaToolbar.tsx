@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Ban, ChevronLeft, ChevronRight, Footprints, Plus } from 'lucide-react';
+import { Ban, ChevronLeft, ChevronRight, Footprints, MessageCircle, Plus } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import type { Barber } from '@/types';
 import { Avatar } from './parts';
@@ -32,6 +32,8 @@ interface AgendaToolbarProps {
     onView: (view: AgendaView) => void;
     onNewAppointment: () => void;
     onNewTimeOff: () => void;
+    /** Recepción y gerencia: acceso a la lista de recordatorios de mañana, con cuántos faltan por avisar. */
+    reminders?: { pending: number; onOpen: () => void } | null;
 }
 
 /** Encabezado de la agenda: título, navegación de fechas, vistas, acciones de recepción y filtro por barbero. */
@@ -73,6 +75,16 @@ export default function AgendaToolbar(p: AgendaToolbarProps) {
                     </div>
                 )}
             </header>
+
+            {p.reminders && (
+                <div>
+                    <Button variant="secondary" size="md" data-testid="tomorrow-open" onClick={p.reminders.onOpen} className="w-full sm:w-auto">
+                        <MessageCircle aria-hidden="true" className="h-5 w-5" /> Recordatorios de mañana
+                        <span data-testid="tomorrow-count"
+                            className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums leading-6 ${p.reminders.pending > 0 ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised text-bos-muted'}`}>{p.reminders.pending}<span className="sr-only"> pendientes</span></span>
+                    </Button>
+                </div>
+            )}
 
             {/* Barbero: agenda de solo lectura, con su calendario por omisión y el de toda la barbería. */}
             {p.readOnly && (

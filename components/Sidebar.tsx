@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { KeyRound, LogOut } from 'lucide-react';
-import { ACCOUNT_ITEM, menuSections } from '@/lib/nav';
+import { ACCOUNT_ITEM, isNavActive, menuItems, menuSections } from '@/lib/nav';
 import { useNavUser } from '@/hooks/useNavUser';
 import { sessionTitle } from '@/lib/auth/roles';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
@@ -22,7 +22,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
     if (!isOpen) return null;
 
-    const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`));
+    const allHrefs = menuItems(user).map((i) => i.href);
+    const isActive = (href: string) => isNavActive(href, pathname, allHrefs);
     // Con PIN temporal no hay menú: solo Mi cuenta y Salir.
     const mustChangePin = Boolean(user?.mustChangePin);
     const sections = menuSections(user);

@@ -12,6 +12,7 @@ import { workingWindow, type ScheduleData } from '@/lib/appointments/hours';
 import { NO_BARBER_COLOR, SLOT_PX, SUBTLE_BG, SUBTLE_BG_STRONG, TINT_HOVER_PCT, money, tintOf } from './agenda-ui';
 import { servicesText } from '@/lib/appointments/booking';
 import { Avatar, StatusChip, StatusDot } from './parts';
+import { productPieces, productsBadgeText } from './products';
 
 export interface DayColumn { id: string | null; name: string }
 
@@ -240,7 +241,8 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
                                         const tall = visual.end - visual.start >= 3 * SLOT_MINUTES;
                                         const live = isActive(a.status) && a.status !== 'no_show';
                                         const range12 = formatRange(span);
-                                        const state = a.walk_in ? 'Sin cita' : a.online ? `${STATUS_LABELS[a.status]}, reserva en línea` : STATUS_LABELS[a.status];
+                                        const pieces = productPieces(a);
+                                        const state = `${a.walk_in ? 'Sin cita' : a.online ? `${STATUS_LABELS[a.status]}, reserva en línea` : STATUS_LABELS[a.status]}${pieces > 0 ? `, ${productsBadgeText(pieces)}` : ''}`;
                                         return (
                                             <button key={a.id} type="button" data-testid="day-appointment"
                                                 onClick={() => onOpenAppointment(a)}
@@ -256,7 +258,7 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
                                                     <span className={`min-w-0 flex-1 text-[13px] font-bold leading-[18px] ${tall ? 'line-clamp-2' : 'truncate'} ${isActive(a.status) && a.status !== 'no_show' ? 'text-bos-text' : 'text-bos-muted'} ${isActive(a.status) ? '' : 'line-through'}`}>{a.client_name}</span>
                                                     <StatusDot status={a.status} className="mt-1" />
                                                 </span>
-                                                <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{detail.showService && servicesText(a) ? ` · ${servicesText(a)}` : ''}{a.online && !detail.showService && <span data-testid="origen-en-linea" className="font-semibold text-bos-text"> · En línea</span>}</span>
+                                                <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{pieces > 0 && <span data-testid="products-mark" className="font-semibold text-bos-text"> · {productsBadgeText(pieces)}</span>}{detail.showService && servicesText(a) ? ` · ${servicesText(a)}` : ''}{a.online && !detail.showService && <span data-testid="origen-en-linea" className="font-semibold text-bos-text"> · En línea</span>}</span>
                                                 {(detail.showService || a.walk_in) && (a.walk_in || a.online || a.status !== 'scheduled' || a.sale) && (
                                                     <span className="mt-0.5 flex flex-wrap items-center gap-1">
                                                         {a.status !== 'scheduled' && <StatusChip status={a.status} />}

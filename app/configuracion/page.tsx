@@ -130,7 +130,10 @@ export default function SettingsPage() {
             <header>
                 <h1 className="font-display text-3xl font-semibold tracking-tight">Configuración del negocio</h1>
                 <p className="text-bos-muted text-sm mt-1">Administra el perfil, moneda, zona horaria y reglas operativas de tu barbería.</p>
-                <Link href="/configuracion/estado" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-bos-accent-text underline underline-offset-4">Ver el estado del sistema</Link>
+                <div className="mt-2 flex flex-wrap gap-x-6">
+                    <Link href="/configuracion/reservas" className="inline-flex min-h-11 items-center text-sm font-semibold text-bos-accent-text underline underline-offset-4">Reservas en línea</Link>
+                    <Link href="/configuracion/estado" className="inline-flex min-h-11 items-center text-sm font-semibold text-bos-accent-text underline underline-offset-4">Ver el estado del sistema</Link>
+                </div>
             </header>
 
             {error && (

@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { KeyRound, LogOut, MoreHorizontal } from 'lucide-react';
-import { ACCOUNT_ITEM, moreSections, quickItems } from '@/lib/nav';
+import { ACCOUNT_ITEM, isNavActive, menuItems, moreSections, quickItems } from '@/lib/nav';
 import { useNavUser } from '@/hooks/useNavUser';
 import LogoutDialog from '@/components/LogoutDialog';
 import Modal from '@/components/ui/Modal';
@@ -29,7 +29,8 @@ const MobileNav = () => {
     const mustChangePin = Boolean(user?.mustChangePin);
     const quick = quickItems(user);
     const sections = moreSections(user);
-    const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`));
+    const allHrefs = menuItems(user).map((i) => i.href);
+    const isActive = (href: string) => isNavActive(href, pathname, allHrefs);
     const moreActive = sections.some((s) => s.items.some((i) => isActive(i.href)));
 
     return (

@@ -10,6 +10,7 @@ import type { TimeOffView } from '@/lib/appointments/time-off';
 import { NO_BARBER_COLOR, TINT_HOVER_PCT, WEEK_SHORT, money, tintOf } from './agenda-ui';
 import { servicesText } from '@/lib/appointments/booking';
 import { StatusDot } from './parts';
+import { productPieces, productsBadgeText } from './products';
 
 interface WeekAgendaProps {
     days: string[];
@@ -78,7 +79,7 @@ export default function WeekAgenda({ days, todayKey, byDay, schedule, offOnDay, 
                                                     <span className="min-w-0 flex-1">
                                                         <span className={`block truncate text-sm font-bold ${live ? 'text-bos-text' : 'text-bos-muted'} ${isActive(a.status) ? '' : 'line-through'}`}>{a.client_name}</span>
                                                         <span className="block truncate text-xs tabular-nums text-bos-muted">{range}{servicesText(a) ? ` · ${servicesText(a)}` : ''}</span>
-                                                        <span className="mt-0.5 block truncate text-xs text-bos-muted">{a.barber ? a.barber.name : 'Sin barbero asignado'}{a.sale ? ` · ${money(a.sale.total)}` : ''}</span>
+                                                        <span className="mt-0.5 block truncate text-xs text-bos-muted">{a.barber ? a.barber.name : 'Sin barbero asignado'}{a.sale ? ` · ${money(a.sale.total)}` : ''}{productPieces(a) > 0 && <span data-testid="products-mark" className="font-semibold text-bos-text"> · {productsBadgeText(productPieces(a))}</span>}</span>
                                                     </span>
                                                     <span className="mt-0.5 flex shrink-0 flex-col items-end gap-1">
                                                         <StatusDot status={a.status} />

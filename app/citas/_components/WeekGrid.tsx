@@ -12,6 +12,7 @@ import type { TimeOffView } from '@/lib/appointments/time-off';
 import { NO_BARBER_COLOR, SUBTLE_BG, SUBTLE_BG_STRONG, TINT_HOVER_PCT, WEEK_SHORT, WEEK_SLOT_PX, money, tintOf } from './agenda-ui';
 import { servicesText } from '@/lib/appointments/booking';
 import { StatusDot } from './parts';
+import { productPieces, productsBadgeText } from './products';
 
 interface WeekGridProps {
     days: string[];
@@ -136,7 +137,8 @@ export default function WeekGrid({ days, todayKey, nowMinutes, byDay, schedule, 
                                     const color = a.barber ? colorOf(a.barber.id) : NO_BARBER_COLOR;
                                     const live = isActive(a.status) && a.status !== 'no_show';
                                     const range12 = formatRange(span);
-                                    const state = a.walk_in ? 'Sin cita' : a.online ? `${STATUS_LABELS[a.status]}, reserva en línea` : STATUS_LABELS[a.status];
+                                    const pieces = productPieces(a);
+                                    const state = `${a.walk_in ? 'Sin cita' : a.online ? `${STATUS_LABELS[a.status]}, reserva en línea` : STATUS_LABELS[a.status]}${pieces > 0 ? `, ${productsBadgeText(pieces)}` : ''}`;
                                     return (
                                         <button key={a.id} type="button" data-testid="week-appointment" onClick={() => onOpenAppointment(a)}
                                             title={`${range12} · ${a.client_name}${servicesText(a) ? ` · ${servicesText(a)}` : ''}${a.barber ? ` · ${a.barber.name}` : ''} · ${state}`}
@@ -151,6 +153,7 @@ export default function WeekGrid({ days, todayKey, nowMinutes, byDay, schedule, 
                                                 <StatusDot status={a.status} className="!h-2 !w-2" />
                                             </span>
                                             {slotsHigh >= 2 && <span className="block truncate text-xs leading-4 text-bos-muted">{range12}{a.online && <span data-testid="origen-en-linea" className="font-semibold text-bos-text"> · En línea</span>}</span>}
+                                            {pieces > 0 && (slotsHigh >= 2 ? <span data-testid="products-mark" className="block truncate text-xs font-semibold leading-4 text-bos-text">{productsBadgeText(pieces)}</span> : <span data-testid="products-mark" className="sr-only">{productsBadgeText(pieces)}</span>)}
                                             {slotsHigh >= 3 && servicesText(a) && <span className="block truncate text-xs leading-4 text-bos-muted">{servicesText(a)}</span>}
                                             <span className="sr-only">{state}{a.sale ? `, ${money(a.sale.total)}` : ''}</span>
                                         </button>

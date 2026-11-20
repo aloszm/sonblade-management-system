@@ -15,7 +15,7 @@ export async function getJson<T>(url: string): Promise<T> {
  * (la ventana del PIN lo enseña). 428 = falta el PIN; 400 `pin_error` = PIN incorrecto; 409 = regla del negocio
  * (p. ej. el sobre no alcanza). Devuelve el estado para distinguir 201 de 200 (reintento).
  */
-export async function sendJson<T>(url: string, method: 'POST' | 'PATCH', body: unknown, fallback = 'No se pudo completar. Inténtalo de nuevo.'): Promise<{ status: number; data: T }> {
+export async function sendJson<T>(url: string, method: 'POST' | 'PATCH' | 'PUT', body: unknown, fallback = 'No se pudo completar. Inténtalo de nuevo.'): Promise<{ status: number; data: T }> {
     let res: Response;
     try {
         res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

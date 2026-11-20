@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import type { Appointment, AppointmentStatus } from '@/types';
 import AppointmentDetail from './AppointmentDetail';
+import type { AppointmentProductLine } from '@/lib/appointments/extras';
 import { dayTitle } from './agenda-ui';
 
 interface DayModalProps {
@@ -24,6 +25,13 @@ interface DayModalProps {
     onCancel: (apt: Appointment) => void;
     onReschedule: (apt: Appointment) => void;
     onNewHere: (day: string) => void;
+    ownEmployeeId?: string | null;
+    onNotified?: () => void | Promise<void>;
+    productBusyId?: string | null;
+    productError?: string;
+    onAddProduct?: (apt: Appointment) => void;
+    onRemoveProduct?: (apt: Appointment, line: AppointmentProductLine) => void;
+    onProductSeller?: (apt: Appointment, line: AppointmentProductLine, sellerId: string) => void;
 }
 
 /** Ventana flotante con las citas de un día, o con el detalle de una sola. */
@@ -40,7 +48,9 @@ export default function DayModal(p: DayModalProps) {
                     {p.appointments.map((apt) => (
                         <AppointmentDetail key={apt.id} apt={apt} barberColor={apt.barber ? p.colorOf(apt.barber.id) : undefined}
                             canManage={p.canManage} canSeePhones={p.canSeePhones} showPrices={p.showPrices} busy={p.busyId === apt.id}
-                            onStatus={p.onStatus} onCancel={p.onCancel} onReschedule={p.onReschedule} />
+                            onStatus={p.onStatus} onCancel={p.onCancel} onReschedule={p.onReschedule}
+                            ownEmployeeId={p.ownEmployeeId} onNotified={p.onNotified} productBusyId={p.productBusyId} productError={p.productError}
+                            onAddProduct={p.onAddProduct} onRemoveProduct={p.onRemoveProduct} onProductSeller={p.onProductSeller} />
                     ))}
                 </ul>
             )}
