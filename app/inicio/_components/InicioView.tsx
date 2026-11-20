@@ -254,7 +254,6 @@ export default function InicioView({ catalog, links, jsonLd, now = new Date() }:
                                     </div>
                                     <div className="min-w-0 sm:flex sm:flex-col sm:items-center">
                                         <p className="gi-serif text-2xl font-semibold leading-tight text-bos-text sm:mt-2 sm:text-[1.75rem]">{barber.name}</p>
-                                        {barber.title && <p className="gi-caps mt-1.5 text-[0.6875rem] text-bos-accent-text sm:mt-2">{barber.title}</p>}
                                         <Razor className="mt-3 hidden h-4 w-20 text-(--gi-ornament) sm:block" />
                                         {bookingOn && (
                                             <a href={links.barber(barber.name)} className={`${TEXT_LINK} sm:mt-2`}>

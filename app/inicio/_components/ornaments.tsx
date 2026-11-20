@@ -81,7 +81,7 @@ export function Corner({ className = '' }: SvgProps) {
     );
 }
 
-/** Aro de sello con muescas, para "Desde 2000" y los monogramas del equipo. */
+/** Aro de sello con muescas, para "Desde 2016" y los monogramas del equipo. */
 export function SealRing({ className = '', ticks = 48 }: SvgProps & { ticks?: number }) {
     const ticksPath = Array.from({ length: ticks }, (_, i) => {
         const a = (i / ticks) * Math.PI * 2;

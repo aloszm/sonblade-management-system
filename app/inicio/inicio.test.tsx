@@ -73,7 +73,7 @@ describe('página pública de inicio', () => {
     it('si la base no responde, la página sigue con horario, ubicación y contacto', () => {
         render(<InicioView catalog={{ state: 'error' }} links={localLinks} now={NOW} />);
         expect(screen.getByRole('heading', { level: 1, name: 'Gallo 4:20 · Barber Shop' })).toBeInTheDocument();
-        expect(screen.getByText('Desde 2000')).toBeInTheDocument();
+        expect(screen.getByText('Desde 2016')).toBeInTheDocument();
         const hours = screen.getByRole('region', { name: 'Horario' });
         expect(within(hours).getByText('Domingo y lunes')).toBeInTheDocument();
         expect(within(hours).getByText(/10:00 a\. m\. a 7:00 p\. m\./)).toBeInTheDocument();
@@ -155,7 +155,8 @@ describe('página pública de inicio', () => {
         allLinks(/Agenda por WhatsApp/).forEach((a) => expect(a.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/525533098072/));
         const team = screen.getByRole('region', { name: 'Nuestro equipo' });
         expect(within(team).getByText('Sonia')).toBeInTheDocument();
-        expect(within(team).getByText('Gerente Barbera')).toBeInTheDocument();
+        // El título interno ("Gerente Barbera") no se publica: ante el público todo el equipo se presenta igual.
+        expect(within(team).queryByText('Gerente Barbera')).not.toBeInTheDocument();
         expect(within(team).queryAllByRole('link')).toHaveLength(0);
     });
 

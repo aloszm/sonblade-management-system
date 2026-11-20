@@ -19,7 +19,7 @@ export interface SitePhoto { src: string; alt: string }
 export const SITE_CONTENT = {
     name: CLIENT_NAME,
     fullName: `${CLIENT_NAME} · Barber Shop`,
-    foundedYear: 2000,
+    foundedYear: 2016,
     /** Mismo domicilio y teléfono que usa la reserva en línea (lib/booking-ui/business.ts). */
     address: BUSINESS_FALLBACK.address,
     street: 'Efeso 2, Lomas Estrella 2da Sección',

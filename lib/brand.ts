@@ -3,7 +3,7 @@
 
 export const SYSTEM_NAME = 'BarberOS';
 export const CLIENT_NAME = 'Gallo 4:20';
-export const CLIENT_TAGLINE = 'Barber Shop · desde 2000';
+export const CLIENT_TAGLINE = 'Barber Shop · desde 2016';
 // Trazo bronce sobre transparente: uno para fondos claros y otro, aclarado, para fondos oscuros.
 export const CLIENT_LOGO_LIGHT = '/logo-light.png';
 export const CLIENT_LOGO_DARK = '/logo-dark.png';

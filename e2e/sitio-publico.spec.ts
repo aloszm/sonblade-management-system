@@ -12,7 +12,7 @@ test.describe('página pública /inicio (todo junto)', () => {
         await page.goto('/inicio', { waitUntil: 'networkidle' });
         await expect(page).toHaveURL(/\/inicio$/);
         await expect(page.getByRole('heading', { level: 1, name: 'Gallo 4:20 · Barber Shop' })).toBeVisible();
-        await expect(page.getByText('Desde 2000')).toBeVisible();
+        await expect(page.getByText('Desde 2016')).toBeVisible();
         await expect(page.getByRole('region', { name: 'Horario' })).toContainText('10:00 a. m. a 7:00 p. m.');
         await expect(page.getByRole('region', { name: 'Horario' })).toContainText('12:30 p. m. a 8:00 p. m.');
         await expect(page.getByRole('region', { name: 'Dónde estamos' })).toContainText('Efeso 2');

@@ -28,7 +28,8 @@ describe('loadPublicCatalog (public.public_catalog)', () => {
         expect(loaded.enabled).toBe(true);
         expect(loaded.bookingEnabled).toBe(false);
         expect(loaded.services?.map((s) => [s.id, s.price, s.category_label])).toEqual([['s1', 150, 'Cortes'], ['s2', 100, 'Barba y afeitado']]);
-        expect(loaded.barbers).toEqual(RAW.barbers);
+        // El título interno no se publica: solo id y nombre.
+        expect(loaded.barbers).toEqual([{ id: 'b1', name: 'Deya' }, { id: 'b2', name: 'Sonia' }]);
         expect(loaded.hours).toEqual(HOURS);
         expect(loaded.timezone).toBe('America/Mexico_City');
     });

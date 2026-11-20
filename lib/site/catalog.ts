@@ -49,7 +49,8 @@ export async function loadPublicCatalog(): Promise<LoadedConfig> {
         enabled: true,
         bookingEnabled: data.booking_enabled === true,
         services: orderServices(data.services as Parameters<typeof orderServices>[0]),
-        barbers: (Array.isArray(data.barbers) ? data.barbers : []) as PublicBarber[],
+        // El título interno (p. ej. "Gerente Barbera") es solo para el equipo: al público se le presenta a todos igual.
+        barbers: ((Array.isArray(data.barbers) ? data.barbers : []) as PublicBarber[]).map((b) => ({ id: b.id, name: b.name })),
         hours: (data.hours ?? {}) as BusinessHours,
         timezone: typeof data.timezone === 'string' ? data.timezone : undefined,
     };
