@@ -222,6 +222,7 @@ const ACTION_LABELS: Record<string, string> = {
     cash_closed: 'Caja cerrada',
     cash_movement_recorded: 'Movimiento de caja',
     cash_settings_changed: 'Cambio del fondo y apartado de caja',
+    cash_withdrawal_recipient_changed: 'Cambio de quién recibe el retiro de la caja',
     commission_defaults_changed: 'Cambio de las comisiones generales',
     commission_settlement_paid: 'Pago de comisiones',
     inventory_adjusted: 'Ajuste de inventario',

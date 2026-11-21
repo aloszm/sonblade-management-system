@@ -16,6 +16,23 @@ const SettingsSchema = z.object({
 
 type BranchRow = { cash_float_target: number | string; daily_reserve_amount: number | string; daily_reserve_label: string };
 
+/** A quién se entrega el retiro del cierre (receptor fijo de la sucursal), o null si no hay uno. */
+export type WithdrawalRecipient = { user_id: string; name: string };
+
+/**
+ * Lee el receptor del retiro. Si la base todavía no tiene la función (se publica el código antes que la migración
+ * 20261121120000), responde null: la pantalla sigue con el texto opcional de antes.
+ */
+async function loadWithdrawalRecipient(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, branchId: string): Promise<WithdrawalRecipient | null> {
+    const { data, error } = await supabase.rpc('cash_withdrawal_recipient', { p_branch_id: branchId });
+    if (error) {
+        if ((error as { code?: unknown }).code === 'PGRST202') return null;
+        throw error;
+    }
+    const row = data as { user_id?: unknown; name?: unknown } | null;
+    return row && typeof row.user_id === 'string' && typeof row.name === 'string' && row.name.trim() ? { user_id: row.user_id, name: row.name.trim() } : null;
+}
+
 /**
  * Ajustes de caja de la sucursal: fondo que se deja para el día siguiente y apartado diario.
  * También dice cuánto se dejó en el último cierre, para proponerlo al abrir.
@@ -24,10 +41,11 @@ export async function GET() {
     try {
         const context = await requireAuthContext(FRONT_DESK_READ_ROLES);
         const supabase = await createSupabaseServerClient();
-        const [branch, last] = await Promise.all([
+        const [branch, last, recipient] = await Promise.all([
             supabase.from('branches').select('cash_float_target, daily_reserve_amount, daily_reserve_label').eq('id', context.branchId).single(),
             supabase.from('cash_sessions').select('float_left').eq('business_id', context.businessId).eq('branch_id', context.branchId)
                 .eq('status', 'closed').order('closed_at', { ascending: false }).limit(1).maybeSingle(),
+            loadWithdrawalRecipient(supabase, context.branchId),
         ]);
         if (branch.error) throw branch.error;
         if (last.error) throw last.error;
@@ -43,6 +61,10 @@ export async function GET() {
             // Gerencia confirma con PIN sus gastos, retiros y entradas manuales.
             movement_needs_pin: cashMovementNeedsPin(context.role),
             can_see_history: MANAGEMENT_READ_ROLES.includes(context.role),
+            // Receptor fijo del retiro del cierre (decisión del dueño): lo guarda la base en cada cierre con retiro.
+            withdrawal_recipient: recipient,
+            // Solo la cuenta principal lo cambia, con su PIN (set_cash_withdrawal_recipient).
+            can_set_withdrawal_recipient: context.role === 'owner',
         }, { headers: NO_STORE });
     } catch (error) {
         return authErrorResponse(error);

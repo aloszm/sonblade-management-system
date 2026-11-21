@@ -59,6 +59,15 @@ El día y hora de corte, así como la fecha exacta de pago, permanecen pendiente
 
 Tarjeta y transferencia se registran por separado y no incrementan el efectivo físico esperado.
 
+### RB-12b — Reparto del efectivo al cerrar y quién recibe el sobrante
+**Decidido por el dueño (21 nov 2026):** "El efectivo sobrante es después de los sobres. El efectivo sobrante se le tiene que entregar a Sonia."
+
+Al cerrar la caja, lo contado se reparte en este orden: (1) el fondo que se queda para el día siguiente, (2) lo que se aparta al sobre y (3) **el retiro, que es lo que sobra**. El retiro se entrega a una persona fija de la sucursal: hoy, Sonia (gerencia). El cierre guarda a esa persona en cada retiro mayor a $0; quien cierra no la elige ni la escribe.
+
+La persona se configura por sucursal, no va escrita en el código: solo la cuenta principal la cambia, con su PIN y un comentario, y solo puede ser gerencia o cuenta principal (`20261121120000_cash_withdrawal_recipient`).
+
+Pendiente de decidir: que quien recibe **confirme con su PIN** que recibió el dinero (hoy el sistema anota a quién se debe entregar, no que lo recibió), y qué pasa con ese dinero después (depósito, entrega al dueño).
+
 ### RB-13 — Historial financiero
 No borrar ventas, pagos, comisiones generadas ni cierres como mecanismo normal de corrección. Utilizar anulaciones, devoluciones y ajustes trazables.
 

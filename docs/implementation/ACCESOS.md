@@ -129,6 +129,9 @@ persona). Para producción, con la llave configurada, el dueño crea cada acceso
   - Gastos, retiros y entradas manuales hechos por gerencia: PIN; el concepto es el comentario
     (`record_cash_movement_confirmed`). Dueño y recepción siguen como antes.
   - Comisiones, puestos, horarios y accesos: sin cambios (comisiones solo el dueño).
+  - **Quién recibe el retiro del cierre (21 nov 2026):** solo la cuenta principal, con PIN + comentario
+    (`set_cash_withdrawal_recipient`, `POST /api/cash/settings/withdrawal-recipient`); el receptor debe ser gerencia o cuenta
+    principal. Gerencia, consulta y recepción solo lo leen. Detalle en `FASE_4.md`, §8j.
 - **Atajos cerrados (S5, migración `20261119175000_s5_close_legacy_admin_shortcuts`):** las funciones antiguas
   `adjust_inventory_stock`, `set_inventory_minimum`, `record_cash_movement` y `set_cash_settings` rechazan a gerencia
   (`admin`) con 42501 ("Como gerencia, … se confirma con tu PIN y un comentario."). Dueño, recepción y caja siguen igual.

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Save, Loader2 } from 'lucide-react';
 import { WEEKDAYS, validWeekHours, type WeekHours } from '@/lib/appointments/hours';
 import TimePicker from '@/components/ui/TimePicker';
-import CashSettingsEditor from '@/components/CashSettingsEditor';
+import CashSettingsEditor, { type WithdrawalRecipientValue } from '@/components/CashSettingsEditor';
 
 const TIMEZONES = [
     { value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)' },
@@ -35,6 +35,8 @@ export default function SettingsPage() {
     const [error, setError] = useState<string | null>(null);
     // Caja: fondo que se deja para el día siguiente y apartado diario.
     const [cash, setCash] = useState<{ float_target: number; reserve_amount: number; reserve_label: string } | null>(null);
+    // A quién se entrega el retiro del cierre y si esta cuenta lo puede cambiar (solo la cuenta principal).
+    const [cashRecipient, setCashRecipient] = useState<{ recipient: WithdrawalRecipientValue; canSet: boolean }>({ recipient: null, canSet: false });
 
     const [profile, setProfile] = useState({
         name: '',
@@ -68,6 +70,7 @@ export default function SettingsPage() {
                 if (cashRes.ok) {
                     const c = await cashRes.json();
                     setCash({ float_target: c.float_target, reserve_amount: c.reserve_amount, reserve_label: c.reserve_label });
+                    setCashRecipient({ recipient: c.withdrawal_recipient ?? null, canSet: c.can_set_withdrawal_recipient === true });
                 }
             } catch (e) {
                 console.error(e);
@@ -243,7 +246,8 @@ export default function SettingsPage() {
                         <h2 className="font-display text-lg font-semibold mb-1">Caja</h2>
                         <p className="text-sm text-bos-muted mb-5">Al cerrar la caja se propone dejar el fondo para el día siguiente y separar el apartado; quien cierra puede ajustar los montos si ese día no alcanza.</p>
                         {/* Se guarda aparte, con PIN y comentario. */}
-                        <CashSettingsEditor initial={cash} onSaved={setCash} />
+                        <CashSettingsEditor initial={cash} onSaved={setCash} recipient={cashRecipient.recipient} canSetRecipient={cashRecipient.canSet}
+                            onRecipientSaved={(recipient) => setCashRecipient((r) => ({ ...r, recipient }))} />
                     </section>
                 )}
 

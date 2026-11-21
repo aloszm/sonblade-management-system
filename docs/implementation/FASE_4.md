@@ -682,6 +682,47 @@ Sin cambios de permisos (`lib/auth/capabilities.ts` igual).
 5. `lib/database.types.ts` se editó a mano con la columna y el parámetro (la base aún no los tiene); regenerarlo después del paso 2 y comprobar
    que no cambia.
 
+## 8j. El retiro del cierre se entrega a una persona fija (21 nov 2026; migración SOLO como archivo, sin aplicar)
+
+Decisión del dueño (21 nov 2026), a raíz de la auditoría por puesto: "El efectivo sobrante es después de los sobres. El efectivo sobrante
+se le tiene que entregar a Sonia." Antes, "¿A quién se entrega el retiro? (opcional)" era un texto libre: se podía cerrar con un retiro
+de $1,400 sin decir quién lo recibía (comprobado en una réplica local).
+
+Migración `20261121120000_cash_withdrawal_recipient` · prueba `supabase/tests/cash_withdrawal_recipient.test.sql` (22 casos).
+**No está aplicada en ninguna base**: se probó en simulacro contra desarrollo (`begin; … rollback;`), junto con las otras 31 pruebas SQL
+(32 de 32 sin fallas), y en una réplica local.
+
+**Base:** `branches.withdrawal_recipient_user_id` (quién recibe el retiro; nula = sin receptor fijo) y
+`cash_sessions.withdrawal_recipient_user_id` (a quién quedó cada retiro; `check`: solo en caja cerrada con retiro > $0).
+`close_cash_session` conserva su firma: con receptor configurado y retiro > $0 guarda a esa persona (id y nombre en
+`withdrawal_delivered_to`) e **ignora el texto que mande la pantalla**; sin retiro no guarda a nadie; sin receptor (o si esa persona ya
+no es gerencia/cuenta principal o está desactivada) sigue el texto opcional de antes, así el cierre nunca se bloquea. El reparto no cambia
+(fondo → apartado al sobre → retiro = lo que sobra). `public.cash_withdrawal_recipient(branch)` lo lee quien ve la caja (dueño, gerencia,
+consulta, recepción). `public.set_cash_withdrawal_recipient(branch, user, comentario)`: **solo la cuenta principal, con PIN**
+(`consume_pin_proof`), y el receptor debe ser gerencia o cuenta principal activa; bitácora `cash_withdrawal_recipient_changed` +
+`pin_confirmed_action`. Un UPDATE directo de la columna desde la API se rechaza (disparador `guard_withdrawal_recipient`, mismo mecanismo
+que `guard_booking_settings`).
+
+**App:** en el cierre guiado (`components/CashRegister.tsx`), con receptor: "Entrega los $1,300 del retiro a Sonia. Queda anotado en el
+cierre." y ya no hay campo para escribir; sin receptor, el campo opcional de antes. El resumen del cierre muestra lo que guardó la base.
+`GET /api/cash/settings` trae `withdrawal_recipient` y `can_set_withdrawal_recipient`. Ajustes de caja (`components/CashSettingsEditor.tsx`,
+en Caja y en Configuración): todos leen a quién se entrega; la cuenta principal lo elige (lista de `/api/accounts`: gerencia y cuenta
+principal activas) y guarda con PIN por `POST /api/cash/settings/withdrawal-recipient`. Resumen del día, Excel, PDF, WhatsApp y Cierres
+anteriores ya mostraban `withdrawal_delivered_to`: sin cambios. `lib/database.types.ts` se editó a mano (regenerar después de aplicar).
+
+**Orden de publicación (seguro en los dos sentidos):**
+1. El código nuevo con la base anterior funciona: si la base no tiene `cash_withdrawal_recipient` (`PGRST202`), `/api/cash/settings`
+   responde sin receptor y la pantalla muestra el campo opcional de antes.
+2. La base nueva con la app anterior funciona: la firma del cierre no cambió; con receptor configurado, el retiro queda a su nombre
+   aunque la pantalla anterior no mande nada.
+3. Aplicar: desarrollo primero (receta 5.2), luego `scripts/replay-migrations.py` a producción. Después, **cargar el dato** en cada base:
+   `supabase/pending/cash_withdrawal_recipient_gallo.sql` (Sonia; deja bitácora con `source = 'sql'`), o que la cuenta principal lo elija
+   en Caja → Ajustes de caja. Sin ese dato nada cambia para recepción.
+
+**Sin hacer (pendiente de decisión del dueño):** acuse de recibo (que la receptora confirme con su PIN que recibió cada retiro; Sonia sale
+a las 5:30 p. m. y la caja cierra a las 8 p. m., así que la entrega ocurre después del cierre) y un saldo de "retiros por entregar".
+Tampoco se tocó `scripts/simulate-week.mjs` (ya estaba roto por §8i: cierra con faltante sin motivo).
+
 ## 9. Preguntas abiertas para el dueño (resumen)
 
 1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).
@@ -689,3 +730,4 @@ Sin cambios de permisos (`lib/auth/capabilities.ts` igual).
 3. Decisiones D1 a D7 de la sección 4.
 4. Existencias iniciales de los cuatro productos.
 5. ¿Cerrar la caja con sobrante o faltante debe pedir PIN de gerencia además del motivo? Hoy no pide PIN (§8i).
+6. ¿Quien recibe el retiro (Sonia) debe confirmar con su PIN que lo recibió? Hoy el cierre anota a quién se entrega, no que lo recibió (§8j).

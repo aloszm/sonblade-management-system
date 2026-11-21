@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, Loader2, Lock, Plus, Search, Settings2, TriangleAlert } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, HandCoins, Loader2, Lock, Plus, Search, Settings2, TriangleAlert } from 'lucide-react';
 import CashFlowPanel from '@/components/cash/CashFlowPanel';
 import DaySummaryButton from '@/components/cash/DaySummaryModal';
 import EnvelopeNote from '@/app/sobres/_components/EnvelopeNote';
@@ -20,7 +20,12 @@ import { formatMoney } from '@/lib/utils/money';
 import { formatDate, formatTime } from '@/lib/utils/dates';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
-interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean; movement_needs_pin?: boolean }
+interface CashSettings {
+    float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean; movement_needs_pin?: boolean;
+    /** Receptor fijo del retiro del cierre (lo guarda la base); null o ausente = texto opcional, como antes. */
+    withdrawal_recipient?: { user_id: string; name: string } | null;
+    can_set_withdrawal_recipient?: boolean;
+}
 type Movement = CashMovement & { direction: 'in' | 'out' };
 type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number; deliveredTo: string; differenceReason: string };
 
@@ -298,6 +303,8 @@ export default function CashRegister() {
     const counted = byDenomination ? breakdownTotal(counts) : Number(countedTotal) || 0;
     const difference = Math.round((counted - expected) * 100) / 100;
     const withdrawn = withdrawnFor(counted, Number(floatLeft) || 0, Number(reserve) || 0);
+    /** Receptor fijo del retiro (decisión del dueño): con él no se pregunta a quién se entrega. */
+    const recipientName = settings?.withdrawal_recipient?.name?.trim() || '';
     const floatTarget = settings?.float_target ?? 0;
     const closeShort = settings !== null && closingNeedsReason(Number(floatLeft) || 0, floatTarget);
     // Sobrante o faltante: el cierre pide el motivo (la base vuelve a contar y es la que manda).
@@ -363,19 +370,20 @@ export default function CashRegister() {
         }
         setSaving(true);
         try {
-            await api('/api/cash/session/close', {
+            const closed = await api<CashSession | null>('/api/cash/session/close', {
                 method: 'POST',
                 body: JSON.stringify({
                     session_id: session.id, physical_count: counted,
                     ...(byDenomination ? { breakdown: compactBreakdown(counts) } : {}),
                     float_left: Number(floatLeft) || 0, reserve_amount: Number(reserve) || 0,
-                    ...(withdrawn > 0 && deliveredTo.trim() ? { withdrawal_delivered_to: deliveredTo.trim() } : {}),
+                    // Con receptor fijo la base guarda a esa persona; el texto libre solo viaja si no hay receptor.
+                    ...(withdrawn > 0 && !recipientName && deliveredTo.trim() ? { withdrawal_delivered_to: deliveredTo.trim() } : {}),
                     ...(closeShort ? { short_float_reason: shortReason.trim() } : {}),
                     // Siempre se manda (vacío si cuadra): así la ruta sabe que esta pantalla sí pide el motivo.
                     difference_reason: needsDiffReason ? diffReason.trim() : '',
                 }),
             });
-            setCloseResult({ counted, difference, float: Number(floatLeft) || 0, reserve: Number(reserve) || 0, withdrawn, deliveredTo: withdrawn > 0 ? deliveredTo.trim() : '', differenceReason: needsDiffReason ? diffReason.trim() : '' });
+            setCloseResult({ counted, difference, float: Number(floatLeft) || 0, reserve: Number(reserve) || 0, withdrawn, deliveredTo: withdrawn > 0 ? (closed?.withdrawal_delivered_to?.trim() || recipientName || deliveredTo.trim()) : '', differenceReason: needsDiffReason ? diffReason.trim() : '' });
             setDiffReason('');
             setDeliveredTo('');
             setShortReason('');
@@ -398,7 +406,9 @@ export default function CashRegister() {
         <Dialog title="Ajustes de caja" onClose={() => setSettingsOpen(false)}>
             <p className="text-sm text-bos-muted mb-4">Fondo que se recomienda dejar para el día siguiente y apartado diario. Se cambian con tu PIN y un comentario.</p>
             <CashSettingsEditor initial={{ float_target: settings.float_target, reserve_amount: settings.reserve_amount, reserve_label: settings.reserve_label }}
-                onSaved={(v) => setSettings((s) => (s ? { ...s, ...v } : s))} />
+                onSaved={(v) => setSettings((s) => (s ? { ...s, ...v } : s))}
+                recipient={settings.withdrawal_recipient ?? null} canSetRecipient={settings.can_set_withdrawal_recipient === true}
+                onRecipientSaved={(r) => setSettings((s) => (s ? { ...s, withdrawal_recipient: r } : s))} />
         </Dialog>
     ) : null;
 
@@ -705,7 +715,13 @@ export default function CashRegister() {
                             <span className="text-[15px] text-bos-muted">Retiro (lo que sobra)</span>
                             <span data-testid="close-withdrawn" className={`font-display text-3xl font-semibold tabular-nums ${withdrawn === null ? 'text-bos-danger' : 'text-bos-accent-text'}`}>{withdrawn === null ? 'No alcanza' : money(withdrawn)}</span>
                         </div>
-                        {withdrawn !== null && withdrawn > 0 && (
+                        {withdrawn !== null && withdrawn > 0 && recipientName && (
+                            <p data-testid="close-recipient" className="flex items-start gap-2 rounded-xl border border-bos-border p-3 text-[15px] text-bos-text">
+                                <HandCoins aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-bos-accent-text" />
+                                <span>Entrega los <strong className="tabular-nums">{money(withdrawn)}</strong> del retiro a <strong>{recipientName}</strong>. Queda anotado en el cierre.</span>
+                            </p>
+                        )}
+                        {withdrawn !== null && withdrawn > 0 && !recipientName && (
                             <div className="space-y-2">
                                 <label htmlFor="close-delivered-to" className={label}>¿A quién se entrega el retiro? (opcional)</label>
                                 <input id="close-delivered-to" type="text" maxLength={120} autoComplete="off" value={deliveredTo} onChange={(e) => setDeliveredTo(e.target.value)} placeholder="Ej: Gerente, depósito al banco" className={field} />

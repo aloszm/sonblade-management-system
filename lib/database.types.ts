@@ -592,6 +592,7 @@ export type Database = {
           phone: string | null
           timezone: string
           updated_at: string
+          withdrawal_recipient_user_id: string | null
         }
         Insert: {
           address?: string | null
@@ -606,6 +607,7 @@ export type Database = {
           phone?: string | null
           timezone?: string
           updated_at?: string
+          withdrawal_recipient_user_id?: string | null
         }
         Update: {
           address?: string | null
@@ -620,6 +622,7 @@ export type Database = {
           phone?: string | null
           timezone?: string
           updated_at?: string
+          withdrawal_recipient_user_id?: string | null
         }
         Relationships: [
           {
@@ -875,6 +878,7 @@ export type Database = {
           reserve_amount: number | null
           status: Database["public"]["Enums"]["cash_session_status"]
           withdrawal_delivered_to: string | null
+          withdrawal_recipient_user_id: string | null
           withdrawn_amount: number | null
         }
         Insert: {
@@ -899,6 +903,7 @@ export type Database = {
           reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
           withdrawal_delivered_to?: string | null
+          withdrawal_recipient_user_id?: string | null
           withdrawn_amount?: number | null
         }
         Update: {
@@ -923,6 +928,7 @@ export type Database = {
           reserve_amount?: number | null
           status?: Database["public"]["Enums"]["cash_session_status"]
           withdrawal_delivered_to?: string | null
+          withdrawal_recipient_user_id?: string | null
           withdrawn_amount?: number | null
         }
         Relationships: [
@@ -3282,6 +3288,10 @@ export type Database = {
         Args: { p_reason: string; p_time_off_id: string }
         Returns: Json
       }
+      cash_withdrawal_recipient: {
+        Args: { p_branch_id: string }
+        Returns: Json
+      }
       change_appointment_status: {
         Args: {
           p_appointment_id: string
@@ -3859,6 +3869,10 @@ export type Database = {
           p_reserve_amount: number
           p_reserve_label: string
         }
+        Returns: Json
+      }
+      set_cash_withdrawal_recipient: {
+        Args: { p_branch_id: string; p_comment: string; p_user_id: string | null }
         Returns: Json
       }
       set_commission_defaults: {

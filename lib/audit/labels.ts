@@ -12,6 +12,7 @@ export const ACTION_LABELS: Record<string, string> = {
     cash_closed: 'Cierre de caja',
     cash_movement_recorded: 'Movimiento de caja',
     cash_settings_changed: 'Cambio de fondo y apartado de caja',
+    cash_withdrawal_recipient_changed: 'Cambio de quién recibe el retiro de la caja',
     sale_confirmed: 'Venta registrada',
     sale_payment_recorded: 'Abono a una venta',
     sale_reversed: 'Venta anulada',
