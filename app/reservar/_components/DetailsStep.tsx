@@ -109,7 +109,7 @@ export default function DetailsStep({ config, service, who, date, time, form, se
                     <input id="bk-phone" name="tel" type="tel" inputMode="tel" autoComplete="tel-national" enterKeyHint="done" value={form.phone}
                         onChange={(e) => change('phone', e.target.value)} onBlur={(e) => { if (e.target.value.trim()) check('phone', e.target.value); }} maxLength={20}
                         aria-invalid={!!errors.phone} aria-describedby={errors.phone ? 'bk-phone-err bk-phone-hint' : 'bk-phone-hint'} className={input(errors.phone)} placeholder="55 1234 5678" />
-                    <p id="bk-phone-hint" className="mt-1.5 text-sm text-bos-muted">Solo para tu cita: la confirmación y el recordatorio te llegan por WhatsApp.</p>
+                    <p id="bk-phone-hint" className="mt-1.5 text-sm text-bos-muted">Solo para tu cita: lo usamos para confirmarla o avisarte de un cambio por WhatsApp.</p>
                     <div aria-live="polite">{fieldErr('bk-phone-err', errors.phone)}</div>
                 </div>
 

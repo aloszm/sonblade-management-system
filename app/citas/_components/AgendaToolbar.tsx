@@ -81,7 +81,7 @@ export default function AgendaToolbar(p: AgendaToolbarProps) {
                     <Button variant="secondary" size="md" data-testid="tomorrow-open" onClick={p.reminders.onOpen} className="w-full sm:w-auto">
                         <MessageCircle aria-hidden="true" className="h-5 w-5" /> Recordatorios de mañana
                         <span data-testid="tomorrow-count"
-                            className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums leading-6 ${p.reminders.pending > 0 ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised text-bos-muted'}`}>{p.reminders.pending}<span className="sr-only"> pendientes</span></span>
+                            className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums leading-6 ${p.reminders.pending > 0 ? 'bg-bos-accent text-bos-on-accent' : 'bg-bos-raised text-bos-muted'}`}>{p.reminders.pending}<span className="sr-only">{p.reminders.pending === 1 ? ' pendiente' : ' pendientes'}</span></span>
                     </Button>
                 </div>
             )}

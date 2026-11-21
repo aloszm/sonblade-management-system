@@ -91,8 +91,8 @@ export default function AppointmentDetail({ apt, barberColor, canManage, canSeeP
                         )}
                         {apt.client_id && (
                             <div>
-                                <dt className="text-xs font-medium text-bos-muted">Cliente</dt>
-                                <dd className="mt-1"><Link href={`/clientes/${apt.client_id}`} data-testid="client-link" className="inline-flex min-h-11 items-center font-semibold text-bos-accent-text hover:underline">Ver ficha del cliente</Link></dd>
+                                <dt className="sr-only">Ficha del cliente</dt>
+                                <dd><Link href={`/clientes/${apt.client_id}`} data-testid="client-link" className="inline-flex min-h-11 items-center font-semibold text-bos-accent-text hover:underline">Ver ficha del cliente</Link></dd>
                             </div>
                         )}
                         {services.length > 0 && (

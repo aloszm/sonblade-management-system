@@ -75,7 +75,7 @@ test.describe.serial('WhatsApp de un clic', () => {
         await context.close();
     });
 
-    test('Enviar confirmación abre WhatsApp con el mensaje (nombre y hora) y anota "Enviado por Dago"', async ({ page }) => {
+    test('Enviar confirmación abre WhatsApp con el mensaje (nombre y hora) y anota "Abrió WhatsApp: Dago"', async ({ page }) => {
         await interceptWindowOpen(page);
         await login(page, USERS.reception);
         await page.goto(`/citas?fecha=${day}&cita=${aptId}`, { waitUntil: 'networkidle' });
@@ -91,7 +91,7 @@ test.describe.serial('WhatsApp de un clic', () => {
         await expect(actions.getByTestId('wa-sent-confirmacion')).toHaveCount(0);
 
         await actions.getByRole('button', { name: 'Enviar confirmación' }).tap();
-        await expect(actions.getByTestId('wa-sent-confirmacion')).toContainText(/^Enviado por Dago, hoy /, { timeout: 20_000 });
+        await expect(actions.getByTestId('wa-sent-confirmacion')).toContainText(/^Abrió WhatsApp: Dago, hoy /, { timeout: 20_000 });
         // La pestaña se abrió en el toque y luego se le asignó la dirección.
         expect(await waOpened(page)).toEqual([['', '_blank']]);
         const urls = await waUrls(page);
@@ -106,7 +106,7 @@ test.describe.serial('WhatsApp de un clic', () => {
 
         // Se puede volver a enviar y el recordatorio lleva su propio texto.
         await actions.getByRole('button', { name: 'Enviar recordatorio' }).tap();
-        await expect(actions.getByTestId('wa-sent-recordatorio')).toContainText(/^Enviado por Dago, hoy /, { timeout: 20_000 });
+        await expect(actions.getByTestId('wa-sent-recordatorio')).toContainText(/^Abrió WhatsApp: Dago, hoy /, { timeout: 20_000 });
         const again = await waUrls(page);
         expect(again).toHaveLength(2);
         expect(decodeURIComponent(again[1].split('?text=')[1])).toContain('Te recordamos tu cita');
@@ -191,7 +191,7 @@ test.describe.serial('WhatsApp de un clic', () => {
         const send = row.getByRole('button', { name: `Enviar recordatorio a ${CLIENT_TOMORROW}` });
         expect((await send.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         await send.tap();
-        await expect(row.getByTestId('tomorrow-sent')).toContainText(/^\s*Enviado por Dago, hoy /, { timeout: 20_000 });
+        await expect(row.getByTestId('tomorrow-sent')).toContainText(/^\s*Abrió WhatsApp: Dago, hoy /, { timeout: 20_000 });
         const urls = await waUrls(page);
         expect(urls).toHaveLength(1);
         expect(urls[0].startsWith('https://wa.me/525550004321?text=')).toBe(true);
@@ -200,8 +200,8 @@ test.describe.serial('WhatsApp de un clic', () => {
         expect(text).toContain('Te recordamos tu cita');
         // Las enviadas bajan al final de la lista.
         const rows = await modal.getByTestId('tomorrow-row').allInnerTexts();
-        const sentRows = rows.filter((t) => t.includes('Enviado por'));
-        expect(rows.slice(rows.length - sentRows.length).every((t) => t.includes('Enviado por'))).toBe(true);
+        const sentRows = rows.filter((t) => t.includes('Abrió WhatsApp:'));
+        expect(rows.slice(rows.length - sentRows.length).every((t) => t.includes('Abrió WhatsApp:'))).toBe(true);
 
         await modal.getByRole('button', { name: 'Cerrar' }).last().tap();
         await expect(page.getByTestId('tomorrow-count')).toHaveText(new RegExp(`^${before - 1}`));

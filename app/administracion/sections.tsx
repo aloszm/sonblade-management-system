@@ -313,7 +313,7 @@ export function Tips({ data }: { data: ProfitReport }) {
     );
 }
 
-// ---------- Por barbero ----------
+// ---------- Por persona (barberos y recepción) ----------
 
 type SortKey = 'sales' | 'commission' | 'keeps' | 'tips';
 const SORTS: { id: SortKey; label: string }[] = [
@@ -327,8 +327,9 @@ export function Barbers({ rows }: { rows: BarberRow[] }) {
         <section aria-labelledby="fin-barberos" className={`${card} p-5 sm:p-6`}>
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h2 id="fin-barberos" className={h2}>Por barbero</h2>
-                    <p className="mt-1 text-sm text-bos-muted">“Deja al negocio” es lo que vendió menos su comisión y el costo de sus productos, antes de gastos generales. Las propinas van aparte.</p>
+                    <h2 id="fin-barberos" className={h2}>Por persona</h2>
+                    <p className="mt-1 max-w-3xl text-sm text-bos-muted">“Deja al negocio” es lo que vendió menos su comisión, el costo de sus productos y, si los tiene, su sueldo por día y sus bonos, antes de gastos generales. Las propinas van aparte.</p>
+                    <p data-testid="fin-per-person-wage-note" className="mt-1 max-w-3xl text-sm text-bos-muted">Recepción cobra sueldo por día y vende pocos productos: por eso su renglón puede salir en negativo. No es una pérdida de esa persona; es lo que cuesta atender el mostrador.</p>
                 </div>
                 <div role="group" aria-label="Ordenar por" className="flex flex-wrap gap-2 print:hidden">
                     {SORTS.map((s) => (
@@ -337,14 +338,14 @@ export function Barbers({ rows }: { rows: BarberRow[] }) {
                     ))}
                 </div>
             </div>
-            {sorted.length === 0 ? <p className="mt-4 text-sm text-bos-muted">Sin ventas ni propinas por barbero en este periodo.</p> : (
+            {sorted.length === 0 ? <p className="mt-4 text-sm text-bos-muted">Sin ventas ni propinas por persona en este periodo.</p> : (
                 <>
                     <div className="mt-4 hidden md:block">
                         <table className="w-full text-left text-sm">
-                            <caption className="sr-only">Resultado por barbero, ordenado por {SORTS.find((s) => s.id === sort)?.label}</caption>
+                            <caption className="sr-only">Resultado por persona, ordenado por {SORTS.find((s) => s.id === sort)?.label}</caption>
                             <thead className="text-[13px] font-medium text-bos-muted">
                                 <tr className="border-b border-bos-border">
-                                    <th scope="col" className="py-2 pr-3">Barbero</th>
+                                    <th scope="col" className="py-2 pr-3">Persona</th>
                                     <th scope="col" className="py-2 px-3 text-right">Servicios</th>
                                     <th scope="col" className="py-2 px-3 text-right">Productos</th>
                                     <th scope="col" className="py-2 px-3 text-right">Ventas</th>

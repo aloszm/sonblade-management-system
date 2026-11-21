@@ -36,7 +36,7 @@ describe('Recordatorios de mañana', () => {
         expect(within(rows[0]).getByRole('button', { name: 'Enviar recordatorio a Prueba Temprano' })).toBeEnabled();
         expect(within(rows[2]).getByTestId('tomorrow-no-phone')).toHaveTextContent('Sin teléfono registrado');
         expect(within(rows[2]).queryByRole('button')).toBeNull();
-        expect(within(rows[3]).getByTestId('tomorrow-sent')).toHaveTextContent('Enviado por Dago');
+        expect(within(rows[3]).getByTestId('tomorrow-sent')).toHaveTextContent('Abrió WhatsApp: Dago');
         expect(screen.getByText(/2 pendientes/)).toBeInTheDocument();
     });
 

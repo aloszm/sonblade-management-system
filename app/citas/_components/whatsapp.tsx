@@ -98,7 +98,7 @@ export function WhatsAppActions({ apt, canSend, onSent }: WhatsAppActionsProps) 
         if (seen.length === 0) return null;
         return (
             <div data-testid="wa-status" className="mt-3 space-y-0.5 text-sm text-bos-muted">
-                {seen.map((k) => { const text = sentLabel(notes![k.field]!); return <p key={k.kind}>{k.noun}: {text.charAt(0).toLowerCase()}{text.slice(1)}</p>; })}
+                {seen.map((k) => <p key={k.kind}>{k.noun} · {sentLabel(notes![k.field]!)}</p>)}
             </div>
         );
     }

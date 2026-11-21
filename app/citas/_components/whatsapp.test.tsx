@@ -28,7 +28,7 @@ describe('WhatsApp de un clic: botones', () => {
     it('el barbero solo ve el estado "recordatorio enviado" si la API se lo entrega', () => {
         const apt = appointment({ notifications: { confirmation: null, reminder: { at: new Date().toISOString(), by: 'u-dago', by_name: 'Dago' } } });
         render(<WhatsAppActions apt={apt} canSend={false} onSent={() => undefined} />);
-        expect(screen.getByTestId('wa-status')).toHaveTextContent(/Recordatorio: enviado por Dago, hoy/);
+        expect(screen.getByTestId('wa-status')).toHaveTextContent(/Recordatorio · Abrió WhatsApp: Dago, hoy/);
         expect(screen.queryByRole('button')).toBeNull();
     });
 
@@ -94,10 +94,11 @@ describe('WhatsApp de un clic: botones', () => {
         expect(screen.queryByTestId('wa-fallback')).toBeNull();
     });
 
-    it('muestra "Enviado por Dago, hoy ..." cuando ya existe y deja volver a enviar', () => {
+    it('muestra "Abrió WhatsApp: Dago, hoy ..." cuando ya existe (nunca «Enviado») y deja volver a enviar', () => {
         const apt = appointment({ notifications: { confirmation: { at: new Date().toISOString(), by: 'u-dago', by_name: 'Dago' }, reminder: null } });
         render(<WhatsAppActions apt={apt} canSend onSent={() => undefined} />);
-        expect(screen.getByTestId('wa-sent-confirmacion')).toHaveTextContent(/^Enviado por Dago, hoy /);
+        expect(screen.getByTestId('wa-sent-confirmacion')).toHaveTextContent(/^Abrió WhatsApp: Dago, hoy /);
+        expect(screen.getByTestId('wa-sent-confirmacion')).not.toHaveTextContent(/Enviado/);
         expect(screen.queryByTestId('wa-sent-recordatorio')).toBeNull();
         expect(screen.getByRole('button', { name: 'Enviar confirmación' })).toBeEnabled();
     });
