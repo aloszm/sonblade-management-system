@@ -15,6 +15,8 @@
 --     las leen con la sesión del usuario para mostrar comisión y propina de cada persona. Restringirlas rompería esa
 --     pantalla; si algún día se restringen, esa pantalla debe pasar a una función de la base. Los casos 3 y 4 lo fijan
 --     para que un cambio en cualquiera de los dos sentidos sea visible.
+-- La semana W1 (2 al 8 ago 2026) es anterior a la transición del 15 nov 2026 (20261121100000_pay_period_thu_wed):
+-- sigue siendo de domingo a sábado con la regla vieja.
 do $t$
 declare
   r text := '';

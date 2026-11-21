@@ -67,10 +67,17 @@ describe('rateAt (vigencia)', () => {
 
 describe('currentPayWeekStart (igual que private.pay_week_start)', () => {
     const tz = 'America/Mexico_City';
-    it('domingo de la semana en curso; el sábado a las 8 pm ya empieza la siguiente', () => {
-        expect(currentPayWeekStart(new Date('2026-11-20T18:00:00Z'), tz)).toBe('2026-11-15'); // viernes
-        expect(currentPayWeekStart(new Date('2026-11-21T20:00:00Z'), tz)).toBe('2026-11-15'); // sábado 2 pm
-        expect(currentPayWeekStart(new Date('2026-11-22T03:00:00Z'), tz)).toBe('2026-11-22'); // sábado 9 pm
-        expect(currentPayWeekStart(new Date('2026-11-22T18:00:00Z'), tz)).toBe('2026-11-22'); // domingo
+    it('regla vieja hasta el sábado 14 nov a las 8 pm; después, la transición', () => {
+        expect(currentPayWeekStart(new Date('2026-11-15T01:00:00Z'), tz)).toBe('2026-11-08'); // sábado 14, 7 pm
+        expect(currentPayWeekStart(new Date('2026-11-15T03:00:00Z'), tz)).toBe('2026-11-15'); // sábado 14, 9 pm
+        expect(currentPayWeekStart(new Date('2026-11-19T05:59:00Z'), tz)).toBe('2026-11-15'); // miércoles 18, 11:59 pm
+    });
+    it('periodo en curso de jueves a miércoles (la semana del 15 al 21 ya no existe)', () => {
+        expect(currentPayWeekStart(new Date('2026-11-19T06:01:00Z'), tz)).toBe('2026-11-19'); // jueves 19, 00:01
+        expect(currentPayWeekStart(new Date('2026-11-20T18:00:00Z'), tz)).toBe('2026-11-19'); // viernes
+        expect(currentPayWeekStart(new Date('2026-11-21T20:00:00Z'), tz)).toBe('2026-11-19'); // sábado 2 pm
+        expect(currentPayWeekStart(new Date('2026-11-22T03:00:00Z'), tz)).toBe('2026-11-19'); // sábado 9 pm
+        expect(currentPayWeekStart(new Date('2026-11-22T18:00:00Z'), tz)).toBe('2026-11-19'); // domingo
+        expect(currentPayWeekStart(new Date('2026-11-26T06:01:00Z'), tz)).toBe('2026-11-26'); // jueves 26, 00:01
     });
 });

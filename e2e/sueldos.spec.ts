@@ -101,7 +101,7 @@ test.describe.serial('sueldo por día', () => {
         const dago = before.people.find((p) => p.name === 'Dago');
         expect(dago, 'Dago debe tener sueldo por día').toBeTruthy();
         expect(dago!.settled, 'la semana en curso de Dago no debe estar pagada').toBe(false);
-        // Un día fijo ya transcurrido de esta semana (o, si hoy es domingo, el primero).
+        // Un día fijo ya transcurrido del periodo en curso (o, si aún no llega ninguno, el primero).
         const worked = dago!.wage!.days.filter((d) => d.status === 'worked');
         const chosen = worked.find((d) => d.date <= before.today) ?? worked[0];
         expect(chosen, 'Dago debe tener un día fijo trabajado esta semana').toBeTruthy();
@@ -109,7 +109,8 @@ test.describe.serial('sueldo por día', () => {
         expect(dayValue).toBe(320);
 
         await page.goto('/liquidaciones', { waitUntil: 'networkidle' });
-        await expect(page.getByTestId('week-label')).toContainText('Semana del');
+        // La última cerrada puede ser una semana (jueves a miércoles) o el periodo de transición del 15 al 18 nov 2026.
+        await expect(page.getByTestId('week-label')).toContainText(/(Semana|Periodo de transición) del/);
         await page.getByRole('button', { name: 'Ver la semana en curso' }).click();
         const card = page.getByRole('article', { name: 'Sueldo de Dago' });
         await expect(card).toBeVisible({ timeout: 30_000 });

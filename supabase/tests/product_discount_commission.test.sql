@@ -5,6 +5,8 @@
 -- Arma su propio estado: un servicio de $200 y un producto de $180 (costo $45) de prueba, tasas 50 % / 20 %, puestos
 -- y caja abierta. Cobra con public.confirm_sale como el dueño (que puede autorizar su propio descuento).
 -- Para Finanzas y el pago semanal, las ventas se mueven a semanas lejanas (marzo de 2032, sin datos) dentro del simulacro.
+-- Finanzas usa días de calendario; el pago semanal usa periodos de jueves a miércoles (20261121100000_pay_period_thu_wed):
+-- las ventas del miércoles 10, 17 y 24 caen en los periodos 4–10, 11–17 y 18–24 de marzo.
 create or replace function pg_temp.as_user(u uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', u, 'role', 'authenticated')::text, true) $$;
 -- Cobra como el dueño y devuelve la venta. items: [{tipo, id, precio de lista, descuento, empleado}]
@@ -130,8 +132,8 @@ begin
     || ' / ' || coalesce(br -> 'kpis' -> 'profit' ->> 'net', 'null');
 
   -- (h) pago semanal del vendedor (Dago): W1 refleja 36 y W2 conserva 30
-  pv := public.preview_commission_settlement(b, dago_e, '2032-03-07', '2032-03-13');
-  v := public.preview_commission_settlement(b, dago_e, '2032-03-14', '2032-03-20');
+  pv := public.preview_commission_settlement(b, dago_e, '2032-03-04', '2032-03-10');
+  v := public.preview_commission_settlement(b, dago_e, '2032-03-11', '2032-03-17');
   r := r || E'\n11 ' || case when (pv ->> 'gross_commission')::numeric = 36 and (v ->> 'gross_commission')::numeric = 30 then 'OK' else 'FALLA' end
     || ' (h) pago semanal: W1 ' || (pv ->> 'gross_commission') || ', W2 ' || (v ->> 'gross_commission');
 
@@ -208,8 +210,8 @@ begin
     || ' (n) utilidad con cortesía 200 − 100 − 45 = Finanzas ' || coalesce(fin1 ->> 'profit', 'null') || ' / Panel ' || coalesce(m -> 'kpis' ->> 'net', 'null')
     || ' (costo ' || coalesce(m -> 'kpis' ->> 'product_cost', 'null') || ') / completo ' || coalesce(fr -> 'summary' -> 'kpis' ->> 'net', 'null')
     || ' / business_report ' || coalesce(br -> 'kpis' -> 'profit' ->> 'net', 'null');
-  pv := public.preview_commission_settlement(b, dago_e, '2032-03-21', '2032-03-27');
-  v := public.preview_commission_settlement(b, dani_e, '2032-03-21', '2032-03-27');
+  pv := public.preview_commission_settlement(b, dago_e, '2032-03-18', '2032-03-24');
+  v := public.preview_commission_settlement(b, dani_e, '2032-03-18', '2032-03-24');
   r := r || E'\n23 ' || case when (pv ->> 'gross_commission')::numeric = 0 and (v ->> 'gross_commission')::numeric = 100 then 'OK' else 'FALLA' end
     || ' (n2) pago semanal W3: vendedor del regalo ' || (pv ->> 'gross_commission') || ', barbero ' || (v ->> 'gross_commission');
 

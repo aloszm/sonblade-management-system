@@ -69,15 +69,16 @@ const json = (url: string, method: string, body: unknown) =>
     new NextRequest(new URL(url, 'http://localhost'), { method, body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
 const get = (url: string) => new NextRequest(new URL(url, 'http://localhost'));
 
+// Periodo de pago del jueves 19 al miércoles 25 nov 2026 (lib/payroll/pay-period.ts): Dago lunes a viernes, faltó el viernes 20.
 const WEEK = {
-    enabled: true, period_start: '2026-11-15', period_end: '2026-11-21', amount: 1280, paid_days: 4, worked_days: 4, absent_days: 1, extra_days: 0,
+    enabled: true, period_start: '2026-11-19', period_end: '2026-11-25', amount: 1280, paid_days: 4, worked_days: 4, absent_days: 1, extra_days: 0,
     groups: [{ rate: 320, days: 4, amount: 1280 }], summary: '4 días × $320 = $1,280',
     days: [
-        { date: '2026-11-16', weekday: 1, status: 'worked', rate: 320, amount: 320, exception_id: null, reason: null },
-        { date: '2026-11-17', weekday: 2, status: 'absent', rate: 320, amount: 0, exception_id: EXC, reason: 'Enfermo' },
-        { date: '2026-11-18', weekday: 3, status: 'worked', rate: 320, amount: 320, exception_id: null, reason: null },
         { date: '2026-11-19', weekday: 4, status: 'worked', rate: 320, amount: 320, exception_id: null, reason: null },
-        { date: '2026-11-20', weekday: 5, status: 'worked', rate: 320, amount: 320, exception_id: null, reason: null },
+        { date: '2026-11-20', weekday: 5, status: 'absent', rate: 320, amount: 0, exception_id: EXC, reason: 'Enfermo' },
+        { date: '2026-11-23', weekday: 1, status: 'worked', rate: 320, amount: 320, exception_id: null, reason: null },
+        { date: '2026-11-24', weekday: 2, status: 'worked', rate: 320, amount: 320, exception_id: null, reason: null },
+        { date: '2026-11-25', weekday: 3, status: 'worked', rate: 320, amount: 320, exception_id: null, reason: null },
     ],
 };
 
@@ -92,13 +93,15 @@ beforeEach(() => {
         { id: 'r3', branch_id: 'br1', employee_id: EMI, daily_amount: 320, work_days: [0, 6], effective_from: '2026-11-15', reason: 'Decisión del dueño', created_by: 'u-alonso', created_at: '2026-11-20T10:00:00Z' },
     ];
     tables.employees = [{ id: DAGO, display_name: 'Dago' }, { id: EMI, display_name: 'Emi' }];
-    sessionRpc.mockImplementation(async (fn: string) => {
+    sessionRpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
         if (fn === 'member_display_names') return { data: [{ user_id: 'u-alonso', display_name: 'Alonso' }, { user_id: 'u-sonia', display_name: 'Sonia' }], error: null };
         if (fn === 'employee_wage_week') return { data: {
-            period_start: '2026-11-15', period_end: '2026-11-21', today: '2026-11-20', can_edit: true,
+            // Como la base: el periodo pedido (o el en curso); el de transición termina el miércoles 18.
+            period_start: (args?.p_period_start as string | undefined) ?? '2026-11-19',
+            period_end: args?.p_period_start === '2026-11-15' ? '2026-11-18' : '2026-11-25', today: '2026-11-21', can_edit: true,
             people: [{ employee_id: DAGO, name: 'Dago', settlement_id: null, receipt_number: null, settled: false, wage: WEEK,
-                       accrued_amount: 1280, accrued_days: 4, rate: { daily_amount: '320.00', work_days: [1, 2, 3, 4, 5], effective_from: '2026-11-15' },
-                       exceptions: [{ id: EXC, work_date: '2026-11-17', kind: 'absent', reason: 'Enfermo', created_by: 'u-sonia', created_at: '', voided_at: null, voided_by: null, void_reason: null, can_void: true }],
+                       accrued_amount: 320, accrued_days: 1, rate: { daily_amount: '320.00', work_days: [1, 2, 3, 4, 5], effective_from: '2026-11-15' },
+                       exceptions: [{ id: EXC, work_date: '2026-11-20', kind: 'absent', reason: 'Enfermo', created_by: 'u-sonia', created_at: '', voided_at: null, voided_by: null, void_reason: null, can_void: true }],
                        can_edit: true }],
         }, error: null };
         if (fn === 'preview_commission_settlement') return { data: {
@@ -264,28 +267,55 @@ describe('POST /api/wages/exceptions/[id]/void — anular sin borrar', () => {
 describe('GET /api/wages/week — sueldo de la semana para Mi semana y gerencia', () => {
     it.each(['owner', 'receptionist'] as const)('%s recibe el detalle día por día y lo devengado (la base decide a quién ve)', async (who) => {
         current = PEOPLE[who];
-        const res = await weekWages(get('/api/wages/week?period_start=2026-11-15'));
+        const res = await weekWages(get('/api/wages/week?period_start=2026-11-19'));
         expect(res.status).toBe(200);
-        expect(sessionRpc).toHaveBeenCalledWith('employee_wage_week', { p_branch_id: 'br1', p_employee_id: undefined, p_period_start: '2026-11-15' });
-        const dago = (await res.json()).people[0];
-        expect(dago).toMatchObject({ name: 'Dago', amount: 1280, summary: 'Sueldo: 4 días × $320 = $1,280', accrued_amount: 1280, accrued_days: 4, rate: { daily_amount: 320 } });
-        expect(dago.day_lines[1].text).toBe('mar 17 nov · Faltó (Enfermo)');
+        expect(sessionRpc).toHaveBeenCalledWith('employee_wage_week', { p_branch_id: 'br1', p_employee_id: undefined, p_period_start: '2026-11-19' });
+        const body = await res.json();
+        expect(body).toMatchObject({ period_start: '2026-11-19', period_end: '2026-11-25', pay_date: '2026-11-28', is_transition: false });
+        const dago = body.people[0];
+        expect(dago).toMatchObject({ name: 'Dago', amount: 1280, summary: 'Sueldo: 4 días × $320 = $1,280', accrued_amount: 320, accrued_days: 1, rate: { daily_amount: 320 } });
+        expect(dago.day_lines[1].text).toBe('vie 20 nov · Faltó (Enfermo)');
         expect(dago.exceptions[0]).toMatchObject({ label: 'Faltó', created_by_name: 'Sonia', can_void: true });
     });
 
-    it('la semana debe empezar en domingo', async () => {
-        const res = await weekWages(get('/api/wages/week?period_start=2026-11-16'));
-        expect(res.status).toBe(400);
+    it('el día debe iniciar un periodo de pago (desde el 19 nov, un domingo ya no)', async () => {
+        expect((await weekWages(get('/api/wages/week?period_start=2026-11-16'))).status).toBe(400);
+        expect((await weekWages(get('/api/wages/week?period_start=2026-11-22'))).status).toBe(400);
+    });
+
+    it('agrega la fecha de pago y si es el periodo de transición (la misma regla que la base)', async () => {
+        current = PEOPLE.owner;
+        const body = await (await weekWages(get('/api/wages/week?period_start=2026-11-15'))).json();
+        expect(body).toMatchObject({ pay_date: '2026-11-21', is_transition: true });
     });
 });
 
 describe('GET /api/settlements — la vista previa trae el sueldo', () => {
     it('pasa wages y el detalle `wage` tal cual los calcula la base', async () => {
         tables.employees = [{ id: DAGO, display_name: 'Dago' }];
-        const res = await previewWeek(get('/api/settlements?period_start=2026-11-15'));
+        const res = await previewWeek(get('/api/settlements?period_start=2026-11-19'));
         expect(res.status).toBe(200);
-        const row = (await res.json()).rows[0];
+        const body = await res.json();
+        const row = body.rows[0];
         expect(row).toMatchObject({ name: 'Dago', wages: 1280, total_amount: 1320 });
         expect(row.wage.summary).toBe('4 días × $320 = $1,280');
+        expect(body).toMatchObject({ period_start: '2026-11-19', period_end: '2026-11-25', pay_date: '2026-11-28', is_transition: false,
+            previous_start: '2026-11-15', next_start: '2026-11-26' });
+    });
+
+    it('el periodo de transición (15 al 18 nov) se pide con su fin real y se paga el sábado 21', async () => {
+        tables.employees = [{ id: DAGO, display_name: 'Dago' }];
+        const body = await (await previewWeek(get('/api/settlements?period_start=2026-11-15'))).json();
+        expect(body).toMatchObject({ period_start: '2026-11-15', period_end: '2026-11-18', pay_date: '2026-11-21', is_transition: true,
+            previous_start: '2026-11-08', next_start: '2026-11-19' });
+        expect(sessionRpc).toHaveBeenCalledWith('preview_commission_settlement',
+            { p_branch_id: 'br1', p_employee_id: DAGO, p_period_start: '2026-11-15', p_period_end: '2026-11-18' });
+    });
+
+    it('un domingo después de la transición ya no es inicio de periodo (lo que pedía la app anterior)', async () => {
+        tables.employees = [{ id: DAGO, display_name: 'Dago' }];
+        expect((await previewWeek(get('/api/settlements?period_start=2026-11-22'))).status).toBe(400);
+        const res = await previewWeek(get('/api/settlements?period_start=2026-11-19'));
+        expect(await res.json()).toMatchObject({ period_start: '2026-11-19', period_end: '2026-11-25', pay_date: '2026-11-28', is_transition: false });
     });
 });

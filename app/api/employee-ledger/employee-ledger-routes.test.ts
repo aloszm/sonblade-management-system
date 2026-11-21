@@ -89,7 +89,7 @@ beforeEach(() => {
         if (fn === 'employee_loans_with_balance') return { data: [{ id: LOAN, branch_id: 'br1', employee_id: EMP, principal: '300.00', weekly_amount: '100.00', paid: '100.00', outstanding: '200.00', status: 'active', reason: 'Préstamo', created_by: 'u-sonia', created_at: '2026-11-18T18:00:00Z' }], error: null };
         if (fn === 'member_display_names') return { data: [{ user_id: 'u-sonia', display_name: 'Sonia' }], error: null };
         if (fn === 'save_bonus_goal') return { data: { id: GOAL, branch_id: 'br1', name: args.p_name ?? 'Meta', metric: args.p_metric ?? 'services_count', threshold: '40.00', bonus_amount: '300.00', applies_to: 'all_barbers', employee_id: null, valid_from: '2026-11-15', valid_to: null, is_active: true, created_by: 'u-alonso', created_at: '', updated_at: '' }, error: null };
-        if (fn === 'bonus_goal_progress') return { data: { enabled: true, period_start: '2026-11-15', period_end: '2026-11-21', window_start: '', window_end: '', people: [{ employee_id: EMP, name: 'Dani', goals: [{ goal_id: GOAL, name: 'Meta', metric: 'services_count', threshold: '40.00', bonus_amount: '300.00', value: '12.00', achieved: false, remaining: '28.00' }] }] }, error: null };
+        if (fn === 'bonus_goal_progress') return { data: { enabled: true, period_start: '2026-11-19', period_end: '2026-11-25', window_start: '', window_end: '', people: [{ employee_id: EMP, name: 'Dani', goals: [{ goal_id: GOAL, name: 'Meta', metric: 'services_count', threshold: '40.00', bonus_amount: '300.00', value: '12.00', achieved: false, remaining: '28.00' }] }] }, error: null };
         if (fn === 'preview_commission_settlement') return { data: { window_start: 'a', window_end: 'b', gross_commission: 1000, deductions: 0, tips: 100, total_amount: 550, entry_count: 3, can_settle: true, reason: null, settlement_id: null, receipt_number: null, advances: 500, staff_deductions: 50, bonuses: 0, loan_payments: 0, carryover_in: 0, carryover_out: 0, net_amount: 550, bonus_goals_enabled: false }, error: null };
         return { data: null, error: null };
     });
@@ -278,15 +278,16 @@ describe('/api/bonus-goals — solo la cuenta principal', () => {
 describe('GET /api/bonus-goals/progress — avance de la semana ("Mi semana")', () => {
     it.each(['owner', 'admin', 'viewer', 'barber', 'receptionist'] as const)('%s consulta; la base decide a quién ve', async (who) => {
         current = PEOPLE[who];
-        const res = await progress(get('/api/bonus-goals/progress?period_start=2026-11-15'));
+        const res = await progress(get('/api/bonus-goals/progress?period_start=2026-11-19'));
         expect(res.status).toBe(200);
-        expect(sessionRpc).toHaveBeenCalledWith('bonus_goal_progress', { p_branch_id: 'br1', p_employee_id: undefined, p_period_start: '2026-11-15' });
+        expect(sessionRpc).toHaveBeenCalledWith('bonus_goal_progress', { p_branch_id: 'br1', p_employee_id: undefined, p_period_start: '2026-11-19' });
         const body = await res.json();
         expect(body.people[0].goals[0]).toMatchObject({ value: 12, threshold: 40, remaining: 28, achieved: false, metric_label: 'Servicios completados en la semana' });
     });
-    it('la semana debe empezar en domingo', async () => {
-        const res = await progress(get('/api/bonus-goals/progress?period_start=2026-11-16'));
-        expect(res.status).toBe(400);
+    it('el día debe iniciar un periodo de pago (desde el 19 nov, un domingo ya no)', async () => {
+        expect((await progress(get('/api/bonus-goals/progress?period_start=2026-11-16'))).status).toBe(400);
+        expect((await progress(get('/api/bonus-goals/progress?period_start=2026-11-22'))).status).toBe(400);
+        expect((await progress(get('/api/bonus-goals/progress?period_start=2026-11-19'))).status).toBe(200);
     });
 });
 

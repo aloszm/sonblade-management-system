@@ -17,7 +17,7 @@ export const TEAM_PERIOD_LABELS: Record<TeamPeriod, string> = { today: 'Hoy', we
 
 export interface TeamWindow extends TimeWindow { period: TeamPeriod; startDay: string; endDay: string }
 
-/** Límites del periodo en la hora de la barbería. La semana es la de pago (domingo a sábado, corte sábado 8 pm). */
+/** Límites del periodo en la hora de la barbería. La semana es el periodo de pago (lib/payroll/pay-period.ts: de jueves a miércoles). */
 export function teamWindow(period: TeamPeriod, now: Date, timeZone: string): TeamWindow {
     if (period === 'today') {
         const day = localClock(now, timeZone).date;

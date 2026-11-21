@@ -2,7 +2,9 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
 import { MANAGEMENT_ROLES, PAY_RECEIPT_ROLES } from '@/lib/auth/roles';
-import { addDays, isSunday, latestClosedWeekStart } from '@/lib/settlements/week';
+import {
+    isPayPeriodClosed, isPayPeriodStart, latestClosedPayPeriod, nextPayPeriod, payPeriodAt, payPeriodEndOf, payPeriodForDate, previousPayPeriod,
+} from '@/lib/payroll/pay-period';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -34,11 +36,14 @@ type Preview = {
     // Sueldo por día (20261120090000): `wages` entra al neto (total_amount = wages + …); `wage` trae el detalle día por
     // día (private.wage_week_summary, el mismo cálculo que el pago). Sin ficha de sueldo: wages 0 y wage null.
     wages?: number; wage?: unknown;
+    // Periodo de pago (20261121100000): fecha de pago y periodo de transición.
+    pay_date?: string; is_transition?: boolean; period_days?: number;
 };
 
 /**
- * Vista previa de la liquidación de una semana (domingo a sábado, corte sábado 8 pm):
- * cuánto se le debe a cada persona (sueldo por día, comisiones, propinas y libro) y si ya se pagó. Dueño, gerencia y consulta.
+ * Vista previa del pago de un periodo (lib/payroll/pay-period.ts: de jueves a miércoles desde el 19 nov 2026, con la
+ * transición del 15 al 18 nov; antes, domingo a sábado): cuánto se le debe a cada persona (sueldo por día, comisiones,
+ * propinas y libro) y si ya se pagó. Por omisión, el último periodo cerrado. Dueño, gerencia y consulta.
  */
 export async function GET(request: NextRequest) {
     try {
@@ -49,12 +54,15 @@ export async function GET(request: NextRequest) {
         if (businessError) throw businessError;
         const timezone = (business as unknown as { timezone: string }).timezone;
 
+        const now = new Date();
+        const latestClosed = latestClosedPayPeriod(now, timezone);
         const requested = request.nextUrl.searchParams.get('period_start');
-        const periodStart = requested ?? latestClosedWeekStart(new Date(), timezone);
-        if (!DateSchema.safeParse(periodStart).success || !isSunday(periodStart)) {
-            throw new AuthorizationError('La semana debe empezar en domingo (AAAA-MM-DD).', 400);
+        const periodStart = requested ?? latestClosed.start;
+        if (!DateSchema.safeParse(periodStart).success || !isPayPeriodStart(periodStart)) {
+            throw new AuthorizationError('Ese día no inicia un periodo de pago (AAAA-MM-DD).', 400);
         }
-        const periodEnd = addDays(periodStart, 6);
+        const period = payPeriodForDate(periodStart, timezone);
+        const periodEnd = period.end;
 
         const { data: employees, error: employeesError } = await supabase.from('employees').select('id, display_name')
             .eq('business_id', context.businessId).eq('is_active', true).order('display_name');
@@ -69,13 +77,26 @@ export async function GET(request: NextRequest) {
         }));
 
         const first = rows[0];
+        // La base es la verdad: si su ventana no es la que calcula la app, la regla quedó desincronizada y no se muestra.
+        const dbWindowEnd = first?.window_end ? Date.parse(first.window_end) : Number.NaN;
+        if (Number.isFinite(dbWindowEnd) && dbWindowEnd !== Date.parse(period.windowEnd)) {
+            throw new Error(`Periodo de pago desincronizado entre la app y la base (${periodStart}).`);
+        }
         return Response.json({
             period_start: periodStart,
             period_end: periodEnd,
+            pay_date: first?.pay_date ?? period.payDate,
+            is_transition: first?.is_transition ?? period.isTransition,
+            period_days: period.days,
+            is_closed: isPayPeriodClosed(period, now),
             timezone,
-            window_start: first?.window_start ?? null,
-            window_end: first?.window_end ?? null,
-            is_latest_closed: periodStart === latestClosedWeekStart(new Date(), timezone),
+            window_start: first?.window_start ?? period.windowStart,
+            window_end: first?.window_end ?? period.windowEnd,
+            is_latest_closed: periodStart === latestClosed.start,
+            latest_closed_start: latestClosed.start,
+            current_start: payPeriodAt(now, timezone).start,
+            previous_start: previousPayPeriod(period, timezone).start,
+            next_start: nextPayPeriod(period, timezone).start,
             rows,
         }, { headers: NO_STORE });
     } catch (error) {
@@ -84,7 +105,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Paga la semana de una persona: el servidor calcula el total (sueldo por día incluido), valida los pagos y genera el
+ * Paga el periodo de una persona (se puede desde el cierre; el sábado es la fecha de pago, solo informativa): el servidor calcula el total (sueldo por día incluido), valida los pagos y genera el
  * folio. El efectivo sale de la caja abierta con el mismo freno de siempre.
  */
 export async function POST(request: NextRequest) {
@@ -94,15 +115,16 @@ export async function POST(request: NextRequest) {
         if (!parsed.success) {
             return Response.json({ error: parsed.error.issues[0]?.message ?? 'Solicitud inválida.' }, { status: 400, headers: NO_STORE });
         }
-        if (!isSunday(parsed.data.period_start)) {
-            return Response.json({ error: 'La semana debe empezar en domingo.' }, { status: 400, headers: NO_STORE });
+        const periodEnd = payPeriodEndOf(parsed.data.period_start);
+        if (!periodEnd) {
+            return Response.json({ error: 'Ese día no inicia un periodo de pago.' }, { status: 400, headers: NO_STORE });
         }
         const supabase = await createSupabaseServerClient();
         const { data, error } = await supabase.rpc('settle_commissions', {
             p_branch_id: context.branchId,
             p_employee_id: parsed.data.employee_id,
             p_period_start: parsed.data.period_start,
-            p_period_end: addDays(parsed.data.period_start, 6),
+            p_period_end: periodEnd,
             p_payments: parsed.data.payments,
         } as never);
         if (error) throw error;

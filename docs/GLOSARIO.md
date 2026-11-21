@@ -1,7 +1,7 @@
 # BarberOS · Gallo 4:20 — Glosario y resumen rápido
 
 Referencia corta de las palabras, abreviaturas y reglas del sistema que no se entienden a la primera.
-Actualizado: 20 nov 2026.
+Actualizado: 21 nov 2026.
 
 ## 1. Las direcciones
 
@@ -70,7 +70,12 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 
 ## 5. Dinero del equipo
 
-- **Semana de pago:** de domingo a sábado; cierra el sábado a las 8:00 p. m.
+- **Semana de pago (periodo de pago):** de jueves a miércoles; cierra al terminar el miércoles (medianoche) y **se paga el sábado**
+  siguiente. Se puede pagar desde el jueves; el sábado es la fecha prevista. Ejemplo: el sábado 28 nov 2026 se paga del jueves 19 al
+  miércoles 25. Hasta el sábado 14 nov 2026 era de domingo a sábado con corte a las 8:00 p. m. (esos recibos no cambian).
+- **Periodo de transición:** del domingo 15 al miércoles 18 nov 2026 (desde el sábado 14 a las 8:00 p. m.), para pasar de una regla a la
+  otra sin huecos ni dobles pagos. Se paga el sábado 21. Ahí no hay bonos por metas.
+- **"Esta semana" de Ventas, Finanzas, Panel y Reportes:** es la semana de calendario (domingo a sábado). No es la semana de pago.
 - **Comisión de servicio:** 50 % para quien atendió, sobre el **precio de lista**.
 - **Comisión de producto:** 20 % para **quien lo vendió** (por omisión el barbero de la cita; recepción puede
   ponerlo a su nombre), también sobre el **precio de lista** (desde el 20 nov 2026; antes era sobre el precio con
@@ -89,10 +94,12 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 - **Adelanto:** dinero entregado antes del pago; se descuenta en el siguiente recibo.
 - **Préstamo / abono:** adelanto grande que se descuenta en varias semanas.
 - **Descuento (al empleado):** cantidad que se le resta en su recibo, con motivo.
-- **Bono por meta:** premio si alguien llega a una meta de la semana. Construido; hoy no hay metas activas.
+- **Bono por meta:** premio si alguien llega a una meta de la semana de pago (periodo completo; en el de transición no hay). Construido;
+  hoy no hay metas activas.
 - **Neto a pagar:** sueldo + comisiones + propinas + bonos − adelantos − descuentos.
 - **Pago semanal (antes "liquidación"):** la pantalla donde se paga la semana.
-- **Recibo de pago:** comprobante de ese pago. Folio `P2646-03` = Pago, año 26, semana 46, recibo 3.
+- **Recibo de pago:** comprobante de ese pago. Folio `P2646-03` = Pago, año 26, semana 46 (semana ISO del último día del periodo:
+  antes el sábado, ahora el miércoles), recibo 3. P2647 = transición (15–18 nov), P2648 = 19–25 nov.
   (Los antiguos empiezan con `LIQ-`.) Por ahora solo lo ven cuenta principal, gerencia y consulta.
 
 ## 6. Finanzas

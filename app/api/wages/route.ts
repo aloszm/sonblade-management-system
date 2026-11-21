@@ -26,7 +26,7 @@ const SaveSchema = z.object({
         .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6, DAILY_MESSAGE),
     work_days: z.array(z.number({ message: DAYS_MESSAGE }).int(DAYS_MESSAGE).min(0, DAYS_MESSAGE).max(6, DAYS_MESSAGE), { message: DAYS_MESSAGE })
         .max(7, DAYS_MESSAGE),
-    /** Vacío = domingo de la semana de pago en curso. Nunca antes de ese domingo. */
+    /** Vacío = inicio del periodo de pago en curso. Nunca antes de ese día. */
     effective_from: DaySchema.optional(),
     reason: z.string({ message: REASON_MESSAGE }).trim().min(REASON_MIN, REASON_MESSAGE).max(REASON_MAX, REASON_MESSAGE),
     pin: PinSchema,
@@ -54,7 +54,7 @@ function mapRate(row: RateRow, names: Map<string, string>, employees: Map<string
 /**
  * Fichas de sueldo por día (historial con vigencia) y la vigente hoy de cada persona.
  * Dueño, gerencia y consulta: todo el equipo (o `employee_id`). Cualquier otro puesto: solo la suya (la RLS de la
- * base filtra lo mismo). `can_edit` solo para la cuenta principal; `min_effective_from` = domingo de la semana en curso.
+ * base filtra lo mismo). `can_edit` solo para la cuenta principal; `min_effective_from` = inicio del periodo de pago en curso.
  */
 export async function GET(request: NextRequest) {
     try {
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 /**
  * Guarda el sueldo por día de una persona (monto diario y días fijos) con vigencia desde una fecha.
  * Solo la cuenta principal, con PIN y motivo. No borra ni cambia lo anterior: agrega una ficha nueva.
- * La base rechaza vigencias anteriores al domingo de la semana en curso o que caigan en una semana ya pagada.
+ * La base rechaza vigencias anteriores al inicio del periodo de pago en curso o que caigan en un periodo ya pagado.
  */
 export async function PUT(request: NextRequest) {
     try {

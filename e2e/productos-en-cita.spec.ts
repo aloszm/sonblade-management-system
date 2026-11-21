@@ -1,5 +1,5 @@
 import { devices, expect, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { USERS, barberIdByName, businessToday, ensureOpenCashSession, farWednesday, login, stamp } from './helpers';
+import { USERS, barberIdByName, ensureOpenCashSession, farWednesday, login, stamp } from './helpers';
 
 // Productos en la cita, de punta a punta:
 //  1. Deya (barbera, en celular) agrega un producto a su propia cita: queda a su nombre y no se le pregunta nada.
@@ -26,15 +26,20 @@ const byName = (list: Product[], name: string) => {
     return found!;
 };
 
-/** Domingo de la semana en curso (la semana de pago empieza en domingo) como AAAA-MM-DD. */
-function sundayOfThisWeek(): string {
-    const d = new Date(`${businessToday()}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - d.getUTCDay());
-    return d.toISOString().slice(0, 10);
+/**
+ * Inicio del periodo de pago en curso (de jueves a miércoles desde el 19 nov 2026): lo dice el servidor, con la misma
+ * regla que la base (lib/payroll/pay-period.ts). Ya no es el domingo de la semana.
+ */
+async function currentPayPeriodStart(request: APIRequestContext): Promise<string> {
+    const res = await request.get('/api/settlements');
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const start = (await res.json() as { current_start?: string }).current_start;
+    expect(start, 'el servidor debe decir el periodo de pago en curso').toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    return start!;
 }
 
 async function commissionRows(request: APIRequestContext): Promise<Map<string, Row>> {
-    const res = await request.get(`/api/settlements?period_start=${sundayOfThisWeek()}`);
+    const res = await request.get(`/api/settlements?period_start=${await currentPayPeriodStart(request)}`);
     expect(res.ok(), await res.text()).toBeTruthy();
     const rows = (await res.json() as { rows: Row[] }).rows;
     return new Map(rows.map((r) => [r.name, r]));

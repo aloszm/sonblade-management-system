@@ -1,19 +1,21 @@
 'use client';
 
 import React from 'react';
-import { weekLabel } from '@/lib/settlements/week';
+import { payPeriodDates, payPeriodDaysLabel } from '@/lib/payroll/pay-period';
 import { formatMoney } from '@/lib/utils/money';
 import type { KindSummaryApi, PersonWeekApi } from '@/lib/team/person-week';
 
-/** Ventana de la semana que entrega el servidor (`startDay` y `endDay` son fechas del negocio, domingo y sábado). */
+/** Ventana del periodo de pago que entrega el servidor (`startDay` y `endDay`: fechas del negocio, de jueves a miércoles). */
 export interface WeekWindowApi { start: string; end: string; startDay: string; endDay: string }
 
 const percentFormat = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
 const percentText = (p: number) => `${percentFormat.format(p)} %`;
 
-/** "Esta semana · 15 al 21 de noviembre de 2026": dice de qué periodo son los números. */
+/** "Esta semana · jueves 19 al miércoles 25 de noviembre": dice de qué periodo de pago son los números. */
 export function weekCaption(window: WeekWindowApi | null | undefined): string {
-    return window ? `Esta semana · ${weekLabel(window.startDay)}` : 'Esta semana';
+    if (!window) return 'Esta semana';
+    const kind = payPeriodDates(window.startDay).isTransition ? 'Periodo de transición' : 'Esta semana';
+    return `${kind} · ${payPeriodDaysLabel(window.startDay, window.endDay)}`;
 }
 
 /**

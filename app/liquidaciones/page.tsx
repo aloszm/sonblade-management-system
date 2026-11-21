@@ -9,7 +9,7 @@ import PayBreakdown from '@/components/payroll/PayBreakdown';
 import TeamLedger from '@/components/payroll/TeamLedger';
 import WeekWages from '@/components/payroll/WeekWages';
 import { buildBreakdown, type PayInput } from '@/lib/payroll/breakdown';
-import { addDays, weekLabel } from '@/lib/settlements/week';
+import { PAY_PERIOD_RULE_TEXT, payDateLabel, payPeriodDates, payPeriodDaysLabel, payPeriodLabel } from '@/lib/payroll/pay-period';
 import { formatMoney } from '@/lib/utils/money';
 import { formatDateTime } from '@/lib/utils/dates';
 import EmptyState from '@/components/ui/EmptyState';
@@ -22,14 +22,23 @@ type Row = PayInput & {
     employee_id: string; name: string; gross_commission: number; deductions: number; tips: number; total_amount: number;
     entry_count: number; can_settle: boolean; reason: string | null; settlement_id: string | null; receipt_number: string | null;
 };
+// Periodo de pago (lib/payroll/pay-period.ts, la misma regla que la base): de jueves a miércoles; del 15 al 18 nov 2026,
+// el periodo de transición. Los campos opcionales faltan si el servidor es anterior; la pantalla los calcula igual.
 type Week = {
     period_start: string; period_end: string; timezone: string; is_latest_closed: boolean; rows: Row[];
+    pay_date?: string; is_transition?: boolean; is_closed?: boolean;
+    latest_closed_start?: string; current_start?: string; previous_start?: string; next_start?: string;
 };
 type HistoryRow = {
     id: string; receipt_number: string; employee_name: string; period_start: string; period_end: string; total_amount: number; paid_at: string | null;
 };
 
 const money = (n: number) => formatMoney(n, { cents: true });
+/** "miércoles 25 de noviembre" */
+const longDay = (day: string) => {
+    const d = new Date(`${day}T12:00:00Z`);
+    return `${d.toLocaleDateString('es-MX', { weekday: 'long', timeZone: 'UTC' })} ${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`;
+};
 const cents = (n: number) => Math.round(n * 100);
 /** Lo que ya se restó del pago por adelantos, abonos de préstamo, descuentos y lo que viene de la semana anterior. */
 const discounted = (r: PayInput) => Math.round((Number(r.advances ?? 0) + Number(r.loan_payments ?? 0) + Number(r.staff_deductions ?? 0) + Number(r.carryover_in ?? 0)) * 100) / 100;
@@ -48,8 +57,6 @@ export default function LiquidacionesPage() {
     const [readOnly, setReadOnly] = useState(true);
     const [periodStart, setPeriodStart] = useState<string | null>(null);
     const [week, setWeek] = useState<Week | null>(null);
-    // Domingo de la última semana cerrada: se aprende al abrir la pantalla. La semana en curso (la siguiente) también se puede ver.
-    const [latestClosed, setLatestClosed] = useState<string | null>(null);
     const [history, setHistory] = useState<HistoryRow[]>([]);
     const [historyError, setHistoryError] = useState<unknown>(null);
     const [loading, setLoading] = useState(true);
@@ -73,7 +80,6 @@ export default function LiquidacionesPage() {
         try {
             const data = await api<Week>(`/api/settlements${start ? `?period_start=${start}` : ''}`);
             setWeek(data); setPeriodStart(data.period_start);
-            if (data.is_latest_closed) setLatestClosed(data.period_start);
         } catch (e) { console.error(e); setError(e); }
         finally { setLoading(false); }
     }, []);
@@ -120,6 +126,11 @@ export default function LiquidacionesPage() {
         finally { setSaving(false); }
     };
 
+    // Fecha de pago y transición: las manda el servidor (base); si falta, la misma regla de lib/payroll/pay-period.ts.
+    const periodDates = week ? payPeriodDates(week.period_start) : null;
+    const payDate = week?.pay_date ?? periodDates?.payDate ?? null;
+    const isTransition = week?.is_transition ?? periodDates?.isTransition ?? false;
+
     const statusCell = (row: Row) => {
         if (row.reason === 'already_settled' && row.settlement_id) {
             return (
@@ -128,7 +139,7 @@ export default function LiquidacionesPage() {
                 </Link>
             );
         }
-        if (row.reason === 'week_not_closed') return <span className="text-bos-accent-text font-medium">Cierra el sábado a las 8:00 pm</span>;
+        if (row.reason === 'week_not_closed') return <span className="text-bos-accent-text font-medium">{week ? `Cierra al terminar el ${longDay(week.period_end)}` : 'Aún no cierra'}</span>;
         if (row.reason === 'nothing_to_pay') return <span className="text-bos-muted">Sin sueldo ni comisiones</span>;
         if (readOnly) return <span className="text-bos-muted font-medium">Pendiente de pago</span>;
         return (
@@ -168,23 +179,28 @@ export default function LiquidacionesPage() {
         <div className="max-w-6xl mx-auto space-y-6">
             <header>
                 <h1 className="font-display text-3xl font-semibold tracking-tight">Pago semanal</h1>
-                {role === 'admin' && <p className="text-bos-muted text-sm mt-1">Cada semana va de domingo a sábado y cierra el sábado a las 8:00 pm.</p>}
+                {role === 'admin' && <p className="text-bos-muted text-sm mt-1">{PAY_PERIOD_RULE_TEXT} Se puede pagar desde el cierre.</p>}
             </header>
 
             {role === 'admin' && (
                 <section className={card}>
                     <div className="p-4 border-b border-bos-border flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                            <button aria-label="Semana anterior" disabled={!periodStart} onClick={() => periodStart && loadWeek(addDays(periodStart, -7))}
+                            <button aria-label="Periodo anterior" disabled={!week?.previous_start} onClick={() => week?.previous_start && loadWeek(week.previous_start)}
                                 className="h-11 w-11 inline-flex items-center justify-center rounded-xl border border-bos-border text-bos-text hover:bg-bos-raised disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
-                            <h2 className="font-display font-semibold text-center sm:min-w-[16rem] px-1" data-testid="week-label">
-                                {periodStart ? `Semana del ${weekLabel(periodStart)}` : 'Cargando…'}
-                            </h2>
-                            <button aria-label="Semana siguiente" disabled={!periodStart || !latestClosed || periodStart >= addDays(latestClosed, 7)} onClick={() => periodStart && loadWeek(addDays(periodStart, 7))}
+                            <div className="text-center sm:min-w-[16rem] px-1">
+                                <h2 className="font-display font-semibold" data-testid="week-label">
+                                    {week ? `${isTransition ? 'Periodo de transición' : 'Semana'} del ${payPeriodLabel(week.period_start, week.period_end)}` : 'Cargando…'}
+                                </h2>
+                                {week && <p className="text-xs text-bos-muted" data-testid="pay-date">
+                                    {isTransition ? `${payPeriodDaysLabel(week.period_start, week.period_end)} · ` : ''}Se paga el {payDateLabel(payDate ?? week.period_end)}
+                                </p>}
+                            </div>
+                            <button aria-label="Periodo siguiente" disabled={!week?.next_start || !week.current_start || week.period_start >= week.current_start} onClick={() => week?.next_start && loadWeek(week.next_start)}
                                 className="h-11 w-11 inline-flex items-center justify-center rounded-xl border border-bos-border text-bos-text hover:bg-bos-raised disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {latestClosed && periodStart !== addDays(latestClosed, 7) && <button onClick={() => loadWeek(addDays(latestClosed, 7))} className={chip}>Ver la semana en curso</button>}
+                            {week?.current_start && week.period_start !== week.current_start && <button onClick={() => week.current_start && loadWeek(week.current_start)} className={chip}>Ver la semana en curso</button>}
                             {week && !week.is_latest_closed && <button onClick={() => loadWeek(null)} className={chip}>Ir a la última semana cerrada</button>}
                         </div>
                     </div>
@@ -273,7 +289,7 @@ export default function LiquidacionesPage() {
                             <tr>
                                 <th className={th}>Folio</th>
                                 {role === 'admin' && <th className={th}>Persona</th>}
-                                <th className={th}>Semana</th>
+                                <th className={th}>Periodo</th>
                                 <th className={`${th} text-right`}>Total</th>
                                 <th className={`${th} text-right`}>Pagado</th>
                                 <th className={`${th} text-center`}>Recibo</th>
@@ -285,7 +301,7 @@ export default function LiquidacionesPage() {
                                 <tr key={h.id} className="border-t border-bos-border hover:bg-bos-raised">
                                     <td data-label="" className="px-4 py-3 font-semibold tabular-nums whitespace-nowrap">{h.receipt_number}</td>
                                     {role === 'admin' && <td data-label="Persona" className="px-4 py-3">{h.employee_name}</td>}
-                                    <td data-label="Semana" className="px-4 py-3 text-bos-muted md:whitespace-nowrap">{weekLabel(h.period_start)}</td>
+                                    <td data-label="Periodo" className="px-4 py-3 text-bos-muted md:whitespace-nowrap">{payPeriodLabel(h.period_start, h.period_end)}</td>
                                     <td data-label="Total" className="px-4 py-3 text-right font-semibold tabular-nums max-md:order-first max-md:text-lg">{money(h.total_amount)}</td>
                                     <td data-label="Pagado" className="px-4 py-3 text-right text-bos-muted md:whitespace-nowrap">{h.paid_at ? formatDateTime(h.paid_at) : '—'}</td>
                                     <td data-label="" className="px-4 py-2 text-center">

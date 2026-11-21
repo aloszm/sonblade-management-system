@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale';
 import { localDateKey } from '@/lib/utils/dates';
 
 export const BUSINESS_TIME_ZONE = 'America/Mexico_City';
-/** La semana de pago del negocio va de domingo a sábado. */
+/** La semana de calendario de los selectores va de domingo a sábado (el periodo de pago es otro: lib/payroll/pay-period.ts). */
 export const WEEK_STARTS_ON = 0;
 export const WEEKDAY_LABELS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'] as const;
 

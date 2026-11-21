@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { isSunday } from '@/lib/settlements/week';
+import { isPayPeriodStart } from '@/lib/payroll/pay-period';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { DaySchema, IdSchema, NO_STORE, badRequest, num } from '@/lib/money/api';
 import { BONUS_METRIC_LABELS, type BonusMetric } from '@/lib/payroll/ledger';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const QuerySchema = z.object({
     employee_id: IdSchema.optional(),
-    period_start: DaySchema.refine(isSunday, 'La semana debe empezar en domingo (AAAA-MM-DD).').optional(),
+    period_start: DaySchema.refine((d) => isPayPeriodStart(d), 'Ese día no inicia un periodo de pago (AAAA-MM-DD).').optional(),
 });
 
 type GoalProgress = {
@@ -19,11 +19,13 @@ type GoalProgress = {
 };
 type Progress = {
     enabled: boolean; period_start: string; period_end: string; window_start: string; window_end: string;
+    /** Desde 20261121100000: fecha de pago y si es el periodo de transición (en él no hay bonos automáticos). */
+    pay_date?: string; is_transition?: boolean;
     people: { employee_id: string; name: string; goals: GoalProgress[] }[];
 };
 
 /**
- * Avance de las metas de bono en una semana de pago (por omisión, la semana en curso). Para "Mi semana".
+ * Avance de las metas de bono en un periodo de pago (por omisión, el periodo en curso). Para "Mi semana".
  * Dueño, gerencia y consulta ven a todos (o a `employee_id`); cualquier otro puesto solo se ve a sí mismo
  * (lo decide la base). Sin metas activas: `enabled: false` y `people: []` — la pantalla no muestra nada de bonos.
  */

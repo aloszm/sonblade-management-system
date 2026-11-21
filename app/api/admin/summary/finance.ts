@@ -2,7 +2,7 @@ import { profitPresetRange, type ProfitReport } from '@/lib/admin/profit';
 
 export type SummaryPeriod = 'today' | 'week' | 'month';
 
-/** Mismo rango que usa Finanzas: el día, la semana (domingo a sábado) o el mes, en días de la barbería. */
+/** Mismo rango que usa Finanzas: el día, la semana de calendario (domingo a sábado; no es el periodo de pago) o el mes. */
 export function summaryRange(period: SummaryPeriod, today: string): { from: string; to: string } {
     return period === 'today' ? { from: today, to: today } : profitPresetRange(period, today);
 }

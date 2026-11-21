@@ -31,6 +31,32 @@ describe('Recibo', () => {
         expect(screen.queryByTestId('breakdown-negative')).toBeNull();
     });
 
+    it('semana vieja: domingo a sábado, cierre el sábado a las 8:00 p. m. (sin fecha de pago aparte)', async () => {
+        stubFetch(() => ({ body: RECEIPT }));
+        render(<ReciboPage />);
+        expect(await screen.findByTestId('receipt-period')).toHaveTextContent('8 al 14 de noviembre de 2026');
+        expect(screen.getByText('Semana')).toBeInTheDocument();
+        expect(screen.getByTestId('receipt-cutoff')).toHaveTextContent('Cierre: sáb 14 nov 2026, 8:00 p. m.');
+        expect(screen.getByTestId('receipt-cutoff')).not.toHaveTextContent('Se paga');
+    });
+
+    it('periodo de transición y periodo nuevo: su rótulo, el cierre al terminar el miércoles y el sábado de pago', async () => {
+        stubFetch(() => ({ body: { ...RECEIPT, receipt_number: 'P2647-01', period_start: '2026-11-15', period_end: '2026-11-18',
+            window_start: '2026-11-15T02:00:00Z', window_end: '2026-11-19T06:00:00Z', pay_date: '2026-11-21', is_transition: true } }));
+        const first = render(<ReciboPage />);
+        expect(await screen.findByTestId('receipt-period')).toHaveTextContent('15 al 18 de noviembre de 2026');
+        expect(screen.getByText('Periodo de transición')).toBeInTheDocument();
+        expect(screen.getByTestId('receipt-cutoff')).toHaveTextContent('Cierre: jue 19 nov 2026, 12:00 a. m. · Se paga el sábado 21 de noviembre');
+        first.unmount();
+        vi.unstubAllGlobals();
+        // Un recibo de una base anterior (sin pay_date): la misma regla de la app.
+        stubFetch(() => ({ body: { ...RECEIPT, receipt_number: 'P2648-01', period_start: '2026-11-19', period_end: '2026-11-25',
+            window_start: '2026-11-19T06:00:00Z', window_end: '2026-11-26T06:00:00Z' } }));
+        render(<ReciboPage />);
+        expect(await screen.findByTestId('receipt-period')).toHaveTextContent('19 al 25 de noviembre de 2026');
+        expect(screen.getByTestId('receipt-cutoff')).toHaveTextContent('Se paga el sábado 28 de noviembre');
+    });
+
     it('la hora del pago y de cada línea usa el formato único del sistema ("9:00 p. m.", nunca "p.m." ni 24 horas)', async () => {
         stubFetch(() => ({ body: RECEIPT }));
         render(<ReciboPage />);

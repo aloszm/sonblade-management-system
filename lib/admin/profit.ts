@@ -23,7 +23,7 @@
 // - Costos de personal (public.staff_cost_lines, la MISMA fuente que private.report_financial_period):
 //   * Sueldos por día (20261120090000_daily_wages): costo DEVENGADO por día trabajado (fijo no faltado o extra),
 //     en su día del negocio y solo si ese día ya empezó; concepto "Sueldos", aparte de comisiones.
-//   * Bonos por metas (20261120052000): costo con fecha del fin de su semana (sábado 8 pm).
+//   * Bonos por metas (20261120052000): costo con fecha del cierre de su periodo de pago (desde el 19 nov 2026, jueves 00:00).
 //   Sin `staffCosts` (o vacío) la utilidad queda exactamente como antes.
 // - Dinero en centavos enteros; se convierte a pesos solo al entregar el resultado.
 //
@@ -408,7 +408,7 @@ export function rangeDays(from: string, to: string): number {
 
 export type ProfitPreset = 'week' | 'month' | 'last_month';
 
-/** Rango del atajo a partir del día de hoy del negocio. La semana va de domingo a sábado (semana de pago). */
+/** Rango del atajo a partir del día de hoy del negocio. La semana es de calendario, de domingo a sábado (no es el periodo de pago). */
 export function profitPresetRange(preset: ProfitPreset, today: string): { from: string; to: string } {
     if (preset === 'week') {
         const dow = new Date(`${today}T00:00:00Z`).getUTCDay();

@@ -93,7 +93,7 @@ async function myWeek(db: Db, branchId: string, employeeId: string, rate: number
 }
 
 /**
- * Cifras de un barbero: semana (corte sábado 8 pm) y hoy.
+ * Cifras de un barbero: semana (periodo de pago en curso, de jueves a miércoles) y hoy.
  * Dueño y administrador ven a cualquiera; un barbero (y recepción, que tiene su «Mi semana») solo a sí mismo: se valida aquí y además la base
  * solo le entrega sus propias filas.
  */
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             return Response.json(toBarberProfile(report, name, employeeId, rate, tips), { headers: { 'Cache-Control': 'no-store' } });
         }
 
-        // Panel personal (/barbero): semana (corte sábado 8 pm) y hoy.
+        // Panel personal (/barbero): semana (periodo de pago en curso; la base usa private.pay_period_at) y hoy.
         const [week, today] = await Promise.all([
             fetchBusinessReport(supabase, context.branchId, 'week', employeeId),
             fetchBusinessReport(supabase, context.branchId, 'today', employeeId),

@@ -14,12 +14,13 @@ const BARBERS = [
     { id: 'e-deya', name: 'Deya', status: 'active', isBarber: true, hasAccount: true },
     { id: 'e-dani', name: 'Dani', status: 'active', isBarber: true, hasAccount: true },
 ];
-const WINDOW = { start: '2026-11-15T02:00:00Z', end: '2026-11-22T02:00:00Z', startDay: '2026-11-15', endDay: '2026-11-21' };
+// Periodo de pago del jueves 19 al miércoles 25 de noviembre de 2026 (lib/payroll/pay-period.ts).
+const WINDOW = { start: '2026-11-19T06:00:00Z', end: '2026-11-26T06:00:00Z', startDay: '2026-11-19', endDay: '2026-11-25' };
 const kind = (count: number, revenue: number, commission: number, percent: number | null) => ({ count, revenue, commission, percent });
 const DEYA = { employeeId: 'e-deya', name: 'Deya', isBarber: true, services: kind(2, 240, 120, 50), products: kind(1, 180, 36, 20), tips: 0, revenue: 420, commission: 156, earned: 156 };
 const DANI = { employeeId: 'e-dani', name: 'Dani', isBarber: true, services: kind(0, 0, 0, null), products: kind(0, 0, 0, null), tips: 0, revenue: 0, commission: 0, earned: 0 };
 const LINES = [
-    { key: 'a', saleId: 's1', folio: 'V2611-0001', paidAt: '2026-11-16T17:00:00Z', kind: 'service', concept: 'Barba', quantity: 1, revenue: 120, base: 120, percent: 50, commission: 60, tip: 0 },
+    { key: 'a', saleId: 's1', folio: 'V2611-0001', paidAt: '2026-11-19T17:00:00Z', kind: 'service', concept: 'Barba', quantity: 1, revenue: 120, base: 120, percent: 50, commission: 60, tip: 0 },
 ];
 
 function stub() {
@@ -47,7 +48,7 @@ describe('Equipo: tarjeta de la semana y desglose', () => {
         render(<TeamPage />);
         const summaries = await screen.findAllByTestId('week-summary');
         const deya = summaries[0];
-        expect(within(deya).getByTestId('week-caption')).toHaveTextContent('Esta semana · 15 al 21 de noviembre de 2026');
+        expect(within(deya).getByTestId('week-caption')).toHaveTextContent('Esta semana · jueves 19 al miércoles 25 de noviembre');
         expect(within(deya).getByTestId('week-services')).toHaveTextContent('Servicios: 2 · $240 → comisión 50 % = $120');
         expect(within(deya).getByTestId('week-products')).toHaveTextContent('Productos: 1 · $180 → comisión 20 % = $36');
         expect(within(deya).getByTestId('week-total')).toHaveTextContent('Ventas: $420Gana: $156');

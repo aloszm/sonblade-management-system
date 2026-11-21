@@ -52,16 +52,18 @@ begin
          (biz, b, 'posted', 'Prueba', 'Gasto B hecho fuera del periodo', 999, 'cash', t0 - interval '30 days', owner, t0, 'envelope', private.default_envelope_id(b), null, null, null),
          (biz, b, 'cancelled', 'Prueba', 'Gasto C cancelado', 70, 'cash', t0, owner, t0, 'envelope', private.default_envelope_id(b), owner, t0, 'Gasto de prueba cancelado');
 
-  -- B7: bono de $30 a Dani (meta + recibo de esa semana + asiento del libro, fechado al cierre de la semana).
+  -- B7: bono de $30 a Dani (meta + recibo de su periodo de pago + asiento del libro). Desde 20261121100000 el periodo va
+  -- de jueves a miércoles (aquí el 6–12 mar 2031); el asiento conserva su fecha de efecto dentro del rango de Finanzas,
+  -- porque la utilidad va por fecha, no por periodo de pago.
   insert into public.bonus_goals (id, business_id, branch_id, name, metric, threshold, bonus_amount, applies_to, employee_id, valid_from, created_by)
   values (g1, biz, b, 'Meta prueba utilidad', 'services_count', 1, 30, 'employee', dani_e, '2031-03-01', owner);
   insert into public.commission_settlements (id, business_id, branch_id, employee_id, period_start, period_end, total_amount, status, paid_at, paid_by,
                                              created_by, receipt_number, window_start, window_end, bonus_amount)
-  values (st, biz, b, dani_e, '2031-03-02', '2031-03-08', 230, 'paid', t0, owner, owner, 'P3110-97',
-          ('2031-03-01 20:00')::timestamp at time zone tz, ('2031-03-08 20:00')::timestamp at time zone tz, 30);
+  values (st, biz, b, dani_e, '2031-03-06', '2031-03-12', 230, 'paid', t0, owner, owner, 'P3111-97',
+          ('2031-03-06 00:00')::timestamp at time zone tz, ('2031-03-13 00:00')::timestamp at time zone tz, 30);
   insert into public.employee_ledger (business_id, branch_id, employee_id, entry_type, amount, reason, bonus_goal_id, settlement_id,
                                       generated_by_settlement, week_start, effective_at, created_by)
-  values (biz, b, dani_e, 'bonus', 30, 'Bono por meta de prueba', g1, st, true, '2031-03-02', ('2031-03-08 20:00')::timestamp at time zone tz, owner);
+  values (biz, b, dani_e, 'bonus', 30, 'Bono por meta de prueba', g1, st, true, '2031-03-06', ('2031-03-08 20:00')::timestamp at time zone tz, owner);
 
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role', 'authenticated')::text, true);
   fin := private.report_financial_period(biz, b, v_start, v_end, false);

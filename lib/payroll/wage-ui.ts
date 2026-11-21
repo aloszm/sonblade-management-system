@@ -1,6 +1,7 @@
 import { addDays } from '@/lib/settlements/week';
 import { formatMoney } from '@/lib/utils/money';
 import { WEEKDAY_NAMES, type WageWeek } from '@/lib/payroll/wages';
+import { payPeriodDates } from '@/lib/payroll/pay-period';
 
 /**
  * Formas y textos de las pantallas del sueldo por día (ficha en Equipo, faltas y días extra en Pago semanal, "Mi semana").
@@ -38,10 +39,15 @@ export function rateSentence(rate: WageRateView): string {
     return `${formatMoney(rate.daily_amount)} por día · ${rate.work_days_label} · desde ${dayLabel(rate.effective_from)}`;
 }
 
-/** Las 7 fechas de la semana de pago, de domingo a sábado. */
-export function weekDates(periodStart: string): string[] {
-    return Array.from({ length: 7 }, (_, i) => addDays(periodStart, i));
+/** Las fechas del periodo de pago, en orden (de jueves a miércoles; 4 en el periodo de transición; domingo a sábado antes). */
+export function weekDates(periodStart: string, periodEnd: string = payPeriodDates(periodStart).end): string[] {
+    const out: string[] = [];
+    for (let d = periodStart; d <= periodEnd && out.length < 31; d = addDays(d, 1)) out.push(d);
+    return out;
 }
+
+/** Día de la semana (0 = domingo) de una fecha 'YYYY-MM-DD'. */
+export const weekdayOfDate = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
 
 export type ExceptionKind = 'absent' | 'extra';
 
@@ -50,9 +56,9 @@ export type ExceptionKind = 'absent' | 'extra';
  * una falta solo en un día fijo que hoy se da por trabajado; un día extra solo en un día sin sueldo (fuera de los
  * días fijos y sin otra excepción activa). La base vuelve a validarlo: esto solo evita elegir un día imposible.
  */
-export function exceptionDayOptions(kind: ExceptionKind, wage: WageWeek | null, periodStart: string): string[] {
+export function exceptionDayOptions(kind: ExceptionKind, wage: WageWeek | null, periodStart: string, periodEnd?: string): string[] {
     const byDate = new Map((wage?.days ?? []).map((d) => [d.date, d]));
-    return weekDates(periodStart).filter((date) => {
+    return weekDates(periodStart, periodEnd).filter((date) => {
         const day = byDate.get(date);
         return kind === 'absent' ? day?.status === 'worked' : day === undefined;
     });

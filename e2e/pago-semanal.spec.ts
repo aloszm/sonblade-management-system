@@ -90,7 +90,8 @@ test.describe.serial('pago semanal: desglose, adelantos, descuento y préstamo',
         const goals = await (await page.request.get('/api/bonus-goals')).json() as { enabled: boolean };
         await page.goto('/liquidaciones', { waitUntil: 'networkidle' });
         await expect(page.getByRole('heading', { name: 'Pago semanal', level: 1 })).toBeVisible();
-        await expect(page.getByTestId('week-label')).toContainText('Semana del');
+        await expect(page.getByTestId('week-label')).toContainText(/(Semana|Periodo de transición) del/);
+        await expect(page.getByTestId('pay-date')).toContainText('Se paga el sábado');
         deyaWeekPaid = (await page.getByRole('row').filter({ hasText: 'Deya' }).first().innerText()).includes('Pagada');
         const breakdown = await openBreakdown(page, 'Deya');
         await expect(breakdown.getByTestId('line-commission')).toBeVisible();

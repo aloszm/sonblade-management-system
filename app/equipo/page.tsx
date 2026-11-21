@@ -25,7 +25,7 @@ import WeekBreakdown from '@/components/team/WeekBreakdown';
 import type { PersonWeekApi } from '@/lib/team/person-week';
 import type { Barber } from '@/types';
 
-/** Lo que entrega /api/team-week: la semana de pago en curso de cada persona (servicios, productos, comisión, propinas). */
+/** Lo que entrega /api/team-week: el periodo de pago en curso de cada persona (servicios, productos, comisión, propinas). */
 interface TeamWeek { window: WeekWindowApi; people: PersonWeekApi[] }
 
 

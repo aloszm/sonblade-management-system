@@ -16,7 +16,7 @@ const PeriodSchema = z.enum(['today', 'week', 'month']).catch('week');
 
 /**
  * Resumen del negocio. Solo dueño y administrador.
- * Sin `basis`, mantiene el corte de la semana de pago (sábado 8 pm) que usa Equipo.
+ * Sin `basis`, 'week' es el periodo de pago en curso (private.report_window → private.pay_period_at, de jueves a miércoles).
  * Con `basis=finanzas` (el Panel): mismo periodo y misma fórmula que Finanzas, y las cifras
  * de dinero salen de loadProfitReport; la base solo aporta gráficas, ranking y stock.
  */

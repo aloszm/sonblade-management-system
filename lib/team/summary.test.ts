@@ -86,10 +86,16 @@ describe('periodos en la hora de la barbería', () => {
         const w = teamWindow('today', new Date('2026-11-16T02:00:00Z'), tz);
         expect(w).toMatchObject({ startDay: '2026-11-15', endDay: '2026-11-15', start: '2026-11-15T06:00:00.000Z', end: '2026-11-16T06:00:00.000Z' });
     });
-    it('la semana va de domingo a sábado con corte el sábado 8 pm', () => {
-        const w = teamWindow('week', new Date('2026-11-18T18:00:00Z'), tz);
-        expect(w).toMatchObject({ startDay: '2026-11-15', endDay: '2026-11-21', start: '2026-11-15T02:00:00.000Z' });
-        expect(w.end).toBe('2026-11-22T02:00:00.000Z');
+    it('antes del 15 nov la semana va de domingo a sábado con corte el sábado 8 pm', () => {
+        const w = teamWindow('week', new Date('2026-11-11T18:00:00Z'), tz);
+        expect(w).toMatchObject({ startDay: '2026-11-08', endDay: '2026-11-14', start: '2026-11-08T02:00:00.000Z' });
+        expect(w.end).toBe('2026-11-15T02:00:00.000Z');
+    });
+    it('"Esta semana" es el periodo de pago: la transición del 15 al 18 nov y luego de jueves a miércoles', () => {
+        const bridge = teamWindow('week', new Date('2026-11-18T18:00:00Z'), tz);
+        expect(bridge).toMatchObject({ startDay: '2026-11-15', endDay: '2026-11-18', start: '2026-11-15T02:00:00.000Z', end: '2026-11-19T06:00:00.000Z' });
+        const w = teamWindow('week', new Date('2026-11-21T18:00:00Z'), tz);
+        expect(w).toMatchObject({ startDay: '2026-11-19', endDay: '2026-11-25', start: '2026-11-19T06:00:00.000Z', end: '2026-11-26T06:00:00.000Z' });
     });
     it('el mes es el mes natural', () => {
         const w = teamWindow('month', new Date('2026-11-16T18:00:00Z'), tz);

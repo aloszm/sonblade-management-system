@@ -16,7 +16,7 @@ Esta sección es la lista de trabajo vigente. Lo que no aparece en "Funciona" no
 - Recepción también gana el 20 % de los productos que vende.
 - Propinas: se capturan al cobrar y se pagan al barbero en su recibo semanal. Si se anula una venta cuya propina ya se pagó, la propina se queda con el barbero.
 - Descuentos: los autorizan dueño, gerente, recepción y quien tenga el permiso; motivo obligatorio, sin tope.
-- Semana de pago: domingo a sábado, corte sábado 8:00 pm.
+- Semana de pago: ~~domingo a sábado, corte sábado 8:00 pm~~. **Desde el 21 nov 2026: de jueves a miércoles, cierra al terminar el miércoles y se paga el sábado** (transición del 15 al 18 nov; ver FASE_4 §8h).
 - Caja: fondo de $500 para el día siguiente y apartado diario de $600 para "Renta y gastos", editables. No puede salir más efectivo del que hay.
 - Sonia es gerente de la sucursal: cuenta propia, sin contraseña compartida. Solo el dueño cambia comisiones y configuración.
 - Podio de barberos: muestra solo cortes, no ingresos.

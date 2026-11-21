@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
-import { weekLabel } from '@/lib/settlements/week';
+import { payDateLabel, payPeriodDates, payPeriodLabel } from '@/lib/payroll/pay-period';
 import PayBreakdown from '@/components/payroll/PayBreakdown';
 import type { PayInput } from '@/lib/payroll/breakdown';
 import BrandLogo from '@/components/BrandLogo';
@@ -23,6 +23,8 @@ type Receipt = PayInput & {
     branch: { name: string; address: string | null; phone: string | null };
     employee: { id: string; display_name: string };
     period_start: string; period_end: string; window_start: string; window_end: string;
+    /** Desde 20261121100000: fecha de pago prevista y si fue el periodo de transición. */
+    pay_date?: string | null; is_transition?: boolean;
     paid_at: string | null; paid_by_name: string | null;
     total_amount: number; gross_commission: number; deductions: number;
     tips_total?: number;
@@ -77,6 +79,10 @@ export default function ReciboPage() {
     // Mismo formato de fecha y hora que el resto del sistema (lib/utils/dates.ts): "sáb 14 nov 2026, 9:00 p. m.".
     const when = (iso: string | null) => (iso ? formatDateTime(iso, tz) : '—');
     const day = (iso: string) => formatDateTime(iso, tz, { year: false });
+    // Lo dice la base; si el recibo viene de una base anterior, la misma regla de lib/payroll/pay-period.ts.
+    const dates = payPeriodDates(receipt.period_start);
+    const payDate = receipt.pay_date ?? dates.payDate;
+    const periodKind = (receipt.is_transition ?? dates.isTransition) ? 'Periodo de transición' : 'Semana';
     const rate = (l: Receipt['commission_lines'][number]) => (l.percentage !== null ? `${Number(l.percentage)}%` : l.fixed_amount !== null ? `${money(Number(l.fixed_amount))} fijo` : '—');
 
     return (
@@ -107,8 +113,8 @@ export default function ReciboPage() {
 
                 <section className="grid grid-cols-2 gap-4 py-4 text-sm">
                     <div><p className="text-[13px] font-medium text-bos-muted">Persona</p><p className="font-semibold text-lg">{receipt.employee.display_name}</p></div>
-                    <div className="text-right"><p className="text-[13px] font-medium text-bos-muted">Semana</p><p className="font-bold">{weekLabel(receipt.period_start)}</p>
-                        <p className="text-xs text-bos-muted">Corte: sábado 8:00 pm</p></div>
+                    <div className="text-right"><p className="text-[13px] font-medium text-bos-muted">{periodKind}</p><p className="font-bold" data-testid="receipt-period">{payPeriodLabel(receipt.period_start, receipt.period_end)}</p>
+                        <p className="text-xs text-bos-muted" data-testid="receipt-cutoff">Cierre: {when(receipt.window_end)}{payDate && payDate !== receipt.period_end ? ` · Se paga el ${payDateLabel(payDate)}` : ''}</p></div>
                 </section>
 
                 {(receipt.commission_lines.length > 0 || receipt.adjustment_lines.length > 0 || (receipt.tip_lines ?? []).length > 0) && <div className="overflow-x-auto"><table className="w-full min-w-[34rem] text-sm border-t border-bos-border">

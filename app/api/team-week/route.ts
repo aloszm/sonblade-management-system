@@ -9,7 +9,7 @@ import { teamWindow } from '@/lib/team/summary';
 export const dynamic = 'force-dynamic';
 
 /**
- * Semana de pago en curso (domingo a sábado, corte sábado 8 pm) de cada persona del equipo, para las tarjetas de
+ * Periodo de pago en curso (lib/payroll/pay-period.ts: de jueves a miércoles) de cada persona del equipo, para las tarjetas de
  * Equipo: servicios, productos, comisiones con su porcentaje, propinas y ventas. Para quienes ven la pantalla Equipo
  * (dueño, gerencia y consulta). Solo lee y agrupa lo ya generado; no calcula comisiones.
  */

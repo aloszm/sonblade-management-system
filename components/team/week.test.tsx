@@ -7,7 +7,8 @@ import type { PersonLineApi, PersonWeekApi } from '@/lib/team/person-week';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-const WINDOW = { start: '2026-11-15T02:00:00Z', end: '2026-11-22T02:00:00Z', startDay: '2026-11-15', endDay: '2026-11-21' };
+// Periodo de pago del jueves 19 al miércoles 25 de noviembre de 2026 (lib/payroll/pay-period.ts).
+const WINDOW = { start: '2026-11-19T06:00:00Z', end: '2026-11-26T06:00:00Z', startDay: '2026-11-19', endDay: '2026-11-25' };
 const kind = (count: number, revenue: number, commission: number, percent: number | null) => ({ count, revenue, commission, percent });
 const PERSON: PersonWeekApi = {
     employeeId: 'e1', name: 'Deya', isBarber: true, services: kind(2, 240, 120, 50), products: kind(1, 180, 36, 20),
@@ -15,9 +16,17 @@ const PERSON: PersonWeekApi = {
 };
 
 describe('tarjeta: resumen de la semana', () => {
+    it('el rótulo dice el periodo de pago: transición del 15 al 18 nov, y de jueves a miércoles cruzando de mes', () => {
+        const { unmount } = render(<WeekSummary person={PERSON} window={{ start: '2026-11-15T02:00:00Z', end: '2026-11-19T06:00:00Z', startDay: '2026-11-15', endDay: '2026-11-18' }} />);
+        expect(screen.getByTestId('week-caption')).toHaveTextContent('Periodo de transición · domingo 15 al miércoles 18 de noviembre');
+        unmount();
+        render(<WeekSummary person={PERSON} window={{ start: '2026-11-26T06:00:00Z', end: '2026-12-03T06:00:00Z', startDay: '2026-11-26', endDay: '2026-12-02' }} />);
+        expect(screen.getByTestId('week-caption')).toHaveTextContent('Esta semana · jueves 26 de noviembre al miércoles 2 de diciembre');
+    });
+
     it('explica servicios, producto, propinas, ventas y lo que gana, con su periodo', () => {
         render(<WeekSummary person={PERSON} window={WINDOW} />);
-        expect(screen.getByTestId('week-caption')).toHaveTextContent('Esta semana · 15 al 21 de noviembre de 2026');
+        expect(screen.getByTestId('week-caption')).toHaveTextContent('Esta semana · jueves 19 al miércoles 25 de noviembre');
         expect(screen.getByTestId('week-services')).toHaveTextContent('Servicios: 2 · $240 → comisión 50 % = $120');
         expect(screen.getByTestId('week-products')).toHaveTextContent('Productos: 1 · $180 → comisión 20 % = $36');
         expect(screen.getByTestId('week-tips')).toHaveTextContent('Propinas: $20');
@@ -46,8 +55,8 @@ describe('tarjeta: resumen de la semana', () => {
 });
 
 const LINES: PersonLineApi[] = [
-    { key: 'a', saleId: 's2', folio: 'V2611-0002', paidAt: '2026-11-17T18:00:00Z', kind: 'product', concept: 'Cera', quantity: 1, revenue: 180, base: 180, percent: 20, commission: 36, tip: 0, courtesy: false },
-    { key: 'b', saleId: 's1', folio: 'V2611-0001', paidAt: '2026-11-16T17:00:00Z', kind: 'service', concept: 'Barba', quantity: 1, revenue: 120, base: 120, percent: 50, commission: 60, tip: 20, courtesy: false },
+    { key: 'a', saleId: 's2', folio: 'V2611-0002', paidAt: '2026-11-20T18:00:00Z', kind: 'product', concept: 'Cera', quantity: 1, revenue: 180, base: 180, percent: 20, commission: 36, tip: 0, courtesy: false },
+    { key: 'b', saleId: 's1', folio: 'V2611-0001', paidAt: '2026-11-19T17:00:00Z', kind: 'service', concept: 'Barba', quantity: 1, revenue: 120, base: 120, percent: 50, commission: 60, tip: 20, courtesy: false },
 ];
 
 function stub(reply: () => { ok: boolean; status?: number; body: unknown } | Promise<never>) {
@@ -78,7 +87,7 @@ describe('ventana: desglose de la semana', () => {
     });
 
     it('un producto regalado dice "Cortesía · sin comisión", sin base ni %', async () => {
-        const gift: PersonLineApi = { key: 'c', saleId: 's3', folio: 'V2611-0003', paidAt: '2026-11-18T18:00:00Z', kind: 'product', concept: 'Cera', quantity: 1, revenue: 0, base: null, percent: null, commission: 0, tip: 0, courtesy: true };
+        const gift: PersonLineApi = { key: 'c', saleId: 's3', folio: 'V2611-0003', paidAt: '2026-11-21T18:00:00Z', kind: 'product', concept: 'Cera', quantity: 1, revenue: 0, base: null, percent: null, commission: 0, tip: 0, courtesy: true };
         stub(() => ({ ok: true, body: { timezone: 'America/Mexico_City', window: WINDOW, summary: PERSON, lines: [gift, ...LINES] } }));
         render(<WeekBreakdown employeeId="e1" name="Deya" />);
         const rows = await screen.findAllByTestId('week-line');

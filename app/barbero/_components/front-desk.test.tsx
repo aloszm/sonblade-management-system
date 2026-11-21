@@ -7,7 +7,8 @@ import BarberDashboard from '@/components/BarberDashboard';
 import { stubFetch, type Call, type Reply } from '@/components/payroll/test-utils';
 import { FrontDeskWeek } from './front-desk';
 
-const FIXED = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20'];
+// Periodo de pago del jueves 19 al miércoles 25 nov 2026 (se paga el sábado 28): Dago lunes a viernes.
+const FIXED = ['2026-11-19', '2026-11-20', '2026-11-23', '2026-11-24', '2026-11-25'];
 const day = (date: string, status = 'worked', amount = 320) => ({ date, weekday: new Date(`${date}T12:00:00Z`).getUTCDay(), status, rate: 320, amount, exceptionId: null, reason: null });
 const WAGE = {
     amount: 1600, paidDays: 5, workedDays: 5, absentDays: 0, extraDays: 0, groups: [{ rate: 320, days: 5, amount: 1600 }],
@@ -17,7 +18,7 @@ const PERSON = {
     employee_id: 'e-dago', name: 'Dago', settled: false, settlement_id: null, receipt_number: null, can_edit: false,
     amount: 1600, summary: 'Sueldo: 5 días × $320 = $1,600', accrued_amount: 1600, accrued_days: 5, wage: WAGE, exceptions: [],
 };
-const WEEK = { period_start: '2026-11-15', period_end: '2026-11-21', today: '2026-11-20', can_edit: false, people: [PERSON] };
+const WEEK = { period_start: '2026-11-19', period_end: '2026-11-25', today: '2026-11-25', can_edit: false, people: [PERSON] };
 const STATS = { earnings: { totalCents: 4500, serviceCents: 0, productCents: 3000, tipsCents: 1500 } } as unknown as MyWeek;
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
@@ -32,6 +33,12 @@ describe('Mi semana de recepción: sueldo por día', () => {
         expect(wage).toHaveTextContent('Semana completa: $1,600.00 (5 días × $320 = $1,600)');
         for (const d of FIXED) expect(screen.getByTestId(`my-day-${d}`)).toHaveAttribute('data-status', 'worked');
         expect(screen.getByTestId('my-day-2026-11-21')).toHaveAttribute('data-status', 'rest');
+        expect(screen.getByTestId('my-day-2026-11-22')).toHaveAttribute('data-status', 'rest');
+        // Los días van de jueves a miércoles y el rótulo dice el periodo y cuándo se paga.
+        expect([...wage.querySelectorAll('li[data-testid^="my-day-"]')].map((li) => li.getAttribute('data-testid')))
+            .toEqual(['2026-11-19', '2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23', '2026-11-24', '2026-11-25'].map((d) => `my-day-${d}`));
+        expect(wage).toHaveTextContent('Semana del 19 al 25 de noviembre de 2026');
+        expect(wage).toHaveTextContent('se paga el sábado 28 de noviembre');
         // 1,600 de sueldo + 30 de comisión de productos + 15 de propinas.
         expect(screen.getByTestId('my-owed-total')).toHaveTextContent('$1,645.00');
         expect(screen.getByTestId('my-owed')).toHaveTextContent('Comisión de productos$30');
@@ -39,13 +46,13 @@ describe('Mi semana de recepción: sueldo por día', () => {
     });
 
     it('una falta aparece marcada y con su motivo; el sueldo devengado ya no cuenta ese día', async () => {
-        const absent = { ...WAGE, amount: 1280, days: FIXED.map((d) => (d === '2026-11-18' ? day(d, 'absent', 0) : day(d))) };
-        const exception = { id: 'x1', work_date: '2026-11-18', kind: 'absent', reason: 'Avisó que estaba enfermo', voided_at: null, label: 'Faltó' };
+        const absent = { ...WAGE, amount: 1280, days: FIXED.map((d) => (d === '2026-11-24' ? day(d, 'absent', 0) : day(d))) };
+        const exception = { id: 'x1', work_date: '2026-11-24', kind: 'absent', reason: 'Avisó que estaba enfermo', voided_at: null, label: 'Faltó' };
         stubFetch(() => ({ body: { ...WEEK, people: [{ ...PERSON, amount: 1280, accrued_amount: 1280, accrued_days: 4, wage: absent, exceptions: [exception] }] } }));
         render(<FrontDeskWeek employeeId="e-dago" data={STATS} mine />);
         expect(await screen.findByTestId('my-wage-accrued')).toHaveTextContent('$1,280.00');
-        expect(screen.getByTestId('my-day-2026-11-18')).toHaveAttribute('data-status', 'absent');
-        expect(screen.getByTestId('my-wage-exceptions')).toHaveTextContent('Faltó · miércoles 18 nov');
+        expect(screen.getByTestId('my-day-2026-11-24')).toHaveAttribute('data-status', 'absent');
+        expect(screen.getByTestId('my-wage-exceptions')).toHaveTextContent('Faltó · martes 24 nov');
         expect(screen.getByTestId('my-wage-exceptions')).toHaveTextContent('Avisó que estaba enfermo');
     });
 

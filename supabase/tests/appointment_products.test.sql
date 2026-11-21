@@ -17,7 +17,7 @@ declare
   emi_emp uuid := '1ef32d3d-8cf8-4441-aa6c-7a1674d874e4';
   dago_emp uuid := '67db0358-6563-4879-a9c6-340420ad846d';
   biz uuid; svc uuid; price numeric; prod uuid; prod_off uuid; a1 uuid; a2 uuid; l1 uuid; l2 uuid; v jsonb; n int; k text;
-  slot timestamptz; sale uuid; stock numeric; sid uuid; tz text; wk date;
+  slot timestamptz; sale uuid; stock numeric; sid uuid; tz text; wk date; wk_end date;
   c_svc numeric; c_prod numeric; pre_dani numeric; pre_emi numeric; post_dani numeric; post_emi numeric;
   kpi_x jsonb; kpi_y jsonb; t0 timestamptz; items jsonb; pays jsonb;
 begin
@@ -162,10 +162,11 @@ begin
   r := r || E'\n19 ' || case when n = 7 then 'OK' else 'FALLA' end || ' bitácora de capturas, cantidades, vendedor y quitas (' || n || ')';
 
   -- Cobro de la cita: servicio de Dani + 2 piezas vendidas por Emi (lo que precarga el cobro).
-  wk := (now() at time zone tz)::date - extract(dow from (now() at time zone tz))::int;
+  -- Periodo de pago en curso (jueves a miércoles desde 20261121100000; antes, domingo a sábado).
+  select p.period_start, p.period_end into wk, wk_end from private.pay_period_at(biz, now()) p;
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role', 'authenticated')::text, true);
-  pre_dani := (public.preview_commission_settlement(b, dani_emp, wk, wk + 6) ->> 'gross_commission')::numeric;
-  pre_emi := (public.preview_commission_settlement(b, emi_emp, wk, wk + 6) ->> 'gross_commission')::numeric;
+  pre_dani := (public.preview_commission_settlement(b, dani_emp, wk, wk_end) ->> 'gross_commission')::numeric;
+  pre_emi := (public.preview_commission_settlement(b, emi_emp, wk, wk_end) ->> 'gross_commission')::numeric;
   items := jsonb_build_array(
     jsonb_build_object('item_type', 'service', 'catalog_id', svc, 'employee_id', dani_emp, 'quantity', 1),
     jsonb_build_object('item_type', 'product', 'catalog_id', prod, 'quantity', 2, 'commission_employee_ids', jsonb_build_array(emi_emp)));
@@ -200,8 +201,8 @@ begin
   r := r || E'\n23 ' || case when n = 1 and (select appointment_id from public.sales where id = sale) = a1 and v ->> 'appointment_link' = 'explicit'
       then 'OK' else 'FALLA' end || ' la cita queda completada y ligada';
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role', 'authenticated')::text, true);
-  post_dani := (public.preview_commission_settlement(b, dani_emp, wk, wk + 6) ->> 'gross_commission')::numeric;
-  post_emi := (public.preview_commission_settlement(b, emi_emp, wk, wk + 6) ->> 'gross_commission')::numeric;
+  post_dani := (public.preview_commission_settlement(b, dani_emp, wk, wk_end) ->> 'gross_commission')::numeric;
+  post_emi := (public.preview_commission_settlement(b, emi_emp, wk, wk_end) ->> 'gross_commission')::numeric;
   r := r || E'\n24 ' || case when post_dani - pre_dani = c_svc and post_emi - pre_emi = c_prod then 'OK' else 'FALLA' end
       || ' pago semanal: Dani +' || (post_dani - pre_dani) || ', Emi +' || (post_emi - pre_emi);
   r := r || E'\n25 ' || case when kpi_x ->> 'revenue' = kpi_y ->> 'revenue' and kpi_x ->> 'commissions' = kpi_y ->> 'commissions'

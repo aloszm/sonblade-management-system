@@ -6,7 +6,7 @@ import { ChevronRight, Clock, Receipt } from 'lucide-react';
 import { STATUS_LABELS } from '@/lib/appointments/appointments-view';
 import { STATUS_STYLE } from '@/app/citas/_components/agenda-ui';
 import { PERIOD_LABELS, WEEKDAYS, WEEKDAYS_SHORT, type MyWeek, type TodayAppointment } from '@/lib/barber/my-week';
-import { weekLabel } from '@/lib/settlements/week';
+import { payDateLabel, payPeriodLabel } from '@/lib/payroll/pay-period';
 import { Delta, card, dayOf, label, moneyC, moneyWhole, plural, sectionTitle, timeOf } from './ui';
 
 interface SectionProps { data: MyWeek; mine: boolean }
@@ -89,26 +89,34 @@ const HEADLINE = {
     month: ['Este mes llevas', 'Este mes lleva'],
 } as const;
 
+/** "Cierra al terminar el miércoles 25 de noviembre; se paga el sábado 28 de noviembre." */
+function closeNote(window: MyWeek['window']): string {
+    const pay = window.payDate && window.payDate !== window.endDay ? `; se paga el ${payDateLabel(window.payDate)}` : '';
+    return `Cierra al terminar el ${longDay(window.endDay)}${pay}.`;
+}
+const MONTH_NOTE = 'El pago es por periodo de jueves a miércoles; se paga el sábado.';
+const closedKind = (window: MyWeek['window']) => (window.isTransition ? 'El periodo de transición' : 'La semana');
+
 function payoutNote(data: MyWeek, mine: boolean): string {
     const { payout, window } = data;
     // Sin permiso para ver recibos (canSeePayReceipts): el aviso no menciona recibos ni números de recibo.
     if (!data.receiptsVisible) {
-        if (window.period === 'month') return 'El pago es cada semana, con corte el sábado a las 8:00 p. m.';
-        if (payout.status === 'closed') return 'La semana ya cerró. Administración registra el pago.';
-        return `Se paga el ${longDay(window.endDay)}, con corte a las 8:00 p. m.`;
+        if (window.period === 'month') return MONTH_NOTE;
+        if (payout.status === 'closed') return `${closedKind(window)} ya cerró. Administración registra el pago.`;
+        return closeNote(window);
     }
     if (window.period === 'month') {
         return payout.paidCents > 0
-            ? `Ya pagado este mes: ${moneyC(payout.paidCents)} en ${plural(payout.receipts.length, 'recibo', 'recibos')}. El pago es cada semana, con corte el sábado a las 8:00 p. m.`
-            : 'El pago es cada semana, con corte el sábado a las 8:00 p. m.';
+            ? `Ya pagado este mes: ${moneyC(payout.paidCents)} en ${plural(payout.receipts.length, 'recibo', 'recibos')}. ${MONTH_NOTE}`
+            : MONTH_NOTE;
     }
     if (payout.status === 'paid') {
         const r = payout.receipts[0];
         const date = r.paidAt ? ` el ${dayOf(r.paidAt, window.timezone)}` : '';
         return `${mine ? 'Ya se te pagó' : 'Ya se le pagó'} ${moneyC(payout.paidCents)}${date}. Recibo ${r.number}.`;
     }
-    if (payout.status === 'closed') return 'La semana ya cerró. El recibo aparece cuando administración registra el pago.';
-    return `Se paga el ${longDay(window.endDay)}, con corte a las 8:00 p. m.`;
+    if (payout.status === 'closed') return `${closedKind(window)} ya cerró. El recibo aparece cuando administración registra el pago.`;
+    return closeNote(window);
 }
 
 export function EarningsSection({ data, mine }: SectionProps) {
@@ -325,7 +333,7 @@ export function ReceiptsSection({ data, mine }: SectionProps) {
                                 <span className="flex min-w-0 items-center gap-3">
                                     <Receipt aria-hidden="true" className="h-5 w-5 shrink-0 text-bos-muted" />
                                     <span className="min-w-0">
-                                        <span className="block truncate text-[15px] font-semibold">Semana del {weekLabel(r.weekStart)}</span>
+                                        <span className="block truncate text-[15px] font-semibold">Periodo del {payPeriodLabel(r.weekStart, r.weekEnd)}</span>
                                         <span className="block truncate text-sm text-bos-muted">Recibo {r.number}{r.paidAt ? ` · pagado ${dayOf(r.paidAt, tz)}` : ''}</span>
                                     </span>
                                 </span>

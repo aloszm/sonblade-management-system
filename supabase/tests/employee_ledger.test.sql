@@ -3,6 +3,8 @@
 -- Todo ocurre dentro de un DO que termina con RAISE: nada se guarda. Usa una sucursal de prueba con su propia caja
 -- (la caja real no se toca) y semanas de agosto de 2026 (sin datos reales).
 -- Semanas (domingo): W1 2026-08-02, W2 08-09, W3 08-16, W4 08-23, W5 08-30, W6 09-06, W7 09-13.
+-- Son anteriores a la transición del 15 nov 2026 (20261121100000_pay_period_thu_wed): siguen probando la regla vieja
+-- (domingo a sábado, corte 8:00 p. m.), que rige esas fechas. La regla nueva se prueba en pay_period_thu_wed.test.sql.
 do $t$
 declare
   r text := '';

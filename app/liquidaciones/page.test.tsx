@@ -135,19 +135,45 @@ describe('Pago semanal: sueldo por día', () => {
         expect(calls.some((c) => c.url === '/api/wages/week?period_start=2026-11-08')).toBe(true);
     });
 
-    it('se puede avanzar a la semana en curso (la que aún no cierra) pero no más allá', async () => {
-        const calls = mount([BASE_ROW], undefined, (c) => {
-            if (c.url.startsWith('/api/wages/week')) return { body: { period_start: '2026-11-08', period_end: '2026-11-14', today: '2026-11-20', can_edit: true, people: [] } };
-            // La semana en curso (15 al 21) no es la última cerrada.
-            if (c.url === '/api/settlements?period_start=2026-11-15') return { body: { ...week([{ ...BASE_ROW, reason: 'week_not_closed', can_settle: false }]), period_start: '2026-11-15', period_end: '2026-11-21', is_latest_closed: false } };
-            return undefined;
-        });
-        const next = await screen.findByRole('button', { name: 'Semana siguiente' });
+    // Sábado 21 nov 2026: la última cerrada es la transición (15–18 nov, se paga hoy); la en curso, 19–25 (se paga el sáb 28).
+    const NAV = { latest_closed_start: '2026-11-15', current_start: '2026-11-19' };
+    const BRIDGE = { ...week([BASE_ROW]), ...NAV, period_start: '2026-11-15', period_end: '2026-11-18', pay_date: '2026-11-21', is_transition: true,
+        is_closed: true, is_latest_closed: true, previous_start: '2026-11-08', next_start: '2026-11-19' };
+    const CURRENT = { ...week([{ ...BASE_ROW, reason: 'week_not_closed', can_settle: false }]), ...NAV, period_start: '2026-11-19', period_end: '2026-11-25',
+        pay_date: '2026-11-28', is_transition: false, is_closed: false, is_latest_closed: false, previous_start: '2026-11-15', next_start: '2026-11-26' };
+    const OLD = { ...week([BASE_ROW]), ...NAV, pay_date: '2026-11-14', is_transition: false, is_closed: true, is_latest_closed: false,
+        previous_start: '2026-11-01', next_start: '2026-11-15' };
+    const navMount = () => mount([BASE_ROW], undefined, (c) => {
+        if (c.url.startsWith('/api/wages/week')) return { body: { period_start: '2026-11-15', period_end: '2026-11-18', today: '2026-11-21', can_edit: true, people: [] } };
+        if (c.url === '/api/settlements') return { body: BRIDGE };
+        if (c.url === '/api/settlements?period_start=2026-11-19') return { body: CURRENT };
+        if (c.url === '/api/settlements?period_start=2026-11-08') return { body: OLD };
+        return undefined;
+    });
+
+    it('abre en el periodo de transición con su rótulo y la fecha de pago; avanza a la semana en curso pero no más allá', async () => {
+        const calls = navMount();
+        expect(await screen.findByTestId('week-label')).toHaveTextContent('Periodo de transición del 15 al 18 de noviembre de 2026');
+        expect(screen.getByTestId('pay-date')).toHaveTextContent('domingo 15 al miércoles 18 de noviembre · Se paga el sábado 21 de noviembre');
+        const next = screen.getByRole('button', { name: 'Periodo siguiente' });
         await waitFor(() => expect(next).toBeEnabled());
         fireEvent.click(next);
-        await waitFor(() => expect(calls.some((c) => c.url === '/api/settlements?period_start=2026-11-15')).toBe(true));
-        await waitFor(() => expect(screen.getByRole('button', { name: 'Semana siguiente' })).toBeDisabled());
-        expect(await screen.findByText('Cierra el sábado a las 8:00 pm')).toBeInTheDocument();
+        await waitFor(() => expect(calls.some((c) => c.url === '/api/settlements?period_start=2026-11-19')).toBe(true));
+        expect(await screen.findByText('Semana del 19 al 25 de noviembre de 2026')).toBeInTheDocument();
+        expect(screen.getByTestId('pay-date')).toHaveTextContent('Se paga el sábado 28 de noviembre');
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Periodo siguiente' })).toBeDisabled());
+        expect(await screen.findByText('Cierra al terminar el miércoles 25 de noviembre')).toBeInTheDocument();
+        expect(screen.getByText(/Cada periodo de pago va de jueves a miércoles/)).toBeInTheDocument();
+    });
+
+    it('regresa de la transición a la última semana vieja (domingo a sábado), que se pagó el mismo sábado', async () => {
+        const calls = navMount();
+        await screen.findByText('Periodo de transición del 15 al 18 de noviembre de 2026');
+        fireEvent.click(screen.getByRole('button', { name: 'Periodo anterior' }));
+        await waitFor(() => expect(calls.some((c) => c.url === '/api/settlements?period_start=2026-11-08')).toBe(true));
+        expect(await screen.findByText('Semana del 8 al 14 de noviembre de 2026')).toBeInTheDocument();
+        expect(screen.getByTestId('pay-date')).toHaveTextContent('Se paga el sábado 14 de noviembre');
+        expect(screen.getByRole('button', { name: 'Ir a la última semana cerrada' })).toBeInTheDocument();
     });
 });
 

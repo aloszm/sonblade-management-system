@@ -5,7 +5,7 @@
 --   <las tres migraciones de B7>
 --   <PARTE B de este archivo>          -- foto DESPUÉS y comparación (termina con RAISE)
 --   rollback;
--- La foto cubre, con los datos reales de desarrollo, para cada sucursal × persona × semana cerrada desde la primera comisión:
+-- La foto cubre, con los datos reales de desarrollo, para cada sucursal × persona × periodo de pago desde la primera comisión:
 --   * la vista previa (preview_commission_settlement);
 --   * liquidar en una subtransacción revertida (pago por transferencia del total): resultado y recibo completo;
 --   * el recibo de cada liquidación ya existente.
@@ -17,27 +17,35 @@ update public.business_memberships set must_change_pin = false;
 create temp table b7_snap (phase text, kind text, key text, payload jsonb) on commit drop;
 create function pg_temp.b7_snapshot(p_phase text) returns integer language plpgsql as $f$
 declare
-  c record; v jsonb; rc jsonb; n integer := 0; v_owner uuid; v_first date; v_last date; w date; s record;
+  c record; v jsonb; rc jsonb; n integer := 0; v_owner uuid; v_biz uuid; v_first date; v_last date; w date; w_end date; s record;
 begin
-  select b.owner_user_id into v_owner from public.businesses b order by b.created_at limit 1;
+  select b.owner_user_id, b.id into v_owner, v_biz from public.businesses b order by b.created_at limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub', v_owner, 'role', 'authenticated')::text, true);
+  -- Periodos de pago (private.pay_period_for_date): domingo a sábado hasta el 14 nov 2026, la transición del 15 al
+  -- 18 nov y de jueves a miércoles después (20261121100000_pay_period_thu_wed). Desde el periodo anterior a la primera
+  -- comisión hasta el que contiene hoy.
   select min(ce.generated_at)::date into v_first from public.commission_entries ce;
-  v_first := v_first - extract(dow from v_first)::integer - 7;
+  select p.period_start into v_first from private.pay_period_for_date(v_biz, v_first) p;
+  select p.period_start into v_first from private.pay_period_for_date(v_biz, v_first - 1) p;
   v_last := (now() at time zone 'America/Mexico_City')::date;
   w := v_first;
-  while w + 6 <= v_last loop
+  select p.period_end into w_end from private.pay_period_for_date(v_biz, w) p;
+  while w <= v_last loop
     for c in select br.id as branch_id, e.id as employee_id from public.branches br join public.employees e on e.business_id = br.business_id
              where br.is_active order by br.id, e.id loop
-      v := public.preview_commission_settlement(c.branch_id, c.employee_id, w, w + 6);
+      v := public.preview_commission_settlement(c.branch_id, c.employee_id, w, w_end);
       insert into b7_snap values (p_phase, 'preview', c.branch_id || '/' || c.employee_id || '/' || w, v);
       n := n + 1;
       if (v ->> 'can_settle')::boolean then
         begin
-          rc := public.settle_commissions(c.branch_id, c.employee_id, w, w + 6,
+          rc := public.settle_commissions(c.branch_id, c.employee_id, w, w_end,
                   case when (v ->> 'total_amount')::numeric > 0
                        then jsonb_build_array(jsonb_build_object('method', 'transfer', 'amount', (v ->> 'total_amount')::numeric))
                        else '[]'::jsonb end);
           rc := jsonb_build_object('result', rc - 'settlement_id', 'receipt', public.get_settlement_receipt((rc ->> 'settlement_id')::uuid));
+          -- Los asientos que genera el pago simulado (sueldo, bonos, abonos) tienen un id nuevo en cada corrida: no se compara.
+          rc := jsonb_set(rc, '{receipt,ledger_lines}', coalesce((select jsonb_agg(l - 'entry_id' order by o)
+                  from jsonb_array_elements(rc -> 'receipt' -> 'ledger_lines') with ordinality x(l, o)), '[]'::jsonb));
           raise exception 'b7-revertir' using errcode = 'P0001';
         exception when sqlstate 'P0001' then
           if sqlerrm = 'b7-revertir' then
@@ -51,7 +59,8 @@ begin
         end;
       end if;
     end loop;
-    w := w + 7;
+    w := w_end + 1;
+    select p.period_end into w_end from private.pay_period_for_date(v_biz, w) p;
   end loop;
   for s in select id from public.commission_settlements order by id loop
     insert into b7_snap values (p_phase, 'receipt', s.id::text, public.get_settlement_receipt(s.id));

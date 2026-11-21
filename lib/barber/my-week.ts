@@ -1,10 +1,12 @@
 // "Mi semana" del barbero: cálculos puros (sin base de datos ni reloj propio) sobre lo que ya devuelven
 // business_report, sale_tips, commission_settlements y appointments. El dinero va en centavos enteros.
 //
-// Semana de pago: domingo a sábado, con corte el sábado a las 8:00 pm (zona horaria de la barbería).
-// Debe coincidir con private.report_window y private.settlement_window en la base.
+// "Esta semana" y "Semana pasada" son PERIODOS DE PAGO (lib/payroll/pay-period.ts, espejo de private.pay_period_at):
+// de jueves a miércoles desde el 19 nov 2026 (antes, domingo a sábado con corte el sábado a las 8:00 p. m.; del 15 al
+// 18 nov, el periodo de transición). "Este mes" es el mes de calendario.
 
-import { CUTOFF_HOUR, addDays, localClock } from '@/lib/settlements/week';
+import { addDays, localClock } from '@/lib/settlements/week';
+import { payPeriodAt, payPeriodDates, previousPayPeriod, zonedMinuteIso, type PayPeriod } from '@/lib/payroll/pay-period';
 
 export type Period = 'week' | 'last_week' | 'month';
 export const PERIODS: Period[] = ['week', 'last_week', 'month'];
@@ -25,21 +27,9 @@ export const toCents = (value: number | string | null | undefined): number => {
 // Periodos
 // ---------------------------------------------------------------------------------------------
 
-/** Diferencia (hora de pared − UTC) de una zona horaria en un instante, en milisegundos. */
-function zoneOffsetMs(instant: number, timeZone: string): number {
-    const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-    }).formatToParts(new Date(instant));
-    const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-    return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')) - instant;
-}
-
 /** Instante ISO de las `hour`:00 de un día 'YYYY-MM-DD' en la zona horaria del negocio. */
 export function zonedInstantIso(date: string, hour: number, timeZone: string): string {
-    const wall = Date.parse(`${date}T00:00:00Z`) + hour * 3_600_000;
-    let instant = wall - zoneOffsetMs(wall, timeZone);
-    instant = wall - zoneOffsetMs(instant, timeZone); // segunda pasada: cambios de horario
-    return new Date(instant).toISOString();
+    return zonedMinuteIso(date, hour * 60, timeZone);
 }
 
 export interface TimeWindow { start: string; end: string }
@@ -47,11 +37,15 @@ export interface TimeWindow { start: string; end: string }
 export interface PeriodWindow extends TimeWindow {
     period: Period;
     timezone: string;
-    /** Primer y último día (del negocio) que cubre: domingo–sábado, o el mes completo. */
+    /** Primer y último día (del negocio) que cubre: el periodo de pago, o el mes completo. */
     startDay: string;
     endDay: string;
-    /** Domingo de la semana de pago; null para el mes. */
+    /** Primer día del periodo de pago; null para el mes. */
     weekStart: string | null;
+    /** Día en que se paga el periodo (sábado); null para el mes. */
+    payDate: string | null;
+    /** El periodo de transición del 15 al 18 nov 2026. */
+    isTransition: boolean;
     previous: TimeWindow;
 }
 
@@ -62,15 +56,11 @@ const shiftMonth = (firstDay: string, months: number) => {
     return d.toISOString().slice(0, 10);
 };
 
-function weekWindow(sunday: string, timeZone: string): TimeWindow {
-    return { start: zonedInstantIso(addDays(sunday, -1), CUTOFF_HOUR, timeZone), end: zonedInstantIso(addDays(sunday, 6), CUTOFF_HOUR, timeZone) };
-}
+const payWindow = (p: PayPeriod): TimeWindow => ({ start: p.windowStart, end: p.windowEnd });
 
-/** Domingo de la semana de pago en curso: pasado el sábado 8:00 pm ya empezó la siguiente. */
+/** Primer día del periodo de pago en curso (pasado el cierre ya empezó el siguiente). */
 export function currentWeekStart(now: Date, timeZone: string): string {
-    const clock = localClock(now, timeZone);
-    const sunday = addDays(clock.date, -clock.dow);
-    return clock.dow === 6 && clock.hour >= CUTOFF_HOUR ? addDays(sunday, 7) : sunday;
+    return payPeriodAt(now, timeZone).start;
 }
 
 export function periodWindow(period: Period, now: Date, timeZone: string): PeriodWindow {
@@ -79,22 +69,37 @@ export function periodWindow(period: Period, now: Date, timeZone: string): Perio
         const next = shiftMonth(first, 1);
         const before = shiftMonth(first, -1);
         return {
-            period, timezone: timeZone, startDay: first, endDay: addDays(next, -1), weekStart: null,
+            period, timezone: timeZone, startDay: first, endDay: addDays(next, -1), weekStart: null, payDate: null, isTransition: false,
             start: zonedInstantIso(first, 0, timeZone), end: zonedInstantIso(next, 0, timeZone),
             previous: { start: zonedInstantIso(before, 0, timeZone), end: zonedInstantIso(first, 0, timeZone) },
         };
     }
-    const sunday = period === 'week' ? currentWeekStart(now, timeZone) : addDays(currentWeekStart(now, timeZone), -7);
+    const currentPeriod = payPeriodAt(now, timeZone);
+    const p = period === 'week' ? currentPeriod : previousPayPeriod(currentPeriod, timeZone);
     return {
-        period, timezone: timeZone, startDay: sunday, endDay: addDays(sunday, 6), weekStart: sunday,
-        ...weekWindow(sunday, timeZone), previous: weekWindow(addDays(sunday, -7), timeZone),
+        period, timezone: timeZone, startDay: p.start, endDay: p.end, weekStart: p.start, payDate: p.payDate, isTransition: p.isTransition,
+        ...payWindow(p), previous: payWindow(previousPayPeriod(p, timeZone)),
     };
 }
 
-/** Día de la semana (0 = domingo) de un instante en la zona del negocio. Lo de antes del domingo cuenta como domingo. */
-export function weekdayOf(iso: string, timeZone: string, firstDay?: string | null): number {
+const dowOf = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay();
+
+/**
+ * Día de la semana (0 = domingo) de un instante en la zona del negocio. Lo de antes del primer día del periodo (la
+ * noche del sábado 14 nov tras el corte, en la transición) cuenta como el primer día; el cierre exacto, como el último.
+ */
+export function weekdayOf(iso: string, timeZone: string, firstDay?: string | null, lastDay?: string | null): number {
     const clock = localClock(new Date(iso), timeZone);
-    return firstDay && clock.date < firstDay ? 0 : clock.dow;
+    if (firstDay && clock.date < firstDay) return dowOf(firstDay);
+    if (lastDay && clock.date > lastDay) return dowOf(lastDay);
+    return clock.dow;
+}
+
+/** Orden de las barras por día: los días del periodo de pago desde su primer día (jueves); el mes, de domingo a sábado. */
+export function weekdayOrder(window: Pick<PeriodWindow, 'weekStart' | 'endDay'>): number[] {
+    if (!window.weekStart) return [0, 1, 2, 3, 4, 5, 6];
+    const days = payPeriodDates(window.weekStart).days;
+    return Array.from({ length: days }, (_, i) => dowOf(addDays(window.weekStart as string, i)));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -172,11 +177,11 @@ export function buildEarnings(
 
     const days = emptyDays();
     for (const sale of current.sales) {
-        const day = days[weekdayOf(sale.created_at, window.timezone, window.weekStart)];
+        const day = days[weekdayOf(sale.created_at, window.timezone, window.weekStart, window.weekStart ? window.endDay : null)];
         day.commissionCents += toCents(sale.commission);
         day.services += sale.items.filter((i) => i.item_type === 'service').length;
     }
-    for (const tip of tips) days[weekdayOf(tip.created_at, window.timezone, window.weekStart)].tipsCents += toCents(tip.amount);
+    for (const tip of tips) days[weekdayOf(tip.created_at, window.timezone, window.weekStart, window.weekStart ? window.endDay : null)].tipsCents += toCents(tip.amount);
     for (const day of days) day.totalCents = day.commissionCents + day.tipsCents;
 
     const best = [...days].filter((d) => d.services > 0).sort((a, b2) => b2.services - a.services || b2.totalCents - a.totalCents || a.dow - b2.dow)[0];
@@ -184,12 +189,12 @@ export function buildEarnings(
     return {
         serviceCents, productCents, tipsCents, totalCents, previousTotalCents, deltaCents,
         deltaPct: previousTotalCents > 0 ? Math.round((deltaCents / previousTotalCents) * 100) : null,
-        byWeekday: days,
+        byWeekday: weekdayOrder(window).map((d) => days[d]),
         bestDay: best ? { dow: best.dow, services: best.services, totalCents: best.totalCents } : null,
     };
 }
 
-/** Qué parte del periodo ya tiene recibo de pago. Un recibo cubre una semana domingo–sábado. */
+/** Qué parte del periodo ya tiene recibo de pago. Un recibo cubre un periodo de pago. */
 export function buildPayout(window: PeriodWindow, settlements: SettlementInput[], now: Date): Payout {
     const inRange = settlements.filter((s) => s.status === 'paid' && s.period_start >= window.startDay && s.period_start <= window.endDay);
     const receipts = inRange.map((s) => ({ id: s.id, number: s.receipt_number, paidAt: s.paid_at, totalCents: toCents(s.total_amount) }));

@@ -1,4 +1,4 @@
-import { addDays, latestClosedWeekStart } from '@/lib/settlements/week';
+import { payPeriodAt } from '@/lib/payroll/pay-period';
 import { formatMoney } from '@/lib/utils/money';
 
 /**
@@ -135,9 +135,9 @@ export function rateAt<T extends { effective_from: string; created_at: string }>
 }
 
 /**
- * Domingo de la semana de pago en curso (corte sábado 8 pm, hora del negocio): igual que private.pay_week_start.
+ * Inicio del periodo de pago en curso (lib/payroll/pay-period.ts, hora del negocio): igual que private.pay_week_start.
  * Es la vigencia más temprana que acepta public.set_employee_wage (el sueldo no se cambia hacia atrás).
  */
 export function currentPayWeekStart(now: Date, timeZone: string): string {
-    return addDays(latestClosedWeekStart(now, timeZone), 7);
+    return payPeriodAt(now, timeZone).start;
 }

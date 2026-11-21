@@ -122,7 +122,7 @@ export default function WageSection({ employee, onChanged }: Props) {
                 </div>
             ) : (
                 <EmptyState title="Sin sueldo fijo: gana por comisión y propinas"
-                    description={canEdit ? 'Puedes asignarle un sueldo por día; empieza a contar desde la semana en curso.' : 'Solo la cuenta principal asigna un sueldo por día.'} />
+                    description={canEdit ? 'Puedes asignarle un sueldo por día; empieza a contar desde el periodo de pago en curso.' : 'Solo la cuenta principal asigna un sueldo por día.'} />
             )}
 
             {next && (
@@ -173,7 +173,7 @@ export default function WageSection({ employee, onChanged }: Props) {
                         <label htmlFor={`wage-from-${employee.id}`} className={LABEL_CLASS}>Vigente desde</label>
                         <DatePicker id={`wage-from-${employee.id}`} value={from} min={data.min_effective_from} onChange={(v) => { setFrom(v); setErrors((p) => ({ ...p, date: undefined })); }}
                             aria-describedby={errors.date ? `wage-from-error-${employee.id}` : undefined} />
-                        <p className="mt-1.5 text-xs text-bos-muted">No puede ser antes del {dayLabel(data.min_effective_from)} (domingo de la semana en curso): el sueldo no se cambia hacia atrás.</p>
+                        <p className="mt-1.5 text-xs text-bos-muted">No puede ser antes del {dayLabel(data.min_effective_from)} (inicio del periodo de pago en curso): el sueldo no se cambia hacia atrás.</p>
                         {errors.date && <p id={`wage-from-error-${employee.id}`} role="alert" className="mt-1.5 text-sm font-medium text-bos-danger">{errors.date}</p>}
                     </div>
 

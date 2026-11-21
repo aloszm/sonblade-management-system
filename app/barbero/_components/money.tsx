@@ -20,7 +20,7 @@ interface ProgressResponse {
     people: { employee_id: string; name: string; goals: GoalProgress[] }[];
 }
 
-/** Avance de las metas de bono de la semana en curso. Sin metas activas: `enabled: false` y no se dibuja nada. */
+/** Avance de las metas de bono del periodo de pago en curso. Sin metas activas (o en el periodo de transición): `enabled: false`. */
 function useBonusProgress(employeeId: string, enabled: boolean) {
     return useQuery({
         queryKey: ['bonus-progress', employeeId],

@@ -106,6 +106,8 @@ La versión 2 **está publicada en producción**, con la base de producción car
 - **Teléfono del cliente:** se usa solo para gestionar su cita.
 - **Entorno de práctica:** usa la base de desarrollo (`sonblade-dev`) con datos simulados.
 - **Recepción:** solo registra entradas de inventario (B3); no resta, no corrige a la baja y no ve costos.
+- **Semana de pago (21 nov 2026):** de jueves a miércoles, cierra al terminar el miércoles y se paga el sábado siguiente; aplica a todo el
+  recibo y rige en práctica y en producción. Transición del 15 al 18 nov. Ver sección 8h.
 
 ---
 
@@ -540,7 +542,7 @@ Decisión del dueño (20 nov): Dago lunes a viernes y Emi sábado y domingo, **$
 
 Migración `20261120090000_daily_wages` (md5 `37f2f55375bcab97fc69d3c637810c84`, aplicada en `sonblade-dev`; **no** replicada a producción) · prueba `supabase/tests/daily_wages.test.sql` (34 casos).
 
-- **Ficha con vigencia** (`public.employee_wage_rates`, solo altas): monto por día y días fijos (0 = domingo … 6 = sábado). Tarifa de un día = vigencia más reciente <= ese día (empate: la última capturada). Solo la cuenta principal con PIN y motivo (`public.set_employee_wage`); la vigencia **nunca** es anterior al domingo de la semana de pago en curso (`private.pay_week_start`) ni cae en una semana pagada.
+- **Ficha con vigencia** (`public.employee_wage_rates`, solo altas): monto por día y días fijos (0 = domingo … 6 = sábado). Tarifa de un día = vigencia más reciente <= ese día (empate: la última capturada). Solo la cuenta principal con PIN y motivo (`public.set_employee_wage`); la vigencia **nunca** es anterior al inicio del periodo de pago en curso (`private.pay_week_start`; antes era el domingo, ver 8h) ni cae en una semana pagada.
 - **Los días fijos se dan por trabajados.** Excepciones (`public.employee_attendance_exceptions`): `absent` (día fijo que no se paga) y `extra` (día no fijo que sí se paga, a la tarifa de ese día). Dueño y gerencia, **con PIN** y motivo (decisión del agente: mismo criterio que el libro del empleado). Se anulan sin borrar (`void_attendance_exception`). Semana pagada: no se registra ni se anula nada (una falta descubierta después se corrige con un descuento del libro).
 - **Pago:** opción A, un asiento `wage` del libro (`employee_ledger`), uno por persona, sucursal y semana (índice único), sellado en el recibo, con el detalle día por día en `details`. La vista previa y el pago usan la misma función (`private.wage_week_summary`). Neto = sueldo + comisiones − ajustes + propinas + bonos − adelantos − abonos − descuentos − arrastre. Sin ficha, todo queda igual que antes. Se paga por el mismo camino que el neto (mismos pagos y freno de efectivo de la caja). `commission_settlements.wage_amount` guarda el monto.
 - **Utilidad:** el sueldo es costo en el concepto **"Sueldos"** (aparte de comisiones), **devengado por día trabajado** como las comisiones (que cuentan al cobrar la venta): cada día pagable cuenta en su día del negocio una vez que empezó (fecha <= hoy). Una sola fuente: `private.wage_cost_days` → `private.report_financial_period` (Panel por base, reportes) y `public.staff_cost_lines` → `lib/admin/profit.ts` (Finanzas y Panel en la app). `staff_cost_lines` también lleva los bonos, que antes Finanzas no restaba.
@@ -577,6 +579,58 @@ Migración `20261120160000_app_feedback` (md5 `ea8825c3002b0d0f4a8a58a25a9b4cd7`
 - **API:** `GET/POST /api/feedback` (`?scope=mine|all&status=&kind=`; `all` solo cuenta principal, con nombre de pila, puesto y resumen), `PATCH /api/feedback/[id]`, `POST /api/feedback/[id]/retract`, `POST /api/feedback/seen`, `GET /api/feedback/counters`.
 - **Pantallas:** botón del **encabezado** ("Comentar"; en celular solo el ícono) que abre "¿Qué mejorarías?" sin salir de la pantalla (no flota: no tapa cobrar ni la barra inferior); entrada "Comentarios" en el menú de todos los puestos (en celular dentro de "Más", con punto de aviso); `/comentarios` con "Mis comentarios" y, para la cuenta principal, "Todos" (resumen, filtros, orden, acciones rápidas, respuesta y "Copiar para enviar").
 - **Falta:** replicar la migración a producción (primero la base, después el código); probarlo con sesión real (solo se vio con datos simulados).
+
+## 8h. Semana de pago de jueves a miércoles (21 nov 2026; migración SOLO como archivo, sin aplicar)
+
+Decisión del dueño (21 nov 2026): la semana de pago va de **jueves a miércoles**, cierra **al terminar el miércoles** (medianoche,
+America/Mexico_City) y **se paga el sábado** siguiente. Aplica a comisiones, propinas, sueldo por día (faltas y días extra), adelantos,
+préstamos, descuentos, arrastre y bonos. Rige desde ya en práctica y en producción.
+
+Migración `20261121100000_pay_period_thu_wed` (md5 `7375e7b79a76011a94637b566967acd5`) · prueba `supabase/tests/pay_period_thu_wed.test.sql`
+(35 casos). **No está aplicada en ninguna base** (ver "Orden de publicación"): se probó en simulacro contra desarrollo, con las 30 pruebas SQL.
+
+**Dónde vive la regla (una sola vez):**
+- Base: `private.pay_period_rules` (solo altas; `business_id` nulo = regla por omisión; día de inicio, minuto de cierre —1200 = 8 p. m.,
+  1440 = fin del día— y días hasta el pago, con `effective_from`). Un solo cálculo: `private.pay_period_for_date` (por día) y
+  `private.pay_period_at` (por instante); `private.pay_period_checked` rechaza un periodo que no coincide. `pay_week_start`,
+  `settlement_window` y `report_window` ('week'/'last_week') solo la consultan. Una regla nueva solo se agrega hacia adelante, empezando
+  justo después del fin de un periodo y sin tocar recibos pagados (disparador); nadie la edita desde la app.
+- App: `lib/payroll/pay-period.ts` (espejo; `pay-period.test.ts` compara sus reglas con las filas de la migración). La usan Pago semanal,
+  Mi semana (barbero y recepción), Equipo (tarjeta y desglose), Barberos hoy y Ranking ("Esta semana"), el recibo, el sueldo por día y las
+  APIs `/api/settlements`, `/api/wages`, `/api/wages/week`, `/api/bonus-goals/progress`. `/api/settlements` además compara su ventana con la
+  de la base y falla si no coinciden.
+- **No cambian** (semana de calendario, domingo a sábado): Ventas, Finanzas, Panel (`/admin`, base Finanzas), Reportes, selectores de
+  fecha y la agenda. Punto de equilibrio va por mes: sin cambios. La utilidad va por fecha (comisión al cobrar, sueldo por día trabajado),
+  no por semana de pago: no cambia (lo prueba el caso 26).
+
+**Transición (igual en las dos bases):** ... semana 8–14 nov (cierra sáb 14, 8:00 p. m.; sin cambio) → **periodo de transición 15–18 nov**
+(instantes del sáb 14, 8:00 p. m. al jue 19, 00:00; se paga el sáb 21; folio P2647) → **19–25 nov** (se paga el sáb 28; P2648) → 26 nov–2 dic…
+Cortes "(inicio, fin]": el instante exacto del cierre es del periodo que cierra. En desarrollo el último recibo pagado es de la semana 8–14
+(ninguno cubre días posteriores al 14 nov, 8 p. m.); en producción no hay recibos. Lo ya pagado no se toca: su periodo sigue siendo válido
+con la regla vieja y su ventana está guardada en el recibo.
+- Sueldo por día: cada día cae en el periodo que lo contiene (la transición tiene 4 días). Las vigencias del 15 nov no cambian.
+- Bonos: por periodo completo; **en un periodo de transición no hay bonos automáticos**.
+- Adelantos, descuentos y arrastre entran al siguiente recibo que se pague (sellados en él, sin duplicarse); el arrastre lleva el inicio del
+  periodo siguiente. Préstamos: un abono por recibo, también en el de transición.
+- Folio: misma fórmula (P + año y semana ISO del último día del periodo). Cada miércoles cae en una semana ISO distinta y ningún sábado
+  pagado con la regla vieja cae en la 47 o después: sin choques (caso 16).
+- Se puede pagar desde el cierre (jueves 00:00); el sábado solo se informa ("Se paga el sábado 28 de noviembre").
+
+**Compatibilidad con la app publicada:** la base rechaza, con mensaje claro, un periodo que no coincide ("Ese periodo de pago no existe: el
+15/11/2026 cae en el periodo del 15/11/2026 al 18/11/2026. Recarga la página."): la app anterior nunca puede pagar la "semana 15–21". Pero
+con la base nueva y la app anterior, **Pago semanal falla** al pedir la semana en curso y, desde el sábado 21 a las 8 p. m., también al abrir
+(la "última semana cerrada" de la app anterior es la del 15 al 21). Otras pantallas (Mi semana, Equipo) seguirían con números de domingo a
+sábado sin mover dinero. Por eso la migración quedó **sin aplicar** en desarrollo.
+
+**Orden de publicación (seguro):**
+1. Replicar antes a producción, en orden, las migraciones que hoy solo están en desarrollo (B8, punto de equilibrio, comentarios), como ya
+   estaba previsto.
+2. En desarrollo: `apply_dev.py supabase/migrations/20261121100000_pay_period_thu_wed.sql` y **en seguida** publicar el código en práctica
+   (`feat/v2-integration`). Entre los dos pasos, Pago semanal de práctica puede mostrar el error de arriba (no paga nada).
+3. En producción: `scripts/replay-migrations.py --dry-run` y luego sin `--dry-run`, e **inmediatamente** publicar `main`. Mismo intervalo
+   seguro. El código nuevo con la base vieja no funciona (pide periodos de jueves): nunca publicar el código antes que la base.
+4. Verificar: Pago semanal abre en "Periodo de transición del 15 al 18 de noviembre de 2026 · Se paga el sábado 21"; pagar la transición
+   (Dago y Emi tienen sueldo desde el 15 nov) y el sábado 28 pagar 19–25.
 
 ## 9. Preguntas abiertas para el dueño (resumen)
 

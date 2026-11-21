@@ -10,7 +10,7 @@ import Skeleton from '@/components/ui/Skeleton';
 import PinConfirm from '@/components/ui/PinConfirm';
 import { useToast } from '@/components/ui/Toast';
 import { getJson, sendJson } from '@/lib/money/client';
-import { accruedText, canRegisterExceptions, exceptionDayOptions, longDayLabel, weekDates, type ExceptionKind } from '@/lib/payroll/wage-ui';
+import { accruedText, canRegisterExceptions, exceptionDayOptions, longDayLabel, weekDates, weekdayOfDate, type ExceptionKind } from '@/lib/payroll/wage-ui';
 import { DAY_STATUS_LABELS, WEEKDAY_SHORT, type WageWeek } from '@/lib/payroll/wages';
 import { isOfflineError, toUserMessage } from '@/lib/utils/errors';
 import { formatDateTime } from '@/lib/utils/dates';
@@ -24,7 +24,11 @@ export interface WeekPerson {
     employee_id: string; name: string; settled: boolean; settlement_id: string | null; receipt_number: string | null; can_edit: boolean;
     amount: number; summary: string | null; accrued_amount: number; accrued_days: number; wage: WageWeek | null; exceptions: WeekException[];
 }
-export interface WeekWagesResponse { period_start: string; period_end: string; today: string; can_edit: boolean; people: WeekPerson[] }
+export interface WeekWagesResponse {
+    period_start: string; period_end: string; today: string; can_edit: boolean; people: WeekPerson[];
+    /** Fecha de pago (sábado) y periodo de transición (lib/payroll/pay-period.ts). */
+    pay_date?: string; is_transition?: boolean;
+}
 
 interface Props {
     periodStart: string;
@@ -49,7 +53,7 @@ const MARK: Record<string, string> = { worked: '✓', absent: '✗', extra: '+',
 const NOUN: Record<ExceptionKind, string> = { absent: 'falta', extra: 'día extra' };
 
 /**
- * Sueldo por día de la semana que se está viendo en Pago semanal: qué días cuenta cada persona, faltas y días extra.
+ * Sueldo por día del periodo que se está viendo en Pago semanal: qué días cuenta cada persona, faltas y días extra.
  * Gerencia registra "Faltó" o "Día extra" y los anula (con motivo y PIN) mientras la semana no esté pagada. Con la
  * semana pagada, o en una cuenta de consulta, todo es solo lectura. El monto sale de la base: la pantalla no calcula.
  */
@@ -95,7 +99,7 @@ export default function WeekWages({ periodStart, readOnly = false, onChanged }: 
     };
 
     const openRegister = (person: WeekPerson, kind: ExceptionKind) => {
-        const options = exceptionDayOptions(kind, person.wage, data.period_start);
+        const options = exceptionDayOptions(kind, person.wage, data.period_start, data.period_end);
         setPickedDay(options[0] ?? '');
         setPending({ type: 'register', person, kind });
     };
@@ -104,7 +108,7 @@ export default function WeekWages({ periodStart, readOnly = false, onChanged }: 
         if (!pending) return null;
         if (pending.type === 'register') {
             const { person, kind } = pending;
-            const options = exceptionDayOptions(kind, person.wage, data.period_start);
+            const options = exceptionDayOptions(kind, person.wage, data.period_start, data.period_end);
             const noun = NOUN[kind];
             return (
                 <PinConfirm title={`Registrar ${noun}: ${person.name}`} confirmLabel={`Registrar ${noun} con PIN`}
@@ -181,14 +185,14 @@ export default function WeekWages({ periodStart, readOnly = false, onChanged }: 
                         </div>
 
                         <ol aria-label="Días de la semana" className="grid grid-cols-7 gap-1.5">
-                            {weekDates(data.period_start).map((date, i) => {
+                            {weekDates(data.period_start, data.period_end).map((date) => {
                                 const day = byDate.get(date);
                                 const key = day ? day.status : 'rest';
                                 const future = date > data.today;
                                 return (
                                     <li key={date} data-testid={`day-${date}`} data-status={key}
                                         className={`flex min-w-0 flex-col items-center rounded-lg border px-0.5 py-1.5 text-center ${CELL[key]} ${future ? 'border-dashed' : ''}`}>
-                                        <span className="text-[11px] font-medium">{WEEKDAY_SHORT[i]}</span>
+                                        <span className="text-[11px] font-medium">{WEEKDAY_SHORT[weekdayOfDate(date)]}</span>
                                         <span aria-hidden="true" className="text-base font-bold leading-6">{MARK[key]}</span>
                                         <span className="sr-only">{day ? `${DAY_STATUS_LABELS[day.status]}${future ? ', por venir' : ''}` : 'Descanso'}</span>
                                         <span className="text-[11px] tabular-nums">{day && day.amount > 0 ? formatMoney(day.amount) : '—'}</span>

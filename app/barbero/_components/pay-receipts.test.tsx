@@ -12,9 +12,9 @@ import { FrontDeskWeek } from './front-desk';
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 const TZ = 'America/Mexico_City';
-// Domingo 22 nov 2026: la semana del 15 al 21 ya cerró.
+// Domingo 22 nov 2026: "la semana pasada" es el periodo de transición del 15 al 18 nov (cerró el jueves 19 a las 00:00).
 const NOW = new Date('2026-11-22T16:00:00Z');
-const PAID = [{ id: 'r1', receipt_number: 'R-0007', period_start: '2026-11-15', period_end: '2026-11-21', total_amount: 145, paid_at: '2026-11-21T22:00:00Z', status: 'paid' }];
+const PAID = [{ id: 'r1', receipt_number: 'R-0007', period_start: '2026-11-15', period_end: '2026-11-18', total_amount: 145, paid_at: '2026-11-21T22:00:00Z', status: 'paid' }];
 /** «Mi semana» armada con la misma función del servidor: $100 de servicios, $30 de producto y $15 de propina = $145. */
 function week(visible: boolean): MyWeek {
     return buildMyWeek({
@@ -31,7 +31,7 @@ describe('Sección de recibos en «Mi semana»', () => {
         render(<ReceiptsSection data={week(true)} mine />);
         expect(screen.getByRole('heading', { name: 'Mis recibos de pago' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Ver todos mis recibos' })).toHaveAttribute('href', '/liquidaciones');
-        expect(screen.getByRole('link', { name: /Semana del/ })).toHaveAttribute('href', '/liquidaciones/r1');
+        expect(screen.getByRole('link', { name: /Periodo del 15 al 18 de noviembre de 2026/ })).toHaveAttribute('href', '/liquidaciones/r1');
     });
 
     it('quien no puede: la sección no se dibuja (ni título huérfano ni enlaces)', () => {
@@ -42,7 +42,7 @@ describe('Sección de recibos en «Mi semana»', () => {
     it('lo ganado sigue visible y el aviso de pago no menciona recibos si no se pueden ver', () => {
         render(<EarningsSection data={week(false)} mine />);
         expect(screen.getByTestId('week-earned')).toHaveTextContent('$145');
-        expect(screen.getByText('La semana ya cerró. Administración registra el pago.')).toBeInTheDocument();
+        expect(screen.getByText('El periodo de transición ya cerró. Administración registra el pago.')).toBeInTheDocument();
         expect(screen.queryByText(/recibo/i)).toBeNull();
     });
 
@@ -52,7 +52,8 @@ describe('Sección de recibos en «Mi semana»', () => {
     });
 });
 
-const FIXED = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20'];
+// Periodo de pago del jueves 19 al miércoles 25 nov 2026: Dago lunes a viernes.
+const FIXED = ['2026-11-19', '2026-11-20', '2026-11-23', '2026-11-24', '2026-11-25'];
 const day = (date: string) => ({ date, weekday: new Date(`${date}T12:00:00Z`).getUTCDay(), status: 'worked', rate: 320, amount: 320, exceptionId: null, reason: null });
 const WAGE = {
     amount: 1600, paidDays: 5, workedDays: 5, absentDays: 0, extraDays: 0, groups: [{ rate: 320, days: 5, amount: 1600 }],
@@ -62,7 +63,7 @@ const WAGE_PERSON = {
     employee_id: 'e-dago', name: 'Dago', settled: true, settlement_id: 's1', receipt_number: 'R-0009', can_edit: false,
     amount: 1600, summary: 'Sueldo: 5 días × $320 = $1,600', accrued_amount: 1600, accrued_days: 5, wage: WAGE, exceptions: [],
 };
-const WEEK_WAGES = { period_start: '2026-11-15', period_end: '2026-11-21', today: '2026-11-20', can_edit: false, people: [WAGE_PERSON] };
+const WEEK_WAGES = { period_start: '2026-11-19', period_end: '2026-11-25', today: '2026-11-25', can_edit: false, people: [WAGE_PERSON] };
 
 describe('Mi semana de recepción', () => {
     it('sigue mostrando lo que lleva por cobrar y su sueldo; sin «Ver mis recibos» ni número de recibo', async () => {

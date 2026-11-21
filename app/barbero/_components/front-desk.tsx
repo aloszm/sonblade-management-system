@@ -4,10 +4,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { getJson } from '@/lib/money/client';
-import { accruedText, longDayLabel, weekDates } from '@/lib/payroll/wage-ui';
+import { accruedText, longDayLabel, weekDates, weekdayOfDate } from '@/lib/payroll/wage-ui';
 import { DAY_STATUS_LABELS, WEEKDAY_SHORT } from '@/lib/payroll/wages';
 import type { MyWeek } from '@/lib/barber/my-week';
-import { weekLabel } from '@/lib/settlements/week';
+import { payDateLabel, payPeriodDates, payPeriodLabel } from '@/lib/payroll/pay-period';
 import { toUserMessage } from '@/lib/utils/errors';
 import { formatMoney } from '@/lib/utils/money';
 import { SectionError, SectionSkeleton, card, label, moneyC, sectionTitle } from './ui';
@@ -24,7 +24,7 @@ const CELL: Record<string, string> = {
 };
 const MARK: Record<string, string> = { worked: '✓', absent: '✗', extra: '+', rest: '·' };
 
-/** Sueldo de la semana en curso de la persona que entró (la API ya limita a lo suyo). null = sin sueldo por día. */
+/** Sueldo del periodo de pago en curso de la persona que entró (la API ya limita a lo suyo). null = sin sueldo por día. */
 function useMyWage(employeeId: string) {
     const [week, setWeek] = useState<WeekWagesResponse | null>(null);
     const [error, setError] = useState('');
@@ -63,7 +63,7 @@ export function FrontDeskWeek({ employeeId, data, mine, receiptsVisible }: { emp
             <section aria-labelledby="my-wage-title" data-testid="my-wage" className={`${card} space-y-4 p-4 sm:p-6`}>
                 <div>
                     <h2 id="my-wage-title" className={sectionTitle}>{mine ? 'Mi sueldo por día' : 'Sueldo por día'}</h2>
-                    <p className="text-sm text-bos-muted">Semana del {weekLabel(week.period_start)}</p>
+                    <p className="text-sm text-bos-muted">{payPeriodDates(week.period_start).isTransition ? 'Periodo de transición' : 'Semana'} del {payPeriodLabel(week.period_start, week.period_end)}</p>
                 </div>
 
                 {!person || !wage ? (
@@ -77,14 +77,14 @@ export function FrontDeskWeek({ employeeId, data, mine, receiptsVisible }: { emp
                         </div>
 
                         <ol aria-label="Días de la semana" className="grid grid-cols-7 gap-1.5">
-                            {weekDates(week.period_start).map((date, i) => {
+                            {weekDates(week.period_start, week.period_end).map((date) => {
                                 const day = byDate.get(date);
                                 const key = day ? day.status : 'rest';
                                 const future = date > week.today;
                                 return (
                                     <li key={date} data-testid={`my-day-${date}`} data-status={key}
                                         className={`flex min-w-0 flex-col items-center rounded-lg border px-0.5 py-1.5 text-center ${CELL[key]} ${future ? 'border-dashed' : ''}`}>
-                                        <span className="text-[11px] font-medium">{WEEKDAY_SHORT[i]}</span>
+                                        <span className="text-[11px] font-medium">{WEEKDAY_SHORT[weekdayOfDate(date)]}</span>
                                         <span aria-hidden="true" className="text-base font-bold leading-6">{MARK[key]}</span>
                                         <span className="sr-only">{day ? `${DAY_STATUS_LABELS[day.status]}${future ? ', por venir' : ''}` : 'Descanso'}</span>
                                         <span className="text-[11px] tabular-nums">{day && day.amount > 0 ? formatMoney(day.amount) : '—'}</span>
@@ -105,7 +105,7 @@ export function FrontDeskWeek({ employeeId, data, mine, receiptsVisible }: { emp
                             </ul>
                         )}
                         <p className="rounded-lg bg-bos-raised px-4 py-3 text-sm text-bos-text">
-                            {person.settled ? `Esta semana ya se pagó${person.receipt_number && showReceipts ? ` (recibo ${person.receipt_number})` : ''}.` : 'Se paga en tu recibo semanal, con corte el sábado a las 8:00 p. m.'}
+                            {person.settled ? `Esta semana ya se pagó${person.receipt_number && showReceipts ? ` (recibo ${person.receipt_number})` : ''}.` : `Se paga en tu recibo de la semana: cierra al terminar el miércoles y se paga el ${payDateLabel(payPeriodDates(week.period_start).payDate)}.`}
                         </p>
                     </>
                 )}

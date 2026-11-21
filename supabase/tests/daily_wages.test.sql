@@ -4,6 +4,8 @@
 -- Para simular la historia, las fichas de sueldo con vigencia pasada se insertan directo (la función pública no deja
 -- cambiar el sueldo hacia atrás; eso se prueba en el caso 17).
 -- Semanas (domingo): W0 07-26, W1 08-02, W2 08-09, W3 08-16, W4 08-23, W5 08-30, W6 09-06, W7 09-13.
+-- Son anteriores a la transición del 15 nov 2026 (20261121100000_pay_period_thu_wed): siguen probando la regla vieja
+-- (domingo a sábado, corte 8:00 p. m.), que rige esas fechas. La regla nueva se prueba en pay_period_thu_wed.test.sql.
 -- Casos del encargo: (a) 1-3; (b) 4-5; (c) 6; (d) 7; (e) 8-11; (f) 12-13; (g) 14-16; (h) 18-21; (i) 22-25;
 -- (j) 26-31; (k) 32. Además: ficha con PIN (17), libro sellado (33), privilegios (34).
 do $t$
@@ -20,7 +22,7 @@ declare
   dago_e uuid := '67db0358-6563-4879-a9c6-340420ad846d';
   emi_e uuid := '1ef32d3d-8cf8-4441-aa6c-7a1674d874e4';
   biz uuid; tz text; b2 uuid; svc uuid; sess uuid; v jsonb; p jsonb; q jsonb; n int; m int; x numeric; y numeric;
-  st1 uuid; st2 uuid; ex1 uuid; ex2 uuid; goal uuid; wk date; today date; f jsonb; md jsonb; fr jsonb;
+  st1 uuid; st2 uuid; ex1 uuid; ex2 uuid; goal uuid; wk date; wk_end date; today date; f jsonb; md jsonb; fr jsonb;
   w0 date := '2026-07-26'; w1 date := '2026-08-02'; w2 date := '2026-08-09'; w3 date := '2026-08-16'; w4 date := '2026-08-23';
   w5 date := '2026-08-30'; w6 date := '2026-09-06'; w7 date := '2026-09-13';
 begin
@@ -39,7 +41,10 @@ begin
   select br.business_id, bz.timezone into biz, tz from public.branches br join public.businesses bz on bz.id = br.business_id where br.id = b;
   select id into svc from public.services where business_id = biz order by name limit 1;
   today := (now() at time zone tz)::date;
+  -- Periodo de pago en curso (jueves a miércoles desde 20261121100000; las semanas de agosto y septiembre de 2026 de
+  -- esta prueba siguen siendo de domingo a sábado, la regla de entonces).
   wk := private.pay_week_start(biz, now());
+  select p.period_end into wk_end from private.pay_period_for_date(biz, wk) p;
 
   execute $f$create function pg_temp.dw_as(u uuid, pin boolean) returns void language plpgsql as $b$
     declare s uuid;
@@ -233,7 +238,7 @@ begin
   r := r || E'\n17 ' || case when m = 2 and (v ->> 'effective_from')::date = wk and v -> 'work_days' = '[0, 6]'::jsonb and (v ->> 'daily_amount')::numeric = 330
     and (v -> 'previous' ->> 'daily_amount')::numeric = 320
     and exists (select 1 from public.audit_log a where a.entity_id = v ->> 'id' and a.after_data ->> 'action' = 'employee_wage_set')
-    then 'OK' else 'FALLA' end || ' ficha: hacia atrás rechazada, sin PIN rechazada, desde el domingo en curso con bitácora ' || v::text;
+    then 'OK' else 'FALLA' end || ' ficha: hacia atrás rechazada, sin PIN rechazada, desde el inicio del periodo de pago en curso con bitácora ' || v::text;
 
   -- ── (h) neto = sueldo + comisiones + propinas + bonos − adelantos − descuentos; efectivo por la caja ──
   perform pg_temp.dw_sale(biz, b2, emi_e, svc, owner, (w5 + 1 + time '12:00') at time zone tz, 400, 50, 'V2636-9802');
@@ -293,14 +298,14 @@ begin
   r := r || E'\n24 ' || case when (f -> 'wages' ->> 'total')::numeric = 1920 and y = 1280
     and y = (select s.wage_amount from public.commission_settlements s where s.id = st2) then 'OK' else 'FALLA' end
     || ' W2: devengado 1920; Dago 1280 = lo pagado en su recibo';
-  -- Semana en curso: solo cuentan los días que ya empezaron (Emi 330 sábado y domingo desde el domingo en curso).
+  -- Periodo en curso: solo cuentan los días que ya empezaron (Emi 330 sábado y domingo desde el inicio del periodo en curso).
   execute 'set local role authenticated';
   select count(*) filter (where s.cost_date > today), count(*) into m, n
-  from public.staff_cost_lines(b2, wk::timestamp at time zone tz, (wk + 7)::timestamp at time zone tz) s where s.kind = 'wage';
+  from public.staff_cost_lines(b2, wk::timestamp at time zone tz, (wk_end + 1)::timestamp at time zone tz) s where s.kind = 'wage';
   execute 'reset role';
-  select count(*) into x from generate_series(wk, least(today, wk + 6), interval '1 day') d
+  select count(*) into x from generate_series(wk, least(today, wk_end), interval '1 day') d
   where extract(dow from d)::int in (0, 6) or (extract(dow from d)::int between 1 and 5);
-  r := r || E'\n25 ' || case when m = 0 and n = x then 'OK' else 'FALLA' end || ' semana en curso: ' || n || ' días devengados hasta hoy, ninguno futuro';
+  r := r || E'\n25 ' || case when m = 0 and n = x then 'OK' else 'FALLA' end || ' periodo en curso: ' || n || ' días devengados hasta hoy, ninguno futuro';
 
   -- ── (j) permisos ────────────────────────────────────────────────────────────────────────────────────
   m := 0;
