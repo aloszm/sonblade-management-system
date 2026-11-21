@@ -1,6 +1,6 @@
 import {
     BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, Package, Scissors,
-    Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins, Target, MessageSquare,
+    Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins, Target, MessageSquare, ClipboardList,
     type LucideIcon,
 } from 'lucide-react';
 import { canSeePayReceipts, canWrite, screenRole } from '@/lib/auth/roles';
@@ -50,6 +50,8 @@ export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
             { href: '/barbero', label: 'Mi semana', icon: UserCircle, roles: ['barber', 'admin', 'recepcion'], writesOnly: true },
             { href: '/pos', label: 'Cobro', icon: ShoppingCart, roles: ['admin', 'recepcion'], writesOnly: true },
             { href: '/caja', label: 'Caja', icon: Banknote, roles: ['admin', 'recepcion'] },
+            // Resumen de caja de un día (enviar por WhatsApp, Excel, PDF). Recepción: solo hoy y ayer (lo decide la API).
+            { href: '/caja/resumen', label: 'Resumen del día', icon: ClipboardList, roles: ['admin', 'recepcion'] },
             { href: '/equipo-hoy', label: 'Barberos hoy', icon: Trophy, roles: ['admin', 'recepcion'] },
             { href: '/citas', label: 'Agenda', icon: Calendar, roles: ['admin', 'recepcion', 'barber'] },
             { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'recepcion', 'barber'] },
@@ -136,6 +138,7 @@ export const PAGE_TITLES: Record<string, string> = {
     '/ventas/historial': 'Ventas',
     '/inventario': 'Inventario',
     '/caja': 'Caja',
+    '/caja/resumen': 'Resumen del día',
     '/gastos': 'Gastos',
     '/sobres': 'Sobres',
     '/citas': 'Agenda',

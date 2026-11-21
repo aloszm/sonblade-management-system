@@ -3,7 +3,7 @@ import { assignableRoles, canManageAccount } from '@/lib/auth/account-rules';
 import { canSeeClientPhones, canSeeStaffPhones } from '@/lib/auth/privacy';
 import {
     FRONT_DESK_ROLES, FRONT_DESK_READ_ROLES, MANAGEMENT_ROLES, MANAGEMENT_READ_ROLES, OWNER_ONLY_ROLES, PAY_RECEIPT_ROLES,
-    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canReviewFeedback, canSeePayReceipts, canSeeSaleCost, canWrite, canWriteFeedback, cashMovementNeedsPin, isPrimaryAccount,
+    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, DAY_SUMMARY_ANY_DAY_ROLES, canReviewFeedback, canSeeDaySummary, canSeePayReceipts, canSeeSaleCost, canWrite, canWriteFeedback, cashMovementNeedsPin, isPrimaryAccount,
     readerRole,
 } from '@/lib/auth/roles';
 import { canEnter } from '@/lib/auth/route-access';
@@ -79,6 +79,8 @@ export const CAPABILITIES: Capability[] = [
         evaluate: (r) => si(FRONT_DESK_ROLES.includes(r)) },
     { id: 'caja.movimientos', screen: 'Caja', label: 'Registrar entradas y salidas de efectivo', source: 'POST /api/cash/movements · FRONT_DESK_ROLES + cashMovementNeedsPin',
         evaluate: (r) => (FRONT_DESK_ROLES.includes(r) ? { level: cashMovementNeedsPin(r) ? 'pin' : 'si' } : { level: canEnter(r, '/caja') ? 'ver' : 'no' }) },
+    { id: 'caja.resumen', screen: 'Caja', label: 'Ver el resumen de caja del día', source: 'GET /api/cash/day-summary · DAY_SUMMARY_ROLES (daySummaryDayAllowed)',
+        evaluate: (r) => (!canSeeDaySummary(r) ? { level: 'no' } : DAY_SUMMARY_ANY_DAY_ROLES.includes(r) ? { level: 'si' } : { level: 'si', note: 'Solo hoy y ayer.' }) },
     { id: 'caja.historial', screen: 'Caja', label: 'Ver el historial de cajas', source: 'GET /api/cash/history · MANAGEMENT_READ_ROLES',
         evaluate: (r) => si(MANAGEMENT_READ_ROLES.includes(r)) },
 

@@ -149,8 +149,8 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
     };
 }
 
-const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, closed_by, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
-const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
+export const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, closed_by, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
+export const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 
 /** Nombre que se usa cuando el servidor no puede decir quién abrió la caja. */
 export const UNKNOWN_OPENER = 'Usuario';

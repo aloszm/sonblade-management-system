@@ -64,6 +64,7 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 - **Cuadre:** comparación entre la agenda y los cobros del día, para detectar citas sin cobrar o cobros sin cita.
 - **Bitácora:** registro de quién hizo qué y cuándo. No se puede editar.
 - **Barberos hoy:** tablero del día: cortes, ingreso, productos y propinas de cada persona.
+- **Resumen del día:** "Resumen de caja · viernes 20 de noviembre de 2026": de un día, lo cobrado (servicios + productos + propinas), por forma de pago, por persona y la caja (esperado, contado, diferencia, apartado). Botón en Caja y en el Panel (ventana) y página `/caja/resumen`. Se envía por WhatsApp, se copia, o se descarga en PDF y Excel; sin datos de clientes ni costos. Cuenta principal, gerencia y consulta ven cualquier día; recepción solo hoy y ayer; barbero no entra. "Día" = día del negocio por hora de cobro; las ventas anuladas no cuentan y se muestran aparte.
 - **Mi semana:** lo que cada quien lleva ganado en la semana.
 - **Comentarios:** ideas, fallas y dudas sobre la aplicación. Todos escriben (también Consulta) desde el botón del encabezado o el menú; cada quien ve solo lo suyo y la cuenta principal ve todo, cambia el estado (nuevo, visto, en proceso, hecho, descartado) y responde.
 

@@ -25,6 +25,7 @@ export const SCREENS: Screen[] = [
     { route: '/barbero', sample: '/barbero', group: 'Día a día', title: t('/barbero', 'Mi semana') },
     { route: '/pos', sample: '/pos', group: 'Día a día', title: t('/pos', 'Cobro') },
     { route: '/caja', sample: '/caja', group: 'Día a día', title: t('/caja', 'Caja') },
+    { route: '/caja/resumen', sample: '/caja/resumen', group: 'Día a día', title: t('/caja/resumen', 'Resumen del día') },
     { route: '/equipo-hoy', sample: '/equipo-hoy', group: 'Día a día', title: t('/equipo-hoy', 'Barberos hoy') },
     { route: '/citas', sample: '/citas', group: 'Día a día', title: t('/citas', 'Agenda') },
     { route: '/clientes', sample: '/clientes', group: 'Día a día', title: t('/clientes', 'Clientes') },

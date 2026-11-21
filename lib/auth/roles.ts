@@ -79,6 +79,32 @@ export function canReviewFeedback(role: BusinessRole): boolean {
     return FEEDBACK_REVIEWER_ROLES.includes(role);
 }
 
+/**
+ * Resumen de caja de un día (/caja/resumen y GET /api/cash/day-summary). Cuenta principal, gerencia y consulta ven
+ * CUALQUIER día; recepción solo HOY y AYER (para mandar el resumen al cierre o a la mañana siguiente). El barbero no
+ * entra. El resumen no muestra costo de producto, utilidad ni comisiones a nadie.
+ */
+export const DAY_SUMMARY_ROLES: BusinessRole[] = FRONT_DESK_READ_ROLES;
+export const DAY_SUMMARY_ANY_DAY_ROLES: BusinessRole[] = MANAGEMENT_READ_ROLES;
+
+export function canSeeDaySummary(role: BusinessRole): boolean {
+    return DAY_SUMMARY_ROLES.includes(role);
+}
+
+/** Día anterior de un 'AAAA-MM-DD' (aritmética de calendario, sin husos). */
+function dayBefore(day: string): string {
+    const d = new Date(`${day}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+}
+
+/** ¿Puede este puesto ver el resumen de `day`? `today` es el día de HOY en la zona de la barbería. */
+export function daySummaryDayAllowed(role: BusinessRole, day: string, today: string): boolean {
+    if (!canSeeDaySummary(role)) return false;
+    if (DAY_SUMMARY_ANY_DAY_ROLES.includes(role)) return true;
+    return day === today || day === dayBefore(today);
+}
+
 export function isReadOnlyRole(role: BusinessRole): boolean {
     return READ_ONLY_ROLES.includes(role);
 }

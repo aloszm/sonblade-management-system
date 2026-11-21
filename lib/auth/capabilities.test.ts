@@ -86,6 +86,8 @@ describe('catálogo de capacidades', () => {
         'caja.abrir': 'si si no si no',
         'caja.movimientos': 'si pin ver si no',
         'caja.historial': 'si si si no no',
+        // «Ver el resumen de caja del día»: recepción solo hoy y ayer (nota), por eso el nivel es sí.
+        'caja.resumen': 'si si si si no',
         'agenda.citas': 'si si ver si ver',
         'agenda.whatsapp': 'si si no si no',
         'agenda.producto': 'si si ver si si',

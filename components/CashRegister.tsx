@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, Settings2, TriangleAlert } from 'lucide-react';
+import DaySummaryButton from '@/components/cash/DaySummaryModal';
 import EnvelopeNote from '@/app/sobres/_components/EnvelopeNote';
 import PinConfirm from '@/components/ui/PinConfirm';
 import Modal from '@/components/ui/Modal';
@@ -308,6 +309,7 @@ export default function CashRegister() {
         const left = settings?.last_float_left ?? null;
         return (
             <div className="max-w-3xl mx-auto space-y-6">
+                <div className="flex justify-end"><DaySummaryButton variant="primary" /></div>
                 {loadError && <p role="alert" className="rounded-xl border border-bos-danger/40 bg-bos-surface p-4 text-bos-danger">{loadError}</p>}
 
                 {closeResult && (
@@ -387,11 +389,14 @@ export default function CashRegister() {
                     <h1 className="font-display text-3xl font-semibold">Caja abierta</h1>
                     <p className="text-sm text-bos-muted">Abierta {session.opened_by !== UNKNOWN_OPENER ? `por ${session.opened_by} ` : ''}a las {timeOf(session.opened_at)}</p>
                 </div>
-                {!readOnly && <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-3">
+                    <DaySummaryButton variant="outline" />
+                    {!readOnly && <>
                     {settings?.can_edit && <button type="button" onClick={() => setSettingsOpen(true)} className={secondary}><Settings2 className="h-5 w-5" /> Ajustes de caja</button>}
                     <button type="button" onClick={() => { setFormError(''); setMovementOpen(true); }} className={secondary}><Plus className="h-5 w-5" /> Gasto, retiro o entrada</button>
                     <button type="button" onClick={startClose} className={primary}>Cerrar caja</button>
-                </div>}
+                    </>}
+                </div>
             </header>
             <ReadOnlyNotice readOnly={readOnly}>Ves la caja en vivo, pero no registras movimientos ni la cierras.</ReadOnlyNotice>
 

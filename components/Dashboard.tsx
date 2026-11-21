@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Download, Loader2, Search } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import DaySummaryButton from '@/components/cash/DaySummaryModal';
 import { localDateKey } from '@/lib/utils/dates';
 import { downloadCsv } from '@/lib/utils/csv';
 import {
@@ -199,6 +200,7 @@ export default function Dashboard() {
                     <p className="text-sm text-bos-muted first-letter:uppercase" data-testid="range-label">{rangeLabel}</p>
                     <p className="text-sm text-bos-muted mt-0.5">Resumen del periodo. La utilidad al detalle está en Finanzas.</p>
                 </div>
+                <DaySummaryButton variant="primary" />
                 <div role="group" aria-label="Periodo" className="flex flex-wrap gap-1 p-1 rounded-xl bg-bos-raised">
                     {PRESETS.map((pr) => (
                         <button key={pr.id} type="button" aria-pressed={preset === pr.id} onClick={() => pickPreset(pr.id)}
