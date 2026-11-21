@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, TriangleAlert } from 'lucide-react';
 import { money } from '@/lib/cash/day-summary-text';
-import { visibleLines, type CashFlow, type DayFlowTotal, type FlowLine, type OtherExpenses } from '@/lib/cash/cash-flow';
+import { openingGap, visibleLines, type CashFlow, type DayFlowTotal, type FlowLine, type OtherExpenses } from '@/lib/cash/cash-flow';
 import { formatTime } from '@/lib/utils/dates';
 
 // «El camino del efectivo»: el efectivo de una caja como una resta, de arriba hacia abajo, con cada renglón desplegable.
@@ -103,6 +103,7 @@ export default function CashFlowView({ flow, timezone, otherExpenses = null, omi
     omitOtherExpenses?: boolean; idPrefix?: string;
 }) {
     const ins = visibleLines(flow, 'in');
+    const gap = openingGap(flow);
     const outs = visibleLines(flow, 'out');
     const id = `${idPrefix}-${flow.id}`;
     const split = flow.split;
@@ -121,7 +122,16 @@ export default function CashFlowView({ flow, timezone, otherExpenses = null, omi
             <section aria-label="Cuenta del efectivo" className="space-y-1.5">
                 <h4 className="text-[13px] font-medium text-bos-muted">{flow.open ? 'Cuánto efectivo hay y por qué' : 'Cuánto efectivo debe haber y por qué'}</h4>
                 <ul className="space-y-1.5 text-[15px]">
-                    <Row testId="cf-opening" label="Fondo con que se abrió" value={money(flow.openingCents)} />
+                    <Row testId="cf-opening" label="Fondo con que se abrió" value={money(flow.openingCents)}>
+                        {/* Abrió con otro monto: se ve cuánto se esperaba y el motivo que se pidió al abrir (antes solo quedaba en la bitácora). */}
+                        {gap && (
+                            <p data-testid="cf-opening-note" className="ml-6 mt-0.5 break-words text-[13px] text-bos-muted">
+                                Se esperaba abrir con {money(gap.expectedCents)}: abrió con{' '}
+                                <span className={gap.gapCents < 0 ? 'text-bos-danger' : 'text-bos-text'}>{money(Math.abs(gap.gapCents))} {gap.gapCents < 0 ? 'menos' : 'más'}</span>.{' '}
+                                {gap.note ? <>Motivo: <span className="text-bos-text">{gap.note}</span></> : <span className="italic">Sin motivo registrado</span>}
+                            </p>
+                        )}
+                    </Row>
                     {ins.map((l) => <MoveRow key={l.id} line={l} tz={timezone} idPrefix={id} />)}
                     {outs.map((l) => <MoveRow key={l.id} line={l} tz={timezone} idPrefix={id} />)}
                     <Row strong sign="=" testId="cf-expected" label={flow.open ? 'Efectivo que debe haber ahora' : 'Efectivo que debe haber'}

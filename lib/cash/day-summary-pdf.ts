@@ -1,6 +1,6 @@
 // PDF real del resumen de caja del día: una página carta con logo, fecha y las mismas secciones de la pantalla.
 // Papel blanco, texto negro, detalles dorados (como el reporte completo). Sin clientes, teléfonos ni costos.
-import { visibleLines } from '@/lib/cash/cash-flow';
+import { openingGapText, visibleLines } from '@/lib/cash/cash-flow';
 import type { DaySummaryPayload } from '@/lib/cash/day-summary';
 import { longDayLabel, money } from '@/lib/cash/day-summary-text';
 import { pdfSafe } from '@/lib/reports/full-report-pdf';
@@ -105,6 +105,7 @@ export async function buildDaySummaryPdf(payload: DaySummaryPayload, options: { 
         const bold = (c: string) => ({ content: c, styles: { fontStyle: 'bold' } });
         const left: unknown[][] = [
             ['Fondo con que se abrió', money2(f.openingCents)],
+            ...(openingGapText(f) ? [[pdfSafe(openingGapText(f)!), '']] : []),
             ...visibleLines(f, 'in').concat(visibleLines(f, 'out')).map((l) => [`${l.side === 'in' ? '+' : '-'} ${pdfSafe(l.label)}${l.count ? ` (${l.count})` : ''}`, pdfSafe(sign(l))]),
             [bold(f.open ? '= Efectivo que debe haber ahora' : '= Efectivo que debe haber'), bold(money2(f.expectedCents))],
         ];

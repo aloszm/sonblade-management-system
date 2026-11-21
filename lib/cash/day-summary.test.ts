@@ -272,3 +272,35 @@ describe('texto del resumen', () => {
         expect(summaryFileName('2026-11-20')).toBe('Resumen-caja-2026-11-20');
     });
 });
+
+// ───────────────────────── Motivo de apertura, destinatario del retiro y diferencias sin esconder
+describe('texto del resumen: apertura con otro monto, a quién va el retiro y faltantes/sobrantes', () => {
+    const summary = buildDaySummary(input({ sales: [sale('a', 'paid', 350)], items: [svc('a', 'deya', 350)], payments: [pay('a', 'cash', 350)] }));
+
+    it('si abrió con otro monto, el texto dice cuánto se esperaba y el motivo (antes solo quedaba en la bitácora)', () => {
+        const cash = buildDayCash([session('s', { opening_cash: 300, opening_expected: 500, opening_note: 'Se usaron $200 para cambio del banco', counted_cash: 300, expected_cash: 300, float_left: 300, reserve_amount: 0, withdrawn_amount: 0 })], [], names);
+        const lines = buildWhatsAppText('2026-11-20', summary, cash).split('\n');
+        expect(lines).toContain('Apertura: Se esperaba abrir con $500: abrió con $200 menos. Motivo: Se usaron $200 para cambio del banco');
+    });
+
+    it('si abrió con lo esperado, no hay renglón de apertura', () => {
+        const cash = buildDayCash([session('s', { opening_expected: 500, opening_note: null })], [], names);
+        expect(buildWhatsAppText('2026-11-20', summary, cash)).not.toContain('Apertura:');
+    });
+
+    it('el retiro dice a quién se entregó', () => {
+        const cash = buildDayCash([session('s', { counted_cash: 2400, expected_cash: 2400, float_left: 500, reserve_amount: 600, withdrawn_amount: 1300, withdrawal_delivered_to: 'Sonia' })], [mv('s', { amount: 1900 })], names);
+        expect(buildWhatsAppText('2026-11-20', summary, cash)).toContain('Fondo $500 · Apartado $600 · Retiro $1,300 (a Sonia)');
+    });
+
+    it('con muchas cajas, un faltante y un sobrante no se restan entre sí', () => {
+        const many = buildDayCash([
+            session('a', { counted_cash: 470, expected_cash: 500, difference_amount: -30 }),
+            session('bb', { counted_cash: 520, expected_cash: 500, difference_amount: 20 }),
+            session('ccc'), session('dddd'),
+        ], [], names);
+        const text = buildWhatsAppText('2026-11-20', summary, many);
+        expect(text).toContain('faltantes -$30 y sobrantes $20');
+        expect(text).not.toContain('diferencia -$10');
+    });
+});

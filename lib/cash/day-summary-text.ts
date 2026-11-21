@@ -1,6 +1,6 @@
 // Textos del resumen de caja: encabezados con fecha y el mensaje en texto plano para WhatsApp. Funciones puras.
 // El texto NO lleva datos de clientes ni teléfonos: solo nombres de pila del equipo y montos.
-import { flowLine, type CashFlow } from '@/lib/cash/cash-flow';
+import { flowLine, openingGapText, type CashFlow } from '@/lib/cash/cash-flow';
 import type { DayCash, DaySummary, PersonLine } from '@/lib/cash/day-summary';
 import { formatMoney } from '@/lib/utils/money';
 
@@ -54,15 +54,21 @@ function cashLines(cash: DayCash): string[] {
             ? `${prefix}Efectivo: debe haber ahora ${money(s.expectedCents)} (caja abierta, puede cambiar)`
             : `${prefix}Efectivo: debe haber ${money(s.expectedCents)} · contado ${money(s.countedCents ?? 0)} · diferencia ${money(s.differenceCents ?? 0)}${reasonText(s)}`;
         const third = s.split
-            ? `${s.split.proposed ? 'Al cerrar se propone: ' : ''}Fondo ${money(s.split.floatCents)} · Apartado ${money(s.split.reserveCents)} · Retiro ${money(s.split.withdrawnCents)}`
+            ? `${s.split.proposed ? 'Al cerrar se propone: ' : ''}Fondo ${money(s.split.floatCents)} · Apartado ${money(s.split.reserveCents)} · Retiro ${money(s.split.withdrawnCents)}${s.split.withdrawnCents > 0 && s.split.deliveredTo ? ` (a ${s.split.deliveredTo})` : ''}`
             : s.open ? 'Fondo, apartado y retiro: se definen al cerrar' : 'Fondo, apartado y retiro: sin reparto guardado';
-        return [first, `${prefix}Gastos de caja: ${money(expenses)}`, `${prefix}${third}`];
+        const opening = openingGapText(s);
+        return [...(opening ? [`${prefix}Apertura: ${opening}`] : []), first, `${prefix}Gastos de caja: ${money(expenses)}`, `${prefix}${third}`];
     };
     if (cash.sessions.length === 1) return one(cash.sessions[0], '');
     // Muchas cajas el mismo día (pruebas o cambios de turno): un solo renglón; el detalle está en la pantalla.
     if (cash.sessions.length > 3) {
         const t = cash.total;
-        const bits = [`${cash.sessions.length} cajas`, `diferencia ${money(t.differenceCents)}`, `gastos de caja ${money(t.expensesCents)}`];
+        // Faltantes y sobrantes por separado: sumados se esconden (−$30 y +$20 se leían como «diferencia −$10»).
+        const diffs = cash.sessions.filter((s) => !s.open).map((s) => s.differenceCents ?? 0);
+        const short = diffs.filter((d) => d < 0).reduce((a, d) => a + d, 0);
+        const over = diffs.filter((d) => d > 0).reduce((a, d) => a + d, 0);
+        const diffBit = short && over ? `faltantes ${money(short)} y sobrantes ${money(over)}` : `diferencia ${money(t.differenceCents)}`;
+        const bits = [`${cash.sessions.length} cajas`, diffBit, `gastos de caja ${money(t.expensesCents)}`];
         if (t.reserveCents) bits.push(`apartado ${money(t.reserveCents)}`);
         if (t.withdrawnCents) bits.push(`retiro ${money(t.withdrawnCents)}`);
         return [`Cajas: ${bits.join(' · ')}${cash.anyOpen ? ' · hay una abierta, el resumen puede cambiar' : ''}`];

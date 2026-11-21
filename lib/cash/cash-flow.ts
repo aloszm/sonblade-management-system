@@ -78,6 +78,13 @@ export interface CashFlow {
     openedAt: string;
     closedAt: string | null;
     openingCents: number;
+    /**
+     * Con cuánto se esperaba abrir (lo que se dejó en el cierre anterior, o el fondo recomendado si no había cierre);
+     * null si la caja no lo guardó. Si no coincide con openingCents, la apertura pidió un motivo (openingNote).
+     */
+    openingExpectedCents: number | null;
+    /** Motivo escrito al abrir con otro monto; null si abrió con lo esperado o si la caja es anterior al 17 nov 2026. */
+    openingNote: string | null;
     lines: FlowLine[];
     inCents: number;
     outCents: number;
@@ -211,6 +218,8 @@ export function buildCashFlow(
     return {
         id: session.id, open: isOpen, openedBy: view.opened_by, closedBy: view.closed_by ?? null, openedAt: session.opened_at, closedAt: session.closed_at,
         openingCents, lines, inCents, outCents, expectedCents, countedCents, differenceCents,
+        openingExpectedCents: session.opening_expected == null ? null : cents(session.opening_expected),
+        openingNote: session.opening_note?.trim() || null,
         differenceReason: !isOpen && differenceCents ? session.difference_reason?.trim() || null : null, split,
         cardCents: cents(view.total_card), transferCents: cents(view.total_transfer),
         check: { expectedDiffCents, storedExpectedDiffCents, differenceDiffCents, splitDiffCents, issues, ok: issues.length === 0 },
@@ -286,4 +295,21 @@ export interface CashFlowPayload {
     day: string;
     /** Gastos de ese día pagados del sobre o del banco; null = este puesto no los ve. */
     otherExpenses: OtherExpenses | null;
+}
+
+/**
+ * La apertura no coincidió con lo que se había dejado: cuánto se esperaba, la diferencia y el motivo que se escribió.
+ * null si abrió con lo esperado (o si la caja no guardó cuánto se esperaba). Lo usan la pantalla, el PDF, el Excel y el texto.
+ */
+export function openingGap(flow: Pick<CashFlow, 'openingCents' | 'openingExpectedCents' | 'openingNote'>): { expectedCents: number; gapCents: number; note: string | null } | null {
+    if (flow.openingExpectedCents === null || flow.openingExpectedCents === undefined || flow.openingExpectedCents === flow.openingCents) return null;
+    return { expectedCents: flow.openingExpectedCents, gapCents: flow.openingCents - flow.openingExpectedCents, note: flow.openingNote ?? null };
+}
+
+/** «Se esperaba abrir con $500: abrió con $200 menos. Motivo: …» (una línea, para archivos y texto). */
+export function openingGapText(flow: Pick<CashFlow, 'openingCents' | 'openingExpectedCents' | 'openingNote'>): string | null {
+    const gap = openingGap(flow);
+    if (!gap) return null;
+    const pesos = (c: number) => `$${(Math.abs(c) / 100).toLocaleString('es-MX', { minimumFractionDigits: Math.abs(c) % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
+    return `Se esperaba abrir con ${pesos(gap.expectedCents)}: abrió con ${pesos(gap.gapCents)} ${gap.gapCents < 0 ? 'menos' : 'más'}. ${gap.note ? `Motivo: ${gap.note}` : 'Sin motivo registrado'}`;
 }

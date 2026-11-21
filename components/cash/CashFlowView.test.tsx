@@ -236,3 +236,26 @@ describe('Panel que lo pide al servidor', () => {
         await waitFor(() => expect(calls).toHaveLength(2));
     });
 });
+
+describe('El camino del efectivo: apertura con otro monto', () => {
+    it('muestra cuánto se esperaba abrir, la diferencia y el motivo escrito al abrir', () => {
+        render(<CashFlowView flow={flow({ opening_cash: 300, opening_expected: 500, opening_note: 'Se usaron $200 para cambio del banco', expected_cash: 800, counted_cash: 800 })} timezone={TZ} />);
+        expect(screen.getByTestId('cf-opening')).toHaveTextContent('Fondo con que se abrió$300');
+        const note = screen.getByTestId('cf-opening-note');
+        expect(note).toHaveTextContent('Se esperaba abrir con $500: abrió con $200 menos.');
+        expect(note).toHaveTextContent('Motivo: Se usaron $200 para cambio del banco');
+    });
+
+    it('si abrió con más de lo esperado lo dice; una caja vieja sin motivo dice «Sin motivo registrado»', () => {
+        render(<CashFlowView flow={flow({ opening_cash: 700, opening_expected: 500, opening_note: null, expected_cash: 1200, counted_cash: 1200 })} timezone={TZ} />);
+        expect(screen.getByTestId('cf-opening-note')).toHaveTextContent('abrió con $200 más. Sin motivo registrado');
+    });
+
+    it('si abrió con lo esperado (o la caja no guardó cuánto se esperaba) no aparece nada', () => {
+        const { unmount } = render(<CashFlowView flow={flow({ opening_expected: 500 })} timezone={TZ} />);
+        expect(screen.queryByTestId('cf-opening-note')).toBeNull();
+        unmount();
+        render(<CashFlowView flow={flow()} timezone={TZ} />);
+        expect(screen.queryByTestId('cf-opening-note')).toBeNull();
+    });
+});

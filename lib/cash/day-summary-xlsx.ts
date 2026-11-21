@@ -1,6 +1,6 @@
 // Excel del resumen de caja del día. Se arma en el navegador (o en la prueba) a partir de los datos que ya entregó la
 // API autorizada (recepción: solo hoy y ayer), así que no hay otra ruta que revisar. Sin clientes, teléfonos ni costos.
-import { visibleLines } from '@/lib/cash/cash-flow';
+import { openingGapText, visibleLines } from '@/lib/cash/cash-flow';
 import type { DaySummaryPayload } from '@/lib/cash/day-summary';
 import { longDayLabel, money } from '@/lib/cash/day-summary-text';
 import { spreadsheetSafe } from '@/lib/reports/full-report-xlsx';
@@ -144,6 +144,7 @@ export async function buildDaySummaryXlsx(payload: DaySummaryPayload): Promise<U
             // El renglón de «efectivo que debe haber» queda pegado a la tabla, con línea arriba.
             put(row, f.open ? '(=) Efectivo que debe haber ahora' : '(=) Efectivo que debe haber', null, pesos(f.expectedCents), { bold: true });
             row++;
+            if (openingGapText(f)) put(row++, `Apertura: ${openingGapText(f)}`, null, null, { italic: true });
             if (!f.open && f.countedCents !== null) put(row++, 'Efectivo contado al cerrar', null, pesos(f.countedCents));
             if (!f.open && f.differenceCents !== null) put(row++, f.differenceCents === 0 ? 'Diferencia (cuadra)' : f.differenceCents > 0 ? 'Diferencia (sobrante)' : 'Diferencia (faltante)', null, pesos(f.differenceCents));
             if (!f.open && f.differenceCents) put(row++, f.differenceReason ? `Motivo de la diferencia: ${f.differenceReason}` : 'Motivo de la diferencia: sin motivo registrado', null, null, { italic: !f.differenceReason });

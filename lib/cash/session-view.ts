@@ -25,6 +25,8 @@ export type CashSessionRow = {
     expected_cash?: number | string | null;
     /** Motivo escrito al dejar menos del fondo recomendado. */
     closing_note?: string | null;
+    /** Motivo escrito al abrir con un monto distinto al que se dejó en el cierre anterior (o al fondo recomendado). */
+    opening_note?: string | null;
     /** Motivo escrito al cerrar con sobrante o faltante (desde el 21 nov 2026; las cajas anteriores no lo tienen). */
     difference_reason?: string | null;
 };
@@ -163,9 +165,9 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
 
 export const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, closed_by, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
 /** Lo mismo más lo que necesita «El camino del efectivo». */
-export const FLOW_SESSION_COLUMNS = `${SESSION_COLUMNS}, expected_cash, closing_note, difference_reason`;
+export const FLOW_SESSION_COLUMNS = `${SESSION_COLUMNS}, expected_cash, closing_note, opening_note, difference_reason`;
 /** Sin el motivo de la diferencia: para una base que todavía no tiene la columna (se publica el código antes que la base). */
-export const FLOW_SESSION_COLUMNS_WITHOUT_REASON = `${SESSION_COLUMNS}, expected_cash, closing_note`;
+export const FLOW_SESSION_COLUMNS_WITHOUT_REASON = `${SESSION_COLUMNS}, expected_cash, closing_note, opening_note`;
 
 /**
  * Lee las cajas con FLOW_SESSION_COLUMNS y, si la base aún no tiene `difference_reason` (42703), repite sin ella:
