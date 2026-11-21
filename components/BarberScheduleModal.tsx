@@ -14,7 +14,8 @@ interface DayForm { mode: Mode; starts: string; ends: string }
 
 const field = 'h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text outline-none focus:border-bos-accent tabular-nums';
 
-export default function BarberScheduleModal({ barber, onClose }: { barber: { id: string; name: string }; onClose: () => void }) {
+// Recepción también tiene horario (días de descanso y horas); a ellos no se les asignan citas, así que la agenda no lo usa.
+export default function BarberScheduleModal({ barber, onClose }: { barber: { id: string; name: string; isBarber?: boolean }; onClose: () => void }) {
     const [days, setDays] = useState<DayForm[] | null>(null);
     const [hours, setHours] = useState<WeekHours | null>(null);
     const [error, setError] = useState('');
@@ -63,7 +64,7 @@ export default function BarberScheduleModal({ barber, onClose }: { barber: { id:
     };
 
     return (
-        <Modal title={`Horario de ${barber.name}`} subtitle="Días de descanso y horas de trabajo. La agenda no acepta citas fuera de este horario." onClose={onClose} size="lg">
+        <Modal title={`Horario de ${barber.name}`} subtitle={barber.isBarber === false ? 'Días de descanso y horas de trabajo.' : 'Días de descanso y horas de trabajo. La agenda no acepta citas fuera de este horario.'} onClose={onClose} size="lg">
             {!days ? (
                 <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-bos-muted" /></div>
             ) : (
@@ -92,7 +93,7 @@ export default function BarberScheduleModal({ barber, onClose }: { barber: { id:
                             );
                         })}
                     </ul>
-                    <p className="text-sm text-bos-muted">Para una falta de un día o unas horas, usa Ausencia en la agenda: queda el motivo y quién avisó.</p>
+                    {barber.isBarber !== false && <p className="text-sm text-bos-muted">Para una falta de un día o unas horas, usa Ausencia en la agenda: queda el motivo y quién avisó.</p>}
                     <div className="grid grid-cols-2 gap-3 pt-2">
                         <button type="button" onClick={onClose} className="min-h-[52px] px-5 rounded-xl border border-bos-border text-bos-text font-semibold hover:bg-bos-raised">Cancelar</button>
                         <button type="submit" disabled={saving} className="min-h-[52px] px-5 rounded-xl bg-bos-accent text-bos-on-accent font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50">

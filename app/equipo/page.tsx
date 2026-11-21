@@ -444,8 +444,8 @@ export default function TeamPage() {
                                 <button onClick={() => openModal(barber)} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
                                     <Edit2 className="w-4 h-4" /> Editar
                                 </button>
-                                {(barber as { isBarber?: boolean }).isBarber !== false && active && (
-                                    <button onClick={() => setScheduleFor(barber)} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
+                                {active && (
+                                    <button onClick={() => setScheduleFor(barber)} aria-label={`Horario de ${barber.name}`} className="flex-1 min-h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-semibold text-bos-text hover:bg-bos-raised rounded-xl border border-bos-border transition-colors">
                                         <Clock className="w-4 h-4" /> Horario
                                     </button>
                                 )}
@@ -494,7 +494,7 @@ export default function TeamPage() {
 
             <AccessPanel barbers={barbers} readOnly={readOnly} createFor={accessFor} onCreateHandled={() => setAccessFor(null)} onChanged={fetchBarbers} />
 
-            {scheduleFor && <BarberScheduleModal barber={{ id: scheduleFor.id, name: scheduleFor.name }} onClose={() => setScheduleFor(null)} />}
+            {scheduleFor && <BarberScheduleModal barber={{ id: scheduleFor.id, name: scheduleFor.name, isBarber: (scheduleFor as { isBarber?: boolean }).isBarber !== false }} onClose={() => setScheduleFor(null)} />}
 
             {/* Ventana: agregar o editar persona */}
             {isModalOpen && (
