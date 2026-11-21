@@ -62,8 +62,13 @@ export async function POST(request: NextRequest) {
             if (code === 'weak_password') return NextResponse.json({ error: 'Supabase rechazó ese PIN por débil. Elige otro.' }, { status: 400, headers: NO_CACHE });
             return NextResponse.json({ error: 'No se pudo guardar el PIN nuevo. Intenta de nuevo.' }, { status: 502, headers: NO_CACHE });
         }
+        // Al cambiar la contraseña, Supabase Auth cierra las demás sesiones de la cuenta, y la de ESTE navegador es una de ellas
+        // (el cambio se hizo con la sesión aparte de arriba): la persona quedaba fuera sin aviso, justo después de elegir su PIN.
+        // Se vuelve a iniciar aquí mismo con el PIN nuevo, así sigue dentro; pin_changed conserva esta sesión nueva y cierra
+        // las demás (otros celulares con el PIN viejo). Si no se pudo renovar, el PIN sí cambió: se avisa para que vuelva a entrar.
+        const { error: renewError } = await supabase.auth.signInWithPassword({ email: context.email, password: await pinPassword(loginId, next) });
         const { error: flagError } = await supabase.rpc('pin_changed');
-        if (flagError) throw flagError;
-        return NextResponse.json({ success: true }, { headers: NO_CACHE });
+        if (flagError && !renewError) throw flagError;
+        return NextResponse.json(renewError ? { success: true, relogin: true } : { success: true }, { headers: NO_CACHE });
     } catch (error) { return authErrorResponse(error); }
 }

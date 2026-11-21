@@ -28,8 +28,13 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    // Llega de Mi cuenta cuando el PIN se cambió pero la sesión no se pudo renovar: se explica en vez de aparecer sin más.
+    const [pinChanged, setPinChanged] = useState(false);
+
     useEffect(() => {
-        setConfigurationMissing(new URLSearchParams(window.location.search).get('configuration') === 'missing');
+        const params = new URLSearchParams(window.location.search);
+        setConfigurationMissing(params.get('configuration') === 'missing');
+        setPinChanged(params.get('aviso') === 'pin-cambiado');
     }, []);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -78,6 +83,7 @@ export default function LoginPage() {
                     <p className="mt-3 text-sm font-medium text-bos-muted">{SYSTEM_NAME}</p>
                 </div>
                 {configurationMissing && <p role="alert" className="mb-4 text-sm text-bos-danger">El entorno aún no está configurado para iniciar sesión.</p>}
+                {pinChanged && <p role="status" data-testid="login-pin-changed" className="mb-4 rounded-xl border border-bos-accent bg-bos-raised p-3 text-center text-sm text-bos-text">Tu PIN se cambió. Entra con tu PIN nuevo.</p>}
                 <label htmlFor="username" className="mb-2 block text-[13px] font-medium text-bos-muted">Usuario</label>
                 <input id="username" name="username" type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} required maxLength={32}
                     placeholder="p. ej. sonia" value={username} onChange={(event) => setUsername(event.target.value)} className={`mb-5 ${input}`} />

@@ -49,6 +49,9 @@ export default function MyAccountPage() {
             const body = await response.json().catch(() => null);
             if (!response.ok) { setError(body?.error ?? 'No se pudo cambiar el PIN.'); setCurrent(''); return; }
             setDone(true); setCurrent(''); setNext(''); setConfirm('');
+            // El servidor deja la sesión iniciada con el PIN nuevo. Si no pudo, el PIN sí cambió: se manda a entrar con un aviso
+            // (antes aparecía la pantalla de inicio sin explicación).
+            if (body?.relogin) { window.location.assign('/login?aviso=pin-cambiado'); return; }
             if (me?.mustChangePin) { router.replace('/'); router.refresh(); }
         } catch {
             setError('Sin conexión o el servidor no respondió. Revisa tu internet e inténtalo de nuevo.');
