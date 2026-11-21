@@ -10,6 +10,7 @@ import {
 } from '@/lib/reports/reconciliation';
 import { localDateKey } from '@/lib/utils/dates';
 import { IssueCard, PreAgendaGroup, PreAgendaReviewedGroup, dayLabel, money } from './parts';
+import { RECONCILIATION_LABELS, reconciliationRowText, reconciliationSummaryText } from './labels';
 
 const PRESETS: { id: Exclude<PresetId, 'custom' | 'last30'>; label: string }[] = [
     { id: 'today', label: 'Hoy' },
@@ -172,13 +173,13 @@ export default function ReconciliationPage() {
                     <section aria-label="Resumen del periodo" className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5">
                         <dl className="grid grid-cols-2 gap-4 lg:grid-cols-5">
                             <div>
-                                <dt className="text-[13px] text-bos-muted">Servicios en la agenda</dt>
+                                <dt className="text-[13px] text-bos-muted">{RECONCILIATION_LABELS.agenda}</dt>
                                 <dd className="font-display text-2xl font-semibold tabular-nums">{sum.agenda}</dd>
                             </div>
                             <div>
-                                <dt className="text-[13px] text-bos-muted">Servicios cobrados</dt>
+                                <dt className="text-[13px] text-bos-muted">{RECONCILIATION_LABELS.charged}</dt>
                                 <dd className="font-display text-2xl font-semibold tabular-nums">{sum.charged}</dd>
-                                <dd className="text-sm text-bos-muted tabular-nums">por {money(sum.amount)}</dd>
+                                <dd className="text-sm text-bos-muted tabular-nums">{RECONCILIATION_LABELS.chargedHint} · por {money(sum.amount)}</dd>
                             </div>
                             <div>
                                 <dt className="text-[13px] text-bos-muted">Comisión generada</dt>
@@ -194,11 +195,8 @@ export default function ReconciliationPage() {
                             </div>
                         </dl>
                         <p className="mt-4 text-sm text-bos-muted">
-                            {sum.charged === sum.agenda
-                                ? 'La agenda y los cobros cuentan los mismos servicios.'
-                                : sum.charged > sum.agenda
-                                    ? `Se cobraron ${plural(sum.charged - sum.agenda, 'servicio más', 'servicios más')} de los que hay en la agenda. Las diferencias de abajo dicen cuáles.`
-                                    : `La agenda tiene ${plural(sum.agenda - sum.charged, 'servicio más', 'servicios más')} de los que se cobraron. Las diferencias de abajo dicen cuáles.`}
+                            {reconciliationSummaryText(sum.charged, sum.agenda)}
+                            {' '}{RECONCILIATION_LABELS.note}
                             {' '}La comisión se paga en el pago semanal; &quot;falta por pagar&quot; es lo que aún no está en un recibo pagado.
                         </p>
                     </section>
@@ -281,8 +279,8 @@ export default function ReconciliationPage() {
                                             <tr className="border-b border-bos-border text-left text-[13px] text-bos-muted">
                                                 <th className="px-4 py-3 font-medium">Día</th>
                                                 <th className="px-4 py-3 font-medium">Barbero</th>
-                                                <th className="px-4 py-3 font-medium text-right">En agenda</th>
-                                                <th className="px-4 py-3 font-medium text-right">Cobrados</th>
+                                                <th className="px-4 py-3 font-medium text-right">{RECONCILIATION_LABELS.columnAgenda}</th>
+                                                <th className="px-4 py-3 font-medium text-right">{RECONCILIATION_LABELS.columnCharged}</th>
                                                 <th className="px-4 py-3 font-medium text-right">Importe</th>
                                                 <th className="px-4 py-3 font-medium text-right">Comisión</th>
                                                 <th className="px-4 py-3 font-medium text-right">Ya pagada</th>
@@ -313,7 +311,7 @@ export default function ReconciliationPage() {
                                                 <RowBadge row={r} />
                                             </div>
                                             <p className="mt-1 text-bos-muted">
-                                                Agenda {r.agenda_services}{Number(r.agenda_walk_in) > 0 && ` (${r.agenda_walk_in} sin cita)`} · Cobrados {r.charged_services} por {money(r.charged_amount)}
+                                                {reconciliationRowText(r, money(r.charged_amount))}
                                             </p>
                                             <p className="text-bos-muted">Comisión {money(r.commission)} · Pagada {money(r.commission_in_receipt)}</p>
                                         </li>
