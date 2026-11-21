@@ -7,7 +7,7 @@ import { BUSINESS_TIME_ZONE, formatDateTime, zonedDayStartIso } from '@/lib/util
 import { addDays } from '@/lib/settlements/week';
 import { roleLabel } from '@/lib/auth/roles';
 import { ACTION_LABELS, actionLabel, entityLabel } from '@/lib/audit/labels';
-import { detailRows } from '@/lib/audit/details';
+import { detailReference, detailRows } from '@/lib/audit/details';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
@@ -15,10 +15,10 @@ import Skeleton from '@/components/ui/Skeleton';
 import { isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
 
 /** Detalle de un registro en renglones «Nombre: valor», en español (antes: el JSON crudo de la base). */
-function DetailList({ details, className = '' }: { details: Record<string, unknown>; className?: string }) {
+function DetailList({ details, action, className = '' }: { details: Record<string, unknown>; action: string; className?: string }) {
     return (
         <dl data-testid="audit-detail" className={`mt-1 space-y-1 rounded-xl border border-bos-control bg-bos-bg p-2 text-xs ${className}`}>
-            {detailRows(details).map((row) => (
+            {detailRows(details, action).map((row) => (
                 <div key={row.key} className="flex flex-wrap gap-x-2">
                     <dt className="text-bos-muted">{row.label}:</dt>
                     <dd className="font-medium break-words">{row.value}</dd>
@@ -119,10 +119,10 @@ export default function AuditoriaPage() {
                         </div>
                         <p className="text-xs text-bos-muted tabular-nums">{formatDateTime(log.created_at)}</p>
                         <p className="text-sm">{log.user_name ?? log.user_id}</p>
-                        {detailRows(log.details).length > 0 && (
+                        {detailRows(log.details, log.action).length > 0 && (
                             <details>
                                 <summary className="inline-flex min-h-11 items-center text-xs text-bos-accent-text font-medium cursor-pointer">Ver detalle</summary>
-                                <DetailList details={log.details} />
+                                <DetailList details={log.details} action={log.action} />
                             </details>
                         )}
                     </li>
@@ -168,13 +168,13 @@ export default function AuditoriaPage() {
                                     </td>
                                     <td className="px-4 py-3 text-bos-muted text-xs">
                                         {/* Solo se muestra una referencia que alguien pueda reconocer (folio o recibo), no el id interno. */}
-                                        {entityLabel(log.entity)}{typeof log.details?.folio === 'string' ? ` ${log.details.folio}` : typeof log.details?.receipt_number === 'string' ? ` ${log.details.receipt_number}` : ''}
+                                        {entityLabel(log.entity)}{detailReference(log.details) ? ` ${detailReference(log.details)}` : ''}
                                     </td>
                                     <td className="px-4 py-3">
-                                        {detailRows(log.details).length > 0 ? (
+                                        {detailRows(log.details, log.action).length > 0 ? (
                                             <details className="cursor-pointer">
                                                 <summary className="inline-block py-1 text-xs text-bos-accent-text font-medium hover:underline">Ver detalle</summary>
-                                                <DetailList details={log.details} className="max-w-xs" />
+                                                <DetailList details={log.details} action={log.action} className="max-w-xs" />
                                             </details>
                                         ) : (
                                             <span className="text-bos-muted text-xs">—</span>

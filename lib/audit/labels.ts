@@ -99,12 +99,15 @@ const spaced = (text: string) => text.replace(/[_.]+/g, ' ').replace(/\s+/g, ' '
 
 /**
  * Frase en español de una acción. Las altas y cambios automáticos vienen como "tabla.operación".
- * Las confirmaciones con PIN llegan todas como `pin_confirmed_action` y dicen QUÉ se confirmó en `details.action`:
- * con `details` se muestra eso («Gasto registrado · confirmado con PIN») en vez de un genérico igual para todas.
+ * Las confirmaciones con PIN llegan todas como `pin_confirmed_action` y dicen QUÉ se confirmó en su detalle
+ * (`details.after.action`, como lo entrega `list_audit_log`): con `details` se muestra eso («Gasto registrado ·
+ * confirmado con PIN») en vez de un genérico igual para todas.
  */
 export function actionLabel(action: string, details?: Record<string, unknown> | null): string {
-    if (action === 'pin_confirmed_action' && typeof details?.action === 'string' && details.action && details.action !== action) {
-        return `${actionLabel(details.action)} · confirmado con PIN`;
+    if (action === 'pin_confirmed_action') {
+        const after = details?.after && typeof details.after === 'object' ? details.after as Record<string, unknown> : details;
+        const confirmed = after?.action;
+        if (typeof confirmed === 'string' && confirmed && confirmed !== action) return `${actionLabel(confirmed)} · confirmado con PIN`;
     }
     if (ACTION_LABELS[action]) return ACTION_LABELS[action];
     const [table, verb] = action.split('.');

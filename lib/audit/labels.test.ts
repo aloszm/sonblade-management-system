@@ -82,9 +82,12 @@ describe('Bitácora sin textos en inglés', () => {
     });
 
     it('una confirmación con PIN dice QUÉ se confirmó, no un genérico igual para todas', () => {
+        // Así lo entrega list_audit_log: { before, after, reason }.
+        expect(actionLabel('pin_confirmed_action', { after: { action: 'expense_recorded', comment: 'Recibo de luz' } })).toBe('Gasto registrado · confirmado con PIN');
+        expect(actionLabel('pin_confirmed_action', { after: { action: 'envelope_adjusted' } })).toBe('Ajuste del sobre por conteo · confirmado con PIN');
+        expect(actionLabel('pin_confirmed_action', { after: { action: 'employee_ledger_advance' } })).toBe('Adelanto a una persona del equipo · confirmado con PIN');
         expect(actionLabel('pin_confirmed_action', { action: 'expense_recorded' })).toBe('Gasto registrado · confirmado con PIN');
-        expect(actionLabel('pin_confirmed_action', { action: 'envelope_adjusted' })).toBe('Ajuste del sobre por conteo · confirmado con PIN');
-        expect(actionLabel('pin_confirmed_action', { action: 'employee_ledger_advance' })).toBe('Adelanto a una persona del equipo · confirmado con PIN');
+        expect(actionLabel('pin_confirmed_action', { after: {} })).toBe('Acción confirmada con PIN');
         expect(actionLabel('pin_confirmed_action')).toBe('Acción confirmada con PIN');
         expect(actionLabel('pin_confirmed_action', {})).toBe('Acción confirmada con PIN');
     });
