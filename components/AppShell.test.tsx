@@ -40,6 +40,18 @@ describe('AppShell', () => {
         expect(root.className).not.toContain('100vh');
     });
 
+    it('el contenido crece con la página: el hueco para la barra inferior del celular queda después del último botón', () => {
+        const { container } = render(<AppShell><p>Contenido</p></AppShell>);
+        const main = container.querySelector('main') as HTMLElement;
+        const wrapper = screen.getByText('Contenido').parentElement as HTMLElement;
+        // El hueco (5rem, más alto que la barra de 4rem) vive en <main>…
+        expect(main.className).toContain('pb-[calc(5rem+env(safe-area-inset-bottom))]');
+        expect(wrapper.parentElement).toBe(main);
+        // …y solo protege al contenido si el envoltorio no tiene alto fijo (con h-full el contenido se desbordaba por debajo de la barra).
+        expect(wrapper.className.split(/\s+/)).toContain('min-h-full');
+        expect(wrapper.className.split(/\s+/)).not.toContain('h-full');
+    });
+
     it('el cajón del menú queda inerte y oculto en celular mientras está cerrado', () => {
         const { container } = render(<AppShell><p>Contenido</p></AppShell>);
         const drawer = container.querySelector('[data-testid="sidebar"]')!.parentElement as HTMLElement;

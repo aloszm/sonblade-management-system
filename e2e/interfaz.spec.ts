@@ -59,6 +59,24 @@ test.describe('interfaz', () => {
             await expect(page.getByRole('region', { name: 'Indicadores principales' })).toContainText('Aporte', { timeout: 30_000 });
         });
 
+        test('el último botón de una pantalla larga no queda debajo de la barra inferior (Cobro y Mi cuenta)', async ({ page }) => {
+            // Alto visible de un teléfono con las barras del navegador: aquí el botón de cobrar quedaba tapado 39 de 60 px.
+            await page.setViewportSize({ width: 390, height: 664 });
+            await login(page, USERS.reception);
+            for (const path of ['/pos', '/mi-cuenta']) {
+                await page.goto(path, { waitUntil: 'networkidle' });
+                const main = page.locator('main');
+                await main.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+                const last = main.locator('button:visible').last();
+                const box = (await last.boundingBox())!;
+                const navTop = (await page.getByRole('navigation', { name: 'Principal' }).boundingBox())!.y;
+                expect(box.y + box.height, `${path}: el último botón termina arriba de la barra`).toBeLessThanOrEqual(navTop);
+                // El toque en el centro del botón cae en el botón, no en el menú.
+                const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('button, a')?.textContent?.trim() ?? '', [box.x + box.width / 2, box.y + box.height / 2]);
+                expect(hit).toBe((await last.innerText()).trim());
+            }
+        });
+
         test('la casilla del aviso de privacidad se ve como casilla y se marca', async ({ page }) => {
             await page.goto('/reservar', { waitUntil: 'networkidle' });
             await page.waitForTimeout(1500);

@@ -58,7 +58,10 @@ export default function AppShell({ children, site = 'all' }: { children: React.R
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.12, ease: 'easeOut' }}
-                        className="h-full"
+                        // min-h-full, no h-full: con alto fijo el contenido largo se desborda de este envoltorio y el relleno
+                        // inferior de <main> (el hueco para la barra del celular) deja de protegerlo: el último botón de la
+                        // pantalla (Cobrar, Guardar PIN nuevo) quedaba debajo de la barra y el toque caía en el menú.
+                        className="min-h-full"
                     >
                         {children}
                     </motion.div>
