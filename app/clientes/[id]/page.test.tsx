@@ -80,6 +80,27 @@ describe('Ficha del cliente', () => {
         expect(screen.getByText('Llega temprano')).toBeInTheDocument();
     });
 
+    // Auditoría del 21 nov 2026: al barbero «Agendar cita» lo llevaba a la agenda en solo lectura, sin formulario.
+    it('«Agendar cita» solo lo ve quien puede agendar: recepción sí; barbero y consulta no', async () => {
+        mockApi('recepcion');
+        const first = render(<ClientDetailPage />);
+        expect(await screen.findByRole('link', { name: 'Agendar cita' })).toHaveAttribute('href', '/citas?nueva=1&cliente=c1');
+        first.unmount();
+
+        mockApi('barber', { client: BARBER_CLIENT, history: BARBER_HISTORY });
+        const second = render(<ClientDetailPage />);
+        expect(await screen.findByRole('heading', { name: 'Marco Pérez' })).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByText('Historial')).toBeInTheDocument());
+        expect(screen.queryByRole('link', { name: 'Agendar cita' })).toBeNull();
+        second.unmount();
+
+        mockApi('recepcion', { readOnly: true });
+        render(<ClientDetailPage />);
+        expect(await screen.findByRole('heading', { name: 'Marco Pérez' })).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByText('Historial')).toBeInTheDocument());
+        expect(screen.queryByRole('link', { name: 'Agendar cita' })).toBeNull();
+    });
+
     it('desactivar pide confirmación, explica que no se borra nada y envía is_active false', async () => {
         const fn = mockApi('recepcion');
         render(<ClientDetailPage />);

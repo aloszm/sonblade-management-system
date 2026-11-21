@@ -206,7 +206,8 @@ export default function ClientDetailPage() {
                     </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                    {!inactive && (
+                    {/* Solo quien puede agendar (recepción y gerencia): al barbero y a la consulta la agenda les abre en solo lectura. */}
+                    {!inactive && canEdit && (
                         <Link href={`/citas?nueva=1&cliente=${client.id}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-bos-accent px-5 text-[15px] font-bold text-bos-on-accent hover:bg-bos-accent-strong">
                             <CalendarPlus aria-hidden="true" className="h-4 w-4" /> Agendar cita
                         </Link>
