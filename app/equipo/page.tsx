@@ -248,6 +248,8 @@ export default function TeamPage() {
     const [loadError, setLoadError] = useState<unknown>(null);
     const [saving, setSaving] = useState(false);
     const [togglingId, setTogglingId] = useState<string | null>(null);
+    // Desactivar a una persona se confirma antes (igual que desactivar un acceso o restablecer un PIN): un clic no basta.
+    const [deactivateTarget, setDeactivateTarget] = useState<Barber | null>(null);
     const toast = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formError, setFormError] = useState('');
@@ -335,7 +337,7 @@ export default function TeamPage() {
                 toast.error(toUserMessage(new HttpError(res.status, body?.error), 'No se pudo cambiar el estado.'));
             }
         } catch (error) { console.error(error); toast.error(toUserMessage(error)); }
-        finally { setTogglingId(null); }
+        finally { setTogglingId(null); setDeactivateTarget(null); }
     };
 
     const openModal = (barber?: Barber) => {
@@ -454,7 +456,7 @@ export default function TeamPage() {
                                         <KeyRound className="w-4 h-4" /> Crear acceso
                                     </button>
                                 )}
-                                <button onClick={() => toggleStatus(barber)} disabled={togglingId === barber.id} aria-busy={togglingId === barber.id || undefined} className={`flex-1 min-h-11 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border transition-colors hover:bg-bos-raised ${active ? 'text-bos-danger' : 'text-bos-success'}`}>
+                                <button onClick={() => (active ? setDeactivateTarget(barber) : toggleStatus(barber))} disabled={togglingId === barber.id} aria-busy={togglingId === barber.id || undefined} className={`flex-1 min-h-11 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 px-3 text-sm font-semibold rounded-xl border border-bos-border transition-colors hover:bg-bos-raised ${active ? 'text-bos-danger' : 'text-bos-success'}`}>
                                     {active ? <><UserX className="w-4 h-4" /> Desactivar</> : <><UserCheck className="w-4 h-4" /> Activar</>}
                                 </button>
                             </div>}
@@ -551,6 +553,20 @@ export default function TeamPage() {
                         </div>
                     </form>
                 </Modal>
+            )}
+            {deactivateTarget && (
+                <ConfirmDialog
+                    title={`¿Desactivar a ${deactivateTarget.name}?`}
+                    message={<>
+                        <p>Ya no aparecerá para cobrar ni agendar.</p>
+                        <p className="mt-2 text-bos-muted">Su historial se conserva y se puede volver a activar. Su acceso a la app se desactiva aparte, en «Accesos a la app».</p>
+                    </>}
+                    confirmLabel="Desactivar"
+                    variant="danger"
+                    loading={togglingId === deactivateTarget.id}
+                    onConfirm={() => toggleStatus(deactivateTarget)}
+                    onCancel={() => setDeactivateTarget(null)}
+                />
             )}
         </div>
     );

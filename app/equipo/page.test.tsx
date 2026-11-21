@@ -19,13 +19,13 @@ const TEAM = { accounts: [
 ], assignableRoles: ['barber', 'admin', 'owner'], adminKeyConfigured: true };
 
 type Call = { url: string; method: string };
-function stub(opts: { barbersFail?: boolean; team?: boolean } = {}) {
+function stub(opts: { barbersFail?: boolean; team?: boolean; inactive?: boolean } = {}) {
     const calls: Call[] = [];
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
         const u = String(url);
         calls.push({ url: u, method: init?.method ?? 'GET' });
         if (u.includes('/api/auth/me')) return { ok: true, json: async () => ({ authenticated: true, user: { role: 'admin' } }) };
-        if (u.includes('/api/barbers?')) { if (opts.barbersFail) throw new TypeError('Failed to fetch'); return { ok: true, json: async () => BARBERS }; }
+        if (u.includes('/api/barbers?')) { if (opts.barbersFail) throw new TypeError('Failed to fetch'); return { ok: true, json: async () => (opts.inactive ? BARBERS.map((b) => ({ ...b, status: 'inactive' })) : BARBERS) }; }
         if (u.includes('/api/accounts')) return { ok: true, json: async () => (opts.team ? TEAM : ACCOUNTS) };
         if (u.includes('/api/admin/summary')) return { ok: true, json: async () => ({ barberSummaries: [] }) };
         return { ok: true, json: async () => ({}) };
@@ -123,6 +123,34 @@ describe('Equipo: errores, doble envío y confirmaciones', () => {
         fireEvent.click(within(dialog).getByRole('button', { name: 'Desactivar acceso' }));
         await waitFor(() => expect(calls.some((c) => c.url.includes('/api/accounts/u9') && c.method === 'PATCH')).toBe(true));
         expect(spy).not.toHaveBeenCalled();
+    });
+
+    // Auditoría del 21 nov 2026: «Desactivar» en la tarjeta de la persona actuaba con un solo clic (se desactivó a Deya por accidente).
+    it('desactivar a una PERSONA pide confirmación y no llama a la API hasta confirmar; cancelar no hace nada', async () => {
+        const calls = stub();
+        render(<TeamPage />);
+        const patched = () => calls.some((c) => c.url.includes('/api/barbers/b1') && c.method === 'PATCH');
+        fireEvent.click(await screen.findByRole('button', { name: 'Desactivar' }));
+        let dialog = await screen.findByRole('dialog', { name: '¿Desactivar a Deya?' });
+        expect(dialog).toHaveTextContent('Ya no aparecerá para cobrar ni agendar.');
+        expect(patched()).toBe(false);
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: '¿Desactivar a Deya?' })).toBeNull());
+        expect(patched()).toBe(false);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
+        dialog = await screen.findByRole('dialog', { name: '¿Desactivar a Deya?' });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Desactivar' }));
+        await waitFor(() => expect(patched()).toBe(true));
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: '¿Desactivar a Deya?' })).toBeNull());
+    });
+
+    it('activar a una persona inactiva es directo (no quita nada)', async () => {
+        const calls = stub({ inactive: true });
+        render(<TeamPage />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Activar' }));
+        await waitFor(() => expect(calls.some((c) => c.url.includes('/api/barbers/b1') && c.method === 'PATCH')).toBe(true));
+        expect(screen.queryByRole('dialog')).toBeNull();
     });
 
     it('restablecer PIN también pasa por el diálogo', async () => {
