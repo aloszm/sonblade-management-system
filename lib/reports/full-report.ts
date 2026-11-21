@@ -3,6 +3,7 @@
 // en pantalla, el PDF y el Excel, para que los tres digan exactamente lo mismo.
 import { addDays } from '@/lib/settlements/week';
 import { roleLabel } from '@/lib/auth/roles';
+import { actionLabel as sharedActionLabel } from '@/lib/audit/labels';
 import { ENTRY_LABELS, PAID_FROM_LABELS } from '@/lib/payroll/ledger';
 import type { Audience, AuditEntry, CashSessionReport, FinancialPeriod, FullKpis, FullReport } from './full-report-types';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
@@ -247,7 +248,8 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export function auditActionLabel(action: string): string {
-    return ACTION_LABELS[action] ?? action.replace(/[._]/g, ' ');
+    // Lo que este reporte no rotula por su cuenta usa la misma frase en español que la pantalla Bitácora (nunca el nombre técnico).
+    return ACTION_LABELS[action] ?? sharedActionLabel(action);
 }
 
 const FIELD_LABELS: Record<string, string> = {

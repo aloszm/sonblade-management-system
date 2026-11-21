@@ -224,3 +224,15 @@ describe('reporte: sueldos, bonos y movimientos del equipo', () => {
         }
     });
 });
+
+describe('bitácora del reporte: sin nombres técnicos', () => {
+    it('una acción que el reporte no rotula usa la frase en español de la pantalla Bitácora', async () => {
+        const { auditActionLabel } = await import('./full-report');
+        const { actionLabel } = await import('@/lib/audit/labels');
+        for (const action of ['envelope_reserve_in', 'recurring_expense_created', 'appointment_notification_opened', 'user_branch_access.insert']) {
+            expect(auditActionLabel(action)).toBe(actionLabel(action));
+            expect(auditActionLabel(action)).not.toMatch(/_|envelope|recurring|appointment|access/i);
+        }
+        expect(auditActionLabel('cash_withdrawal_recipient_changed')).toBe('Cambio de quién recibe el retiro de la caja');
+    });
+});

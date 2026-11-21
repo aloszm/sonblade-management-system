@@ -723,6 +723,49 @@ anteriores ya mostraban `withdrawal_delivered_to`: sin cambios. `lib/database.ty
 a las 5:30 p. m. y la caja cierra a las 8 p. m., así que la entrega ocurre después del cierre) y un saldo de "retiros por entregar".
 Tampoco se tocó `scripts/simulate-week.mjs` (ya estaba roto por §8i: cierra con faltante sin motivo).
 
+## 8k. Auditoría por puesto y sus correcciones (21 nov 2026; solo código, sin cambio de base; SIN PUBLICAR)
+
+**Cómo se auditó.** Réplica local (Supabase en Docker con las 98 migraciones del repositorio aplicadas desde cero, puestos como en producción,
+dos semanas simuladas con `scripts/simulate-week.mjs`) y navegador real como recepción, barbero, gerente, consulta y cuenta principal. No se
+usaron cuentas de práctica ni de producción. Verificado ese día: producción y práctica publican el mismo commit y tienen las mismas 98
+migraciones (misma huella md5); **los datos sí difieren**: en práctica Sonia y Lucía tienen puesto de cuenta principal (nadie puede ensayar
+gerente ni consulta), hay servicios y productos "(prueba)" y otros horarios. La sección 1 de este documento (69 migraciones) está atrasada.
+
+**Errores corregidos** (cada uno con prueba unitaria; verificados en navegador contra la réplica; rama `ccr-6295fa74-3r6hyw`):
+
+- **Celular:** el envoltorio del contenido en `components/AppShell.tsx` tenía alto fijo y el último botón de las pantallas largas quedaba
+  bajo la barra inferior («Cobrar» tapado 39 de 60 px; el toque caía en «Barberos hoy»). Ahora `min-h-full`. Prueba e2e en `interfaz.spec`.
+- **Cobro:** la propina sigue la forma de pago del servicio salvo que se elija otra (`hooks/usePOS.ts`); antes arrancaba en Efectivo y un
+  cobro con tarjeta dejaba un faltante. El selector dice «Propina pagada con».
+- **Caja:** el motivo de abrir con otro monto (`opening_note`) se muestra en «Ver el efectivo», Resumen del día, PDF, Excel y WhatsApp
+  (`lib/cash/cash-flow.ts` → `openingGap`). El texto del resumen dice a quién se entregó el retiro y no resta faltantes contra sobrantes.
+- **Acceso:** cambiar el PIN ya no saca a la persona: `POST /api/account/pin` renueva la sesión del navegador con el PIN nuevo (Supabase
+  Auth cierra las demás sesiones al cambiar la contraseña). Si no puede, `/login?aviso=pin-cambiado` lo explica.
+- **Reportes:** la utilidad ya restaba sueldos por día y bonos, pero el reporte no los mostraba y sus cuentas no sumaban (15–20 nov: "Queda
+  antes de gastos $10,199 − Gastos $647 = Utilidad $7,632"). `lib/reports/full-report.ts` los muestra en Resumen, Resultado ("Menos sueldos
+  del personal", segmento en "de cada $100"), Lo que deja cada persona (columnas Sueldo y Bonos; incluye a quien solo cobra sueldo) y Balance
+  ("Cómo cuadra con la utilidad"; si algo no cuadra aparece un renglón que lo dice). Caja: columna "Retiro entregado a" y total por
+  destinatario (de la bitácora `cash_closed`). Comisiones: "Cómo se armó cada recibo" y movimientos del equipo. La bitácora del reporte usa
+  las mismas frases que la pantalla. Pruebas: `full-report-wages.test.ts`.
+- **Inventario:** el código (SKU) es opcional en pantalla y en `POST`/`PATCH /api/products` (antes ningún producto real se podía editar:
+  los 4 lo tienen vacío). Categoría real, sin fechas que no se guardaban, avisos en español. «Valor del inventario» dice «a precio de venta»
+  y, para quien ve costos, «a costo».
+- **Equipo:** «Desactivar» a una persona pide confirmación. **Ventas:** las anuladas no cuentan como ventas. **Cuadre:** las cifras se
+  llaman «visitas» (es lo que cuenta la base). **Bitácora:** todo en español y «Ver detalle» legible (`lib/audit/details.ts`).
+  **Ficha del cliente:** «Agendar cita» solo para quien puede agendar. **Ausencia:** «Cómo avisó» sin valor marcado. **Agenda:** abre en la
+  hora de apertura del día. **Textos:** «Abrió WhatsApp: Dago…», la reserva no promete mensajes automáticos, Finanzas «Por persona».
+
+**Pendiente de base (no se tocó):** que `business_full_report` mande en cada turno `withdrawal_delivered_to`, `difference_reason` y
+`opening_note`, y los adelantos y préstamos entregados por forma de pago (el Balance hoy solo avisa su monto). `scripts/simulate-week.mjs`
+cierra con faltante sin motivo y falla desde §8i. Una base creada desde cero no trae el sobre por omisión ni las categorías de gasto (las
+migraciones solo las crean para negocios que ya existían).
+
+**Decisiones del dueño que salieron de la auditoría (sin construir):** acuse de recibo del retiro (§8j); la gerente puede pagarse su propio
+recibo, bajar el saldo del sobre y crear gastos fijos sin una segunda persona, y el pago semanal en efectivo no pide PIN; práctica con los
+puestos reales; marcar «No llegó», cortesía total, alta de cliente desde Cobro y que recepción corrija una forma de pago equivocada; aviso a
+recepción de reservas en línea nuevas; forma de pago «Efectivo» preseleccionada en Cobro; que barbero y recepción abran el desglose de sus
+recibos pagados; que la agenda le diga al barbero cómo pedir un día y le muestre su horario.
+
 ## 9. Preguntas abiertas para el dueño (resumen)
 
 1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).
