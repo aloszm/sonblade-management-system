@@ -65,6 +65,7 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 - **Bitácora:** registro de quién hizo qué y cuándo. No se puede editar.
 - **Barberos hoy:** tablero del día: cortes, ingreso, productos y propinas de cada persona.
 - **Mi semana:** lo que cada quien lleva ganado en la semana.
+- **Comentarios:** ideas, fallas y dudas sobre la aplicación. Todos escriben (también Consulta) desde el botón del encabezado o el menú; cada quien ve solo lo suyo y la cuenta principal ve todo, cambia el estado (nuevo, visto, en proceso, hecho, descartado) y responde.
 
 ## 5. Dinero del equipo
 
@@ -132,7 +133,7 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 | GitHub / repositorio | Donde se guarda el código y su historial |
 | Publicar / desplegar | Subir una versión nueva para que todos la vean |
 | `main` | La versión publicada del código |
-| Migración | Un cambio a la estructura de la base. Van 89 |
+| Migración | Un cambio a la estructura de la base. Van 89 en producción (más las que solo están en desarrollo) |
 | Dominio / subdominio | La dirección web y sus variantes (`admin.`, `citas.`) |
 | HTTPS | El candado del navegador: la conexión va cifrada |
 | Sesión | Estar "dentro" del sistema después de poner el PIN |

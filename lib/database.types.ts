@@ -14,6 +14,128 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_feedback: {
+        Row: {
+          author_role: Database["public"]["Enums"]["business_role"]
+          author_seen_at: string | null
+          author_update_at: string | null
+          author_user_id: string
+          body: string
+          business_id: string
+          created_at: string
+          device: string | null
+          id: string
+          kind: string
+          replied_at: string | null
+          replied_by: string | null
+          reply: string | null
+          retracted_at: string | null
+          screen_path: string | null
+          status: string
+          status_changed_at: string | null
+          status_changed_by: string | null
+        }
+        Insert: {
+          author_role: Database["public"]["Enums"]["business_role"]
+          author_seen_at?: string | null
+          author_update_at?: string | null
+          author_user_id: string
+          body: string
+          business_id: string
+          created_at?: string
+          device?: string | null
+          id?: string
+          kind: string
+          replied_at?: string | null
+          replied_by?: string | null
+          reply?: string | null
+          retracted_at?: string | null
+          screen_path?: string | null
+          status?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+        }
+        Update: {
+          author_role?: Database["public"]["Enums"]["business_role"]
+          author_seen_at?: string | null
+          author_update_at?: string | null
+          author_user_id?: string
+          body?: string
+          business_id?: string
+          created_at?: string
+          device?: string | null
+          id?: string
+          kind?: string
+          replied_at?: string | null
+          replied_by?: string | null
+          reply?: string | null
+          retracted_at?: string | null
+          screen_path?: string | null
+          status?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_feedback_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_feedback_events: {
+        Row: {
+          action: string
+          actor_user_id: string
+          business_id: string
+          created_at: string
+          feedback_id: string
+          from_status: string | null
+          id: string
+          reply: string | null
+          to_status: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          business_id: string
+          created_at?: string
+          feedback_id: string
+          from_status?: string | null
+          id?: string
+          reply?: string | null
+          to_status?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          business_id?: string
+          created_at?: string
+          feedback_id?: string
+          from_status?: string | null
+          id?: string
+          reply?: string | null
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_feedback_events_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_feedback_events_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "app_feedback"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_items: {
         Row: {
           appointment_id: string
@@ -3040,6 +3162,7 @@ export type Database = {
         Args: { p_branch_id: string; p_from: string; p_to: string }
         Returns: Json
       }
+      app_feedback_counters: { Args: { p_business_id: string }; Returns: Json }
       appointment_products_read: {
         Args: { p_appointment_ids: string[]; p_branch_id: string }
         Returns: Json
@@ -3229,6 +3352,16 @@ export type Database = {
         }
         Returns: Json
       }
+      create_app_feedback: {
+        Args: {
+          p_body: string
+          p_business_id: string
+          p_device?: string
+          p_kind: string
+          p_screen_path?: string
+        }
+        Returns: Json
+      }
       create_catalog_product: {
         Args: {
           p_branch_id: string
@@ -3411,6 +3544,10 @@ export type Database = {
         Args: { p_login_id: string }
         Returns: undefined
       }
+      mark_app_feedback_seen: {
+        Args: { p_business_id: string }
+        Returns: number
+      }
       mark_pin_reset: {
         Args: {
           p_actor_user_id: string
@@ -3586,12 +3723,17 @@ export type Database = {
         Args: { p_branch_id: string; p_ids: string[] }
         Returns: Json
       }
+      retract_app_feedback: { Args: { p_feedback_id: string }; Returns: Json }
       reverse_sale: {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
       }
       reverse_sale_confirmed: {
         Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
+      }
+      review_app_feedback: {
+        Args: { p_feedback_id: string; p_reply?: string; p_status?: string }
         Returns: Json
       }
       review_commission_adjustment: {

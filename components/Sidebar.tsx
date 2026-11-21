@@ -10,12 +10,16 @@ import { sessionTitle } from '@/lib/auth/roles';
 import { CLIENT_NAME, CLIENT_TAGLINE, SYSTEM_NAME } from '@/lib/brand';
 import BrandLogo from '@/components/BrandLogo';
 import LogoutDialog from '@/components/LogoutDialog';
+import FeedbackBadge from '@/components/feedback/FeedbackBadge';
+import { feedbackBadge, useFeedbackCounters } from '@/hooks/useFeedbackCounters';
 
 interface SidebarProps { isOpen: boolean }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     const pathname = usePathname();
     const user = useNavUser();
+    // Aviso junto a "Comentarios": nuevos (cuenta principal) o respuesta sin ver (todos).
+    const badge = feedbackBadge(useFeedbackCounters(Boolean(user) && !user?.mustChangePin));
 
     const [confirmLogout, setConfirmLogout] = React.useState(false);
     const handleLogout = () => setConfirmLogout(true);
@@ -63,6 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                                                 className={`relative flex items-center gap-3 min-h-11 md:min-h-9 px-3 rounded-lg text-sm transition-colors ${active ? 'bg-bos-accent-soft text-bos-text font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-bos-accent' : 'text-bos-muted font-medium hover:text-bos-text hover:bg-bos-raised'}`}>
                                                 <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active ? 'text-bos-accent-text' : ''}`} />
                                                 {item.label}
+                                                {item.href === '/comentarios' && <FeedbackBadge badge={badge} className="ml-auto" />}
                                             </Link>
                                         </li>
                                     );

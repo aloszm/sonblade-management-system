@@ -8,6 +8,8 @@ import { ACCOUNT_ITEM, isNavActive, menuItems, moreSections, quickItems } from '
 import { useNavUser } from '@/hooks/useNavUser';
 import LogoutDialog from '@/components/LogoutDialog';
 import Modal from '@/components/ui/Modal';
+import FeedbackBadge from '@/components/feedback/FeedbackBadge';
+import { feedbackBadge, useFeedbackCounters } from '@/hooks/useFeedbackCounters';
 
 const tabClass = (active: boolean) => `flex flex-col items-center justify-center gap-1 w-full h-full min-h-11 min-w-0 transition-colors ${active ? 'text-bos-accent-text' : 'text-bos-muted hover:text-bos-text'}`;
 
@@ -27,6 +29,8 @@ const MobileNav = () => {
 
     // Hasta saber quién es, no se muestra ningún acceso. Con PIN temporal: solo Mi cuenta y Salir.
     const mustChangePin = Boolean(user?.mustChangePin);
+    // "Comentarios" vive en "Más": el aviso (nuevos o respuesta sin ver) se marca con un punto en "Más" y junto a la entrada.
+    const badge = feedbackBadge(useFeedbackCounters(Boolean(user) && !mustChangePin));
     const quick = quickItems(user);
     const sections = moreSections(user);
     const allHrefs = menuItems(user).map((i) => i.href);
@@ -57,7 +61,10 @@ const MobileNav = () => {
                     </button>
                 ) : user && (
                     <button type="button" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" aria-expanded={moreOpen} className={tabClass(moreActive || moreOpen)}>
-                        <MoreHorizontal aria-hidden="true" className="h-5 w-5" />
+                        <span className="relative">
+                            <MoreHorizontal aria-hidden="true" className="h-5 w-5" />
+                            {badge && <span data-testid="more-feedback-dot" className="absolute -right-1.5 -top-1 h-2.5 w-2.5 rounded-full bg-bos-accent ring-2 ring-bos-surface"><span className="sr-only">{badge.label}</span></span>}
+                        </span>
                         <span className={`text-[11px] ${moreActive ? 'font-semibold' : 'font-medium'}`}>Más</span>
                     </button>
                 )}
@@ -77,6 +84,7 @@ const MobileNav = () => {
                                                 className={`flex items-center gap-3 min-h-11 px-3 rounded-lg text-sm ${active ? 'bg-bos-accent-soft text-bos-text font-semibold' : 'text-bos-text font-medium hover:bg-bos-raised'}`}>
                                                 <item.icon aria-hidden="true" className="h-4 w-4 shrink-0 text-bos-muted" />
                                                 {item.label}
+                                                {item.href === '/comentarios' && <FeedbackBadge badge={badge} className="ml-auto" />}
                                             </Link>
                                         </li>
                                     );

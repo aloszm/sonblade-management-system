@@ -62,6 +62,9 @@ export function routeVerdict(role: string, pathname: string): RouteVerdict {
         || (!canSeePayReceipts(role) && matches(pathname, ['/liquidaciones']));
     if (notForRole && !pathname.startsWith('/api/')) return { allowed: false, reason: 'role', redirectTo: homeFor(role) };
 
+    // /comentarios (Comentarios y sugerencias) no está en ninguna lista a propósito: entran TODOS los puestos, consulta
+    // incluida. Quién ve los comentarios de todos lo decide la API y la base (solo la cuenta principal).
+
     return { allowed: true };
 }
 

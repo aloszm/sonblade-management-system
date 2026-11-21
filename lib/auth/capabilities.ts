@@ -3,7 +3,8 @@ import { assignableRoles, canManageAccount } from '@/lib/auth/account-rules';
 import { canSeeClientPhones, canSeeStaffPhones } from '@/lib/auth/privacy';
 import {
     FRONT_DESK_ROLES, FRONT_DESK_READ_ROLES, MANAGEMENT_ROLES, MANAGEMENT_READ_ROLES, OWNER_ONLY_ROLES, PAY_RECEIPT_ROLES,
-    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canSeePayReceipts, canSeeSaleCost, canWrite, cashMovementNeedsPin, isPrimaryAccount, readerRole,
+    PRIMARY_ACCOUNT_BADGE, ROLE_TITLES, canReviewFeedback, canSeePayReceipts, canSeeSaleCost, canWrite, canWriteFeedback, cashMovementNeedsPin, isPrimaryAccount,
+    readerRole,
 } from '@/lib/auth/roles';
 import { canEnter } from '@/lib/auth/route-access';
 import {
@@ -179,6 +180,19 @@ export const CAPABILITIES: Capability[] = [
         evaluate: (r) => si(OWNER_ONLY_ROLES.includes(r) && canEnter(r, '/configuracion/estado')) },
     { id: 'config.quien', screen: 'Configuración', label: 'Ver esta página (Quién ve qué)', source: 'lib/auth/route-access.ts · canEnter',
         evaluate: (r) => si(canEnter(r, '/configuracion/quien-ve-que')) },
+
+    // Comentarios y sugerencias (todos escriben; solo la cuenta principal lee todo y responde)
+    { id: 'comentarios.escribir', screen: 'Comentarios', label: 'Escribir comentarios y ver los suyos',
+        source: 'POST /api/feedback · canWriteFeedback (FEEDBACK_WRITER_ROLES) · base: create_app_feedback',
+        evaluate: (r) => (canWriteFeedback(r) && canEnter(r, '/comentarios')
+            ? (canWrite(r) ? { level: 'si' } : { level: 'si', note: 'Excepción: Consulta es de solo lectura en todo lo demás, pero aquí sí escribe.' })
+            : { level: 'no' }) },
+    { id: 'comentarios.todos', screen: 'Comentarios', label: 'Ver los comentarios de todos',
+        source: 'GET /api/feedback?scope=all · canReviewFeedback (FEEDBACK_REVIEWER_ROLES) · base: RLS de app_feedback',
+        evaluate: (r) => si(canReviewFeedback(r)) },
+    { id: 'comentarios.responder', screen: 'Comentarios', label: 'Responder y cambiar estado',
+        source: 'PATCH /api/feedback/[id] · canReviewFeedback · base: review_app_feedback',
+        evaluate: (r) => si(canReviewFeedback(r)) },
 ];
 
 /** Pantallas, en el orden en que aparecen en CAPABILITIES. */

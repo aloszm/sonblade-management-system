@@ -32,9 +32,9 @@ describe('menú por puesto', () => {
         expect(labels(menuItems(manager))).not.toContain('Configuración');
     });
 
-    it('recepción: Caja, Agenda, Barberos hoy, Clientes; Mi semana, Cobro e Inventario en Más (sin Pago semanal)', () => {
+    it('recepción: Caja, Agenda, Barberos hoy, Clientes; Mi semana, Cobro, Comentarios e Inventario en Más (sin Pago semanal)', () => {
         expect(labels(quickItems(front))).toEqual(['Caja', 'Agenda', 'Barberos hoy', 'Clientes']);
-        expect(labels(moreSections(front).flatMap((s) => s.items))).toEqual(['Mi semana', 'Cobro', 'Inventario']);
+        expect(labels(moreSections(front).flatMap((s) => s.items))).toEqual(['Mi semana', 'Cobro', 'Comentarios', 'Inventario']);
     });
 
     it('«Mi semana» es de quien trabaja (barbero, gerencia con ficha y recepción); la consulta no la ve', () => {
@@ -42,15 +42,24 @@ describe('menú por puesto', () => {
         expect(labels(menuItems(viewer))).not.toContain('Mi semana');
     });
 
-    it('barbero: Mi semana, Agenda, Clientes y nada más (sin Pago semanal)', () => {
+    it('barbero: Mi semana, Agenda, Clientes y en Más solo Comentarios (sin Pago semanal)', () => {
         expect(labels(quickItems(barber))).toEqual(['Mi semana', 'Agenda', 'Clientes']);
-        expect(moreSections(barber)).toEqual([]);
+        expect(labels(moreSections(barber).flatMap((s) => s.items))).toEqual(['Comentarios']);
         expect(labels(menuItems(barber))).not.toContain('Caja');
     });
 
     it('recibos de pago (Pago semanal): solo dueño, gerencia y consulta; barbero y recepción no lo tienen', () => {
         for (const u of [owner, manager, viewer]) expect(labels(menuItems(u))).toContain('Pago semanal');
         for (const u of [barber, front]) expect(labels(menuItems(u))).not.toContain('Pago semanal');
+    });
+
+    it('Comentarios: en el menú de TODOS los puestos (también consulta) y, en celular, dentro de «Más»', () => {
+        for (const u of [owner, manager, viewer, front, barber]) {
+            expect(labels(menuItems(u))).toContain('Comentarios');
+            expect(labels(quickItems(u))).not.toContain('Comentarios');
+            expect(labels(moreSections(u).flatMap((s) => s.items))).toContain('Comentarios');
+        }
+        expect(menuItems({ ...barber, mustChangePin: true })).toEqual([]);
     });
 
     it('consulta: sin Caja del atajo, sin Cobro, Mi semana ni Configuración', () => {

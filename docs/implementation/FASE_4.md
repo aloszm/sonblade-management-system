@@ -565,6 +565,19 @@ Migración `20261120090000_daily_wages` (md5 `37f2f55375bcab97fc69d3c637810c84`,
 
 **Decisión pendiente del dueño:** recepción lee en la base las comisiones y propinas de toda la sucursal porque "Barberos hoy" las muestra; para restringirlo hay que mover esa pantalla a una función de base.
 
+## 8g. Comentarios y sugerencias dentro de la aplicación (20-21 nov; base SOLO en desarrollo)
+
+Pedido del dueño: "comentarios o sugerencias para la aplicación, que todos lo puedan escribir y que yo lo pueda ver para ir viendo los cambios".
+
+Migración `20261120160000_app_feedback` (md5 `ea8825c3002b0d0f4a8a58a25a9b4cd7`, aplicada en `sonblade-dev`; **no** replicada a producción) · prueba `supabase/tests/app_feedback.test.sql` (52 casos). Solo agrega objetos nuevos: la app publicada no se entera.
+
+- **Tablas:** `public.app_feedback` (quién, cuándo, puesto al escribir, tipo `idea|falla|duda|otro`, texto de 5 a 1,000, pantalla de origen como patrón de ruta sin ids, dispositivo `celular|tableta|computadora`, estado `nuevo|visto|en_proceso|hecho|descartado`, respuesta, quién y cuándo cambió estado/respondió, retirado, avisos) y `public.app_feedback_events` (historial de solo altas). Sin borrado ni truncado; el texto, tipo, autor y origen no se editan ni con la llave de servicio (disparador).
+- **Quién puede qué:** escriben **todos** con PIN definitivo, **incluida Consulta**: única excepción a "Consulta es de solo lectura", resuelta con `private.app_feedback_member_role` sin tocar `has_business_role` ni `canWrite` (en la app: `FEEDBACK_WRITER_ROLES`/`canWriteFeedback`). Con **PIN temporal no se comenta** (como todo lo demás). Cada quien lee solo lo suyo; **solo la cuenta principal** lee todo, cambia estado y responde (`FEEDBACK_REVIEWER_ROLES`). Gerencia no lee lo ajeno. Retirar: el autor, solo en `nuevo`. Tope: 20 por persona por día del negocio (incluye retirados).
+- **Funciones:** `create_app_feedback`, `review_app_feedback` (estado y/o respuesta; `''` quita la respuesta; no regresa a `nuevo`), `retract_app_feedback`, `mark_app_feedback_seen`, `app_feedback_counters` (`unseen_updates` para todos; `new_count` solo cuenta principal).
+- **API:** `GET/POST /api/feedback` (`?scope=mine|all&status=&kind=`; `all` solo cuenta principal, con nombre de pila, puesto y resumen), `PATCH /api/feedback/[id]`, `POST /api/feedback/[id]/retract`, `POST /api/feedback/seen`, `GET /api/feedback/counters`.
+- **Pantallas:** botón del **encabezado** ("Comentar"; en celular solo el ícono) que abre "¿Qué mejorarías?" sin salir de la pantalla (no flota: no tapa cobrar ni la barra inferior); entrada "Comentarios" en el menú de todos los puestos (en celular dentro de "Más", con punto de aviso); `/comentarios` con "Mis comentarios" y, para la cuenta principal, "Todos" (resumen, filtros, orden, acciones rápidas, respuesta y "Copiar para enviar").
+- **Falta:** replicar la migración a producción (primero la base, después el código); probarlo con sesión real (solo se vio con datos simulados).
+
 ## 9. Preguntas abiertas para el dueño (resumen)
 
 1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).

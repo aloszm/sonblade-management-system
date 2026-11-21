@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, ChevronDown, Plus, LogOut, KeyRound } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import FeedbackButton from '@/components/feedback/FeedbackButton';
 import { PAGE_TITLES } from '@/lib/nav';
 import LogoutDialog from '@/components/LogoutDialog';
 import { sessionTitle } from '@/lib/auth/roles';
@@ -101,6 +102,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             Nueva Cita
           </Link>
         )}
+
+        <FeedbackButton />
 
         <ThemeToggle />
 

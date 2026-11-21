@@ -1,6 +1,6 @@
 import {
     BarChart3, Banknote, Calendar, FileText, LayoutDashboard, Layers, Package, Scissors,
-    Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins, Target,
+    Settings, ShoppingCart, Globe, Trophy, TrendingDown, UserCircle, UserPlus, Users, Wallet, Scale, PiggyBank, HandCoins, Target, MessageSquare,
     type LucideIcon,
 } from 'lucide-react';
 import { canSeePayReceipts, canWrite, screenRole } from '@/lib/auth/roles';
@@ -55,6 +55,9 @@ export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
             { href: '/clientes', label: 'Clientes', icon: UserPlus, roles: ['admin', 'recepcion', 'barber'] },
             // Los recibos de pago los ven solo dueño, gerencia y consulta (canSeePayReceipts): barbero y recepción no tienen esta entrada.
             { href: '/liquidaciones', label: 'Pago semanal', icon: Wallet, roles: ['admin', 'recepcion', 'barber'], payReceipts: true },
+            // Comentarios y sugerencias: TODOS los puestos, también la consulta (es la única pantalla donde consulta escribe;
+            // ver FEEDBACK_WRITER_ROLES). En celular queda dentro de "Más".
+            { href: '/comentarios', label: 'Comentarios', icon: MessageSquare, roles: ['admin', 'recepcion', 'barber'] },
         ],
     },
     {
@@ -152,6 +155,7 @@ export const PAGE_TITLES: Record<string, string> = {
     '/configuracion/reservas': 'Reservas en línea',
     '/configuracion/quien-ve-que': 'Quién ve qué',
     '/mi-cuenta': 'Mi cuenta',
+    '/comentarios': 'Comentarios',
 };
 
 /**

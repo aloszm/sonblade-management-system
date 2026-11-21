@@ -76,4 +76,9 @@ describe('canEnter / routeVerdict', () => {
         expect(routeVerdict('barber', '/punto-de-equilibrio').allowed).toBe(false);
         for (const role of ROLES) expect(canEnter(role, '/punto-de-equilibrio')).toBe(canEnter(role, '/administracion'));
     });
+    it('Comentarios: entran TODOS los puestos, consulta incluida', () => {
+        for (const role of ['owner', 'admin', 'viewer', 'receptionist', 'cashier', 'barber']) {
+            expect(routeVerdict(role, '/comentarios')).toEqual({ allowed: true });
+        }
+    });
 });

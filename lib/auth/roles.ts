@@ -61,6 +61,24 @@ export function canSeeSaleCost(role: BusinessRole): boolean {
     return SALE_COST_ROLES.includes(role);
 }
 
+/**
+ * Comentarios y sugerencias sobre la aplicación (/comentarios). ESCRIBEN todos los puestos, INCLUIDA la consulta
+ * (viewer): es la ÚNICA excepción a "consulta es de solo lectura". No pasa por canWrite ni relaja has_business_role:
+ * en la base la decide una función dedicada (private.app_feedback_member_role, migración 20261120160000). Con PIN
+ * temporal nadie comenta (igual que todo lo demás: el middleware y la base lo impiden).
+ */
+export const FEEDBACK_WRITER_ROLES: BusinessRole[] = ['owner', 'admin', 'viewer', 'receptionist', 'cashier', 'barber'];
+/** Leer TODOS los comentarios, cambiar su estado y responder: solo la cuenta principal (pedido del dueño). */
+export const FEEDBACK_REVIEWER_ROLES: BusinessRole[] = OWNER_ONLY_ROLES;
+
+export function canWriteFeedback(role: BusinessRole): boolean {
+    return FEEDBACK_WRITER_ROLES.includes(role);
+}
+
+export function canReviewFeedback(role: BusinessRole): boolean {
+    return FEEDBACK_REVIEWER_ROLES.includes(role);
+}
+
 export function isReadOnlyRole(role: BusinessRole): boolean {
     return READ_ONLY_ROLES.includes(role);
 }

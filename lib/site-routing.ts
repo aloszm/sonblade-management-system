@@ -22,7 +22,7 @@ export type RouteDecision =
  * pantalla nueva no quede sin clasificar.
  */
 export const INTERNAL_PREFIXES = [
-    'admin', 'administracion', 'auth', 'barbero', 'barberos', 'caja', 'citas', 'clientes', 'configuracion', 'cuadre',
+    'admin', 'administracion', 'auth', 'barbero', 'barberos', 'caja', 'citas', 'clientes', 'comentarios', 'configuracion', 'cuadre',
     'equipo', 'equipo-hoy', 'gastos', 'inventario', 'liquidaciones', 'login', 'mi-cuenta', 'onboarding', 'pos',
     'productos', 'punto-de-equilibrio', 'reportes', 'servicios', 'sobres', 'ticket', 'ventas',
 ] as const;

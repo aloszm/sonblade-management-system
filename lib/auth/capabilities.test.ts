@@ -127,7 +127,16 @@ describe('catálogo de capacidades', () => {
         'config.reservas': 'pin ver no no no',
         'config.estado': 'si no no no no',
         'config.quien': 'si no no no no',
+        'comentarios.escribir': 'si si si si si',
+        'comentarios.todos': 'si no no no no',
+        'comentarios.responder': 'si no no no no',
     };
+
+    it('comentarios: la excepción de consulta queda explícita (escribe aquí aunque sea de solo lectura)', () => {
+        const cap = CAPABILITIES.find((c) => c.id === 'comentarios.escribir')!;
+        expect(cap.evaluate('viewer').note).toMatch(/Excepción/);
+        expect(cap.evaluate('admin').note).toBeUndefined();
+    });
 
     it('tabla vigente de puestos × capacidades (congelada)', () => {
         expect(Object.keys(TABLA).sort()).toEqual(CAPABILITIES.map((c) => c.id).sort());

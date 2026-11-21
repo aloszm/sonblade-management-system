@@ -53,6 +53,7 @@ export const SCREENS: Screen[] = [
     { route: '/configuracion/estado', sample: '/configuracion/estado', group: 'Configuración y cuenta', title: 'Estado del sistema' },
     { route: '/configuracion/quien-ve-que', sample: '/configuracion/quien-ve-que', group: 'Configuración y cuenta', title: t('/configuracion/quien-ve-que', 'Quién ve qué') },
     { route: '/mi-cuenta', sample: '/mi-cuenta', group: 'Configuración y cuenta', title: t('/mi-cuenta', 'Mi cuenta') },
+    { route: '/comentarios', sample: '/comentarios', group: 'Configuración y cuenta', title: t('/comentarios', 'Comentarios') },
 ];
 
 /**
