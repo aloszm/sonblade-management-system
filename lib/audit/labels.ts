@@ -44,6 +44,42 @@ export const ACTION_LABELS: Record<string, string> = {
     'account.pin_reset': 'PIN restablecido por la gerencia',
     'account.migrated_to_pin': 'Cuenta migrada a usuario y PIN',
     pin_reset_emergency: 'PIN restablecido por emergencia',
+    // Citas: avisos por WhatsApp y productos propuestos en la cita
+    appointment_notification_opened: 'Se abrió WhatsApp para avisar a un cliente',
+    appointment_product_added: 'Producto agregado a una cita',
+    appointment_product_quantity_changed: 'Cambio de cantidad de un producto en una cita',
+    appointment_product_removed: 'Producto quitado de una cita',
+    appointment_product_seller_changed: 'Cambio de quién vendió un producto en una cita',
+    // Reservas en línea
+    booking_settings_changed: 'Cambio en las reglas de reservas en línea',
+    booking_enabled: 'Reservas en línea encendidas o apagadas',
+    // Sobres
+    envelope_reserve_in: 'Apartado del cierre de caja al sobre',
+    envelope_adjusted: 'Ajuste del sobre por conteo',
+    envelope_bank_deposit: 'Depósito del sobre al banco',
+    // Gastos
+    expense_recorded: 'Gasto registrado',
+    expense_cancelled: 'Gasto cancelado',
+    expense_receipt_attached: 'Comprobante agregado a un gasto',
+    expense_category_created: 'Categoría de gasto creada',
+    expense_category_updated: 'Cambio en una categoría de gasto',
+    recurring_expense_created: 'Gasto fijo creado',
+    recurring_expense_updated: 'Cambio en un gasto fijo',
+    recurring_expense_reordered: 'Cambio en el orden de los gastos fijos',
+    // Equipo: adelantos, préstamos, descuentos, sueldos, faltas y metas
+    employee_ledger_advance: 'Adelanto a una persona del equipo',
+    employee_ledger_loan: 'Préstamo a una persona del equipo',
+    employee_ledger_loan_payment: 'Abono a un préstamo',
+    employee_ledger_deduction: 'Descuento a una persona del equipo',
+    employee_ledger_cancelled: 'Movimiento del equipo cancelado',
+    employee_wage_set: 'Cambio de sueldo por día',
+    attendance_absent: 'Falta registrada',
+    attendance_extra: 'Día extra registrado',
+    attendance_exception_voided: 'Falta o día extra anulado',
+    bonus_goal_created: 'Meta de bono creada',
+    bonus_goal_updated: 'Cambio en una meta de bono',
+    // Descuentos
+    discount_approved: 'Descuento autorizado',
 };
 
 const TABLE_LABELS: Record<string, string> = {
@@ -55,15 +91,25 @@ const TABLE_LABELS: Record<string, string> = {
 };
 const VERB_LABELS: Record<string, string> = { insert: 'Alta de', update: 'Cambio en', delete: 'Baja de' };
 
+/** «Alta de» + «el acceso…» se dice «Alta del acceso…» (y «Baja del…»); «Cambio en el…» queda igual. */
+const join = (verb: string, thing: string) => (verb.endsWith(' de') && thing.startsWith('el ') ? `${verb}l ${thing.slice(3)}` : `${verb} ${thing}`);
+
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const spaced = (text: string) => text.replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-/** Frase en español de una acción. Las altas y cambios automáticos vienen como "tabla.operación". */
-export function actionLabel(action: string): string {
+/**
+ * Frase en español de una acción. Las altas y cambios automáticos vienen como "tabla.operación".
+ * Las confirmaciones con PIN llegan todas como `pin_confirmed_action` y dicen QUÉ se confirmó en `details.action`:
+ * con `details` se muestra eso («Gasto registrado · confirmado con PIN») en vez de un genérico igual para todas.
+ */
+export function actionLabel(action: string, details?: Record<string, unknown> | null): string {
+    if (action === 'pin_confirmed_action' && typeof details?.action === 'string' && details.action && details.action !== action) {
+        return `${actionLabel(details.action)} · confirmado con PIN`;
+    }
     if (ACTION_LABELS[action]) return ACTION_LABELS[action];
     const [table, verb] = action.split('.');
     if (verb && VERB_LABELS[verb]) {
-        return `${VERB_LABELS[verb]} ${TABLE_LABELS[table] ?? spaced(table)}`;
+        return join(VERB_LABELS[verb], TABLE_LABELS[table] ?? spaced(table));
     }
     // Acción que aún no tiene frase: se muestra legible, sin guiones bajos ni puntos.
     return capitalize(spaced(action)) || 'Acción registrada';
@@ -77,6 +123,10 @@ const ENTITY_LABELS: Record<string, string> = {
     commission_settlement: 'Pago semanal', commission_adjustment: 'Ajuste de comisión', commission_rules: 'Regla de comisión',
     business_memberships: 'Puesto', report: 'Reporte', report_export: 'Reporte', booking: 'Reserva en línea', reconciliation_issue: 'Cuadre',
     reconciliation_batch: 'Cuadre', employee_time_off: 'Ausencia', employee_weekly_schedule: 'Horario semanal',
+    envelope_movement: 'Movimiento del sobre', expense: 'Gasto', expense_category: 'Categoría de gasto', recurring_expense: 'Gasto fijo',
+    employee_ledger: 'Movimiento del equipo', employee_wage_rates: 'Sueldo por día', employee_attendance_exceptions: 'Falta o día extra',
+    bonus_goal: 'Meta de bono', appointment_product: 'Producto de una cita', discount_approval: 'Autorización de descuento',
+    user_branch_access: 'Acceso a una sucursal', inventory_threshold: 'Mínimo de inventario', commission_rule: 'Regla de comisión',
 };
 
 /** Nombre en español de lo que tocó la acción (venta, caja, cita…). */

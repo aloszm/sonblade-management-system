@@ -7,11 +7,26 @@ import { BUSINESS_TIME_ZONE, formatDateTime, zonedDayStartIso } from '@/lib/util
 import { addDays } from '@/lib/settlements/week';
 import { roleLabel } from '@/lib/auth/roles';
 import { ACTION_LABELS, actionLabel, entityLabel } from '@/lib/audit/labels';
+import { detailRows } from '@/lib/audit/details';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
 import { isOfflineError, readJson, toUserMessage } from '@/lib/utils/errors';
+
+/** Detalle de un registro en renglones «Nombre: valor», en español (antes: el JSON crudo de la base). */
+function DetailList({ details, className = '' }: { details: Record<string, unknown>; className?: string }) {
+    return (
+        <dl data-testid="audit-detail" className={`mt-1 space-y-1 rounded-xl border border-bos-control bg-bos-bg p-2 text-xs ${className}`}>
+            {detailRows(details).map((row) => (
+                <div key={row.key} className="flex flex-wrap gap-x-2">
+                    <dt className="text-bos-muted">{row.label}:</dt>
+                    <dd className="font-medium break-words">{row.value}</dd>
+                </div>
+            ))}
+        </dl>
+    );
+}
 
 export default function AuditoriaPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -99,15 +114,15 @@ export default function AuditoriaPage() {
                 ) : logs.map(log => (
                     <li key={log.id} className="rounded-xl border border-bos-border bg-bos-surface p-4 space-y-2">
                         <div className="flex items-start justify-between gap-3">
-                            <p className="font-semibold text-sm">{actionLabel(log.action)}</p>
+                            <p className="font-semibold text-sm">{actionLabel(log.action, log.details)}</p>
                             <span className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium bg-bos-raised text-bos-text border border-bos-border">{roleLabel(log.role)}</span>
                         </div>
                         <p className="text-xs text-bos-muted tabular-nums">{formatDateTime(log.created_at)}</p>
                         <p className="text-sm">{log.user_name ?? log.user_id}</p>
-                        {log.details && Object.keys(log.details).length > 0 && (
+                        {detailRows(log.details).length > 0 && (
                             <details>
                                 <summary className="inline-flex min-h-11 items-center text-xs text-bos-accent-text font-medium cursor-pointer">Ver detalle</summary>
-                                <pre className="mt-1 text-xs bg-bos-bg border border-bos-control p-2 rounded-xl overflow-x-auto whitespace-pre-wrap break-words">{JSON.stringify(log.details, null, 2)}</pre>
+                                <DetailList details={log.details} />
                             </details>
                         )}
                     </li>
@@ -149,16 +164,17 @@ export default function AuditoriaPage() {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3">
-                                        <span className="font-semibold">{actionLabel(log.action)}</span>
+                                        <span className="font-semibold">{actionLabel(log.action, log.details)}</span>
                                     </td>
                                     <td className="px-4 py-3 text-bos-muted text-xs">
-                                        {entityLabel(log.entity)}{typeof log.details?.folio === 'string' ? ` ${log.details.folio}` : log.entity_id ? ` #${log.entity_id.substring(0, 8)}...` : ''}
+                                        {/* Solo se muestra una referencia que alguien pueda reconocer (folio o recibo), no el id interno. */}
+                                        {entityLabel(log.entity)}{typeof log.details?.folio === 'string' ? ` ${log.details.folio}` : typeof log.details?.receipt_number === 'string' ? ` ${log.details.receipt_number}` : ''}
                                     </td>
                                     <td className="px-4 py-3">
-                                        {log.details && Object.keys(log.details).length > 0 ? (
+                                        {detailRows(log.details).length > 0 ? (
                                             <details className="cursor-pointer">
                                                 <summary className="inline-block py-1 text-xs text-bos-accent-text font-medium hover:underline">Ver detalle</summary>
-                                                <pre className="mt-2 text-xs bg-bos-bg border border-bos-control p-2 rounded-xl overflow-x-auto max-w-xs">{JSON.stringify(log.details, null, 2)}</pre>
+                                                <DetailList details={log.details} className="max-w-xs" />
                                             </details>
                                         ) : (
                                             <span className="text-bos-muted text-xs">—</span>
