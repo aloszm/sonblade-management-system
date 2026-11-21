@@ -238,3 +238,62 @@ describe('semana', () => {
         expect(weekDays('2026-12-31')).toEqual(['2026-12-27', '2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01', '2027-01-02']);
     });
 });
+
+// Auditoría del 21 nov 2026: la agenda abría en 8 a.m. aunque el negocio abriera a las 12:30 (día sin citas o
+// visto fuera de horario), y había que bajar cuatro horas cerradas para llegar a la primera hora útil.
+import { dayScrollTarget, weekScrollTarget } from './calendar-grid';
+
+describe('a qué hora baja la agenda al abrirla', () => {
+    const range = { start: 8 * 60, end: 22 * 60 };
+    const weekday = { open: 12 * 60 + 30, close: 20 * 60 }; // martes a sábado: 12:30 p.m. a 8 p.m.
+    const at = (h: number, m = 0) => h * 60 + m;
+
+    it('otro día sin citas: la hora en que abre el negocio, no las 8 a.m.', () => {
+        expect(dayScrollTarget({ range, window: weekday })).toBe(at(12, 30));
+        expect(dayScrollTarget({ range, window: { open: at(10), close: at(19) } })).toBe(at(10)); // domingo y lunes
+    });
+
+    it('otro día con citas: la primera cita (como antes)', () => {
+        expect(dayScrollTarget({ range, window: weekday, firstStart: at(17) })).toBe(at(17));
+    });
+
+    it('hoy antes de abrir (o de madrugada): la apertura; con una cita más temprano, esa cita', () => {
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9) })).toBe(at(12, 30));
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(2, 48) })).toBe(at(12, 30)); // fuera de la cuadrícula
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9), firstStart: at(13) })).toBe(at(12, 30));
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9), firstStart: at(11) })).toBe(at(11));
+    });
+
+    it('hoy con el negocio abierto: la hora actual, medio bloque arriba', () => {
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(15, 10), firstStart: at(12, 30) })).toBe(at(14, 40));
+    });
+
+    it('hoy después de cerrar: vuelve al inicio del día de trabajo (primera cita o apertura)', () => {
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(21), firstStart: at(13) })).toBe(at(13));
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(21) })).toBe(at(12, 30));
+    });
+
+    it('día cerrado o sin horario cargado: se conserva lo de antes', () => {
+        expect(dayScrollTarget({ range, window: null })).toBe(at(8));
+        expect(dayScrollTarget({ range })).toBe(at(8));
+        expect(dayScrollTarget({ range, window: null, firstStart: at(16) })).toBe(at(16));
+        expect(dayScrollTarget({ range, nowMinutes: at(15) })).toBe(at(14, 30));
+    });
+
+    it('nunca sale de la cuadrícula', () => {
+        expect(dayScrollTarget({ range, window: { open: at(6), close: at(23) } })).toBe(at(8));
+        expect(dayScrollTarget({ range, window: weekday, firstStart: at(23) })).toBe(at(21, 30));
+    });
+
+    it('semana sin citas: la apertura más temprana de la semana (medio bloque arriba), no las 8 a.m.', () => {
+        expect(weekScrollTarget({ range, earliestOpen: at(10) })).toBe(at(9, 30));
+        expect(weekScrollTarget({ range, earliestOpen: at(12, 30), firstStart: at(11) })).toBe(at(10, 30));
+        expect(weekScrollTarget({ range })).toBe(at(8));
+    });
+
+    it('semana que incluye hoy: la hora actual si ya es hora de abrir; si es de madrugada, la apertura', () => {
+        expect(weekScrollTarget({ range, nowMinutes: at(15), todayOpen: at(12, 30), earliestOpen: at(10) })).toBe(at(14));
+        expect(weekScrollTarget({ range, nowMinutes: at(8, 30), todayOpen: at(12, 30), earliestOpen: at(10) })).toBe(at(9, 30));
+        expect(weekScrollTarget({ range, nowMinutes: at(2, 48), todayOpen: at(12, 30), earliestOpen: at(10) })).toBe(at(9, 30));
+    });
+});

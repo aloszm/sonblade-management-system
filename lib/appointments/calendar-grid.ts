@@ -100,6 +100,43 @@ export function gridRange(_window?: { open: number; close: number } | null, appo
     return { start, end };
 }
 
+/**
+ * Minuto al que baja la vista de DÍA al abrirla. La cuadrícula siempre empieza a las 8 a.m., pero el negocio abre
+ * más tarde (12:30 entre semana): antes, un día sin citas o visto fuera de horario abría en 8 a.m. y había que bajar
+ * cuatro horas rayadas para llegar a la primera hora útil (auditoría del 21 nov 2026).
+ *
+ * - Hoy, con el negocio abierto: la hora actual (medio bloque arriba, para ver lo que está en curso).
+ * - Hoy antes de abrir: la apertura, o la primera cita si es más temprano.
+ * - Otro día, u hoy después de cerrar: la primera cita; sin citas, la hora de apertura.
+ * - Sin horario conocido o día cerrado: como antes (hora actual si es hoy; si no, primera cita o inicio de la cuadrícula).
+ */
+export function dayScrollTarget(o: { range: Span; window?: { open: number; close: number } | null; nowMinutes?: number | null; firstStart?: number | null }): number {
+    const clamp = (m: number) => Math.min(Math.max(m, o.range.start), Math.max(o.range.start, o.range.end - SLOT_MINUTES));
+    const open = o.window ? o.window.open : null;
+    const close = o.window ? o.window.close : null;
+    const first = o.firstStart ?? null;
+    const resting = first !== null ? first : open !== null ? open : o.range.start;
+    const now = o.nowMinutes ?? null;
+    if (now !== null && now >= o.range.start && now < o.range.end) {
+        if (open === null || close === null) return clamp(now - SLOT_MINUTES);
+        if (now < open) return clamp(first !== null ? Math.min(first, open) : open);
+        if (now < close) return clamp(now - SLOT_MINUTES);
+    }
+    return clamp(resting);
+}
+
+/**
+ * Minuto al que baja la vista de SEMANA al abrirla: la hora actual si la semana incluye hoy y ya es hora de abrir;
+ * si no, la primera cita de la semana o, sin citas, la apertura más temprana de la semana (no las 8 a.m.).
+ */
+export function weekScrollTarget(o: { range: Span; nowMinutes?: number | null; todayOpen?: number | null; firstStart?: number | null; earliestOpen?: number | null }): number {
+    const clamp = (m: number) => Math.min(Math.max(m, o.range.start), Math.max(o.range.start, o.range.end - SLOT_MINUTES));
+    const now = o.nowMinutes ?? null;
+    if (now !== null && now >= o.range.start && now < o.range.end && (o.todayOpen == null || now >= o.todayOpen - 60)) return clamp(now - 60);
+    const candidates = [o.firstStart, o.earliestOpen].filter((m): m is number => typeof m === 'number');
+    return candidates.length ? clamp(Math.min(...candidates) - SLOT_MINUTES) : o.range.start;
+}
+
 /** Inicio de cada bloque de 30 minutos de un rango. */
 export function slotStarts(range: Span): number[] {
     const out: number[] = [];

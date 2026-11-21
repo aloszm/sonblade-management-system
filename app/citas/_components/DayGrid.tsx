@@ -5,7 +5,7 @@ import { Ban, Plus } from 'lucide-react';
 import type { Appointment } from '@/types';
 import { STATUS_LABELS, isActive, layoutLanes } from '@/lib/appointments/appointments-view';
 import {
-    SLOT_MINUTES, appointmentSpan, cardDetail, formatClock, formatRange, gridRange, hourMarks, slotStarts, spanBox, toHHMM, visualSpan, type Span,
+    SLOT_MINUTES, appointmentSpan, cardDetail, dayScrollTarget, formatClock, formatRange, gridRange, hourMarks, slotStarts, spanBox, toHHMM, visualSpan, type Span,
 } from '@/lib/appointments/calendar-grid';
 import { overlapMinutes, type TimeOffView } from '@/lib/appointments/time-off';
 import { workingWindow, type ScheduleData } from '@/lib/appointments/hours';
@@ -91,19 +91,21 @@ export default function DayGrid({ dayKey, todayKey, nowMinutes, appointments, co
     const minWidth = (lanes: number) => (narrow ? 0 : Math.max(180, lanes * 112));
     const template = `${AXIS_PX}px ${perColumn.map((p) => `minmax(${minWidth(p.maxLanes)}px, 1fr)`).join(' ')}`;
 
-    // Al abrir un día: se baja a la hora actual (hoy) o a la primera cita.
+    // Al abrir un día: se baja a la hora actual (hoy, con el negocio abierto), a la primera cita o, sin citas, a la
+    // hora en que abre el negocio ese día (no a las 8 a.m., que casi siempre está cerrado).
     const firstStart = spans.length ? Math.min(...spans.map((s) => visualSpan(s.span).start)) : null;
+    const openMinute = businessWindow ? businessWindow.open : null;
     useEffect(() => {
         const el = scroller.current;
         if (!el) return;
-        const target = isToday && nowMinutes >= range.start && nowMinutes < range.end ? nowMinutes - SLOT_MINUTES : firstStart !== null ? firstStart : range.start;
+        const target = dayScrollTarget({ range, window: businessWindow, nowMinutes: isToday ? nowMinutes : null, firstStart });
         // Si una cita ya empezada cruza esa línea, se sube hasta su inicio para que no quede cortada bajo el encabezado.
         const crossing = spans.map((s) => visualSpan(s.span)).filter((v) => v.start < target && v.end > target).map((v) => v.start);
         const focus = Math.max(range.start, Math.min(target, ...crossing));
         el.scrollTop = Math.max(0, spanBox({ start: focus, end: range.end }, range.start, SLOT_PX).top - 8);
         // Solo al cambiar de día o de barbero visible: no mover la vista cuando llegan datos nuevos.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dayKey, narrow, picked, range.start]);
+    }, [dayKey, narrow, picked, range.start, openMinute]);
 
     const closedSpans = (barberId: string | null): { span: Span; label: string }[] => {
         if (!schedule) return [];

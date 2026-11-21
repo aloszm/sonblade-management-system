@@ -5,7 +5,7 @@ import { Ban } from 'lucide-react';
 import type { Appointment } from '@/types';
 import { STATUS_LABELS, isActive, layoutLanes } from '@/lib/appointments/appointments-view';
 import {
-    SLOT_MINUTES, appointmentSpan, formatClock, formatRange, hourMarks, slotStarts, spanBox, visualSpan, weekGridRange,
+    SLOT_MINUTES, appointmentSpan, formatClock, formatRange, hourMarks, slotStarts, spanBox, visualSpan, weekGridRange, weekScrollTarget,
 } from '@/lib/appointments/calendar-grid';
 import { workingWindow, type ScheduleData } from '@/lib/appointments/hours';
 import type { TimeOffView } from '@/lib/appointments/time-off';
@@ -47,15 +47,19 @@ export default function WeekGrid({ days, todayKey, nowMinutes, byDay, schedule, 
     const hasToday = days.includes(todayKey);
     const nowInRange = hasToday && nowMinutes >= range.start && nowMinutes < range.end;
 
-    // Al abrir: se baja a la hora actual (si la semana incluye hoy) o a la primera cita de la semana.
+    // Al abrir: se baja a la hora actual (si la semana incluye hoy y ya es hora de abrir), a la primera cita de la
+    // semana o, sin citas, a la apertura más temprana de la semana (no a las 8 a.m.).
+    const opens = schedule ? days.map((k) => workingWindow(schedule, k)).filter((x): x is { open: number; close: number } => Boolean(x)).map((x) => x.open) : [];
+    const earliestOpen = opens.length ? Math.min(...opens) : null;
+    const todayWindow = schedule && hasToday ? workingWindow(schedule, todayKey) : undefined;
     useEffect(() => {
         const el = scroller.current;
         if (!el) return;
-        const first = allSpans.length ? Math.min(...allSpans.map((s) => visualSpan(s).start)) : range.start;
-        const target = nowInRange ? nowMinutes - 60 : first - SLOT_MINUTES;
+        const firstStart = allSpans.length ? Math.min(...allSpans.map((s) => visualSpan(s).start)) : null;
+        const target = weekScrollTarget({ range, nowMinutes: hasToday ? nowMinutes : null, todayOpen: todayWindow ? todayWindow.open : null, firstStart, earliestOpen });
         el.scrollTop = Math.max(0, spanBox({ start: Math.max(range.start, target), end: range.end }, range.start, WEEK_SLOT_PX).top - 8);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [days[0], range.start]);
+    }, [days[0], range.start, earliestOpen]);
 
     return (
         <div data-testid="week-view" className="bos-fade">
