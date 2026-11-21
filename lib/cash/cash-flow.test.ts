@@ -134,6 +134,16 @@ describe('faltante, sobrante y avisos', () => {
         expect(f.differenceCents).toBe(2000);
         expect(f.check.ok).toBe(true);
     });
+    it('motivo de la diferencia: se entrega recortado; nulo si cuadra, si está abierta o si es una caja vieja sin motivo', () => {
+        const one = [mv({ amount: 500, movement_type: 'sale_payment', sale_id: 'a' })];
+        const short = { counted_cash: 970, difference_amount: -30, expected_cash: 1000, float_left: 500, reserve_amount: 400, withdrawn_amount: 70 };
+        expect(buildCashFlow(session({ ...short, difference_reason: '  Cambio mal dado ' }), one, names).differenceReason).toBe('Cambio mal dado');
+        expect(buildCashFlow(session(short), one, names).differenceReason).toBeNull();
+        expect(buildCashFlow(session({ ...short, difference_reason: '   ' }), one, names).differenceReason).toBeNull();
+        // Si cuadra, aunque la fila trajera texto, no se muestra (la base lo guarda nulo).
+        expect(buildCashFlow(session({ counted_cash: 1000, difference_amount: 0, expected_cash: 1000, float_left: 500, reserve_amount: 500, withdrawn_amount: 0, difference_reason: 'x' }), one, names).differenceReason).toBeNull();
+        expect(buildCashFlow(session({ status: 'open', counted_cash: null, difference_amount: null, expected_cash: null, closed_at: null, closed_by: null }), one, names).differenceReason).toBeNull();
+    });
     it('el esperado guardado no coincide con el calculado: avisa, no cuadra a la fuerza', () => {
         const f = buildCashFlow(session({ expected_cash: 900, counted_cash: 1000, difference_amount: 100, float_left: 500, reserve_amount: 500, withdrawn_amount: 0 }),
             [mv({ amount: 500, movement_type: 'sale_payment', sale_id: 'a' })], names);

@@ -5,7 +5,7 @@ import { fetchAll, loadCashFlows, loadOtherExpenses, type Query } from '@/lib/ca
 import {
     buildDaySummary, dayCashFromFlows, type DayEmployee, type DayItem, type DayPayment, type DaySale, type DaySummaryPayload, type DayTip,
 } from '@/lib/cash/day-summary';
-import { FLOW_SESSION_COLUMNS, type CashSessionRow } from '@/lib/cash/session-view';
+import { withFlowSessionColumns, type CashSessionRow } from '@/lib/cash/session-view';
 
 // Lectura con el cliente del usuario (RLS): recepción, gerencia, consulta y dueño leen sales, sale_items, payments,
 // sale_tips, cash_sessions y cash_movements de su sucursal. NUNCA se pide unit_cost_snapshot ni se usa select('*').
@@ -51,8 +51,8 @@ export async function loadDaySummary(
         fetchAll<DayEmployee>(() => supabase.from('employees').select('id, display_name').eq('business_id', businessId).order('id')),
         fetchAll<{ id: string }>(() => supabase.from('services').select('id').eq('business_id', businessId).eq('category', 'cortes').order('id')),
         // Cajas del día: las que se ABRIERON ese día del negocio.
-        fetchAll<CashSessionRow>(() => supabase.from('cash_sessions').select(FLOW_SESSION_COLUMNS)
-            .eq('business_id', businessId).eq('branch_id', branchId).gte('opened_at', range.from).lt('opened_at', range.to).order('opened_at').order('id')),
+        withFlowSessionColumns((columns) => fetchAll<CashSessionRow>(() => supabase.from('cash_sessions').select(columns)
+            .eq('business_id', businessId).eq('branch_id', branchId).gte('opened_at', range.from).lt('opened_at', range.to).order('opened_at').order('id'))),
     ]);
 
     const [flows, otherExpenses] = await Promise.all([

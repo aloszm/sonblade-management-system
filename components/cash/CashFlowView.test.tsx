@@ -109,6 +109,25 @@ describe('El camino del efectivo (caja cerrada)', () => {
         render(<CashFlowView flow={flow({ float_left: 300, reserve_amount: 600, withdrawn_amount: 100, closing_note: 'Se pagó al proveedor' })} timezone={TZ} />);
         expect(screen.getByTestId('cf-float-note')).toHaveTextContent('Se pagó al proveedor');
     });
+
+    it('el motivo de la diferencia va junto a «Diferencia»', () => {
+        render(<CashFlowView flow={flow({ counted_cash: 970, difference_amount: -30, withdrawn_amount: 70, difference_reason: 'Cambio mal dado' })} timezone={TZ} />);
+        expect(screen.getByTestId('cf-difference')).toHaveTextContent('Faltan $30');
+        expect(within(screen.getByTestId('cf-difference')).getByTestId('cf-difference-reason')).toHaveTextContent('Motivo: Cambio mal dado');
+        expect(screen.queryByTestId('cf-warning')).toBeNull();
+    });
+
+    it('caja vieja con diferencia y sin motivo: «Sin motivo registrado», sin tratarlo como error', () => {
+        render(<CashFlowView flow={flow({ counted_cash: 1050, difference_amount: 50, withdrawn_amount: 150 })} timezone={TZ} />);
+        expect(screen.getByTestId('cf-difference')).toHaveTextContent('Sobran $50');
+        expect(screen.getByTestId('cf-difference-reason')).toHaveTextContent('Sin motivo registrado');
+        expect(screen.queryByTestId('cf-warning')).toBeNull();
+    });
+
+    it('si cuadra, no hay renglón de motivo', () => {
+        render(<CashFlowView flow={flow()} timezone={TZ} />);
+        expect(screen.queryByTestId('cf-difference-reason')).toBeNull();
+    });
 });
 
 describe('Lo que no toca el efectivo', () => {

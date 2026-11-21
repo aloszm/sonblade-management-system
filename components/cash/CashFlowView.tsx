@@ -128,7 +128,13 @@ export default function CashFlowView({ flow, timezone, otherExpenses = null, omi
                         value={<span data-testid="cf-expected-value" className="font-display text-lg">{money(flow.expectedCents)}</span>} />
                     {!flow.open && flow.countedCents !== null && <Row testId="cf-counted" label="Efectivo contado al cerrar" value={money(flow.countedCents)} />}
                     {!flow.open && flow.differenceCents !== null && (
-                        <Row testId="cf-difference" label="Diferencia" value={<span className="font-semibold"><DiffText cents={flow.differenceCents} /></span>} />
+                        <Row testId="cf-difference" label="Diferencia" value={<span className="font-semibold"><DiffText cents={flow.differenceCents} /></span>}>
+                            {flow.differenceCents !== 0 && (
+                                <p data-testid="cf-difference-reason" className={`ml-6 mt-0.5 break-words text-[13px] ${flow.differenceReason ? 'text-bos-text' : 'text-bos-muted italic'}`}>
+                                    {flow.differenceReason ? <><span className="text-bos-muted">Motivo: </span>{flow.differenceReason}</> : 'Sin motivo registrado'}
+                                </p>
+                            )}
+                        </Row>
                     )}
                 </ul>
             </section>

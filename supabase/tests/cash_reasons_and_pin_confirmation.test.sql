@@ -30,7 +30,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', owner, 'role','authenticated')::text, true);
   select id into s from public.cash_sessions where branch_id = b and status = 'open';
   if s is not null then
-    perform public.close_cash_session(s, 1000, null, 500, 500, null);
+    perform public.close_cash_session(s, 1000, null, 500, 500, null, null, 'Diferencia de prueba (se revierte)');
     r := r || E'\n0 caja abierta previa cerrada (fondo 500)';
   end if;
   -- 1 apertura igual a lo dejado, llamada antigua (2 parámetros)
@@ -48,7 +48,7 @@ begin
   exception when others then r := r || E'\n2 OK rechazo ['||sqlstate||'] '||sqlerrm; end;
   -- 3 cierre con motivo
   begin
-    perform public.close_cash_session(s, 1000, null, 300, 600, null, 'Se pagó al proveedor de ceras en efectivo');
+    perform public.close_cash_session(s, 1000, null, 300, 600, null, 'Se pagó al proveedor de ceras en efectivo', 'Diferencia de prueba (se revierte)');
     select closing_note into t from public.cash_sessions where id = s;
     r := r || E'\n3 OK cierre con motivo pasa; closing_note='||coalesce(t,'NULL')||'; bitácora='||coalesce((select after_data->>'short_float_reason' from public.audit_log where entity_id = s::text and action='cash_closed' limit 1),'NULL');
   exception when others then r := r || E'\n3 FALLA '||sqlerrm; end;
@@ -70,7 +70,7 @@ begin
   exception when others then r := r || E'\n6 FALLA '||sqlerrm; end;
   -- 7 cierre dejando 500 sin motivo (firma antigua) pasa
   begin
-    perform public.close_cash_session(s, 1200, null, 500, 600, null);
+    perform public.close_cash_session(s, 1200, null, 500, 600, null, null, 'Diferencia de prueba (se revierte)');
     r := r || E'\n7 OK cierre con el fondo completo sin motivo (firma antigua): pasa; closing_note='||coalesce((select closing_note from public.cash_sessions where id=s),'NULL');
   exception when others then r := r || E'\n7 FALLA '||sqlerrm; end;
 

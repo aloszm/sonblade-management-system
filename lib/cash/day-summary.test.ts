@@ -245,6 +245,25 @@ describe('texto del resumen', () => {
         expect(buildWhatsAppText('2026-11-20', summary, many)).toContain('Cajas: 4 cajas · diferencia $0 · gastos de caja $0 · apartado $2,400');
     });
 
+    it('diferencia con motivo: «diferencia -$30 · motivo: …»; caja vieja sin motivo: «sin motivo registrado»', () => {
+        const short = buildDayCash([session('s', { counted_cash: 470, difference_amount: -30, float_left: 470, reserve_amount: 0, difference_reason: 'Cambio mal dado' })], [], names);
+        expect(buildWhatsAppText('2026-11-20', summary, short)).toContain('Efectivo: debe haber $500 · contado $470 · diferencia -$30 · motivo: Cambio mal dado');
+        const old = buildDayCash([session('s', { counted_cash: 550, difference_amount: 50, float_left: 500, reserve_amount: 50 })], [], names);
+        expect(buildWhatsAppText('2026-11-20', summary, old)).toContain('diferencia $50 · sin motivo registrado');
+        // Si cuadra, ni motivo ni aviso.
+        const even = buildWhatsAppText('2026-11-20', summary, buildDayCash([session('s', { counted_cash: 500, reserve_amount: 0 })], [], names));
+        expect(even).toContain('diferencia $0\n');
+        expect(even).not.toMatch(/motivo/);
+        // Dos cajas: cada una con su motivo.
+        const two = buildDayCash([
+            session('a', { counted_cash: 470, difference_amount: -30, reserve_amount: 0, float_left: 470, difference_reason: 'Error al contar' }),
+            session('bb', { counted_cash: 520, difference_amount: 20, reserve_amount: 20, difference_reason: 'Gasto sin registrar' }),
+        ], [], names);
+        const text = buildWhatsAppText('2026-11-20', summary, two);
+        expect(text).toContain('Caja 1: Efectivo: debe haber $500 · contado $470 · diferencia -$30 · motivo: Error al contar');
+        expect(text).toContain('Caja 2: Efectivo: debe haber $500 · contado $520 · diferencia $20 · motivo: Gasto sin registrar');
+    });
+
     it('enlace de WhatsApp, rótulos de fecha y nombre de archivo', () => {
         expect(whatsAppUrl('Hola\n$1')).toBe('https://wa.me/?text=Hola%0A%241');
         expect(longDayLabel('2026-11-20')).toBe('viernes 20 de noviembre de 2026');

@@ -37,7 +37,8 @@ export async function restoreCashState(config: FullConfig): Promise<void> {
         // Se cierra solo una caja que abrieron las pruebas: si ya estaba abierta (la misma sesión), se deja.
         if (!session || (state.wasOpen && session.id === state.sessionId)) return;
         const closed = await request.post('/api/cash/session/close', {
-            data: { session_id: session.id, physical_count: session.expected_cash },
+            // Se cuenta lo esperado; si entró algo justo antes, la base pediría motivo: va uno (si cuadra, la base lo ignora).
+            data: { session_id: session.id, physical_count: session.expected_cash, difference_reason: 'Cierre automático de la caja de pruebas' },
         });
         if (!closed.ok()) console.error('[cash-guard] no se pudo cerrar la caja de pruebas:', await closed.text());
     });

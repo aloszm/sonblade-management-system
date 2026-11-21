@@ -86,6 +86,11 @@ export interface CashFlow {
     countedCents: number | null;
     /** Diferencia guardada al cerrar (contado − esperado); null mientras está abierta. */
     differenceCents: number | null;
+    /**
+     * Motivo escrito al cerrar con sobrante o faltante; null si cuadra, si está abierta o si la caja se cerró antes del
+     * 21 nov 2026 (entonces no se pedía: se muestra «Sin motivo registrado», no es un error).
+     */
+    differenceReason: string | null;
     split: FlowSplit | null;
     /** Tarjeta y transferencia netas: no están en la caja. */
     cardCents: number;
@@ -205,7 +210,8 @@ export function buildCashFlow(
 
     return {
         id: session.id, open: isOpen, openedBy: view.opened_by, closedBy: view.closed_by ?? null, openedAt: session.opened_at, closedAt: session.closed_at,
-        openingCents, lines, inCents, outCents, expectedCents, countedCents, differenceCents, split,
+        openingCents, lines, inCents, outCents, expectedCents, countedCents, differenceCents,
+        differenceReason: !isOpen && differenceCents ? session.difference_reason?.trim() || null : null, split,
         cardCents: cents(view.total_card), transferCents: cents(view.total_transfer),
         check: { expectedDiffCents, storedExpectedDiffCents, differenceDiffCents, splitDiffCents, issues, ok: issues.length === 0 },
     };

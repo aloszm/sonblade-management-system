@@ -52,7 +52,7 @@ begin
   if s1 is null then select id into s1 from public.cash_sessions where branch_id = b2 and status = 'open'; end if;
 
   -- 2 cerrar con apartado de 600 crea UNA entrada en el sobre por omisión
-  v := public.close_cash_session(s1, 1100, null, 500, 600, null, null);
+  v := public.close_cash_session(s1, 1100, null, 500, 600, null, null, 'Diferencia de prueba (se revierte)');
   env := private.default_envelope_id(b2);
   select count(*) into n from public.envelope_movements where cash_session_id = s1 and source = 'cash_close'
     and envelope_id = env and direction = 'in' and amount = 600 and created_by = owner;
@@ -61,12 +61,12 @@ begin
   -- 3 reintento: un segundo cierre se rechaza, y aunque la caja volviera a pasar de abierta a cerrada
   --   (reapertura forzada como dueño de la base), el índice único impide una segunda entrada.
   begin
-    perform public.close_cash_session(s1, 1100, null, 500, 600, null, null);
+    perform public.close_cash_session(s1, 1100, null, 500, 600, null, null, 'Diferencia de prueba (se revierte)');
     r := r || E'\n3a FALLA aceptó cerrar dos veces';
   exception when others then r := r || E'\n3a ' || case when sqlstate = '22023' then 'OK' else 'FALLA' end || ' segundo cierre rechazado [' || sqlstate || ']'; end;
   update public.cash_sessions set status = 'open', closed_at = null, closed_by = null, expected_cash = null, counted_cash = null,
-    difference_amount = null, float_left = null, reserve_amount = null, withdrawn_amount = null where id = s1;
-  perform public.close_cash_session(s1, 1100, null, 500, 600, null, null);
+    difference_amount = null, float_left = null, reserve_amount = null, withdrawn_amount = null, difference_reason = null where id = s1;
+  perform public.close_cash_session(s1, 1100, null, 500, 600, null, null, 'Diferencia de prueba (se revierte)');
   select count(*) into n from public.envelope_movements where cash_session_id = s1;
   r := r || E'\n3b ' || case when n = 1 then 'OK' else 'FALLA' end || ' cerrar de nuevo la misma caja no duplica la entrada (' || n || ')';
 

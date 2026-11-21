@@ -45,3 +45,44 @@ export function closingNeedsReason(floatLeft: number, floatTarget: number): bool
 export function closingWarning(floatLeft: number, floatTarget: number): string {
     return `Se recomienda dejar ${formatMoney(floatTarget)} para mañana; vas a dejar ${formatMoney(floatLeft)}.`;
 }
+
+// ── Motivo de la diferencia al cerrar (decisión del dueño, 21 nov 2026)
+// Si lo contado no es igual a lo que debe haber, el cierre pide escribir por qué. La base lo exige con el mismo mensaje
+// (close_cash_session, migración 20261121110000) y decide la diferencia con su propia cuenta; aquí solo se avisa antes.
+
+/** Sugerencias de un toque: rellenan el texto y se pueden editar. «Otro» deja el campo vacío para escribir. */
+export const DIFFERENCE_SUGGESTIONS = ['Cambio mal dado', 'Gasto sin registrar', 'Propina entregada en efectivo sin registrar', 'Error al contar'] as const;
+export const DIFFERENCE_OTHER = 'Otro';
+
+/** Hay sobrante o faltante (al centavo). */
+export function differenceNeedsReason(difference: number): boolean {
+    return cents(difference) !== 0;
+}
+
+/** «Faltan $30.00» / «Sobran $50.00» / «Cuadra». */
+export function differenceText(difference: number): string {
+    if (!differenceNeedsReason(difference)) return 'Cuadra';
+    return `${difference > 0 ? 'Sobran' : 'Faltan'} ${formatMoney(Math.abs(difference))}`;
+}
+
+/**
+ * El mensaje cuando falta el motivo: el mismo texto en la pantalla, en la ruta y en close_cash_session
+ * (formatMoney y private.money_text escriben igual: «$30», «$30.50», «$1,500»).
+ */
+export function differenceReasonMessage(difference: number): string {
+    return `Hay una diferencia de ${formatMoney(Math.abs(difference))} (${difference < 0 ? 'faltante' : 'sobrante'}): escribe el motivo para cerrar (de ${REASON_MIN} a ${REASON_MAX} letras).`;
+}
+
+/** null si se puede cerrar (cuadra, o el motivo sirve); si no, el mensaje. */
+export function differenceReasonProblem(difference: number, text: string | null | undefined): string | null {
+    if (!differenceNeedsReason(difference)) return null;
+    return reasonProblem(text) ? differenceReasonMessage(difference) : null;
+}
+
+/** ¿Este error es la base (o la ruta) pidiendo el motivo de la diferencia? */
+export function isDifferenceReasonError(message: string | null | undefined): boolean {
+    return /escribe el motivo para cerrar/.test(message ?? '');
+}
+
+/** Aviso para una pantalla abierta antes de publicar esta versión: no tiene dónde escribir el motivo. */
+export const RELOAD_FOR_REASON = 'Si no ves dónde escribirlo, recarga la página.';

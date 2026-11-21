@@ -6,7 +6,7 @@ import {
     buildCashFlows, type CashFlow, type FlowTargets, type OtherExpenses,
 } from '@/lib/cash/cash-flow';
 import {
-    FLOW_MOVEMENT_COLUMNS, FLOW_SESSION_COLUMNS, UNKNOWN_OPENER, type CashMovementRow, type CashSessionRow,
+    FLOW_MOVEMENT_COLUMNS, UNKNOWN_OPENER, withFlowSessionColumns, type CashMovementRow, type CashSessionRow,
 } from '@/lib/cash/session-view';
 
 // Lectura con el cliente del usuario (RLS). Nunca select('*'). PostgREST entrega como máximo 1000 filas por consulta: se pagina.
@@ -62,10 +62,12 @@ export async function loadCashFlows(
 export async function loadSessionRow(
     supabase: SupabaseClient, scope: { businessId: string; branchId: string }, sessionId: string,
 ): Promise<CashSessionRow | null> {
-    const { data, error } = await supabase.from('cash_sessions').select(FLOW_SESSION_COLUMNS)
-        .eq('business_id', scope.businessId).eq('branch_id', scope.branchId).eq('id', sessionId).limit(1);
-    if (error) throw error;
-    return ((data ?? []) as unknown as CashSessionRow[])[0] ?? null;
+    return withFlowSessionColumns(async (columns) => {
+        const { data, error } = await supabase.from('cash_sessions').select(columns)
+            .eq('business_id', scope.businessId).eq('branch_id', scope.branchId).eq('id', sessionId).limit(1);
+        if (error) throw error;
+        return ((data ?? []) as unknown as CashSessionRow[])[0] ?? null;
+    });
 }
 
 /**

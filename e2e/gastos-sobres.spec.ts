@@ -159,7 +159,7 @@ test.describe.serial('Sobres', () => {
             expect(opened.ok(), await opened.text()).toBeTruthy();
             const session = await opened.json() as { id: string; expected_cash: number };
             const closed = await page.request.post('/api/cash/session/close', {
-                data: { session_id: session.id, physical_count: session.expected_cash, float_left: 500, reserve_amount: 50, short_float_reason: 'Prueba de navegador' },
+                data: { session_id: session.id, physical_count: session.expected_cash, float_left: 500, reserve_amount: 50, short_float_reason: 'Prueba de navegador', difference_reason: '' },
             });
             expect(closed.ok(), await closed.text()).toBeTruthy();
 

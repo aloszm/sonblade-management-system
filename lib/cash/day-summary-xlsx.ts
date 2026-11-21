@@ -146,6 +146,7 @@ export async function buildDaySummaryXlsx(payload: DaySummaryPayload): Promise<U
             row++;
             if (!f.open && f.countedCents !== null) put(row++, 'Efectivo contado al cerrar', null, pesos(f.countedCents));
             if (!f.open && f.differenceCents !== null) put(row++, f.differenceCents === 0 ? 'Diferencia (cuadra)' : f.differenceCents > 0 ? 'Diferencia (sobrante)' : 'Diferencia (faltante)', null, pesos(f.differenceCents));
+            if (!f.open && f.differenceCents) put(row++, f.differenceReason ? `Motivo de la diferencia: ${f.differenceReason}` : 'Motivo de la diferencia: sin motivo registrado', null, null, { italic: !f.differenceReason });
             row++;
             if (f.split) {
                 heading(row++, f.split.proposed ? 'Al cerrar se propone (propuesta)' : '¿A dónde se fue lo contado?');

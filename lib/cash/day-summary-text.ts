@@ -39,6 +39,12 @@ function personLine(p: PersonLine): string {
     return `· ${p.firstName}: ${parts.join(' · ')} = ${money(p.totalCents)}`;
 }
 
+/** « · motivo: cambio mal dado» cuando hubo sobrante o faltante; las cajas de antes del 21 nov 2026 no lo tienen. */
+export function reasonText(s: Pick<CashFlow, 'open' | 'differenceCents' | 'differenceReason'>): string {
+    if (s.open || !s.differenceCents) return '';
+    return s.differenceReason ? ` · motivo: ${s.differenceReason}` : ' · sin motivo registrado';
+}
+
 function cashLines(cash: DayCash): string[] {
     if (cash.sessions.length === 0) return ['Caja: sin caja abierta este día'];
     // Tres renglones por caja, los que pidió el dueño: cuánto debe haber / cuánto se gastó de la caja / a dónde se fue lo contado.
@@ -46,7 +52,7 @@ function cashLines(cash: DayCash): string[] {
         const expenses = flowLine(s, 'expenses').cents;
         const first = s.open
             ? `${prefix}Efectivo: debe haber ahora ${money(s.expectedCents)} (caja abierta, puede cambiar)`
-            : `${prefix}Efectivo: debe haber ${money(s.expectedCents)} · contado ${money(s.countedCents ?? 0)} · diferencia ${money(s.differenceCents ?? 0)}`;
+            : `${prefix}Efectivo: debe haber ${money(s.expectedCents)} · contado ${money(s.countedCents ?? 0)} · diferencia ${money(s.differenceCents ?? 0)}${reasonText(s)}`;
         const third = s.split
             ? `${s.split.proposed ? 'Al cerrar se propone: ' : ''}Fondo ${money(s.split.floatCents)} · Apartado ${money(s.split.reserveCents)} · Retiro ${money(s.split.withdrawnCents)}`
             : s.open ? 'Fondo, apartado y retiro: se definen al cerrar' : 'Fondo, apartado y retiro: sin reparto guardado';

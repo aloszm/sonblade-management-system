@@ -110,6 +110,7 @@ export async function buildDaySummaryPdf(payload: DaySummaryPayload, options: { 
         ];
         if (!f.open && f.countedCents !== null) left.push(['Efectivo contado al cerrar', money2(f.countedCents)]);
         if (!f.open && f.differenceCents !== null) left.push([f.differenceCents === 0 ? 'Diferencia (cuadra)' : f.differenceCents > 0 ? 'Diferencia (sobrante)' : 'Diferencia (faltante)', money2(f.differenceCents)]);
+        if (!f.open && f.differenceCents) left.push([pdfSafe(f.differenceReason ? `Motivo: ${f.differenceReason}` : 'Sin motivo registrado'), '']);
         const compact = { styles: { ...base.styles, fontSize: dens.font - 0.5, cellPadding: Math.max(0.6, dens.pad - 0.6) } };
         const leftW = 104;
         const rightW = CW - leftW - 6;
@@ -154,7 +155,8 @@ export async function buildDaySummaryPdf(payload: DaySummaryPayload, options: { 
             : cash.sessions.map((s, i) => [
                 pdfSafe(`${i + 1} · ${time(s.openedAt)}${s.closedAt ? `-${time(s.closedAt)}` : ' (abierta)'}\n${s.openedBy}${s.closedBy ? ` / ${s.closedBy}` : ''}`),
                 money2(s.openingCents), money2(s.inCents), money2(s.outCents), money2(s.expectedCents),
-                s.countedCents === null ? '-' : money2(s.countedCents), s.differenceCents === null ? '-' : money2(s.differenceCents),
+                s.countedCents === null ? '-' : money2(s.countedCents),
+                s.differenceCents === null ? '-' : money2(s.differenceCents),
                 s.split && !s.split.proposed ? money2(s.split.reserveCents) : '-', s.split && !s.split.proposed ? money2(s.split.withdrawnCents) : '-',
             ]);
         autoTable(doc, { ...base, startY: y, styles: { ...base.styles, fontSize: dens.font - 0.5 }, head: [['Caja', 'Fondo', 'Entradas', 'Salidas', 'Debe haber', 'Contado', 'Dif.', 'Apartado', 'Retiro']], body: rows,
@@ -163,8 +165,13 @@ export async function buildDaySummaryPdf(payload: DaySummaryPayload, options: { 
         doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...MUTED);
         const extra = [`Gastos pagados de la caja: ${money(t.expensesCents)}.`, 'Cada caja arrastra su propio fondo.'];
         if (cash.otherExpenses) extra.push(`Gastos del sobre o del banco: ${money(cash.otherExpenses.envelopeCents + cash.otherExpenses.bankCents)} (no salen de la caja).`);
-        doc.text(doc.splitTextToSize(pdfSafe(extra.join(' ')), CW), M, y + 1);
-        y += 8;
+        // Motivo de cada diferencia (la columna «Dif.» es angosta para el texto).
+        const reasons = cash.sessions.length > 3 ? [] : cash.sessions.map((s, i) => (!s.open && s.differenceCents
+            ? `caja ${i + 1}: ${s.differenceReason ? `Motivo: ${s.differenceReason}` : 'Sin motivo registrado'}` : null)).filter(Boolean);
+        if (reasons.length) extra.push(`Diferencias - ${reasons.join('; ')}.`);
+        const extraLines = doc.splitTextToSize(pdfSafe(extra.join(' ')), CW);
+        doc.text(extraLines, M, y + 1);
+        y += Math.max(8, extraLines.length * 3.4 + 4);
         if (cash.anyOpen) doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(185, 28, 28).text('Hay una caja abierta: el resumen puede cambiar.', M, y + 2);
         if (t.issues > 0) doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(185, 28, 28).text('ATENCION: hay cajas cuyas cuentas no cuadran (ver la pantalla).', M, y + 7);
     }

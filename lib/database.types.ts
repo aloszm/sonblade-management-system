@@ -862,6 +862,7 @@ export type Database = {
           counted_breakdown: Json | null
           counted_cash: number | null
           difference_amount: number | null
+          difference_reason: string | null
           expected_cash: number | null
           float_left: number | null
           id: string
@@ -885,6 +886,7 @@ export type Database = {
           counted_breakdown?: Json | null
           counted_cash?: number | null
           difference_amount?: number | null
+          difference_reason?: string | null
           expected_cash?: number | null
           float_left?: number | null
           id?: string
@@ -908,6 +910,7 @@ export type Database = {
           counted_breakdown?: Json | null
           counted_cash?: number | null
           difference_amount?: number | null
+          difference_reason?: string | null
           expected_cash?: number | null
           float_left?: number | null
           id?: string
@@ -3329,6 +3332,7 @@ export type Database = {
           p_breakdown?: Json
           p_cash_session_id: string
           p_counted_cash: number
+          p_difference_reason?: string
           p_float_left?: number
           p_reserve_amount?: number
           p_short_float_reason?: string

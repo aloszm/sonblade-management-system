@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, Loader2, Lock, Plus, Settings2, TriangleAlert } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, Loader2, Lock, Plus, Search, Settings2, TriangleAlert } from 'lucide-react';
 import CashFlowPanel from '@/components/cash/CashFlowPanel';
 import DaySummaryButton from '@/components/cash/DaySummaryModal';
 import EnvelopeNote from '@/app/sobres/_components/EnvelopeNote';
 import PinConfirm from '@/components/ui/PinConfirm';
 import Modal from '@/components/ui/Modal';
 import CashSettingsEditor from '@/components/CashSettingsEditor';
-import { REASON_MAX, closingNeedsReason, closingWarning, openingNeedsReason, openingWarning, reasonProblem } from '@/lib/cash/reasons';
+import {
+    DIFFERENCE_OTHER, DIFFERENCE_SUGGESTIONS, REASON_MAX, REASON_MIN, closingNeedsReason, closingWarning, differenceNeedsReason, differenceReasonProblem,
+    differenceText, isDifferenceReasonError, openingNeedsReason, openingWarning, reasonProblem,
+} from '@/lib/cash/reasons';
 import type { CashMovement, CashSession } from '@/types';
 import { toUiMovement, UNKNOWN_OPENER, type CashMovementRow } from '@/lib/cash/session-view';
 import { ReadOnlyNotice, useReadOnly } from '@/lib/auth/read-only';
@@ -19,7 +22,7 @@ import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 interface CashSettings { float_target: number; reserve_amount: number; reserve_label: string; last_float_left: number | null; can_edit: boolean; can_see_history: boolean; movement_needs_pin?: boolean }
 type Movement = CashMovement & { direction: 'in' | 'out' };
-type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number; deliveredTo: string };
+type CloseResult = { counted: number; difference: number; float: number; reserve: number; withdrawn: number; deliveredTo: string; differenceReason: string };
 
 const money = (n: number) => formatMoney(n);
 const timeOf = (iso: string) => formatTime(iso);
@@ -68,6 +71,69 @@ function ReasonBox({ id, warning, value, onChange, placeholder }: { id: string; 
             <label htmlFor={id} className={label}>Motivo (obligatorio)</label>
             <textarea id={id} rows={2} maxLength={REASON_MAX} required value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
                 className="w-full min-h-[72px] px-3 py-2 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text" />
+        </div>
+    );
+}
+
+/**
+ * «Revisa primero»: antes de pedir el motivo de una diferencia, el camino del efectivo a la mano para ver de dónde sale
+ * lo que debe haber (un gasto o un pago sin anotar suele explicarla).
+ */
+export function CheckFirstBox({ sessionId, difference, open, onToggle }: { sessionId: string; difference: number; open: boolean; onToggle: () => void }) {
+    return (
+        <div data-testid="close-check-first" className="space-y-3 rounded-xl border border-bos-border bg-bos-bg p-3">
+            <p className="flex items-start gap-2 text-sm">
+                <Search aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-bos-accent-text" />
+                <span>
+                    <strong className="block text-[15px] text-bos-text">Revisa primero</strong>
+                    <span className="text-bos-muted">{differenceText(difference)}. Vuelve a contar y revisa de dónde sale lo que debe haber: un gasto, un retiro o un pago sin anotar suele explicar la diferencia.</span>
+                </span>
+            </p>
+            <button type="button" data-testid="close-check-first-toggle" aria-expanded={open} aria-controls="close-check-flow" onClick={onToggle}
+                className="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-bos-border bg-bos-surface px-3 text-left text-sm font-semibold text-bos-accent-text hover:bg-bos-raised">
+                ¿Cuánto efectivo hay y por qué?
+                <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && <div id="close-check-flow" className="border-t border-bos-border pt-3"><CashFlowPanel sessionId={sessionId} /></div>}
+        </div>
+    );
+}
+
+/** Motivo obligatorio de la diferencia (sobrante o faltante) al cerrar, con sugerencias de un toque y contador. */
+export function DifferenceReasonBox({ difference, value, onChange }: { difference: number; value: string; onChange: (v: string) => void }) {
+    const ref = useRef<HTMLTextAreaElement>(null);
+    const length = value.trim().length;
+    const valid = length >= REASON_MIN && length <= REASON_MAX;
+    const pick = (text: string) => {
+        onChange(text === DIFFERENCE_OTHER ? '' : text);
+        // Se puede editar en seguida: el cursor queda al final del texto.
+        requestAnimationFrame(() => { const el = ref.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
+    };
+    return (
+        <div data-testid="close-difference-box" className="space-y-3 rounded-xl border border-bos-danger/50 bg-bos-surface p-3">
+            <div className="flex items-baseline justify-between gap-3">
+                <label htmlFor="close-difference-reason" className="text-[15px] font-semibold text-bos-text">¿Por qué hay diferencia?</label>
+                <span data-testid="close-difference-amount" className="shrink-0 font-display text-2xl font-semibold tabular-nums text-bos-danger">{differenceText(difference)}</span>
+            </div>
+            <p className="text-sm text-bos-muted">Obligatorio para cerrar. Toca una opción y corrígela si hace falta.</p>
+            <div role="group" aria-label="Motivos frecuentes" className="flex flex-wrap gap-2">
+                {[...DIFFERENCE_SUGGESTIONS, DIFFERENCE_OTHER].map((text) => {
+                    const selected = text === DIFFERENCE_OTHER ? false : value.trim() === text;
+                    return (
+                        <button key={text} type="button" data-testid="close-difference-suggestion" aria-pressed={selected} onClick={() => pick(text)}
+                            className={`min-h-10 rounded-full border px-3 text-sm font-medium transition-colors ${selected ? 'border-bos-text bg-bos-raised text-bos-text' : 'border-bos-border text-bos-text hover:bg-bos-raised'}`}>
+                            {text}
+                        </button>
+                    );
+                })}
+            </div>
+            <textarea ref={ref} id="close-difference-reason" rows={2} maxLength={REASON_MAX} required aria-required="true" aria-invalid={!valid}
+                aria-describedby="close-difference-count" value={value} onChange={(e) => onChange(e.target.value)}
+                placeholder="Ej: Le di $50 de más de cambio a un cliente"
+                className="w-full min-h-[72px] px-3 py-2 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text placeholder:text-bos-muted focus-visible:border-bos-accent-text" />
+            <p id="close-difference-count" data-testid="close-difference-count" className={`text-right text-[13px] tabular-nums ${valid || length === 0 ? 'text-bos-muted' : 'text-bos-danger'}`}>
+                {length}/{REASON_MAX}{length < REASON_MIN ? ` · mínimo ${REASON_MIN} letras` : ''}
+            </p>
         </div>
     );
 }
@@ -178,6 +244,8 @@ export default function CashRegister() {
     const [reserve, setReserve] = useState('');
     const [deliveredTo, setDeliveredTo] = useState('');
     const [shortReason, setShortReason] = useState('');
+    const [diffReason, setDiffReason] = useState('');
+    const [checkOpen, setCheckOpen] = useState(false);
     const [closeResult, setCloseResult] = useState<CloseResult | null>(null);
 
     const load = useCallback(async (silent = false) => {
@@ -232,6 +300,9 @@ export default function CashRegister() {
     const withdrawn = withdrawnFor(counted, Number(floatLeft) || 0, Number(reserve) || 0);
     const floatTarget = settings?.float_target ?? 0;
     const closeShort = settings !== null && closingNeedsReason(Number(floatLeft) || 0, floatTarget);
+    // Sobrante o faltante: el cierre pide el motivo (la base vuelve a contar y es la que manda).
+    const needsDiffReason = differenceNeedsReason(difference);
+    const diffProblem = differenceReasonProblem(difference, diffReason);
     const openDiffers = settings !== null && openAmount !== '' && openingNeedsReason(Number(openAmount) || 0, settings.last_float_left, floatTarget);
 
     const handleOpen = async (e: React.FormEvent) => {
@@ -276,7 +347,7 @@ export default function CashRegister() {
     };
 
     const startClose = () => {
-        setFormError(''); setCounts({}); setCountedTotal(''); setByDenomination(true); setCloseStep(1);
+        setFormError(''); setCounts({}); setCountedTotal(''); setByDenomination(true); setDiffReason(''); setCheckOpen(false); setCloseStep(1);
     };
     const toSplit = () => {
         const split = proposeSplit(counted, settings?.float_target ?? 0, settings?.reserve_amount ?? 0);
@@ -285,6 +356,7 @@ export default function CashRegister() {
     const handleClose = async () => {
         if (!session || withdrawn === null) return;
         setFormError('');
+        if (diffProblem) { setFormError(diffProblem); return; }
         if (closeShort) {
             const problem = reasonProblem(shortReason);
             if (problem) { setFormError(problem); return; }
@@ -299,9 +371,12 @@ export default function CashRegister() {
                     float_left: Number(floatLeft) || 0, reserve_amount: Number(reserve) || 0,
                     ...(withdrawn > 0 && deliveredTo.trim() ? { withdrawal_delivered_to: deliveredTo.trim() } : {}),
                     ...(closeShort ? { short_float_reason: shortReason.trim() } : {}),
+                    // Siempre se manda (vacío si cuadra): así la ruta sabe que esta pantalla sí pide el motivo.
+                    difference_reason: needsDiffReason ? diffReason.trim() : '',
                 }),
             });
-            setCloseResult({ counted, difference, float: Number(floatLeft) || 0, reserve: Number(reserve) || 0, withdrawn, deliveredTo: withdrawn > 0 ? deliveredTo.trim() : '' });
+            setCloseResult({ counted, difference, float: Number(floatLeft) || 0, reserve: Number(reserve) || 0, withdrawn, deliveredTo: withdrawn > 0 ? deliveredTo.trim() : '', differenceReason: needsDiffReason ? diffReason.trim() : '' });
+            setDiffReason('');
             setDeliveredTo('');
             setShortReason('');
             setCloseStep(0);
@@ -309,7 +384,13 @@ export default function CashRegister() {
             setSettings((s) => (s ? { ...s, last_float_left: Number(floatLeft) || 0 } : s));
             if (settings?.can_see_history) loadHistory();
             await load();
-        } catch (err) { setFormError(err instanceof Error ? err.message : 'No se pudo cerrar la caja.'); }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'No se pudo cerrar la caja.';
+            setFormError(message);
+            // La base encontró una diferencia que la pantalla no veía (entró un cobro mientras se contaba): se recarga lo esperado
+            // y aparece el campo del motivo con la cifra correcta.
+            if (isDifferenceReasonError(message)) await load(true);
+        }
         finally { setSaving(false); }
     };
 
@@ -345,9 +426,12 @@ export default function CashRegister() {
                             <div className="flex justify-between pt-2 border-t border-bos-border">
                                 <dt className="text-bos-muted">Diferencia contra lo esperado</dt>
                                 <dd className={`font-semibold tabular-nums ${closeResult.difference === 0 ? 'text-bos-success' : 'text-bos-danger'}`}>
-                                    {closeResult.difference === 0 ? 'Cuadra' : `${closeResult.difference > 0 ? 'Sobran' : 'Faltan'} ${money(Math.abs(closeResult.difference))}`}
+                                    {differenceText(closeResult.difference)}
                                 </dd>
                             </div>
+                            {closeResult.differenceReason && (
+                                <div data-testid="close-summary-reason" className="flex justify-between gap-4"><dt className="text-bos-muted">Motivo</dt><dd className="min-w-0 text-right break-words">{closeResult.differenceReason}</dd></div>
+                            )}
                         </dl>
                         {closeResult.reserve > 0 && <EnvelopeNote />}
                     </section>
@@ -582,10 +666,13 @@ export default function CashRegister() {
                             <div className="flex justify-between">
                                 <dt className="text-bos-muted">Diferencia</dt>
                                 <dd data-testid="close-difference" className={`font-semibold tabular-nums ${difference === 0 ? 'text-bos-success' : 'text-bos-danger'}`}>
-                                    {difference === 0 ? 'Cuadra' : `${difference > 0 ? 'Sobran' : 'Faltan'} ${money(Math.abs(difference))}`}
+                                    {differenceText(difference)}
                                 </dd>
                             </div>
                         </dl>
+                        {needsDiffReason && counted > 0 && (
+                            <CheckFirstBox sessionId={session.id} difference={difference} open={checkOpen} onToggle={() => setCheckOpen(!checkOpen)} />
+                        )}
                         <button type="button" onClick={toSplit} className={`${primary} w-full`}>Continuar</button>
                     </div>
                 </Dialog>
@@ -595,6 +682,15 @@ export default function CashRegister() {
             {closeStep === 2 && (
                 <Dialog title="Cerrar caja · 2 de 2: repartir" onClose={() => setCloseStep(0)}>
                     <div className="space-y-5">
+                        {needsDiffReason && (
+                            <>
+                                <DifferenceReasonBox difference={difference} value={diffReason} onChange={setDiffReason} />
+                                <button type="button" data-testid="close-review" onClick={() => { setCheckOpen(true); setCloseStep(1); }}
+                                    className="-mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-bos-accent-text underline-offset-2 hover:underline">
+                                    <Search aria-hidden="true" className="h-4 w-4" /> Revisar: ¿cuánto efectivo hay y por qué?
+                                </button>
+                            </>
+                        )}
                         <p className="text-[15px] text-bos-muted">Se contaron <strong className="text-bos-text">{money(counted)}</strong>. Así se reparte:</p>
                         <div className="space-y-2">
                             <label htmlFor="close-float" className={label}>Se queda de fondo para mañana</label>
@@ -621,9 +717,16 @@ export default function CashRegister() {
                         )}
                         {withdrawn === null && <p role="alert" className="text-sm text-bos-danger">El fondo más el apartado no pueden ser más que lo contado.</p>}
                         {formError && <p role="alert" className="text-sm text-bos-danger">{formError}</p>}
+                        {diffProblem && (
+                            <p id="close-blocked" data-testid="close-blocked" className="flex items-start gap-2 text-sm text-bos-muted">
+                                <Lock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                                Para cerrar, escribe por qué {difference > 0 ? 'sobran' : 'faltan'} {money(Math.abs(difference))} (de {REASON_MIN} a {REASON_MAX} letras).
+                            </p>
+                        )}
                         <div className="grid grid-cols-2 gap-3">
                             <button type="button" onClick={() => setCloseStep(1)} className={secondary}>Volver a contar</button>
-                            <button type="button" onClick={handleClose} disabled={saving || withdrawn === null} className={primary}>{saving && <Loader2 className="h-5 w-5 animate-spin" />} Cerrar caja</button>
+                            <button type="button" data-testid="close-submit" onClick={handleClose} disabled={saving || withdrawn === null || Boolean(diffProblem)}
+                                aria-describedby={diffProblem ? 'close-blocked' : undefined} className={primary}>{saving && <Loader2 className="h-5 w-5 animate-spin" />} Cerrar caja</button>
                         </div>
                     </div>
                 </Dialog>

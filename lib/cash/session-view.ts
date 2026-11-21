@@ -25,6 +25,8 @@ export type CashSessionRow = {
     expected_cash?: number | string | null;
     /** Motivo escrito al dejar menos del fondo recomendado. */
     closing_note?: string | null;
+    /** Motivo escrito al cerrar con sobrante o faltante (desde el 21 nov 2026; las cajas anteriores no lo tienen). */
+    difference_reason?: string | null;
 };
 
 export type CashMovementRow = {
@@ -161,7 +163,23 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
 
 export const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, closed_by, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
 /** Lo mismo más lo que necesita «El camino del efectivo». */
-export const FLOW_SESSION_COLUMNS = `${SESSION_COLUMNS}, expected_cash, closing_note`;
+export const FLOW_SESSION_COLUMNS = `${SESSION_COLUMNS}, expected_cash, closing_note, difference_reason`;
+/** Sin el motivo de la diferencia: para una base que todavía no tiene la columna (se publica el código antes que la base). */
+export const FLOW_SESSION_COLUMNS_WITHOUT_REASON = `${SESSION_COLUMNS}, expected_cash, closing_note`;
+
+/**
+ * Lee las cajas con FLOW_SESSION_COLUMNS y, si la base aún no tiene `difference_reason` (42703), repite sin ella:
+ * el Resumen del día y el camino del efectivo nunca se caen por el orden de publicación. Ya migrada, la primera lectura basta.
+ */
+export async function withFlowSessionColumns<T>(run: (columns: string) => Promise<T>): Promise<T> {
+    try {
+        return await run(FLOW_SESSION_COLUMNS);
+    } catch (error) {
+        const e = error as { code?: unknown; message?: unknown } | null;
+        if (e?.code === '42703' && String(e.message ?? '').includes('difference_reason')) return run(FLOW_SESSION_COLUMNS_WITHOUT_REASON);
+        throw error;
+    }
+}
 export const FLOW_MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id, expense_id, commission_settlement_id, created_by';
 export const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 

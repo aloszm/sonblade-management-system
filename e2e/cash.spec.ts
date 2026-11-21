@@ -66,9 +66,26 @@ test.describe('caja', () => {
         await page.getByLabel('Cantidad de monedas de 0.5').fill('1');
         await expect(page.getByTestId('close-counted')).toHaveText('$1,000.50');
         await page.getByRole('button', { name: 'Solo el total' }).click();
+
+        // Con faltante: «Revisa primero», y en el reparto el motivo es obligatorio (el botón no deja cerrar sin él).
+        // No se cierra con diferencia: se vuelve a contar, para no dejar un faltante de prueba guardado.
+        await page.locator('#counted-total').fill(String(expected - 10));
+        await expect(page.getByTestId('close-difference')).toHaveText('Faltan $10');
+        await expect(page.getByTestId('close-check-first')).toContainText('Revisa primero');
+        await page.getByRole('button', { name: 'Continuar' }).click();
+        await expect(page.getByTestId('close-difference-amount')).toHaveText('Faltan $10');
+        await expect(page.getByTestId('close-submit')).toBeDisabled();
+        await expect(page.getByTestId('close-blocked')).toContainText('escribe por qué faltan $10');
+        await page.getByRole('button', { name: 'Error al contar' }).click();
+        await expect(page.getByLabel('¿Por qué hay diferencia?')).toHaveValue('Error al contar');
+        await expect(page.getByTestId('close-submit')).toBeEnabled();
+        await page.getByRole('button', { name: 'Volver a contar' }).click();
+
         await page.locator('#counted-total').fill(String(expected));
         await expect(page.getByTestId('close-difference')).toHaveText('Cuadra');
+        await expect(page.getByTestId('close-check-first')).toHaveCount(0);
         await page.getByRole('button', { name: 'Continuar' }).click();
+        await expect(page.getByTestId('close-difference-box')).toHaveCount(0);
 
         // Repartir: fondo, apartado y retiro propuestos.
         const float = Math.min(expected, settings.float_target);

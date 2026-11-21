@@ -632,9 +632,50 @@ sábado sin mover dinero. Por eso la migración quedó **sin aplicar** en desarr
 4. Verificar: Pago semanal abre en "Periodo de transición del 15 al 18 de noviembre de 2026 · Se paga el sábado 21"; pagar la transición
    (Dago y Emi tienen sueldo desde el 15 nov) y el sábado 28 pagar 19–25.
 
+## 8i. Motivo obligatorio de la diferencia al cerrar la caja (21 nov 2026; migración SOLO como archivo, sin aplicar)
+
+Decisión del dueño: al cerrar con sobrante o faltante es obligatorio escribir el motivo. Antes solo existía `closing_note` (motivo de dejar
+menos fondo del recomendado).
+
+Migración `20261121110000_cash_difference_reason` (md5 `6cf855679729b690c8ecbf928bcfe4d6`) · prueba `supabase/tests/cash_difference_reason.test.sql`
+(15 casos). **No está aplicada en ninguna base**: se probó en simulacro contra desarrollo, con las 31 pruebas SQL. (Nota: la `20261121100000_pay_period_thu_wed`
+de §8h aparece ya registrada en `sonblade-dev` con su md5; §8h dice lo contrario.)
+
+**Base:** columna `cash_sessions.difference_reason` (nula; `check`: 5 a 300 letras y solo en una caja cerrada con diferencia ≠ 0) y parámetro
+`p_difference_reason text default null` al final de `close_cash_session` / `private.close_cash_session_impl` (se reemplaza la firma de 7 por la
+de 8; mismos permisos: `authenticated`, sin `anon`). La diferencia la calcula la base (contado − esperado); si no es $0.00 y no llega motivo
+válido: `22023` "Hay una diferencia de $30 (faltante): escribe el motivo para cerrar (de 5 a 300 letras)." (hint `difference_reason_required`);
+si es $0.00 el motivo se guarda nulo. La bitácora `cash_closed` y la respuesta llevan `difference_reason`. No cambia quién cierra (owner,
+admin, cashier, receptionist con acceso a la sucursal), ni el reparto, ni el apartado al sobre, ni `closing_note`. **No pide PIN** (tampoco
+antes): si el dueño quiere PIN de gerencia para cerrar con diferencia, es una decisión pendiente. Las cajas viejas con diferencia y sin motivo
+no se tocan y siguen siendo válidas. Se ajustaron 6 llamadas de `cash_envelopes.test.sql` y `cash_reasons_and_pin_confirmation.test.sql` que
+cerraban con diferencia sin motivo (ahora lo escriben).
+
+**App:** cierre guiado (`components/CashRegister.tsx`): en el paso 1, con diferencia, "Revisa primero" con el camino del efectivo desplegable;
+en el paso 2, "¿Por qué hay diferencia?" con la cifra ("Faltan $30"), sugerencias de un toque, contador y el botón "Cerrar caja" deshabilitado
+con explicación. Reglas en `lib/cash/reasons.ts` (mismo mensaje que la base). Ruta `/api/cash/session/close`: zod + aviso temprano con el mismo
+mensaje (solo si la pantalla manda la llave `difference_reason`). El motivo sale en `CashFlowView` (Resumen del día y cierres anteriores), Excel
+(hoja Caja), PDF, WhatsApp ("diferencia -$30 · motivo: …") y en la bitácora del informe completo; la pantalla Bitácora lo muestra en el detalle.
+Sin cambios de permisos (`lib/auth/capabilities.ts` igual).
+
+**Orden de publicación (seguro, al revés que de costumbre: primero el código, después la base):**
+1. Publicar el código (práctica: `feat/v2-integration`; producción: `main`). Con la base anterior funciona igual que hoy: si la diferencia es
+   cero no manda el parámetro; si manda el motivo y la base responde `PGRST202` (no conoce el parámetro; comprobado contra desarrollo), la ruta
+   repite la llamada sin él (esa base no exige motivo). Las lecturas piden `difference_reason` y, si la base responde `42703`, repiten sin la
+   columna. Recepción nunca queda sin cerrar.
+2. Después, en desarrollo: `apply_dev.py supabase/migrations/20261121110000_cash_difference_reason.sql`; en producción:
+   `scripts/replay-migrations.py --dry-run` y luego sin `--dry-run`. Desde ahí la regla vale para todos, también para llamadas directas.
+3. Por qué no al revés: con la base nueva y la app anterior, todo cierre con diferencia se rechaza y la pantalla anterior no tiene dónde
+   escribir el motivo (bloquea hasta publicar el código). Por eso la migración **no se aplicó** en desarrollo: práctica usa esa base.
+4. Riesgo residual: una pestaña abierta desde antes de publicar el código (paso 1) que siga abierta después del paso 2 no tiene el campo; la
+   ruta le responde el mensaje de la base más "Si no ves dónde escribirlo, recarga la página." Recargar lo resuelve.
+5. `lib/database.types.ts` se editó a mano con la columna y el parámetro (la base aún no los tiene); regenerarlo después del paso 2 y comprobar
+   que no cambia.
+
 ## 9. Preguntas abiertas para el dueño (resumen)
 
 1. ✅ Llave secreta de Production cambiada el 19 nov (3.1, paso 1).
 2. ¿Pasamos a Supabase Pro y Vercel Pro? (O1, O2)
 3. Decisiones D1 a D7 de la sección 4.
 4. Existencias iniciales de los cuatro productos.
+5. ¿Cerrar la caja con sobrante o faltante debe pedir PIN de gerencia además del motivo? Hoy no pide PIN (§8i).

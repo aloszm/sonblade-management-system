@@ -53,6 +53,10 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
   contando el dinero.
 - **Movimiento de caja:** entrada o salida de efectivo que no es una venta. Siempre con motivo.
 - **Diferencia / sobrante / faltante:** lo contado al cerrar contra lo que el sistema esperaba.
+- **Motivo de la diferencia:** si al cerrar sobra o falta dinero, hay que escribir por qué (de 5 a 300 letras) para poder cerrar; hay
+  opciones de un toque ("Cambio mal dado", "Gasto sin registrar"…) que se pueden corregir. Antes de escribirlo, "Revisa primero" abre el
+  camino del efectivo. Si cuadra, no se pide. Se ve en el camino del efectivo, el Resumen del día (WhatsApp, PDF, Excel) y la bitácora.
+  Los cierres anteriores al 21 nov 2026 dicen "Sin motivo registrado" (entonces no se pedía). No pide PIN.
 - **Fondo:** el efectivo con que se abre la caja y el que se deja para mañana al cerrar (cambio).
 - **Efectivo que debe haber:** fondo con que se abrió + entradas de efectivo − salidas de efectivo. Es lo que el sistema espera encontrar al contar. Tarjeta y transferencia no están en la caja; los gastos pagados del sobre o del banco tampoco salen de ella.
 - **El camino del efectivo:** el bloque que cuenta esa resta renglón por renglón (cobros, propinas, otras entradas, gastos pagados de la caja, pagos al equipo, reembolsos, otros retiros), cada uno desplegable, y luego a dónde se fue lo contado: fondo para mañana + apartado + retiro. Está en el Resumen del día, en Caja ("¿Cuánto efectivo hay y por qué?") y en cada cierre anterior. Si no suma, avisa.

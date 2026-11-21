@@ -138,6 +138,21 @@ describe('Excel del resumen de caja', () => {
         expect(r.find((x) => String(x[0]).startsWith('Gastos pagados del sobre o del banco'))!.slice(1, 3)).toEqual([2, 300]);
     });
 
+    it('«Caja»: el motivo de la diferencia va bajo la diferencia; una caja vieja sin motivo lo dice', async () => {
+        const p = payload();
+        const f = p.cash.sessions[0];
+        const short = { ...f, countedCents: 97000, differenceCents: -3000, differenceReason: 'Cambio mal dado' };
+        let r = (await load(await buildDaySummaryXlsx({ ...p, cash: dayCashFromFlows([short], null) }))).rows('Caja');
+        const at = r.findIndex((x) => x[0] === 'Diferencia (faltante)');
+        expect(r[at][2]).toBe(-30);
+        expect(r[at + 1][0]).toBe('Motivo de la diferencia: Cambio mal dado');
+        r = (await load(await buildDaySummaryXlsx({ ...p, cash: dayCashFromFlows([{ ...short, differenceReason: null }], null) }))).rows('Caja');
+        expect(r.some((x) => x[0] === 'Motivo de la diferencia: sin motivo registrado')).toBe(true);
+        // Si cuadra, no hay renglón de motivo.
+        r = (await load(await buildDaySummaryXlsx(p))).rows('Caja');
+        expect(r.some((x) => String(x[0]).startsWith('Motivo de la diferencia'))).toBe(false);
+    });
+
     it('«Ventas del día»: sin clientes ni costos; un renglón por venta cobrada, con total', async () => {
         const p = payload();
         const { rows } = await load(await buildDaySummaryXlsx(p));
@@ -201,6 +216,17 @@ describe('PDF del resumen de caja', () => {
             const text = Buffer.from(await buildDaySummaryPdf({ ...p, cash: dayCashFromFlows(flows, null) })).toString('latin1');
             expect(text).toMatch(/\/Count 1\b/);
         }
+    });
+    it('con faltante pone el motivo (una caja y varias) y sigue cabiendo en una página', async () => {
+        const p = payload();
+        const short = { ...p.cash.sessions[0], countedCents: 97000, differenceCents: -3000, differenceReason: 'Cambio mal dado' };
+        const one = Buffer.from(await buildDaySummaryPdf({ ...p, cash: dayCashFromFlows([short], null) })).toString('latin1');
+        expect(one).toMatch(/\/Count 1\b/);
+        expect(one).toContain('Motivo: Cambio mal dado');
+        const two = Buffer.from(await buildDaySummaryPdf({ ...p, cash: dayCashFromFlows([short, { ...short, id: 's2', differenceReason: null }], null) })).toString('latin1');
+        expect(two).toMatch(/\/Count 1\b/);
+        expect(two).toContain('Motivo: Cambio mal dado');
+        expect(two).toContain('Sin motivo');
     });
     it('un día sin ventas ni caja también se genera', async () => {
         const empty: DaySummaryPayload = { ...payload(), summary: buildDaySummary({ date: '2026-11-20', sales: [], items: [], payments: [], tips: [], employees: [], cutServiceIds: [] }), cash: buildDayCash([], [], new Map()) };

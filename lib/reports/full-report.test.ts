@@ -121,6 +121,9 @@ describe('texto del reporte', () => {
         const old = auditDetail({ ...base, action: 'cash_closed', details: { after: { expected_cash: 1500, counted_cash: 1480, difference: -20 } } });
         expect(old).toBe('Esperado $1,500.00, contado $1,480.00, diferencia -$20.00.');
         expect(old).not.toContain('NaN');
+        // Desde el 21 nov 2026 el cierre con diferencia lleva su motivo.
+        expect(auditDetail({ ...base, action: 'cash_closed', details: { after: { expected_cash: 500, counted_cash: 470, difference: -30, difference_reason: 'Cambio mal dado', float_left: 470, reserve_amount: 0, withdrawn_amount: 0 } } }))
+            .toBe('Esperado $500.00, contado $470.00, diferencia -$30.00, motivo de la diferencia: Cambio mal dado, fondo dejado $470.00, apartado $0.00, retiro $0.00.');
         expect(auditDetail({ ...base, action: 'cash_opened', details: { after: { opening_cash: 500, opening_expected: 500 } } })).toBe('Fondo inicial $500.00, esperado $500.00.');
         expect(auditDetail({ ...base, action: 'commission_settlement_paid', details: { after: { paid_amount: 32, payments: [{ amount: 20, method: 'cash' }, { amount: 12, method: 'transfer' }], period_start: '2026-11-01', period_end: '2026-11-07' } } }))
             .toBe('Pagado $32.00, (Efectivo $20.00, Transferencia $12.00), semana del 01/11/2026 al 07/11/2026.');

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { buildSessionView, loadClosedSessions, loadOpenSession, movementTag, toUiMovement, UNKNOWN_OPENER, type CashMovementRow, type CashSessionRow } from './session-view';
+import { FLOW_SESSION_COLUMNS, FLOW_SESSION_COLUMNS_WITHOUT_REASON, buildSessionView, withFlowSessionColumns, loadClosedSessions, loadOpenSession, movementTag, toUiMovement, UNKNOWN_OPENER, type CashMovementRow, type CashSessionRow } from './session-view';
 
 const session: CashSessionRow = {
     id: 'sess-1',
@@ -181,5 +181,27 @@ describe('nombres de quien abrió y cerró la caja', () => {
     it('buildSessionView deja closed_by en null si nadie la ha cerrado', () => {
         expect(buildSessionView(session, [], 'Dago').closed_by).toBeNull();
         expect(buildSessionView(session, [], 'Dago', 'Sonia').closed_by).toBe('Sonia');
+    });
+});
+
+describe('withFlowSessionColumns: el camino del efectivo no se cae si la base aún no tiene el motivo', () => {
+    it('pide el motivo de la diferencia; con la base migrada basta una lectura', async () => {
+        const run = vi.fn(async (columns: string) => columns);
+        await expect(withFlowSessionColumns(run)).resolves.toBe(FLOW_SESSION_COLUMNS);
+        expect(FLOW_SESSION_COLUMNS).toContain('difference_reason');
+        expect(run).toHaveBeenCalledTimes(1);
+    });
+    it('columna inexistente (42703): repite sin ella', async () => {
+        const run = vi.fn(async (columns: string) => {
+            if (columns.includes('difference_reason')) throw { code: '42703', message: 'column cash_sessions.difference_reason does not exist' };
+            return columns;
+        });
+        await expect(withFlowSessionColumns(run)).resolves.toBe(FLOW_SESSION_COLUMNS_WITHOUT_REASON);
+        expect(FLOW_SESSION_COLUMNS_WITHOUT_REASON).not.toContain('difference_reason');
+        expect(FLOW_SESSION_COLUMNS_WITHOUT_REASON).toContain('closing_note');
+    });
+    it('cualquier otro error sube tal cual', async () => {
+        await expect(withFlowSessionColumns(async () => { throw { code: '42501', message: 'permission denied' }; })).rejects.toMatchObject({ code: '42501' });
+        await expect(withFlowSessionColumns(async () => { throw { code: '42703', message: 'column x does not exist' }; })).rejects.toMatchObject({ code: '42703' });
     });
 });

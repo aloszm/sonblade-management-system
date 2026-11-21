@@ -278,6 +278,7 @@ export function auditDetail(entry: AuditEntry): string {
             break;
         case 'cash_closed':
             text = join([amount('Esperado', after.expected_cash), amount('contado', after.counted_cash), amount('diferencia', after.difference),
+                has(after.difference_reason) ? `motivo de la diferencia: ${String(after.difference_reason)}` : '',
                 amount('fondo dejado', after.float_left), amount('apartado', after.reserve_amount), amount('retiro', after.withdrawn_amount)]);
             break;
         case 'cash_movement_recorded':
