@@ -100,3 +100,61 @@ export function sampleReport(audience: Audience = 'interno'): FullReport {
         financial: sampleFinancial(),
     };
 }
+
+/**
+ * El mismo ejemplo con lo que la base entrega desde los sueldos por día y el libro del personal:
+ * sueldos 400 (5 días) y bonos 100, así que la utilidad baja a 3,000 − 1,300 − 400 − 100 − 180 − 200 = 820 (27.3 %).
+ * Dago (recepción) no vendió y solo cobra sueldo; Deya ganó el bono. Tres recibos con desglose (uno con neto negativo),
+ * dos asientos del libro y tres cierres de caja: uno con el retiro a nombre de Sonia en la bitácora, otro sin nombre y otro sin retiro.
+ */
+export function sampleReportWithWages(audience: Audience = 'interno'): FullReport {
+    const report = sampleReport(audience);
+    const fin = report.financial!;
+    const [deya, sonia] = fin.current.by_person!;
+    fin.current = {
+        ...fin.current,
+        wages: { total: 400, days: 5 },
+        bonuses: { total: 100, count: 1 },
+        profit: 820,
+        margin_pct: 27.3,
+        by_person: [
+            { ...deya, wage: 0, bonus: 100, contribution: 880 },
+            { ...sonia, wage: 0, bonus: 0 },
+            { id: 'e3', name: 'Dago', is_barber: false, services: 0, products: 0, revenue: 0, service_count: 0, product_count: 0, commission: 0, tips: 0, tip_count: 0, product_cost: 0, sales_commissions: 0, wage: 400, bonus: 0, contribution: -400 },
+        ],
+    };
+    fin.previous = { ...fin.previous, wages: { total: 0, days: 0 }, bonuses: { total: 0, count: 0 } };
+    report.summary.kpis = { ...report.summary.kpis, net: 820, wages: 400, bonuses: 100 };
+    report.payouts = {
+        ...report.payouts,
+        settlements: [
+            // 300 − 20 (ajuste) + 25 (propinas) − 30 (adelanto) = 275
+            { ...report.payouts.settlements[0], commissions: 300, adjustments: 20, tips: 25, bonuses: 0, advances: 30, loan_payments: 0, staff_deductions: 0, carryover_in: 0, carryover_out: 0, wages: 0 },
+            // 400 (sueldo) − 100 (abono) − 50 (descuento) = 250
+            { receipt: 'LIQ-000002', employee: 'Dago', period_start: '2026-11-01', period_end: '2026-11-07', total: 250, cash: 250, transfer: 0, other: 0, paid_at: '2026-11-14T13:20:00+00:00', paid_by: 'Dueño Gallo 420', reference: null,
+                commissions: 0, adjustments: 0, tips: 0, bonuses: 0, advances: 0, loan_payments: 100, staff_deductions: 50, carryover_in: 0, carryover_out: 0, wages: 400 },
+            // 100 − 150 (adelanto) = −50: se paga $0 y los $50 pasan a la semana siguiente
+            { receipt: 'LIQ-000003', employee: 'Sonia', period_start: '2026-11-01', period_end: '2026-11-07', total: 0, cash: 0, transfer: 0, other: 0, paid_at: '2026-11-14T13:25:00+00:00', paid_by: 'Dueño Gallo 420', reference: null,
+                commissions: 100, adjustments: 0, tips: 0, bonuses: 0, advances: 150, loan_payments: 0, staff_deductions: 0, carryover_in: 0, carryover_out: 50, wages: 0 },
+        ],
+        staff_ledger: [
+            { at: '2026-11-10T18:00:00+00:00', effective_at: '2026-11-10T18:00:00+00:00', employee: 'Deya', type: 'advance', amount: 30, receipt_effect: -30, reason: 'Adelanto para pasaje', paid_from: 'cash_drawer', method: 'cash', receipt: 'LIQ-000001', cancelled: false, by: 'Dueño Gallo 420' },
+            { at: '2026-11-12T18:00:00+00:00', effective_at: '2026-11-12T18:00:00+00:00', employee: 'Dago', type: 'deduction', amount: 50, receipt_effect: -50, reason: 'Se llevó un peine', paid_from: null, method: null, receipt: null, cancelled: false, by: 'Sonia' },
+        ],
+        staff_totals: { advances: 30, loans: 0, loan_payments: 100, deductions: 50, bonuses: 100, carryovers: 0, reversals: 0, wages: 400 },
+    };
+    const [s1] = report.cash.sessions;
+    report.cash.sessions = [
+        s1,
+        { ...s1, id: 's2', opened_at: '2026-11-11T15:00:00+00:00', closed_at: '2026-11-12T02:00:00+00:00', difference: 0, counted_cash: 1120, withdrawn_amount: 300, reserve_amount: 320, counted_breakdown: null, movements: [] },
+        { ...s1, id: 's3', opened_at: '2026-11-12T15:00:00+00:00', closed_at: '2026-11-13T02:00:00+00:00', difference: 0, counted_cash: 1120, withdrawn_amount: 0, reserve_amount: 620, counted_breakdown: null, movements: [] },
+    ];
+    report.audit.push(
+        { at: '2026-11-11T02:00:00+00:00', action: 'cash_closed', entity: 'cash_session', entity_id: 's1', actor: 'Dago', role: 'receptionist', reason: null,
+            details: { after: { expected_cash: 1120, counted_cash: 1100, difference: -20, float_left: 500, reserve_amount: 400, withdrawn_amount: 200, withdrawal_delivered_to: 'Sonia' } } },
+        // Cierre con retiro y sin destinatario anotado.
+        { at: '2026-11-12T02:00:00+00:00', action: 'cash_closed', entity: 'cash_session', entity_id: 's2', actor: 'Dago', role: 'receptionist', reason: null,
+            details: { after: { expected_cash: 1120, counted_cash: 1120, difference: 0, float_left: 500, reserve_amount: 320, withdrawn_amount: 300 } } },
+    );
+    return report;
+}

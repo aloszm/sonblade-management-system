@@ -67,6 +67,26 @@ export type FinancialPeriod = {
     by_person: FinancialPerson[] | null;
 };
 
+/**
+ * Recibo de pago semanal emitido en el periodo. El desglose (todo lo opcional) llega desde 20261120052000 y `wages` desde 20261120090000:
+ * total = wages + commissions − adjustments + tips + bonuses − advances − loan_payments − staff_deductions − carryover_in, con piso en $0;
+ * si ese neto sale negativo, `carryover_out` pasa al siguiente recibo.
+ */
+export type SettlementReport = {
+    receipt: string | null; employee: string | null; period_start: string; period_end: string; total: number; cash: number; transfer: number; other: number;
+    paid_at: string; paid_by: string | null; reference: string | null;
+    commissions?: number; adjustments?: number; tips?: number; bonuses?: number; advances?: number; loan_payments?: number;
+    staff_deductions?: number; carryover_in?: number; carryover_out?: number; wages?: number;
+};
+
+/** Asiento del libro del personal (adelanto, préstamo, abono, descuento, bono, arrastre, cancelación o sueldo). */
+export type StaffLedgerEntry = {
+    at: string; effective_at: string | null; employee: string | null; type: string; amount: number; receipt_effect: number | null;
+    reason: string | null; paid_from: string | null; method: string | null; receipt: string | null; cancelled: boolean; by: string | null;
+};
+
+export type StaffTotals = { advances: number; loans: number; loan_payments: number; deductions: number; bonuses: number; carryovers: number; reversals: number; wages: number };
+
 export type FullReport = {
     version: number;
     audience: Audience;
@@ -91,8 +111,12 @@ export type FullReport = {
     cash: { sessions: CashSessionReport[]; reserve_label: string | null };
     expenses: { at: string; incurred_at: string | null; category: string | null; concept: string | null; amount: number; method: string; status: string; by: string | null }[];
     payouts: {
-        settlements: { receipt: string | null; employee: string | null; period_start: string; period_end: string; total: number; cash: number; transfer: number; other: number; paid_at: string; paid_by: string | null; reference: string | null }[];
+        settlements: SettlementReport[];
         adjustments: { at: string; employee: string | null; amount: number; remaining: number; reason: string | null; status: string; created_by: string | null; reviewed_by: string | null; reviewed_at: string | null; review_note: string | null }[];
+        /** Asientos del libro del personal registrados en el periodo (por la fecha del asiento). Faltan en reportes anteriores a 20261120052000. */
+        staff_ledger?: StaffLedgerEntry[];
+        /** Suma de esos asientos por tipo. Ojo: `wages` es el sueldo sellado en recibos del periodo, no el devengado (ese va en financial.wages). */
+        staff_totals?: StaffTotals;
     };
     inventory: {
         stock: { product: string; sku: string | null; quantity: number; minimum: number; unit_cost: number | null; value: number; low: boolean }[];

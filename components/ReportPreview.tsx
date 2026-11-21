@@ -75,6 +75,8 @@ function Hero({ block }: { block: ReportHero }) {
 
 const STACK_BG: Record<StackColor, string> = {
     commission: 'var(--bos-accent)', cost: 'color-mix(in srgb, var(--bos-accent) 55%, var(--bos-surface))',
+    // Sueldos y bonos: bronce oscuro, entre comisiones y costo, para que se distinga de los dos.
+    payroll: 'color-mix(in srgb, var(--bos-accent) 62%, black)',
     expense: 'var(--bos-muted)', profit: 'var(--bos-success)',
 };
 

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { buildReportModel } from './full-report';
-import { sampleFinancial, sampleReport } from './full-report.fixture';
+import { sampleFinancial, sampleReport, sampleReportWithWages } from './full-report.fixture';
 import { buildReportPdf, pdfSafe } from './full-report-pdf';
 import { buildReportXlsx, excelValue, spreadsheetSafe } from './full-report-xlsx';
 
@@ -126,5 +126,66 @@ describe('Excel del reporte', () => {
         let found = false;
         sales.eachRow((row) => row.eachCell((cell) => { if (String(cell.value).includes('HYPERLINK')) { found = true; expect(String(cell.value).startsWith("'=")).toBe(true); } }));
         expect(found).toBe(true);
+    });
+});
+
+// Auditoría del 21 nov 2026: los archivos que recibe el contador deben traer los sueldos y sumar igual que la pantalla.
+describe('PDF y Excel con sueldos, bonos y movimientos del equipo', () => {
+    const withWages = (audience: 'interno' | 'contador') => buildReportModel(sampleReportWithWages(audience), { folio: 'REP-000008', sha256: CODE });
+    const round = (n: number) => Math.round(n * 100) / 100;
+    /** Renglones [concepto, importe] de una hoja, en orden. */
+    const pairs = (sheet: ExcelJS.Worksheet) => {
+        const out: [string, number][] = [];
+        sheet.eachRow((row) => { const a = row.getCell(1).value, b = row.getCell(2).value; if (typeof a === 'string' && typeof b === 'number') out.push([a, b]); });
+        return out;
+    };
+
+    it('el PDF trae los renglones de sueldos y bonos, a quién se entregó el retiro y el desglose de los recibos', async () => {
+        for (const audience of ['interno', 'contador'] as const) {
+            const text = asText(await buildReportPdf(withWages(audience)));
+            for (const piece of ['Menos sueldos del personal', 'Menos bonos por metas', 'Sueldos y bonos', 'Más sueldos del periodo', 'Retiro entregado a', 'Sin registrar',
+                'Retiros al cerrar la caja, por quién los recibió', 'Cómo se armó cada recibo', 'Movimientos del equipo registrados en el periodo']) {
+                expect(text).toContain(pdfSafe(piece));
+            }
+            expect(text).not.toMatch(/NaN|Infinity|undefined/);
+        }
+    });
+
+    it('el Excel del resultado suma: ingresos − comisiones − sueldos − bonos − costo − gastos = utilidad', async () => {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(withWages('contador'))) as unknown as ArrayBuffer);
+        const rows = pairs(workbook.getWorksheet('Resultado')!);
+        const value = (label: string) => rows.find((r) => r[0] === label)![1];
+        expect(value('Menos sueldos del personal')).toBe(-400);
+        expect(value('Menos bonos por metas')).toBe(-100);
+        const detail = rows.filter((r) => /^(Ingresos por|Menos )/.test(r[0])).reduce((a, r) => a + r[1], 0);
+        expect(round(detail)).toBe(value('Utilidad neta'));
+        expect(value('Utilidad neta')).toBe(820);
+        const expenses = rows.filter((r) => r[0].startsWith('Menos gastos')).reduce((a, r) => a + r[1], 0);
+        expect(round(value('Queda antes de gastos') + expenses)).toBe(820);
+        // Balance: las partidas de "cómo cuadra con la utilidad" suman lo que quedó.
+        const balance = pairs(workbook.getWorksheet('Balance')!);
+        const from = balance.findIndex((r) => r[0].startsWith('Utilidad neta')), to = balance.findIndex((r) => r[0] === 'Igual a lo que quedó en el periodo');
+        expect(round(balance.slice(from, to).reduce((a, r) => a + r[1], 0))).toBe(balance[to][1]);
+        expect(balance.slice(from, to).map((r) => r[0]).join('|')).toContain('Más sueldos del periodo');
+    });
+
+    it('el Excel de caja y de comisiones lleva el destinatario del retiro y los recibos como números que suman', async () => {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(Buffer.from(await buildReportXlsx(withWages('interno'))) as unknown as ArrayBuffer);
+        const cells = (name: string) => { const all: unknown[][] = []; workbook.getWorksheet(name)!.eachRow((row) => all.push((row.values as unknown[]).slice(1))); return all; };
+        const caja = cells('Caja');
+        const header = caja.find((r) => r.includes('Retiro entregado a'))!;
+        const col = header.indexOf('Retiro entregado a');
+        const closes = caja.slice(caja.indexOf(header) + 1, caja.indexOf(header) + 4);
+        expect(closes.map((r) => [r[col - 1], r[col] ?? null])).toEqual([[200, 'Sonia'], [300, 'Sin registrar'], [0, null]]);
+        expect(caja.some((r) => r[0] === 'Sonia' && r[1] === 1 && r[2] === 200)).toBe(true);
+        const comisiones = cells('Comisiones');
+        const receipt = comisiones.find((r) => r[0] === 'LIQ-000003' && r.length >= 12)!;
+        expect(receipt.slice(2)).toEqual([0, 100, 0, 0, 0, -150, 0, 0, 50, 0]);
+        for (const id of ['LIQ-000001', 'LIQ-000002', 'LIQ-000003']) {
+            const r = comisiones.find((x) => x[0] === id && x.length >= 12)!;
+            expect(round((r.slice(2, 11) as number[]).reduce((a, v) => a + v, 0))).toBe(r[11]);
+        }
     });
 });

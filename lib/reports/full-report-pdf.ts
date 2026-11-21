@@ -19,7 +19,7 @@ const BAD: RGB = [185, 28, 28];
 const BAD_SOFT: RGB = [253, 236, 236];
 const PANEL: RGB = [249, 248, 245];
 const TONE: Record<Tone, RGB> = { good: GOOD, bad: BAD, neutral: INK };
-const STACK: Record<StackColor, RGB> = { commission: BRONZE, cost: [196, 164, 116], expense: [128, 128, 136], profit: GOOD };
+const STACK: Record<StackColor, RGB> = { commission: BRONZE, payroll: [74, 55, 30], cost: [196, 164, 116], expense: [128, 128, 136], profit: GOOD };
 
 const PAGE_W = 297;
 const PAGE_H = 210;
