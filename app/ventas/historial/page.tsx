@@ -14,6 +14,7 @@ import DateRangePicker from '@/components/ui/DateRangePicker';
 import { formatMoney } from '@/lib/utils/money';
 import { BUSINESS_TIME_ZONE, formatDate, formatTime } from '@/lib/utils/dates';
 import { PAYMENT_METHOD_LABELS, paymentMethodLabel } from '@/lib/utils/payment';
+import { paidSalesText, reversedSalesText, summarizeSalesHistory } from '@/lib/sales/history-summary';
 
 function PaymentBadge({ sale }: { sale: Sale }) {
     const cash = Number(sale.cash_amount || 0);
@@ -189,14 +190,16 @@ export default function SalesHistoryPage() {
 
     const totalPages = Math.ceil(sales.length / itemsPerPage);
     const page = sales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    const totalFiltered = sales.filter(v => v.status !== 'refunded').reduce((s, v) => s + Number(v.total), 0);
+    // Las anuladas siguen en la lista (tachadas) pero no cuentan como ventas: igual que Panel, Finanzas y Reportes.
+    const summary = summarizeSalesHistory(sales);
+    const totalFiltered = summary.total;
+    const reversedText = reversedSalesText(summary.reversedCount);
     const serviceNames = [...new Set(services.map(s => s.name))];
     const productNames = [...new Set(products.map(p => p.name))];
 
     const rangeLabel = dateRange.start === dateRange.end
         ? formatDate(`${dateRange.start}T12:00:00Z`)
         : `${formatDate(`${dateRange.start}T12:00:00Z`, BUSINESS_TIME_ZONE, { year: false })} al ${formatDate(`${dateRange.end}T12:00:00Z`)}`;
-    const sold = sales.filter(v => v.status !== 'refunded');
     const periodLabel = periodFilter === 'today' ? 'Hoy' : periodFilter === 'week' ? 'Esta semana' : periodFilter === 'month' ? 'Este mes' : 'Personalizado';
 
     const field = 'w-full h-11 px-3 rounded-xl bg-bos-bg border border-bos-control text-base text-bos-text focus-visible:border-bos-accent-text';
@@ -209,7 +212,7 @@ export default function SalesHistoryPage() {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="font-display text-3xl font-semibold tracking-tight">Ventas</h1>
-                    <p className="text-bos-muted text-sm mt-1">Se actualiza cada 30 s · {sales.length} ventas ({periodLabel}: {rangeLabel})</p>
+                    <p className="text-bos-muted text-sm mt-1">Se actualiza cada 30 s · <span data-testid="sales-paid-count">{paidSalesText(summary.paidCount)}</span>{reversedText && <> · <span data-testid="sales-reversed-count">{reversedText}</span></>} ({periodLabel}: {rangeLabel})</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => fetchSales()} aria-label="Actualizar" title="Actualizar" className="h-[52px] w-[52px] inline-flex items-center justify-center border border-bos-border rounded-xl text-bos-muted hover:text-bos-text hover:bg-bos-raised"><RefreshCw className="h-4 w-4" /></button>
@@ -248,8 +251,8 @@ export default function SalesHistoryPage() {
             {/* Resumen */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" aria-label={`Resumen de ${periodLabel.toLowerCase()}`}>
                 <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Total generado</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums text-bos-accent-text">{formatMoney(totalFiltered, { cents: true })}</p></div>
-                <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Ventas</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums">{sales.length}</p></div>
-                <div className="col-span-2 sm:col-span-1 rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Ticket promedio</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums">{sold.length > 0 ? formatMoney(totalFiltered / sold.length, { cents: true }) : '—'}</p></div>
+                <div className="rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Ventas cobradas</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums">{summary.paidCount}</p>{reversedText && <p className="mt-1 text-xs text-bos-muted">Aparte, {reversedText} (no {summary.reversedCount === 1 ? 'cuenta' : 'cuentan'}).</p>}</div>
+                <div className="col-span-2 sm:col-span-1 rounded-xl border border-bos-border bg-bos-surface p-4 sm:p-5"><p className="text-[13px] font-medium text-bos-muted">Ticket promedio</p><p className="mt-1 font-display text-2xl sm:text-3xl font-semibold tabular-nums">{summary.averageTicket !== null ? formatMoney(summary.averageTicket, { cents: true }) : '—'}</p></div>
             </div>
 
             {/* Tabla */}
