@@ -484,7 +484,12 @@ export default function POS() {
                                         </div>
                                         <input id="pos-tip" type="number" min={0} step="1" inputMode="decimal" aria-label="Otra cantidad de propina" placeholder="Otra cantidad"
                                             value={customTip ? tip : ''} onChange={(e) => setTip(Math.max(Number(e.target.value) || 0, 0))} className={fieldClass} />
-                                        {tip > 0 && <MethodPicker label="Forma de pago de la propina" value={tipPayment} onChange={setTipPayment} />}
+                                        {tip > 0 && (
+                                            <div className="space-y-1.5">
+                                                <p className="text-[13px] font-medium text-bos-muted">Propina pagada con</p>
+                                                <MethodPicker label="Forma de pago de la propina" value={tipPayment} onChange={setTipPayment} />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

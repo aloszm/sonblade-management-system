@@ -62,7 +62,10 @@ export function usePOS() {
     const [servicePayment, setServicePayment] = useState<PaymentType>('cash');
     // Pago dividido de los servicios: una parte con servicePayment y el resto con otro método.
     const [serviceSplit, setServiceSplit] = useState<{ second: PaymentType; firstAmount: string } | null>(null);
-    const [tipPayment, setTipPayment] = useState<PaymentType>('cash');
+    // La propina se paga, salvo que se elija otra cosa, igual que el servicio: si arrancara siempre en «Efectivo», un cobro
+    // con tarjeta dejaba la propina como efectivo y la caja esperaba dinero que nunca entró (faltante al cierre).
+    const [tipPaymentChoice, setTipPaymentChoice] = useState<PaymentType | null>(null);
+    const tipPayment: PaymentType = tipPaymentChoice ?? servicePayment;
     const [productPayment, setProductPayment] = useState<PaymentType>('cash');
     const [tip, setTip] = useState(0);
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -475,7 +478,7 @@ export function usePOS() {
             setSelectedClient(null);
             setServicePayment('cash');
             setServiceSplit(null);
-            setTipPayment('cash');
+            setTipPaymentChoice(null);
             setProductPayment('cash');
             setDiscountReason('');
             setProductSellerChoice('');
@@ -513,7 +516,7 @@ export function usePOS() {
     const chooseBarber = (barber: Barber | null) => { setSelectedBarber(barber); clearError('barber'); };
     const chooseServicePayment = (m: PaymentType) => { setServicePayment(m); clearError('split', 'payment', 'server'); };
     const chooseProductPayment = (m: PaymentType) => { setProductPayment(m); clearError('payment', 'server'); };
-    const chooseTipPayment = (m: PaymentType) => { setTipPayment(m); clearError('payment', 'server'); };
+    const chooseTipPayment = (m: PaymentType) => { setTipPaymentChoice(m); clearError('payment', 'server'); };
     const changeSplit = (value: { second: PaymentType; firstAmount: string } | null) => { setServiceSplit(value); clearError('split', 'server'); };
     const changeDiscountReason = (value: string) => { setDiscountReason(value); clearError('discount'); };
     const changeDiscountAuthorizer = (value: string) => { setDiscountAuthorizer(value); clearError('discount'); };

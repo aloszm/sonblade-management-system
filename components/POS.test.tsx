@@ -403,3 +403,52 @@ describe('cobro desde la agenda: productos de la cita con su vendedor', () => {
         expect(warning).toHaveAttribute('role', 'alert');
     });
 });
+
+describe('cobro: forma de pago de la propina', () => {
+    const tipsOf = (api: { salesBodies: unknown[] }, i = 0) => (api.salesBodies[i] as { tips: { amount: number; method: string }[] }).tips;
+    const tipGroup = () => screen.getByRole('group', { name: 'Forma de pago de la propina' });
+    const start = async () => {
+        const api = mockApi();
+        render(<POS />);
+        fireEvent.click(await screen.findByRole('button', { name: /Deya/ }));
+        await addService('Corte');
+        return api;
+    };
+    const pay = async (api: { salesBodies: unknown[] }, label: string) => {
+        const cobrar = screen.getByRole('button', { name: label });
+        await waitFor(() => expect(cobrar).toBeEnabled());
+        fireEvent.click(cobrar);
+        await waitFor(() => expect(api.salesBodies).toHaveLength(1));
+    };
+
+    it('cobro con tarjeta y propina: la propina también va con tarjeta, sin tocar nada más', async () => {
+        const api = await start();
+        fireEvent.click(within(screen.getByRole('group', { name: 'Forma de pago de los servicios' })).getByRole('button', { name: 'Tarjeta' }));
+        fireEvent.click(screen.getByRole('button', { name: '$20' }));
+        expect(screen.getByText('Propina pagada con')).toBeInTheDocument(); // el selector ya tiene título visible
+        expect(within(tipGroup()).getByRole('button', { name: 'Tarjeta' })).toHaveAttribute('aria-pressed', 'true');
+        await pay(api, 'Cobrar $220');
+        expect(tipsOf(api)).toEqual([expect.objectContaining({ amount: 20, method: 'card' })]);
+    });
+
+    it('si primero se pone la propina y luego se cambia el servicio a transferencia, la propina lo sigue', async () => {
+        const api = await start();
+        fireEvent.click(screen.getByRole('button', { name: '$20' }));
+        expect(within(tipGroup()).getByRole('button', { name: 'Efectivo' })).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(within(screen.getByRole('group', { name: 'Forma de pago de los servicios' })).getByRole('button', { name: 'Transferencia' }));
+        expect(within(tipGroup()).getByRole('button', { name: 'Transferencia' })).toHaveAttribute('aria-pressed', 'true');
+        await pay(api, 'Cobrar $220');
+        expect(tipsOf(api)[0]).toMatchObject({ method: 'transfer' });
+    });
+
+    it('si se elige a mano (servicio con tarjeta, propina en efectivo), se respeta aunque después cambie el servicio', async () => {
+        const api = await start();
+        fireEvent.click(within(screen.getByRole('group', { name: 'Forma de pago de los servicios' })).getByRole('button', { name: 'Tarjeta' }));
+        fireEvent.click(screen.getByRole('button', { name: '$20' }));
+        fireEvent.click(within(tipGroup()).getByRole('button', { name: 'Efectivo' }));
+        fireEvent.click(within(screen.getByRole('group', { name: 'Forma de pago de los servicios' })).getByRole('button', { name: 'Transferencia' }));
+        expect(within(tipGroup()).getByRole('button', { name: 'Efectivo' })).toHaveAttribute('aria-pressed', 'true');
+        await pay(api, 'Cobrar $220');
+        expect(tipsOf(api)[0]).toMatchObject({ method: 'cash' });
+    });
+});
