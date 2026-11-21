@@ -16,9 +16,14 @@ import type { AppointmentProductLine } from '@/lib/appointments/extras';
 import { WhatsAppActions } from './whatsapp';
 import { AppointmentProductsSection } from './products';
 
-// En la agenda solo se usan estas acciones: confirmar, marcar que llegó y cancelar.
-const UI_ACTIONS: AppointmentStatus[] = ['confirmed', 'checked_in', 'cancelled'];
-const actionsFor = (status: AppointmentStatus) => nextStatuses(status).filter((s) => UI_ACTIONS.includes(s));
+// En la agenda solo se usan estas acciones, en este orden: llegó, no llegó y cancelar.
+// «Confirmar» se quitó (21 nov, pedido del dueño): se confundía con «Enviar confirmación» por WhatsApp.
+// El estado «Confirmada» sigue existiendo en la base; las citas que ya lo tienen muestran las mismas acciones.
+const UI_ACTIONS: AppointmentStatus[] = ['checked_in', 'no_show', 'cancelled'];
+const actionsFor = (status: AppointmentStatus) => {
+    const allowed = nextStatuses(status);
+    return UI_ACTIONS.filter((s) => allowed.includes(s));
+};
 
 const timeOf = (iso: string) => { const d = new Date(iso); return formatClock(d.getHours() * 60 + d.getMinutes()); };
 
@@ -126,22 +131,26 @@ export default function AppointmentDetail({ apt, barberColor, canManage, canSeeP
                     <AppointmentProductsSection apt={apt} ownEmployeeId={ownEmployeeId} showPrices={showPrices} busyLineId={productBusyId} error={productError}
                         onAdd={(a) => onAddProduct?.(a)} onRemove={(a, l) => onRemoveProduct?.(a, l)} onSeller={(a, l, id) => onProductSeller?.(a, l, id)} />
                     {canManage && (actions.length > 0 || open) && (
-                        <div className="mt-4 flex flex-wrap gap-2 border-t border-bos-border pt-4">
-                            {open && (
-                                <Link href={`/pos?cita=${apt.id}`} data-testid="charge-appointment"
-                                    className="inline-flex min-h-11 items-center rounded-xl bg-bos-accent px-4 text-sm font-bold text-bos-on-accent hover:brightness-105">Cobrar</Link>
+                        <div className="mt-4 space-y-2 border-t border-bos-border pt-4">
+                            {actions.length > 0 && (
+                                <div className="flex flex-wrap gap-2" data-testid="status-actions">
+                                    {actions.map((next) => (
+                                        <Button key={next} variant="secondary" size="sm" disabled={busy} className={next === 'cancelled' ? 'text-bos-danger' : ''}
+                                            onClick={() => (next === 'cancelled' ? onCancel(apt) : onStatus(apt, next))}>
+                                            {ACTION_LABELS[next]}
+                                        </Button>
+                                    ))}
+                                </div>
                             )}
                             {open && (
-                                <Button variant="secondary" size="sm" onClick={() => onReschedule(apt)} disabled={busy} data-testid="reschedule-appointment">
-                                    <CalendarClock aria-hidden="true" className="h-4 w-4" /> Reprogramar
-                                </Button>
+                                <div className="flex flex-wrap gap-2">
+                                    <Link href={`/pos?cita=${apt.id}`} data-testid="charge-appointment"
+                                        className="inline-flex min-h-11 items-center rounded-xl bg-bos-accent px-4 text-sm font-bold text-bos-on-accent hover:brightness-105">Cobrar</Link>
+                                    <Button variant="secondary" size="sm" onClick={() => onReschedule(apt)} disabled={busy} data-testid="reschedule-appointment">
+                                        <CalendarClock aria-hidden="true" className="h-4 w-4" /> Reprogramar
+                                    </Button>
+                                </div>
                             )}
-                            {actions.map((next) => (
-                                <Button key={next} variant="secondary" size="sm" disabled={busy} className={next === 'cancelled' ? 'text-bos-danger' : ''}
-                                    onClick={() => (next === 'cancelled' ? onCancel(apt) : onStatus(apt, next))}>
-                                    {ACTION_LABELS[next]}
-                                </Button>
-                            ))}
                         </div>
                     )}
                     <WhatsAppActions apt={apt} canSend={canManage} onSent={() => onNotified?.()} />

@@ -63,6 +63,8 @@ function AgendaScreen() {
     const [busyId, setBusyId] = useState<string | null>(null);
     const [actionError, setActionError] = useState('');
     const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+    // «No llegó» no se puede deshacer (la base no deja salir de ese estado): se pregunta antes.
+    const [noShowTarget, setNoShowTarget] = useState<Appointment | null>(null);
     const [offForm, setOffForm] = useState<{ barberId: string; date: string } | null>(null);
     const [offCancel, setOffCancel] = useState<TimeOffView | null>(null);
     // Recordatorios de mañana y productos de la cita (cada uno se abre solo: la ventana del día se oculta mientras tanto).
@@ -210,7 +212,7 @@ function AgendaScreen() {
     const dayAll = openDay ? (byDay.get(openDay) ?? []) : [];
     const dayList = onlyApt ? dayAll.filter((a) => a.id === onlyApt) : dayAll;
     const pickDay = (key: string) => { goToDay(key); setView('day'); };
-    const nothingOpen = !formState && !cancelTarget && !offForm && !offCancel && !tomorrowOpen && !productAddId && !productRemove;
+    const nothingOpen = !formState && !cancelTarget && !noShowTarget && !offForm && !offCancel && !tomorrowOpen && !productAddId && !productRemove;
     const productApt = productAddId ? data.appointments.find((a) => a.id === productAddId) ?? null : null;
     const removeApt = productRemove ? data.appointments.find((a) => a.id === productRemove.aptId) ?? null : null;
 
@@ -272,7 +274,7 @@ function AgendaScreen() {
                 <DayModal day={openDay} single={!!onlyApt} appointments={dayList} actionError={actionError} busyId={busyId} colorOf={colorOf}
                     canManage={canManage} canSeePhones={data.canSeePhones} showPrices={!readOnly}
                     onClose={() => { setOpenDay(null); setOnlyApt(null); }}
-                    onStatus={(apt, status) => { void changeStatus(apt, status); }}
+                    onStatus={(apt, status) => { if (status === 'no_show') { setActionError(''); setNoShowTarget(apt); } else void changeStatus(apt, status); }}
                     onCancel={(apt) => { setActionError(''); setCancelTarget(apt); }}
                     onReschedule={(apt) => { setActionError(''); setFormState({ mode: 'reschedule', appointment: apt }); }}
                     onNewHere={(day) => openForm(day)}
@@ -313,6 +315,17 @@ function AgendaScreen() {
                     confirmLabel="Cancelar cita" tooShort="Escribe el motivo de la cancelación." busy={busyId === cancelTarget.id} error={actionError}
                     onClose={() => { setCancelTarget(null); setActionError(''); }}
                     onSubmit={async (reason) => { if (await changeStatus(cancelTarget, 'cancelled', reason)) setCancelTarget(null); }} />
+            )}
+
+            {noShowTarget && (
+                <ConfirmDialog title="El cliente no llegó" variant="danger" confirmLabel="Sí, no llegó" cancelLabel="Volver" loading={busyId === noShowTarget.id}
+                    message={<>
+                        <p>¿Marcar que <strong>{noShowTarget.client_name}</strong> no llegó a su cita de las {timeOf(noShowTarget.scheduled_at)}?</p>
+                        <p className="mt-1 text-sm text-bos-muted">El horario queda libre. Esto no se puede deshacer: la cita ya no se podrá cobrar ni marcar como llegó.</p>
+                        {actionError && <p role="alert" className="mt-2 text-sm font-medium text-bos-danger">{actionError}</p>}
+                    </>}
+                    onConfirm={() => { void changeStatus(noShowTarget, 'no_show').then((ok) => { if (ok) { setNoShowTarget(null); toast.success('Cita marcada como «No llegó».'); } }); }}
+                    onCancel={() => { setNoShowTarget(null); setActionError(''); }} />
             )}
 
             {offForm && <TimeOffFormModal barbers={activeBarbers} initial={offForm} onClose={() => setOffForm(null)} onSaved={refresh} />}

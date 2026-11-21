@@ -86,6 +86,7 @@ La versión 2 **está publicada en producción**, con la base de producción car
 - **Nuevo (19 nov):** los teléfonos de empleados se filtran en el servidor según el puesto (`lib/auth/privacy.ts`, S8).
 - **Nuevo (19 nov):** `/api/health` prueba la llave secreta; pantalla **Configuración → Estado del sistema** (solo dueño). Respaldo semanal y visita diaria en GitHub.
 - **Nuevo (19 nov):** aviso de privacidad v1.0 publicado en `/privacidad` (D6).
+- **Nuevo (21 nov):** en el detalle de la cita, las acciones de estado son **Llegó · No llegó · Cancelar** (luego Cobrar y Reprogramar). Se quitó «Confirmar» por pedido del dueño: se confundía con «Enviar confirmación» de WhatsApp. «No llegó» pide confirmación porque la base no permite deshacerlo. El estado «Confirmada» sigue existiendo en la base. Pendiente del dueño: ¿se permite marcar «No llegó» antes de la hora de la cita? Hoy sí.
 
 ### 1.4 Qué NO se ha verificado nunca (honestidad)
 

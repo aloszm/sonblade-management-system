@@ -61,11 +61,12 @@ test.describe('agenda', () => {
         await page.getByRole('button', { name: 'Cancelar cita' }).click();
         await expect(page.getByTestId('day-modal').getByText('Cancelada: Prueba automática').first()).toBeVisible();
 
-        // Solo se ofrecen confirmar, llegó y cancelar.
+        // Solo se ofrecen llegó, no llegó y cancelar («Confirmar» se quitó el 21 nov).
         const other = page.getByTestId('day-modal').getByTestId('appointment').filter({ hasText: 'Agendada' }).first();
         if (await other.count()) {
             await expect(other.getByRole('button', { name: 'Iniciar servicio' })).toHaveCount(0);
-            await expect(other.getByRole('button', { name: 'No llegó' })).toHaveCount(0);
+            await expect(other.getByRole('button', { name: 'Confirmar', exact: true })).toHaveCount(0);
+            await expect(other.getByRole('button', { name: 'No llegó' })).toHaveCount(1);
         }
     });
 });

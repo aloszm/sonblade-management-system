@@ -124,6 +124,53 @@ describe('Agenda: parámetros de la dirección', () => {
     });
 });
 
+describe('Agenda: acciones de estado en el detalle', () => {
+    it('ofrece Llegó, No llegó y Cancelar, en ese orden, y ya no «Confirmar»', async () => {
+        query = 'cita=a1';
+        routes(ADMIN);
+        await openPage();
+        const dialog = await screen.findByTestId('day-modal');
+        const labels = within(within(dialog).getByTestId('status-actions')).getAllByRole('button').map((b) => b.textContent);
+        expect(labels).toEqual(['Llegó', 'No llegó', 'Cancelar']);
+        expect(within(dialog).queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+    });
+
+    it('una cita ya «Confirmada» muestra las mismas tres acciones', async () => {
+        query = 'cita=a1';
+        routes(ADMIN, { ...APT, status: 'confirmed' });
+        await openPage();
+        const dialog = await screen.findByTestId('day-modal');
+        const labels = within(within(dialog).getByTestId('status-actions')).getAllByRole('button').map((b) => b.textContent);
+        expect(labels).toEqual(['Llegó', 'No llegó', 'Cancelar']);
+    });
+
+    it('«No llegó» pregunta antes; «Volver» no cambia nada y «Sí, no llegó» manda no_show', async () => {
+        query = 'cita=a1';
+        const fetchMock = mockFetch([
+            ['/api/auth/me', () => json(ADMIN)], ['/api/barbers', () => json(BARBERS)], ['/api/schedule', () => json({}, 500)],
+            ['/api/services', () => json(SERVICES)], ['/api/time-off', () => json([])],
+            [/\/api\/appointments\/a1$/, (_u, init) => (init?.method === 'PATCH' ? json({ id: 'a1', status: 'no_show', notes: null }) : json(APT))],
+            ['/api/appointments?', () => json([APT])],
+        ]);
+        const patches = () => fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PATCH');
+        await openPage();
+        fireEvent.click(within(await screen.findByTestId('day-modal')).getByRole('button', { name: 'No llegó' }));
+        let confirm = await screen.findByTestId('confirm-dialog');
+        expect(confirm).toHaveTextContent('Luis Pérez');
+        expect(confirm).toHaveTextContent('no se puede deshacer');
+        fireEvent.click(within(confirm).getByRole('button', { name: 'Volver' }));
+        await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument());
+        expect(patches()).toHaveLength(0);
+
+        fireEvent.click(within(await screen.findByTestId('day-modal')).getByRole('button', { name: 'No llegó' }));
+        confirm = await screen.findByTestId('confirm-dialog');
+        fireEvent.click(within(confirm).getByRole('button', { name: 'Sí, no llegó' }));
+        await waitFor(() => expect(patches()).toHaveLength(1));
+        expect(JSON.parse(String((patches()[0][1] as RequestInit).body))).toEqual({ status: 'no_show', reason: null });
+        await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument());
+    });
+});
+
 describe('Agenda: reprogramar desde el detalle', () => {
     it('abre el formulario precargado y, ante un 409 de empalme, explica por qué no se pudo', async () => {
         query = 'cita=a1';
@@ -152,7 +199,7 @@ describe('Agenda: barbero (solo lectura)', () => {
         expect(within(dialog).getByText('Luis Pérez')).toBeInTheDocument();
         expect(within(dialog).queryByRole('button', { name: /Reprogramar/ })).not.toBeInTheDocument();
         expect(within(dialog).queryByTestId('charge-appointment')).not.toBeInTheDocument();
-        expect(within(dialog).queryByRole('button', { name: /Confirmar|Llegó|Cancelar/ })).not.toBeInTheDocument();
+        expect(within(dialog).queryByRole('button', { name: /Confirmar|Llegó|No llegó|Cancelar/ })).not.toBeInTheDocument();
         expect(within(dialog).queryByText('Teléfono')).not.toBeInTheDocument();
         // No ve precios de los servicios.
         expect(within(dialog).getByTestId('appointment-services')).not.toHaveTextContent('$');
