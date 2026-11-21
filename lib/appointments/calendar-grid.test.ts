@@ -248,8 +248,8 @@ describe('a qué hora baja la agenda al abrirla', () => {
     const weekday = { open: 12 * 60 + 30, close: 20 * 60 }; // martes a sábado: 12:30 p.m. a 8 p.m.
     const at = (h: number, m = 0) => h * 60 + m;
 
-    it('otro día sin citas: la hora en que abre el negocio, no las 8 a.m.', () => {
-        expect(dayScrollTarget({ range, window: weekday })).toBe(at(12, 30));
+    it('otro día sin citas: la hora en que abre el negocio (en punto, para ver su rótulo), no las 8 a.m.', () => {
+        expect(dayScrollTarget({ range, window: weekday })).toBe(at(12));
         expect(dayScrollTarget({ range, window: { open: at(10), close: at(19) } })).toBe(at(10)); // domingo y lunes
     });
 
@@ -258,9 +258,9 @@ describe('a qué hora baja la agenda al abrirla', () => {
     });
 
     it('hoy antes de abrir (o de madrugada): la apertura; con una cita más temprano, esa cita', () => {
-        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9) })).toBe(at(12, 30));
-        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(2, 48) })).toBe(at(12, 30)); // fuera de la cuadrícula
-        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9), firstStart: at(13) })).toBe(at(12, 30));
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9) })).toBe(at(12));
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(2, 48) })).toBe(at(12)); // fuera de la cuadrícula
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9), firstStart: at(13) })).toBe(at(12));
         expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(9), firstStart: at(11) })).toBe(at(11));
     });
 
@@ -270,7 +270,7 @@ describe('a qué hora baja la agenda al abrirla', () => {
 
     it('hoy después de cerrar: vuelve al inicio del día de trabajo (primera cita o apertura)', () => {
         expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(21), firstStart: at(13) })).toBe(at(13));
-        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(21) })).toBe(at(12, 30));
+        expect(dayScrollTarget({ range, window: weekday, nowMinutes: at(21) })).toBe(at(12));
     });
 
     it('día cerrado o sin horario cargado: se conserva lo de antes', () => {

@@ -108,18 +108,20 @@ export function gridRange(_window?: { open: number; close: number } | null, appo
  * - Hoy, con el negocio abierto: la hora actual (medio bloque arriba, para ver lo que está en curso).
  * - Hoy antes de abrir: la apertura, o la primera cita si es más temprano.
  * - Otro día, u hoy después de cerrar: la primera cita; sin citas, la hora de apertura.
+ * La apertura se redondea hacia abajo a la hora en punto (12:30 → 12:00) para que arriba quede su rótulo («12 p.m.»).
  * - Sin horario conocido o día cerrado: como antes (hora actual si es hoy; si no, primera cita o inicio de la cuadrícula).
  */
 export function dayScrollTarget(o: { range: Span; window?: { open: number; close: number } | null; nowMinutes?: number | null; firstStart?: number | null }): number {
     const clamp = (m: number) => Math.min(Math.max(m, o.range.start), Math.max(o.range.start, o.range.end - SLOT_MINUTES));
     const open = o.window ? o.window.open : null;
     const close = o.window ? o.window.close : null;
+    const openHour = open !== null ? Math.floor(open / 60) * 60 : null;
     const first = o.firstStart ?? null;
-    const resting = first !== null ? first : open !== null ? open : o.range.start;
+    const resting = first !== null ? first : openHour !== null ? openHour : o.range.start;
     const now = o.nowMinutes ?? null;
     if (now !== null && now >= o.range.start && now < o.range.end) {
         if (open === null || close === null) return clamp(now - SLOT_MINUTES);
-        if (now < open) return clamp(first !== null ? Math.min(first, open) : open);
+        if (now < open) return clamp(first !== null ? Math.min(first, openHour ?? open) : openHour ?? open);
         if (now < close) return clamp(now - SLOT_MINUTES);
     }
     return clamp(resting);
