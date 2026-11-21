@@ -1,31 +1,17 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { loadMemberNames } from '@/lib/auth/member-names';
 import { businessDayRange } from '@/lib/business/timezone';
+import { fetchAll, loadCashFlows, loadOtherExpenses, type Query } from '@/lib/cash/cash-flow-load';
 import {
-    buildDayCash, buildDaySummary, type DayEmployee, type DayItem, type DayPayment, type DaySale, type DaySummaryPayload, type DayTip,
+    buildDaySummary, dayCashFromFlows, type DayEmployee, type DayItem, type DayPayment, type DaySale, type DaySummaryPayload, type DayTip,
 } from '@/lib/cash/day-summary';
-import { MOVEMENT_COLUMNS, SESSION_COLUMNS, UNKNOWN_OPENER, type CashMovementRow, type CashSessionRow } from '@/lib/cash/session-view';
+import { FLOW_SESSION_COLUMNS, type CashSessionRow } from '@/lib/cash/session-view';
 
 // Lectura con el cliente del usuario (RLS): recepción, gerencia, consulta y dueño leen sales, sale_items, payments,
 // sale_tips, cash_sessions y cash_movements de su sucursal. NUNCA se pide unit_cost_snapshot ni se usa select('*').
 // PostgREST entrega como máximo 1000 filas por consulta: se pagina, y los filtros por venta van en bloques.
 
-const PAGE = 1000;
 const CHUNK = 150;
-
-type Query = { range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }> };
-
-async function fetchAll<T>(build: () => Query): Promise<T[]> {
-    const rows: T[] = [];
-    for (let offset = 0; ; offset += PAGE) {
-        const { data, error } = await build().range(offset, offset + PAGE - 1);
-        if (error) throw error;
-        const page = (data ?? []) as T[];
-        rows.push(...page);
-        if (page.length < PAGE) return rows;
-    }
-}
 
 async function fetchBySaleIds<T>(ids: string[], build: (chunk: string[]) => Query): Promise<T[]> {
     const rows: T[] = [];
@@ -38,6 +24,11 @@ export async function loadDaySummary(
     scope: { businessId: string; branchId: string },
     day: string,
     timezone: string,
+    /**
+     * Cuenta principal, gerencia y consulta (true) ven además quién registró cada movimiento y los gastos del sobre o del banco.
+     * Recepción (false) ve solo lo que ya ve en la lista de movimientos de Caja.
+     */
+    managementView = false,
 ): Promise<Pick<DaySummaryPayload, 'summary' | 'cash'>> {
     const { businessId, branchId } = scope;
     const range = businessDayRange(day, day, timezone);
@@ -60,19 +51,17 @@ export async function loadDaySummary(
         fetchAll<DayEmployee>(() => supabase.from('employees').select('id, display_name').eq('business_id', businessId).order('id')),
         fetchAll<{ id: string }>(() => supabase.from('services').select('id').eq('business_id', businessId).eq('category', 'cortes').order('id')),
         // Cajas del día: las que se ABRIERON ese día del negocio.
-        fetchAll<CashSessionRow>(() => supabase.from('cash_sessions').select(SESSION_COLUMNS)
+        fetchAll<CashSessionRow>(() => supabase.from('cash_sessions').select(FLOW_SESSION_COLUMNS)
             .eq('business_id', businessId).eq('branch_id', branchId).gte('opened_at', range.from).lt('opened_at', range.to).order('opened_at').order('id')),
     ]);
 
-    const sessionIds = sessions.map((s) => s.id);
-    const [movements, names] = await Promise.all([
-        sessionIds.length === 0 ? Promise.resolve([] as CashMovementRow[]) : fetchAll<CashMovementRow>(() => supabase.from('cash_movements')
-            .select(MOVEMENT_COLUMNS).in('cash_session_id', sessionIds).order('created_at').order('id')),
-        loadMemberNames(supabase, businessId, sessions.flatMap((s) => [s.opened_by, s.closed_by])),
+    const [flows, otherExpenses] = await Promise.all([
+        loadCashFlows(supabase, scope, sessions, { showAuthors: managementView }),
+        managementView ? loadOtherExpenses(supabase, scope, day, timezone) : Promise.resolve(null),
     ]);
 
     return {
         summary: buildDaySummary({ date: day, sales, items, payments, tips, employees, cutServiceIds: cutServices.map((s) => s.id) }),
-        cash: buildDayCash(sessions, movements, names, UNKNOWN_OPENER),
+        cash: dayCashFromFlows(flows, otherExpenses),
     };
 }

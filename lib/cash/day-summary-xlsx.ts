@@ -1,7 +1,8 @@
 // Excel del resumen de caja del día. Se arma en el navegador (o en la prueba) a partir de los datos que ya entregó la
 // API autorizada (recepción: solo hoy y ayer), así que no hay otra ruta que revisar. Sin clientes, teléfonos ni costos.
+import { visibleLines } from '@/lib/cash/cash-flow';
 import type { DaySummaryPayload } from '@/lib/cash/day-summary';
-import { longDayLabel } from '@/lib/cash/day-summary-text';
+import { longDayLabel, money } from '@/lib/cash/day-summary-text';
 import { spreadsheetSafe } from '@/lib/reports/full-report-xlsx';
 import { formatTime } from '@/lib/utils/dates';
 
@@ -105,36 +106,81 @@ export async function buildDaySummaryXlsx(payload: DaySummaryPayload): Promise<U
         applyWidths(sheet, widths);
     }
 
-    // ── Caja
+    // ── Caja: el camino del efectivo de cada caja, con los mismos renglones de la pantalla
     {
         const sheet = workbook.addWorksheet('Caja', { views: [{ showGridLines: false }] });
         const widths: number[] = [];
-        header(sheet, cash.sessions.length === 0 ? 'No hubo caja abierta este día.' : cash.anyOpen ? 'La caja sigue abierta: el resumen puede cambiar.' : 'Cajas abiertas ese día.', payload);
+        header(sheet, cash.sessions.length === 0 ? 'No hubo caja abierta este día.' : cash.anyOpen ? 'La caja sigue abierta: el resumen puede cambiar.' : 'El camino del efectivo: fondo + entradas − salidas = efectivo que debe haber; y a dónde se fue lo contado.', payload);
         const time = (iso: string | null) => (iso ? formatTime(iso, payload.timezone) : '');
         let row = 5;
-        if (cash.sessions.length > 0) {
-            row = table(sheet, row, [
-                { header: 'Caja', kind: 'text' }, { header: 'Abrió', kind: 'text' }, { header: 'Cerró', kind: 'text' }, { header: 'Fondo inicial', kind: 'money' },
-                { header: 'Cobros en efectivo (neto)', kind: 'money' }, { header: 'Entradas', kind: 'money' }, { header: 'Salidas', kind: 'money' },
-                { header: 'Esperado', kind: 'money' }, { header: 'Contado', kind: 'money' }, { header: 'Diferencia', kind: 'money' }, { header: 'Apartado', kind: 'money' },
-            ], cash.sessions.map((s, i) => [
-                `Caja ${i + 1} · ${time(s.openedAt)}${s.closedAt ? ` a ${time(s.closedAt)}` : ' (abierta)'}`,
-                s.openedBy, s.closedBy ?? '', pesos(s.initialCents), pesos(s.cashFromSalesCents), pesos(s.manualInCents), pesos(s.manualOutCents),
-                pesos(s.expectedCents), s.countedCents === null ? null : pesos(s.countedCents), s.differenceCents === null ? null : pesos(s.differenceCents),
-                s.reserveCents === null ? null : pesos(s.reserveCents),
-            ]), widths);
-            const moves = cash.sessions.flatMap((s, i) => [
-                ...s.manualIn.map((m) => [`Caja ${i + 1}`, m.tag, m.description, pesos(m.cents), null]),
-                ...s.manualOut.map((m) => [`Caja ${i + 1}`, m.tag, m.description, null, pesos(m.cents)]),
-            ]);
-            sheet.getCell(row, 1).value = 'Entradas y salidas de efectivo (sin cobros ni propinas)';
-            sheet.getCell(row, 1).font = { bold: true };
+        const bold = (r: number, c: number) => { sheet.getCell(r, c).font = { bold: true }; };
+        const put = (r: number, label: string, count: number | null, value: number | null, opts: { bold?: boolean; italic?: boolean } = {}) => {
+            sheet.getCell(r, 1).value = spreadsheetSafe(label);
+            if (count !== null) { sheet.getCell(r, 2).value = count; sheet.getCell(r, 2).numFmt = '#,##0'; }
+            if (value !== null) { sheet.getCell(r, 3).value = value; sheet.getCell(r, 3).numFmt = MONEY_FORMAT; }
+            if (opts.bold) [1, 2, 3].forEach((c) => { bold(r, c); sheet.getCell(r, c).border = { top: { style: 'thin', color: { argb: 'FF9A9A9A' } } }; });
+            if (opts.italic) sheet.getCell(r, 1).font = { italic: true, color: { argb: 'FF5F5F66' } };
+            widths[0] = Math.max(widths[0] ?? 0, Math.min(60, label.length + 2));
+        };
+        const heading = (r: number, text: string) => { sheet.getCell(r, 1).value = spreadsheetSafe(text); bold(r, 1); sheet.getCell(r, 1).font = { bold: true, size: 12, color: { argb: 'FF7A5B32' } }; };
+        const flowRows = (f: (typeof cash.sessions)[number]) => visibleLines(f, 'in').concat(visibleLines(f, 'out'));
+        const signed = (l: { side: 'in' | 'out'; cents: number }) => (l.side === 'in' || l.cents === 0 ? pesos(l.cents) : -pesos(l.cents));
+
+        if (cash.sessions.length > 1) {
+            const tl = cash.total.lines.filter((l) => l.always || l.count > 0 || l.cents !== 0);
+            heading(row++, `Total del día · ${cash.sessions.length} cajas (sin fondo ni esperado: cada caja arrastra el suyo)`);
+            const totalRows: (string | number | null)[][] = tl.map((l) => [`${l.side === 'in' ? '(+)' : '(−)'} ${l.label}`, l.count, signed(l)]);
+            totalRows.push(['Diferencia de las cajas cerradas', null, pesos(cash.total.differenceCents)],
+                ['Apartado al sobre', null, pesos(cash.total.reserveCents)], ['Retirado', null, pesos(cash.total.withdrawnCents)]);
+            row = table(sheet, row, [{ header: 'Concepto', kind: 'text' }, { header: 'Movimientos', kind: 'number' }, { header: 'Importe', kind: 'money' }], totalRows, widths);
+        }
+
+        cash.sessions.forEach((f, i) => {
+            heading(row++, `Caja ${i + 1} · ${time(f.openedAt)}${f.closedAt ? ` a ${time(f.closedAt)}` : ' (abierta)'} · Abrió ${f.openedBy}${f.closedBy ? ` · Cerró ${f.closedBy}` : ''}`);
+            row = table(sheet, row, [{ header: 'Concepto', kind: 'text' }, { header: 'Movimientos', kind: 'number' }, { header: 'Importe', kind: 'money' }], [
+                ['Fondo con que se abrió', null, pesos(f.openingCents)],
+                ...flowRows(f).map((l) => [`${l.side === 'in' ? '(+)' : '(−)'} ${l.label}`, l.count, signed(l)]),
+            ], widths) - 1;
+            // El renglón de «efectivo que debe haber» queda pegado a la tabla, con línea arriba.
+            put(row, f.open ? '(=) Efectivo que debe haber ahora' : '(=) Efectivo que debe haber', null, pesos(f.expectedCents), { bold: true });
             row++;
-            if (moves.length === 0) { sheet.getCell(row, 1).value = 'Sin entradas ni salidas.'; sheet.getCell(row, 1).font = { italic: true }; }
-            else table(sheet, row, [{ header: 'Caja', kind: 'text' }, { header: 'Tipo', kind: 'text' }, { header: 'Motivo', kind: 'text' }, { header: 'Entrada', kind: 'money' }, { header: 'Salida', kind: 'money' }], moves, widths);
+            if (!f.open && f.countedCents !== null) put(row++, 'Efectivo contado al cerrar', null, pesos(f.countedCents));
+            if (!f.open && f.differenceCents !== null) put(row++, f.differenceCents === 0 ? 'Diferencia (cuadra)' : f.differenceCents > 0 ? 'Diferencia (sobrante)' : 'Diferencia (faltante)', null, pesos(f.differenceCents));
+            row++;
+            if (f.split) {
+                heading(row++, f.split.proposed ? 'Al cerrar se propone (propuesta)' : '¿A dónde se fue lo contado?');
+                put(row++, 'Se deja de fondo para mañana', null, pesos(f.split.floatCents));
+                put(row++, `Se aparta al sobre «${f.split.reserveLabel}»`, null, pesos(f.split.reserveCents));
+                put(row++, `Se retira${f.split.deliveredTo ? ` (entregado a: ${f.split.deliveredTo})` : ''}`, null, pesos(f.split.withdrawnCents));
+                put(row++, f.split.proposed ? 'Total propuesto' : 'Total (debe ser igual a lo contado)', null, pesos(f.split.floatCents + f.split.reserveCents + f.split.withdrawnCents), { bold: true });
+                if (f.split.floatNote) put(row++, `Se dejó menos del fondo recomendado: ${f.split.floatNote}`, null, null, { italic: true });
+            } else if (!f.open) put(row++, 'Sin reparto guardado (caja cerrada antes del cierre guiado).', null, null, { italic: true });
+            put(row++, `Tarjeta ${money(f.cardCents)} y transferencia ${money(f.transferCents)} no están en la caja.`, null, null, { italic: true });
+            if (!f.check.ok) {
+                f.check.issues.forEach((t) => { sheet.getCell(row, 1).value = spreadsheetSafe(`ATENCIÓN: ${t}`); sheet.getCell(row, 1).font = { bold: true, color: { argb: 'FFB91C1C' } }; row++; });
+            }
+            row++;
+        });
+        if (cash.sessions.length > 0) {
+            if (cash.otherExpenses) {
+                put(row++, 'Gastos pagados del sobre o del banco (no salen de la caja)', cash.otherExpenses.count, pesos(cash.otherExpenses.envelopeCents + cash.otherExpenses.bankCents));
+                row++;
+            }
+            // Detalle: cada movimiento de efectivo, con hora, motivo y quién lo registró. Entradas positivas, salidas negativas.
+            heading(row++, 'Detalle de los movimientos de efectivo');
+            const moves = cash.sessions.flatMap((f, i) => flowRows(f).flatMap((l) => l.items.map((it) => [
+                `Caja ${i + 1}`, l.label, it.at ? time(it.at) : '', it.description, it.by ?? '', l.side === 'in' ? pesos(it.cents) : -pesos(it.cents),
+            ])));
+            if (moves.length === 0) { sheet.getCell(row, 1).value = 'Sin movimientos de efectivo.'; sheet.getCell(row, 1).font = { italic: true }; }
+            else table(sheet, row, [
+                { header: 'Caja', kind: 'text' }, { header: 'Renglón', kind: 'text' }, { header: 'Hora', kind: 'text' },
+                { header: 'Motivo', kind: 'text' }, { header: 'Registró', kind: 'text' }, { header: 'Monto', kind: 'money' },
+            ], moves, widths);
         }
         applyWidths(sheet, widths);
-        sheet.getColumn(1).width = 34;
+        sheet.getColumn(1).width = 50;
+        sheet.getColumn(2).width = 30;
+        sheet.getColumn(4).width = 36;
     }
 
     // ── Ventas del día

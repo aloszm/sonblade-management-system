@@ -29,7 +29,7 @@ const build = (over: Partial<DaySummaryPayload> = {}, empty = false): DaySummary
         cutServiceIds: ['c'],
     });
     const cash = buildDayCash(
-        empty ? [] : [{ id: 's', status: 'closed', opening_cash: 500, counted_cash: 1000, difference_amount: 0, opened_by: 'u1', opened_at: '2026-11-20T15:00:00Z', closed_at: '2026-11-21T01:00:00Z', closed_by: 'u2', reserve_amount: 400 }],
+        empty ? [] : [{ id: 's', status: 'closed', opening_cash: 500, counted_cash: 1000, difference_amount: 0, opened_by: 'u1', opened_at: '2026-11-20T15:00:00Z', closed_at: '2026-11-21T01:00:00Z', closed_by: 'u2', reserve_amount: 400, float_left: 500, withdrawn_amount: 100, withdrawal_delivered_to: 'Alonso' }],
         empty ? [] : [{ cash_session_id: 's', amount: 430, method: 'cash', movement_type: 'sale_payment', direction: 'in' }, { cash_session_id: 's', amount: 50, method: 'cash', movement_type: 'expense', direction: 'out', description: 'Agua' }, { cash_session_id: 's', amount: 120, method: 'cash', movement_type: 'deposit', direction: 'in', description: 'Cambio' }],
         new Map([['u1', 'Emi'], ['u2', 'Dago']]),
     );
@@ -74,12 +74,20 @@ describe('Resumen del día (pantalla)', () => {
         expect(people).toHaveLength(3);
         expect(people[0]).toContain('Deya');
         const cash = screen.getByTestId('cash-session');
-        expect(within(cash).getByText('Efectivo esperado')).toBeInTheDocument();
+        expect(within(cash).getByText('Efectivo que debe haber')).toBeInTheDocument();
         expect(cash).toHaveTextContent('Abrió Emi');
         expect(cash).toHaveTextContent('Cerró Dago');
-        expect(cash).toHaveTextContent('Gasto: Agua');
-        expect(cash).toHaveTextContent('Entrada: Cambio');
-        expect(cash).toHaveTextContent('Apartado al sobre');
+        // El camino del efectivo: fondo $500 + cobros $430 + otras entradas $120 − gastos $50 = $1,000
+        expect(within(cash).getByTestId('cf-opening')).toHaveTextContent('$500');
+        expect(within(cash).getByTestId('cf-amount-sales')).toHaveTextContent('+$430');
+        expect(within(cash).getByTestId('cf-amount-otherIn')).toHaveTextContent('+$120');
+        expect(within(cash).getByTestId('cf-amount-expenses')).toHaveTextContent('−$50');
+        expect(within(cash).getByTestId('cf-expected-value')).toHaveTextContent('$1,000');
+        expect(within(cash).getByTestId('cf-difference')).toHaveTextContent('Cuadra');
+        expect(within(cash).getByTestId('cf-reserve')).toHaveTextContent('$400');
+        expect(within(cash).getByTestId('cf-withdrawn')).toHaveTextContent('entregado a: Alonso');
+        expect(within(cash).getByTestId('cf-split-total')).toHaveTextContent('$1,000');
+        expect(within(cash).queryByTestId('cf-warning')).toBeNull();
     });
 
     it('la ventana y la página muestran LO MISMO (mismo componente, misma ruta de datos)', async () => {

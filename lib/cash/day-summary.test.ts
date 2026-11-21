@@ -153,7 +153,9 @@ const names = new Map([['u1', 'Emi'], ['u2', 'Dago']]);
 
 describe('buildDayCash', () => {
     it('día sin caja', () => {
-        expect(buildDayCash([], [], names)).toEqual({ sessions: [], anyOpen: false, differenceCents: 0, reserveCents: 0 });
+        const cash = buildDayCash([], [], names);
+        expect(cash).toMatchObject({ sessions: [], anyOpen: false, differenceCents: 0, reserveCents: 0, otherExpenses: null });
+        expect(cash.total.sessionCount).toBe(0);
     });
 
     it('esperado = fondo + cobros en efectivo + entradas − salidas (misma fórmula de Caja) y separa lo manual', () => {
@@ -168,13 +170,17 @@ describe('buildDayCash', () => {
             mv('s', { amount: 999, direction: 'out', method: 'card', movement_type: 'expense', description: 'Pagado con tarjeta' }),
         ], names);
         const s = cash.sessions[0];
-        expect(s).toMatchObject({ initialCents: 50000, cashFromSalesCents: 35000, manualInCents: 3000, manualOutCents: 10000, expectedCents: 50000 + 35000 + 3000 - 10000 });
-        expect(s.manualOut.map((m) => [m.tag, m.description])).toEqual([['Gasto', 'Agua'], ['Retiro', 'Adelanto · Deya']]);
-        expect(s.manualIn.map((m) => m.tag)).toEqual(['Entrada']);
+        const line = (id: string) => s.lines.find((l) => l.id === id)!;
+        expect(s).toMatchObject({ openingCents: 50000, expectedCents: 50000 + 35000 + 3000 - 10000 });
+        expect([line('sales').cents, line('tips').cents, line('otherIn').cents]).toEqual([40000, 5000, 3000]);
+        expect([line('refunds').cents, line('expenses').cents, line('team').cents]).toEqual([10000, 8000, 2000]);
+        expect(line('expenses').items.map((m) => m.description)).toEqual(['Agua']);
+        expect(line('team').items.map((m) => m.description)).toEqual(['Adelanto · Deya']);
+        expect(s.cardCents).toBe(15000); // el gasto pagado con tarjeta no está en la caja
         expect(s.openedBy).toBe('Emi');
         expect(s.closedBy).toBe('Dago');
         expect(s.countedCents).toBe(110000);
-        expect(s.reserveCents).toBe(60000);
+        expect(s.split).toMatchObject({ floatCents: 50000, reserveCents: 60000, withdrawnCents: 0, proposed: false });
     });
 
     it('dos cajas el mismo día: en orden, con diferencia y apartado sumados', () => {
@@ -190,7 +196,7 @@ describe('buildDayCash', () => {
     it('caja abierta: se marca, sin contado ni diferencia, y no suma al apartado', () => {
         const cash = buildDayCash([session('s', { status: 'open', counted_cash: null, difference_amount: null, closed_at: null, closed_by: null, reserve_amount: null })], [], names);
         expect(cash.anyOpen).toBe(true);
-        expect(cash.sessions[0]).toMatchObject({ open: true, countedCents: null, differenceCents: null, closedBy: null });
+        expect(cash.sessions[0]).toMatchObject({ open: true, countedCents: null, differenceCents: null, closedBy: null, split: null });
     });
 
     it('quien abrió sin nombre conocido usa el comodín', () => {
@@ -220,7 +226,9 @@ describe('texto del resumen', () => {
             '· Deya: 1 servicio $200 · productos $150 · propinas $30 = $380',
             '· Dani: 1 servicio $150 · propinas $20 = $170',
             'Ventas anuladas: 1 ($100)',
-            'Caja: esperado $1,100 · contado $1,100 · diferencia $0 · apartado $600',
+            'Efectivo: debe haber $1,100 · contado $1,100 · diferencia $0',
+            'Gastos de caja: $0',
+            'Fondo $500 · Apartado $600 · Retiro $0',
         ]);
         expect(text).not.toMatch(/Pérez|López/);
     });
@@ -232,9 +240,9 @@ describe('texto del resumen', () => {
 
     it('caja abierta: avisa que puede cambiar; muchas cajas: un renglón', () => {
         const open = buildDayCash([session('s', { status: 'open', counted_cash: null, difference_amount: null, reserve_amount: null })], [], names);
-        expect(buildWhatsAppText('2026-11-20', summary, open)).toContain('Caja: abierta (esperado $500); el resumen puede cambiar');
+        expect(buildWhatsAppText('2026-11-20', summary, open)).toContain('Efectivo: debe haber ahora $500 (caja abierta, puede cambiar)');
         const many = buildDayCash(['a', 'bb', 'ccc', 'dddd'].map((id) => session(id)), [], names);
-        expect(buildWhatsAppText('2026-11-20', summary, many)).toContain('Cajas: 4 cajas · diferencia $0 · apartado $2,400');
+        expect(buildWhatsAppText('2026-11-20', summary, many)).toContain('Cajas: 4 cajas · diferencia $0 · gastos de caja $0 · apartado $2,400');
     });
 
     it('enlace de WhatsApp, rótulos de fecha y nombre de archivo', () => {

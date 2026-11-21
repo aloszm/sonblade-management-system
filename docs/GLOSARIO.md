@@ -53,7 +53,11 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
   contando el dinero.
 - **Movimiento de caja:** entrada o salida de efectivo que no es una venta. Siempre con motivo.
 - **Diferencia / sobrante / faltante:** lo contado al cerrar contra lo que el sistema esperaba.
+- **Fondo:** el efectivo con que se abre la caja y el que se deja para mañana al cerrar (cambio).
+- **Efectivo que debe haber:** fondo con que se abrió + entradas de efectivo − salidas de efectivo. Es lo que el sistema espera encontrar al contar. Tarjeta y transferencia no están en la caja; los gastos pagados del sobre o del banco tampoco salen de ella.
+- **El camino del efectivo:** el bloque que cuenta esa resta renglón por renglón (cobros, propinas, otras entradas, gastos pagados de la caja, pagos al equipo, reembolsos, otros retiros), cada uno desplegable, y luego a dónde se fue lo contado: fondo para mañana + apartado + retiro. Está en el Resumen del día, en Caja ("¿Cuánto efectivo hay y por qué?") y en cada cierre anterior. Si no suma, avisa.
 - **Apartado:** cantidad fija que se saca de la caja al cerrar ($600) y pasa al **sobre**.
+- **Retiro:** lo que sobra al cerrar después del fondo y el apartado; se entrega a alguien (se anota a quién). El apartado y el retiro del cierre no son movimientos de caja: se guardan en el cierre.
 - **Sobre "Renta y gastos":** el dinero apartado que se va juntando. Tiene saldo y un libro de movimientos.
 - **Ajustar por conteo:** corregir el saldo del sobre a lo que realmente hay al contarlo.
 - **Gasto "del sobre" / "de banco":** de dónde salió el dinero. Del sobre baja el sobre; de banco
@@ -64,7 +68,7 @@ El "título visible" (Gerente, Gerente Barbera) es solo una etiqueta; no da ni q
 - **Cuadre:** comparación entre la agenda y los cobros del día, para detectar citas sin cobrar o cobros sin cita.
 - **Bitácora:** registro de quién hizo qué y cuándo. No se puede editar.
 - **Barberos hoy:** tablero del día: cortes, ingreso, productos y propinas de cada persona.
-- **Resumen del día:** "Resumen de caja · viernes 20 de noviembre de 2026": de un día, lo cobrado (servicios + productos + propinas), por forma de pago, por persona y la caja (esperado, contado, diferencia, apartado). Botón en Caja y en el Panel (ventana) y página `/caja/resumen`. Se envía por WhatsApp, se copia, o se descarga en PDF y Excel; sin datos de clientes ni costos. Cuenta principal, gerencia y consulta ven cualquier día; recepción solo hoy y ayer; barbero no entra. "Día" = día del negocio por hora de cobro; las ventas anuladas no cuentan y se muestran aparte.
+- **Resumen del día:** "Resumen de caja · viernes 20 de noviembre de 2026": de un día, lo cobrado (servicios + productos + propinas), por forma de pago, por persona y la caja (el camino del efectivo: esperado, contado, diferencia, fondo, apartado y retiro). Botón en Caja y en el Panel (ventana) y página `/caja/resumen`. Se envía por WhatsApp, se copia, o se descarga en PDF y Excel; sin datos de clientes ni costos. Cuenta principal, gerencia y consulta ven cualquier día; recepción solo hoy y ayer; barbero no entra. "Día" = día del negocio por hora de cobro; las ventas anuladas no cuentan y se muestran aparte.
 - **Mi semana:** lo que cada quien lleva ganado en la semana.
 - **Comentarios:** ideas, fallas y dudas sobre la aplicación. Todos escriben (también Consulta) desde el botón del encabezado o el menú; cada quien ve solo lo suyo y la cuenta principal ve todo, cambia el estado (nuevo, visto, en proceso, hecho, descartado) y responde.
 

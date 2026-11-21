@@ -21,6 +21,10 @@ export type CashSessionRow = {
     /** A quién se entregó el retiro del cierre. */
     withdrawal_delivered_to?: string | null;
     counted_breakdown?: Record<string, number> | null;
+    /** Esperado que la base guardó al cerrar (sirve para comprobar el cierre). */
+    expected_cash?: number | string | null;
+    /** Motivo escrito al dejar menos del fondo recomendado. */
+    closing_note?: string | null;
 };
 
 export type CashMovementRow = {
@@ -33,6 +37,12 @@ export type CashMovementRow = {
     description?: string | null;
     created_at?: string;
     sale_id?: string | null;
+    /** Gasto que originó el movimiento (gastos pagados de la caja y su cancelación). */
+    expense_id?: string | null;
+    /** Pago semanal que originó el movimiento (comisiones, propinas, sueldos). */
+    commission_settlement_id?: string | null;
+    /** Quién lo registró. */
+    created_by?: string | null;
 };
 
 /**
@@ -150,6 +160,9 @@ export function toUiMovement(row: CashMovementRow): CashMovement {
 }
 
 export const SESSION_COLUMNS = 'id, status, opening_cash, counted_cash, difference_amount, opened_by, opened_at, closed_at, closed_by, opening_expected, float_left, reserve_amount, withdrawn_amount, withdrawal_delivered_to, counted_breakdown';
+/** Lo mismo más lo que necesita «El camino del efectivo». */
+export const FLOW_SESSION_COLUMNS = `${SESSION_COLUMNS}, expected_cash, closing_note`;
+export const FLOW_MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id, expense_id, commission_settlement_id, created_by';
 export const MOVEMENT_COLUMNS = 'id, cash_session_id, amount, method, movement_type, direction, description, created_at, sale_id';
 
 /** Nombre que se usa cuando el servidor no puede decir quién abrió la caja. */

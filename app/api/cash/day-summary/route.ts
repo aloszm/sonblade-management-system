@@ -24,6 +24,7 @@ const QuerySchema = z.object({
 /**
  * Resumen de caja de un día (GET ?date=AAAA-MM-DD). Cuenta principal, gerencia y consulta: cualquier día;
  * recepción: solo hoy y ayer; barbero: no. Solo lee, con la sesión del usuario (RLS). Sin datos de clientes ni costos.
+ * «Quién registró» cada movimiento y los gastos del sobre o del banco solo llegan a quien ve cualquier día (no a recepción).
  */
 export async function GET(request: NextRequest) {
     try {
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
             return Response.json({ error: 'Tu puesto puede ver el resumen de hoy y de ayer.' }, { status: 403, headers: NO_STORE });
         }
 
-        const data = await loadDaySummary(supabase, context, day, timezone);
+        const data = await loadDaySummary(supabase, context, day, timezone, DAY_SUMMARY_ANY_DAY_ROLES.includes(context.role));
         const payload: DaySummaryPayload = {
             date: day, timezone, businessName: name, today,
             minDay: DAY_SUMMARY_ANY_DAY_ROLES.includes(context.role) ? null : addDay(today, -1),

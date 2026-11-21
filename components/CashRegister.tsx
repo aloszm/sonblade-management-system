@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Lock, Plus, Settings2, TriangleAlert } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, Loader2, Lock, Plus, Settings2, TriangleAlert } from 'lucide-react';
+import CashFlowPanel from '@/components/cash/CashFlowPanel';
 import DaySummaryButton from '@/components/cash/DaySummaryModal';
 import EnvelopeNote from '@/app/sobres/_components/EnvelopeNote';
 import PinConfirm from '@/components/ui/PinConfirm';
@@ -72,6 +73,8 @@ function ReasonBox({ id, warning, value, onChange, placeholder }: { id: string; 
 }
 
 function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; reserveLabel: string }) {
+    // Cada cierre se puede abrir para ver su camino del efectivo completo (se pide al abrirlo).
+    const [openId, setOpenId] = useState<string | null>(null);
     if (sessions.length === 0) return null;
     const day = (iso: string | null) => (iso ? formatDate(iso, undefined, { year: false }) : '—');
     const value = (n: number | null | undefined) => (n === null || n === undefined ? '—' : money(n));
@@ -93,10 +96,17 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
                     </thead>
                     <tbody>
                         {sessions.map((s) => (
-                            <tr key={s.id} className="border-t border-bos-border tabular-nums">
+                            <React.Fragment key={s.id}>
+                            <tr className="border-t border-bos-border tabular-nums">
                                 <td data-label="" className="px-4 py-3 font-semibold first-letter:uppercase max-md:order-first">
                                     {day(s.closed_at)}
                                     {s.closed_by && <span className="block text-xs font-normal text-bos-muted">cerró {s.closed_by}</span>}
+                                    <button type="button" data-testid="past-flow-toggle" aria-expanded={openId === s.id} aria-controls={`past-flow-${s.id}`}
+                                        onClick={() => setOpenId(openId === s.id ? null : s.id)}
+                                        className="mt-1 inline-flex min-h-8 items-center gap-1 rounded-md text-left text-sm font-semibold text-bos-accent-text underline-offset-2 hover:underline">
+                                        {openId === s.id ? 'Ocultar el efectivo' : 'Ver el efectivo'}
+                                        <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${openId === s.id ? 'rotate-180' : ''}`} />
+                                    </button>
                                 </td>
                                 <td data-label="Vendido" className="px-4 py-3 text-right">{money(s.total_sales)}</td>
                                 <td data-label="Contado" className="px-4 py-3 text-right">{value(s.physical_count)}</td>
@@ -110,6 +120,14 @@ function PastClosings({ sessions, reserveLabel }: { sessions: CashSession[]; res
                                     {s.withdrawal_delivered_to && <span className="block text-xs text-bos-muted">a {s.withdrawal_delivered_to}</span>}
                                 </td>
                             </tr>
+                            {openId === s.id && (
+                                <tr id={`past-flow-${s.id}`} data-testid="past-flow" className="bg-bos-bg">
+                                    <td data-label="" colSpan={7} className="px-4 py-4 text-left">
+                                        <CashFlowPanel sessionId={s.id} />
+                                    </td>
+                                </tr>
+                            )}
+                            </React.Fragment>
                         ))}
                     </tbody>
                 </table>
@@ -145,6 +163,7 @@ export default function CashRegister() {
     const [movementPin, setMovementPin] = useState(false);
     const [formError, setFormError] = useState('');
 
+    const [flowOpen, setFlowOpen] = useState(false);
     const [movementOpen, setMovementOpen] = useState(false);
     const [movementType, setMovementType] = useState<(typeof MOVEMENT_TYPES)[number]['id']>('expense');
     const [movementConcept, setMovementConcept] = useState('');
@@ -429,6 +448,22 @@ export default function CashRegister() {
                     <p className={label}>Propinas de barberos</p>
                     <p className="mt-2 font-display text-3xl font-semibold tabular-nums text-bos-accent-text">{money(session.total_tips ?? 0)}</p>
                 </div>
+            </section>
+
+            <section aria-label="El camino del efectivo" className={`${card} p-4 sm:p-5`}>
+                <button type="button" data-testid="cash-flow-toggle" aria-expanded={flowOpen} aria-controls="cash-flow-panel" onClick={() => setFlowOpen(!flowOpen)}
+                    className="flex min-h-11 w-full items-center justify-between gap-3 text-left">
+                    <span>
+                        <span className="block font-display text-lg font-semibold">¿Cuánto efectivo hay y por qué?</span>
+                        <span className="block text-sm text-bos-muted">Fondo + entradas − salidas, con cada gasto y cada pago.</span>
+                    </span>
+                    <ChevronDown aria-hidden="true" className={`h-5 w-5 shrink-0 text-bos-muted transition-transform ${flowOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {flowOpen && (
+                    <div id="cash-flow-panel" className="mt-4 border-t border-bos-border pt-4">
+                        <CashFlowPanel sessionId={session.id} refreshKey={`${movements.length}:${session.expected_cash ?? ''}`} />
+                    </div>
+                )}
             </section>
 
             <section aria-labelledby="cash-movements" className="space-y-3">

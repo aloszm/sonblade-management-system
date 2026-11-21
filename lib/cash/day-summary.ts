@@ -14,7 +14,10 @@
 // - Cortes: servicios cuya categoría real es «cortes» (services.category).
 // Dinero en centavos enteros; se convierte a pesos solo al mostrar.
 
-import { buildSessionView, isTipMovement, movementTag, type CashMovementRow, type CashSessionRow } from '@/lib/cash/session-view';
+import {
+    buildCashFlows, buildDayFlowTotal, type BuildCashFlowOptions, type CashFlow, type DayFlowTotal, type OtherExpenses,
+} from '@/lib/cash/cash-flow';
+import type { CashMovementRow, CashSessionRow } from '@/lib/cash/session-view';
 import { PAYMENT_METHOD_LABELS } from '@/lib/utils/payment';
 
 export type DaySale = { id: string; folio: string | null; status: string; total_amount: number | string; paid_at: string | null };
@@ -197,73 +200,33 @@ export function buildDaySummary(input: DaySummaryInput): DaySummary {
 
 // ───────────────────────── Caja del día
 
-export interface CashManualLine { tag: string; description: string; cents: number; direction: 'in' | 'out' }
-export interface CashSessionLine {
-    id: string; open: boolean; openedBy: string; closedBy: string | null; openedAt: string; closedAt: string | null;
-    initialCents: number;
-    /** Efectivo de cobros y propinas menos reembolsos (neto). */
-    cashFromSalesCents: number;
-    manualIn: CashManualLine[]; manualOut: CashManualLine[];
-    manualInCents: number; manualOutCents: number;
-    expectedCents: number; countedCents: number | null; differenceCents: number | null;
-    reserveCents: number | null; floatLeftCents: number | null; withdrawnCents: number | null;
-}
 export interface DayCash {
-    sessions: CashSessionLine[];
+    /** «El camino del efectivo» de cada caja abierta ese día, de la más temprana a la más tardía. */
+    sessions: CashFlow[];
     anyOpen: boolean;
-    /** Diferencia y apartado sumados de las cajas cerradas (el esperado y el contado no se suman: cada caja arrastra su fondo). */
+    /** Entradas y salidas de todas las cajas juntas (el esperado y el contado no se suman: cada caja arrastra su fondo). */
+    total: DayFlowTotal;
+    /** Diferencia y apartado sumados de las cajas cerradas. */
     differenceCents: number; reserveCents: number;
+    /** Gastos del día pagados del sobre o del banco (no salen de la caja); null = este puesto no los ve. */
+    otherExpenses: OtherExpenses | null;
 }
 
 /**
- * Arma la caja del día con la MISMA lógica de la pantalla de Caja (buildSessionView: esperado = inicial + entradas
- * de efectivo − salidas de efectivo). Las entradas/salidas manuales son los movimientos de efectivo que no son cobro,
- * reembolso ni propina; con el efectivo de cobros cuadran con el esperado.
+ * Arma la caja del día con la MISMA lógica de la pantalla de Caja: cada caja pasa por buildCashFlow, que reutiliza
+ * buildSessionView (esperado = inicial + entradas de efectivo − salidas de efectivo) y reparte esos movimientos por renglón.
  */
 export function buildDayCash(
-    sessions: CashSessionRow[], movements: CashMovementRow[], names: ReadonlyMap<string, string>, unknownName = 'Usuario',
+    sessions: CashSessionRow[], movements: CashMovementRow[], names: ReadonlyMap<string, string>,
+    options: BuildCashFlowOptions & { otherExpenses?: OtherExpenses | null } = {},
 ): DayCash {
-    const bySession = new Map<string, CashMovementRow[]>();
-    for (const m of movements) {
-        const list = bySession.get(m.cash_session_id) ?? [];
-        list.push(m); bySession.set(m.cash_session_id, list);
-    }
-    const lines: CashSessionLine[] = sessions.slice().sort((a, b) => a.opened_at.localeCompare(b.opened_at)).map((s) => {
-        const ms = bySession.get(s.id) ?? [];
-        const view = buildSessionView(s, ms, names.get(s.opened_by) ?? unknownName, s.closed_by ? names.get(s.closed_by) ?? null : null);
-        const manualIn: CashManualLine[] = [];
-        const manualOut: CashManualLine[] = [];
-        let cashFromSales = 0;
-        for (const m of ms) {
-            if (m.method !== 'cash') continue;
-            const c = cents(m.amount);
-            const signed = m.direction === 'in' ? c : -c;
-            if (m.movement_type === 'sale_payment' || m.movement_type === 'refund' || isTipMovement(m)) { cashFromSales += signed; continue; }
-            const line: CashManualLine = {
-                tag: movementTag(m), description: m.description?.trim() || 'Movimiento de caja', cents: c, direction: m.direction,
-            };
-            (m.direction === 'in' ? manualIn : manualOut).push(line);
-        }
-        return {
-            id: s.id, open: s.status === 'open', openedBy: view.opened_by, closedBy: view.closed_by ?? null,
-            openedAt: s.opened_at, closedAt: s.closed_at,
-            initialCents: cents(view.initial_amount), cashFromSalesCents: cashFromSales,
-            manualIn, manualOut,
-            manualInCents: manualIn.reduce((t, l) => t + l.cents, 0), manualOutCents: manualOut.reduce((t, l) => t + l.cents, 0),
-            expectedCents: cents(view.expected_cash), countedCents: view.physical_count === null ? null : cents(view.physical_count),
-            differenceCents: view.difference === null ? null : cents(view.difference),
-            reserveCents: view.reserve_amount == null ? null : cents(view.reserve_amount),
-            floatLeftCents: view.float_left == null ? null : cents(view.float_left),
-            withdrawnCents: view.withdrawn_amount == null ? null : cents(view.withdrawn_amount),
-        };
-    });
-    const closed = lines.filter((l) => !l.open);
-    return {
-        sessions: lines,
-        anyOpen: lines.some((l) => l.open),
-        differenceCents: closed.reduce((t, l) => t + (l.differenceCents ?? 0), 0),
-        reserveCents: closed.reduce((t, l) => t + (l.reserveCents ?? 0), 0),
-    };
+    const flows = buildCashFlows(sessions, movements, names, options);
+    return dayCashFromFlows(flows, options.otherExpenses ?? null);
+}
+
+export function dayCashFromFlows(flows: CashFlow[], otherExpenses: OtherExpenses | null = null): DayCash {
+    const total = buildDayFlowTotal(flows);
+    return { sessions: flows, anyOpen: total.anyOpen, total, differenceCents: total.differenceCents, reserveCents: total.reserveCents, otherExpenses };
 }
 
 export interface DaySummaryPayload {

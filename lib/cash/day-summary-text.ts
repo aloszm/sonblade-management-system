@@ -1,5 +1,6 @@
 // Textos del resumen de caja: encabezados con fecha y el mensaje en texto plano para WhatsApp. Funciones puras.
 // El texto NO lleva datos de clientes ni teléfonos: solo nombres de pila del equipo y montos.
+import { flowLine, type CashFlow } from '@/lib/cash/cash-flow';
 import type { DayCash, DaySummary, PersonLine } from '@/lib/cash/day-summary';
 import { formatMoney } from '@/lib/utils/money';
 
@@ -40,20 +41,27 @@ function personLine(p: PersonLine): string {
 
 function cashLines(cash: DayCash): string[] {
     if (cash.sessions.length === 0) return ['Caja: sin caja abierta este día'];
-    const one = (s: DayCash['sessions'][number], prefix: string) => {
-        if (s.open) return `${prefix}abierta (esperado ${money(s.expectedCents)}); el resumen puede cambiar`;
-        const bits = [`esperado ${money(s.expectedCents)}`, `contado ${money(s.countedCents ?? 0)}`, `diferencia ${money(s.differenceCents ?? 0)}`];
-        if (s.reserveCents) bits.push(`apartado ${money(s.reserveCents)}`);
-        return `${prefix}${bits.join(' · ')}`;
+    // Tres renglones por caja, los que pidió el dueño: cuánto debe haber / cuánto se gastó de la caja / a dónde se fue lo contado.
+    const one = (s: CashFlow, prefix: string): string[] => {
+        const expenses = flowLine(s, 'expenses').cents;
+        const first = s.open
+            ? `${prefix}Efectivo: debe haber ahora ${money(s.expectedCents)} (caja abierta, puede cambiar)`
+            : `${prefix}Efectivo: debe haber ${money(s.expectedCents)} · contado ${money(s.countedCents ?? 0)} · diferencia ${money(s.differenceCents ?? 0)}`;
+        const third = s.split
+            ? `${s.split.proposed ? 'Al cerrar se propone: ' : ''}Fondo ${money(s.split.floatCents)} · Apartado ${money(s.split.reserveCents)} · Retiro ${money(s.split.withdrawnCents)}`
+            : s.open ? 'Fondo, apartado y retiro: se definen al cerrar' : 'Fondo, apartado y retiro: sin reparto guardado';
+        return [first, `${prefix}Gastos de caja: ${money(expenses)}`, `${prefix}${third}`];
     };
-    if (cash.sessions.length === 1) return [one(cash.sessions[0], 'Caja: ')];
+    if (cash.sessions.length === 1) return one(cash.sessions[0], '');
     // Muchas cajas el mismo día (pruebas o cambios de turno): un solo renglón; el detalle está en la pantalla.
     if (cash.sessions.length > 3) {
-        const bits = [`${cash.sessions.length} cajas`, `diferencia ${money(cash.differenceCents)}`];
-        if (cash.reserveCents) bits.push(`apartado ${money(cash.reserveCents)}`);
+        const t = cash.total;
+        const bits = [`${cash.sessions.length} cajas`, `diferencia ${money(t.differenceCents)}`, `gastos de caja ${money(t.expensesCents)}`];
+        if (t.reserveCents) bits.push(`apartado ${money(t.reserveCents)}`);
+        if (t.withdrawnCents) bits.push(`retiro ${money(t.withdrawnCents)}`);
         return [`Cajas: ${bits.join(' · ')}${cash.anyOpen ? ' · hay una abierta, el resumen puede cambiar' : ''}`];
     }
-    return cash.sessions.map((s, i) => one(s, `Caja ${i + 1}: `));
+    return cash.sessions.flatMap((s, i) => one(s, `Caja ${i + 1}: `));
 }
 
 /** Mensaje de WhatsApp (texto plano) con el resumen del día. */

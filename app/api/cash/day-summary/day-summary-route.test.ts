@@ -54,6 +54,14 @@ describe('GET /api/cash/day-summary: quién ve qué día', () => {
         expect(load).toHaveBeenCalledTimes(2);
     });
 
+    it.each<[BusinessRole, boolean]>([['owner', true], ['admin', true], ['viewer', true], ['receptionist', false], ['cashier', false]])(
+        '%s: «quién registró» y los gastos del sobre o del banco se piden solo si es %s',
+        async (r, management) => {
+            role = r;
+            await get('2026-11-21');
+            expect(load.mock.calls[0][4]).toBe(management);
+        });
+
     it('el barbero no entra (403) y no se lee nada', async () => {
         role = 'barber';
         expect((await get('2026-11-21')).status).toBe(403);

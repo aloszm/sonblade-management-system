@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ClipboardCopy, FileDown, FileSpreadsheet, MessageCircle, Printer } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCopy, FileDown, FileSpreadsheet, MessageCircle, Printer } from 'lucide-react';
 import BrandLogo from '@/components/BrandLogo';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
-import type { CashSessionLine, DaySummaryPayload } from '@/lib/cash/day-summary';
+import CashFlowView, { CashFlowDayTotal } from '@/components/cash/CashFlowView';
+import type { CashFlow, OtherExpenses } from '@/lib/cash/cash-flow';
+import type { DaySummaryPayload } from '@/lib/cash/day-summary';
 import {
     addDay, buildWhatsAppText, longDayLabel, money, summaryFileName, summaryTitle, whatsAppUrl,
 } from '@/lib/cash/day-summary-text';
@@ -87,36 +89,32 @@ function Stat({ title, value, hint, testId }: { title: string; value: string; hi
     );
 }
 
-function SessionCard({ s, index, many, tz }: { s: CashSessionLine; index: number; many: boolean; tz: string }) {
-    const row = (label: string, value: string, strong?: boolean) => (
-        <div className={`flex items-baseline justify-between gap-3 ${strong ? 'border-t border-bos-border pt-2 font-semibold' : ''}`}>
-            <dt className={strong ? '' : 'text-bos-muted'}>{label}</dt><dd className="tabular-nums">{value}</dd>
-        </div>
-    );
+/** Una caja del día: encabezado y su camino del efectivo; con varias cajas, cada una se pliega. */
+function SessionCard({ s, index, many, collapsedByDefault, tz, otherExpenses }: {
+    s: CashFlow; index: number; many: boolean; collapsedByDefault: boolean; tz: string; otherExpenses: OtherExpenses | null;
+}) {
+    const [open, setOpen] = useState(!collapsedByDefault);
+    const title = `${many ? `Caja ${index + 1} · ` : ''}${s.open ? 'Abierta' : 'Cerrada'}`;
+    const panelId = `cash-session-${s.id}`;
     return (
-        <article data-testid="cash-session" className="space-y-3 rounded-lg border border-bos-border p-3 sm:p-4">
+        <article data-testid="cash-session" className="space-y-3 rounded-lg border border-bos-border p-3 sm:p-4 print:break-inside-avoid">
             <header>
-                <h4 className="font-semibold">{many ? `Caja ${index + 1} · ` : ''}{s.open ? 'Abierta' : 'Cerrada'}</h4>
+                {many ? (
+                    <button type="button" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)} data-testid="cash-session-toggle"
+                        className="flex w-full items-center justify-between gap-2 text-left">
+                        <h4 className="font-semibold">{title}</h4>
+                        <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-bos-muted transition-transform print:hidden ${open ? 'rotate-180' : ''}`} />
+                    </button>
+                ) : <h4 className="font-semibold">{title}</h4>}
                 <p className="text-sm text-bos-muted">
                     Abrió {s.openedBy} a las {formatTime(s.openedAt, tz)}
                     {s.closedAt && <> · Cerró {s.closedBy ?? 'alguien'} a las {formatTime(s.closedAt, tz)}</>}
                 </p>
             </header>
             {s.open && <p role="status" className="rounded-lg bg-bos-accent-soft p-2 text-sm font-semibold">Caja abierta: el resumen puede cambiar.</p>}
-            <dl className="space-y-1.5 text-[15px]">
-                {row('Fondo inicial', money(s.initialCents))}
-                {row('Cobros y propinas en efectivo (neto de reembolsos)', money(s.cashFromSalesCents))}
-                {s.manualIn.map((m, i) => (
-                    <div key={`in${i}`} className="flex items-baseline justify-between gap-3"><dt className="min-w-0 break-words text-bos-muted">{m.tag}: {m.description}</dt><dd className="tabular-nums">+{money(m.cents)}</dd></div>
-                ))}
-                {s.manualOut.map((m, i) => (
-                    <div key={`out${i}`} className="flex items-baseline justify-between gap-3"><dt className="min-w-0 break-words text-bos-muted">{m.tag}: {m.description}</dt><dd className="tabular-nums">−{money(m.cents)}</dd></div>
-                ))}
-                {row('Efectivo esperado', money(s.expectedCents), true)}
-                {s.countedCents !== null && row('Efectivo contado', money(s.countedCents))}
-                {s.differenceCents !== null && row('Diferencia', money(s.differenceCents))}
-                {s.reserveCents !== null && row('Apartado al sobre', money(s.reserveCents))}
-            </dl>
+            <div id={panelId} className={`${open ? 'block' : 'hidden'} print:block`}>
+                <CashFlowView flow={s} timezone={tz} otherExpenses={otherExpenses} omitOtherExpenses={many} idPrefix={`ds${index}`} />
+            </div>
         </article>
     );
 }
@@ -215,10 +213,18 @@ export function SummaryBody({ data }: { data: DaySummaryPayload }) {
             )}
 
             <section aria-labelledby="ds-cash" className={`${card} space-y-3 p-4 sm:p-5 print:space-y-2 print:p-3`}>
-                <h3 id="ds-cash" className={sectionTitle}>Caja del día</h3>
+                <h3 id="ds-cash" className={sectionTitle}>Caja del día · el camino del efectivo</h3>
                 {cash.sessions.length === 0
                     ? <p data-testid="ds-no-cash" className="text-sm text-bos-muted">No hubo caja abierta este día.</p>
-                    : cash.sessions.map((s, i) => <SessionCard key={s.id} s={s} index={i} many={cash.sessions.length > 1} tz={data.timezone} />)}
+                    : (
+                        <>
+                            {cash.sessions.length > 1 && <CashFlowDayTotal total={cash.total} otherExpenses={cash.otherExpenses} />}
+                            {cash.sessions.map((s, i) => (
+                                <SessionCard key={s.id} s={s} index={i} many={cash.sessions.length > 1} collapsedByDefault={cash.sessions.length > 3 && !s.open}
+                                    tz={data.timezone} otherExpenses={cash.otherExpenses} />
+                            ))}
+                        </>
+                    )}
             </section>
         </div>
     );
