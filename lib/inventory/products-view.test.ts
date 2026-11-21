@@ -57,3 +57,44 @@ describe('summarizeProducts', () => {
         expect(summarizeProducts(items)).toEqual({ total: 3, lowStock: 1, outOfStock: 1, totalValue: 1560 });
     });
 });
+
+// Auditoría del 21 nov 2026 (Inventario): código opcional, categoría real y valor rotulado.
+import { productCategoryOptions, productFormProblems, skuProblem } from './products-view';
+
+describe('summarizeProducts · valor a costo', () => {
+    const base = { id: 'a', sku: '', category: 'General', min_stock: 0, status: 'ok' as const, created_at: '', updated_at: '' };
+    const items = [
+        { ...base, name: 'Peine', stock: 54, cost: 27, price: 80 },
+        { ...base, id: 'b', name: 'Polvo', stock: 48, cost: 115, price: 225 },
+    ];
+    it('sin withCost no manda totalCost (recepción no recibe costos)', () => {
+        expect(summarizeProducts(items)).not.toHaveProperty('totalCost');
+        expect(summarizeProducts(items).totalValue).toBe(54 * 80 + 48 * 225);
+    });
+    it('con withCost suma existencias × costo, aparte del valor a precio de venta', () => {
+        expect(summarizeProducts(items, { withCost: true })).toMatchObject({ totalValue: 15120, totalCost: 54 * 27 + 48 * 115 });
+    });
+});
+
+describe('formulario de producto', () => {
+    it('el código vacío es válido; 1 carácter o más de 60, no', () => {
+        expect(productFormProblems({ name: 'Peine de textura', sku: '', price: 80 })).toEqual({});
+        expect(productFormProblems({ name: 'Peine de textura', sku: '   ', price: 80 })).toEqual({});
+        expect(productFormProblems({ name: 'Peine de textura', sku: 'PE', price: 80 })).toEqual({});
+        expect(productFormProblems({ name: 'Peine de textura', sku: 'P', price: 80 }).sku).toBe('El código debe tener al menos 2 caracteres, o déjalo vacío.');
+        expect(productFormProblems({ name: 'Peine de textura', sku: 'x'.repeat(61), price: 80 }).sku).toBe('El código es muy largo (máximo 60 caracteres).');
+        expect(skuProblem('')).toBeNull();
+        expect(skuProblem(' A ')).toBe('El código debe tener al menos 2 caracteres, o déjalo vacío.');
+    });
+    it('nombre y precio: avisos en español', () => {
+        expect(productFormProblems({ name: ' ', sku: '', price: 80 }).name).toBe('Escribe el nombre del producto (al menos 2 letras).');
+        expect(productFormProblems({ name: 'Peine', sku: '', price: NaN }).price).toBe('Escribe el precio de venta (en pesos).');
+        expect(productFormProblems({ name: 'Peine', sku: '', price: -1 }).price).toBe('Escribe el precio de venta (en pesos).');
+        expect(productFormProblems({ name: 'Peine', sku: '', price: 0 })).toEqual({});
+    });
+    it('la lista de categorías siempre incluye «General» y la que ya tiene el producto', () => {
+        expect(productCategoryOptions('General')).toEqual(['General', 'Ceras', 'Pomadas', 'Geles', 'Shampoos', 'Aceites', 'Accesorios']);
+        expect(productCategoryOptions(' Fijación media ')).toContain('Fijación media');
+        expect(productCategoryOptions(null)[0]).toBe('General');
+    });
+});

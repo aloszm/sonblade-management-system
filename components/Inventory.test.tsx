@@ -17,11 +17,14 @@ import Inventory from './Inventory';
 const PRODUCT = { id: 'p1', name: 'Cera mate', sku: 'CER-1', category: 'Ceras', stock: 4, min_stock: 2, price: 180, status: 'ok', created_at: '', updated_at: '' };
 
 const productPosts: unknown[] = [];
+const productPatches: { url: string; body: Record<string, unknown> }[] = [];
 
-function mockApi(user: Record<string, unknown>, opts: { receive?: { status: number; body: unknown }; cost?: number } = {}) {
+function mockApi(user: Record<string, unknown>, opts: { receive?: { status: number; body: unknown }; cost?: number; product?: Record<string, unknown>; stats?: Record<string, unknown> } = {}) {
     const bodies: unknown[] = [];
     productPosts.length = 0;
-    let stock = PRODUCT.stock;
+    productPatches.length = 0;
+    const base = { ...PRODUCT, ...(opts.product ?? {}) };
+    let stock = base.stock as number;
     const json = (body: unknown, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = input.toString();
@@ -32,14 +35,18 @@ function mockApi(user: Record<string, unknown>, opts: { receive?: { status: numb
             if (r.status === 200) stock += 6;
             return json(r.body, r.status);
         }
-        if (url.includes('/api/products/stats')) return json({ total: 1, lowStock: 0, outOfStock: 0, totalValue: 720 });
+        if (url.includes('/api/products/stats')) return json({ total: 1, lowStock: 0, outOfStock: 0, totalValue: 720, ...(opts.stats ?? {}) });
+        if (url.includes('/api/products') && init?.method === 'PATCH') {
+            productPatches.push({ url, body: JSON.parse(String(init.body)) });
+            return json({ id: 'p1' });
+        }
         if (url.includes('/api/products') && init?.method === 'POST') {
             productPosts.push(JSON.parse(String(init.body)));
             return json({ id: 'p2' }, 201);
         }
         if (url.includes('/api/products')) {
             // A recepción la API no le manda el costo (ni el campo).
-            const product = user.role === 'recepcion' ? { ...PRODUCT, stock } : { ...PRODUCT, stock, cost: opts.cost ?? 80 };
+            const product = user.role === 'recepcion' ? { ...base, stock } : { ...base, stock, cost: opts.cost ?? 80 };
             return json([product]);
         }
         return json([]);
@@ -162,7 +169,7 @@ describe('Costo obligatorio del producto', () => {
         render(<Inventory />);
         fireEvent.click(await screen.findByRole('button', { name: /Agregar producto/ }));
         fireEvent.change(screen.getByLabelText('Nombre del producto *'), { target: { value: 'Pomada nueva' } });
-        fireEvent.change(screen.getByLabelText('SKU (código) *'), { target: { value: 'POM-9' } });
+        fireEvent.change(screen.getByLabelText('Código o SKU (opcional)'), { target: { value: 'POM-9' } });
         fireEvent.change(screen.getByLabelText('Precio venta *'), { target: { value: '200' } });
         fireEvent.click(screen.getByRole('button', { name: /Guardar producto/ }));
         expect(await screen.findByText('Captura el costo del producto antes de activarlo.')).toBeInTheDocument();
@@ -173,5 +180,115 @@ describe('Costo obligatorio del producto', () => {
         fireEvent.click(screen.getByRole('button', { name: /Guardar producto/ }));
         await waitFor(() => expect(productPosts).toHaveLength(1));
         expect(productPosts[0]).toMatchObject({ name: 'Pomada nueva', sku: 'POM-9', cost: 85.5, price: 200 });
+    });
+});
+
+// Auditoría del 21 nov 2026: ningún producto real se podía editar (el SKU era obligatorio y todos lo tienen vacío),
+// el formulario abría en «Ceras» aunque el producto fuera «General», pedía fechas que no se guardan en ningún lado,
+// y la lista mostraba «SKU:» vacío, «100% capacidad» y un «Valor del inventario» sin decir que es a precio de venta.
+describe('Editar un producto real (sin código, categoría General)', () => {
+    const REAL = { name: 'Peine de textura', sku: '', category: 'General', stock: 54, min_stock: 5, price: 80 };
+
+    it('cambiar el precio se guarda sin pedir código, y manda la categoría real', async () => {
+        mockApi(MANAGER, { product: REAL, cost: 27 });
+        render(<Inventory />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Editar Peine de textura' }));
+        expect(await screen.findByRole('heading', { name: 'Editar producto' })).toBeInTheDocument();
+        // El código ya no es obligatorio y la categoría es la del producto, no la primera de la lista.
+        expect(screen.getByLabelText('Código o SKU (opcional)')).toHaveValue('');
+        expect(screen.getByLabelText('Código o SKU (opcional)')).not.toBeRequired();
+        expect(screen.getByLabelText('Categoría')).toHaveValue('General');
+        expect(screen.getByLabelText('Existencias')).toHaveValue(54);
+        // Las fechas no se guardaban en ningún lado: ya no se piden.
+        expect(screen.queryByText('Fechas')).toBeNull();
+        expect(screen.queryByLabelText(/Fecha de ingreso|Fecha de egreso/)).toBeNull();
+
+        fireEvent.change(screen.getByLabelText('Precio venta *'), { target: { value: '85' } });
+        fireEvent.click(screen.getByRole('button', { name: /Guardar producto/ }));
+        await waitFor(() => expect(productPatches).toHaveLength(1));
+        expect(productPatches[0].url).toContain('/api/products/p1');
+        expect(productPatches[0].body).toMatchObject({ name: 'Peine de textura', sku: '', category: 'General', price: 85, cost: 27, stock: 54, min_stock: 5 });
+        expect(productPatches[0].body).not.toHaveProperty('entry_date');
+        expect(productPatches[0].body).not.toHaveProperty('exit_date');
+        await waitFor(() => expect(screen.queryByRole('heading', { name: 'Editar producto' })).toBeNull());
+    });
+
+    it('una categoría guardada que no está en la lista sugerida se conserva al abrir', async () => {
+        mockApi(MANAGER, { product: { ...REAL, category: 'Fijación media' } });
+        render(<Inventory />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Editar Peine de textura' }));
+        const select = await screen.findByLabelText('Categoría');
+        expect(select).toHaveValue('Fijación media');
+        expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['General', 'Ceras', 'Pomadas', 'Geles', 'Shampoos', 'Aceites', 'Accesorios', 'Fijación media']);
+    });
+
+    it('los avisos del formulario son propios y en español (no el globo del navegador)', async () => {
+        mockApi(MANAGER, { product: REAL, cost: 27 });
+        const { container } = render(<Inventory />);
+        fireEvent.click(await screen.findByRole('button', { name: /Agregar producto/ }));
+        expect(container.ownerDocument.querySelector('form')).toHaveAttribute('novalidate');
+        expect(screen.getByLabelText('Categoría')).toHaveValue('General');
+        fireEvent.change(screen.getByLabelText('Código o SKU (opcional)'), { target: { value: 'A' } });
+        fireEvent.change(screen.getByLabelText('Precio venta *'), { target: { value: '' } });
+        fireEvent.click(screen.getByRole('button', { name: /Guardar producto/ }));
+        expect(await screen.findByText('Escribe el nombre del producto (al menos 2 letras).')).toBeInTheDocument();
+        expect(screen.getByText('El código debe tener al menos 2 caracteres, o déjalo vacío.')).toBeInTheDocument();
+        expect(screen.getByText('Escribe el precio de venta (en pesos).')).toBeInTheDocument();
+        expect(productPosts).toHaveLength(0);
+        // Al corregir un campo se quita su aviso.
+        fireEvent.change(screen.getByLabelText('Nombre del producto *'), { target: { value: 'Polvo nuevo' } });
+        expect(screen.queryByText('Escribe el nombre del producto (al menos 2 letras).')).toBeNull();
+    });
+
+    it('alta sin código: se manda con el código vacío', async () => {
+        mockApi(MANAGER);
+        render(<Inventory />);
+        fireEvent.click(await screen.findByRole('button', { name: /Agregar producto/ }));
+        fireEvent.change(screen.getByLabelText('Nombre del producto *'), { target: { value: '  Polvo nuevo ' } });
+        fireEvent.change(screen.getByLabelText('Precio venta *'), { target: { value: '200' } });
+        fireEvent.change(screen.getByLabelText('Precio costo *'), { target: { value: '100' } });
+        fireEvent.click(screen.getByRole('button', { name: /Guardar producto/ }));
+        await waitFor(() => expect(productPosts).toHaveLength(1));
+        expect(productPosts[0]).toMatchObject({ name: 'Polvo nuevo', sku: '', category: 'General', cost: 100, price: 200 });
+    });
+});
+
+describe('Lista de inventario: sin datos que no dicen nada', () => {
+    it('un producto sin código no muestra «SKU:» vacío; con código lo muestra', async () => {
+        mockApi(MANAGER, { product: { sku: '' } });
+        const first = render(<Inventory />);
+        expect(await screen.findByText('Cera mate')).toBeInTheDocument();
+        expect(screen.queryByText(/SKU:/)).toBeNull();
+        expect(screen.queryByText(/Código:/)).toBeNull();
+        first.unmount();
+        mockApi(MANAGER);
+        render(<Inventory />);
+        expect(await screen.findByText('Código: CER-1')).toBeInTheDocument();
+    });
+
+    it('en vez de «100% capacidad» dice el mínimo del producto', async () => {
+        mockApi(MANAGER);
+        render(<Inventory />);
+        expect(await screen.findByText('Mínimo: 2')).toBeInTheDocument();
+        expect(screen.queryByText(/capacidad/)).toBeNull();
+    });
+
+    it('gerencia: el valor del inventario dice que es a precio de venta y muestra aparte el valor a costo', async () => {
+        mockApi(MANAGER, { stats: { totalValue: 35280, totalCost: 12018 } });
+        render(<Inventory />);
+        const card = await screen.findByTestId('inventory-value');
+        await waitFor(() => expect(card).toHaveTextContent('$35,280.00'));
+        expect(card).toHaveTextContent('A precio de venta: lo que entraría si se vende todo.');
+        expect(within(card).getByTestId('inventory-value-cost')).toHaveTextContent('A costo: $12,018.00');
+    });
+
+    it('recepción: solo el valor a precio de venta, rotulado; nada del costo', async () => {
+        mockApi(RECEPTION, { stats: { totalValue: 35280 } });
+        render(<Inventory />);
+        const card = await screen.findByTestId('inventory-value');
+        await waitFor(() => expect(card).toHaveTextContent('$35,280.00'));
+        expect(card).toHaveTextContent('A precio de venta');
+        expect(within(card).queryByTestId('inventory-value-cost')).toBeNull();
+        expect(card).not.toHaveTextContent('A costo');
     });
 });

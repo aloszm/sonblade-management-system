@@ -9,7 +9,6 @@ import { useSupabase } from '@/hooks/useSupabase';
 import type { Product, CreateProduct } from '@/types';
 import { downloadCsv } from '@/lib/utils/csv';
 import { localDateKey } from '@/lib/utils/dates';
-import DatePicker from '@/components/ui/DatePicker';
 import { formatMoney } from '@/lib/utils/money';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -19,7 +18,11 @@ import { HttpError, MSG_OFFLINE, readJson, toUserMessage } from '@/lib/utils/err
 import Field from '@/components/ui/Field';
 import { useNavUser } from '@/hooks/useNavUser';
 import { RECEIVE_COMMENT_MAX, RECEIVE_MAX, receiveCommentProblem, receiveQuantityProblem } from '@/lib/inventory/receive';
-import { PRODUCT_COST_HELP, productCostProblem, productsWithoutCost } from '@/lib/inventory/products-view';
+import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_COST_HELP, productCategoryOptions, productCostProblem, productFormProblems, productsWithoutCost, type ProductFormProblems } from '@/lib/inventory/products-view';
+
+/** Resumen de /api/products/stats. El valor a costo solo llega a quien puede ver costos (dueño, gerencia, consulta). */
+type InventoryStats = { total: number; lowStock: number; outOfStock: number; totalValue: number; totalCost?: number };
+const EMPTY_FORM: CreateProduct = { name: '', sku: '', category: DEFAULT_PRODUCT_CATEGORY, stock: 0, min_stock: 5, cost: 0, price: 0 };
 
 const Inventory: React.FC = () => {
     // Cuenta de consulta: ve existencias y exporta, sin agregar, editar ni dar de baja.
@@ -53,10 +56,10 @@ const Inventory: React.FC = () => {
     const [receivePin, setReceivePin] = useState(false);
     const [notice, setNotice] = useState('');
 
-    // Form state for new product
-    const [form, setForm] = useState<CreateProduct & { entry_date?: string; exit_date?: string }>({
-        name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0, entry_date: '', exit_date: '',
-    });
+    // Producto en captura. El código (SKU) es opcional: los productos reales no lo tienen.
+    const [form, setForm] = useState<CreateProduct>(EMPTY_FORM);
+    // Avisos propios junto a cada campo (en español), en vez del globo del navegador.
+    const [fieldErrors, setFieldErrors] = useState<ProductFormProblems>({});
 
     // Fetch data from API routes
     // El error que llega a la pantalla ya es un mensaje en español (nunca "Failed to fetch").
@@ -68,10 +71,10 @@ const Inventory: React.FC = () => {
         }
     };
     const fetchProducts = () => load<Product[]>('/api/products', 'No se pudieron cargar los productos.');
-    const fetchStats = () => load<{ total: number; lowStock: number; outOfStock: number; totalValue: number }>('/api/products/stats', 'No se pudieron cargar las métricas.');
+    const fetchStats = () => load<InventoryStats>('/api/products/stats', 'No se pudieron cargar las métricas.');
 
     const { data: products, loading, error, refetch } = useSupabase<Product[]>(fetchProducts);
-    const { data: stats, refetch: refetchStats } = useSupabase<{ total: number; lowStock: number; outOfStock: number; totalValue: number }>(fetchStats);
+    const { data: stats, refetch: refetchStats } = useSupabase<InventoryStats>(fetchStats);
 
     // Filter & search
     // Productos sin costo: solo los ve quien recibe el costo de la API (gerencia y consulta); recepción no.
@@ -88,13 +91,14 @@ const Inventory: React.FC = () => {
 
     const saveProduct = async (confirm?: { pin: string; comment: string }) => {
         const url = editingId ? `/api/products/${editingId}` : '/api/products';
+        const payload = { ...form, name: form.name.trim(), sku: form.sku.trim(), category: form.category.trim() || DEFAULT_PRODUCT_CATEGORY };
         const method = editingId ? 'PATCH' : 'POST';
         let res: Response;
         try {
             res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(confirm ? { ...form, ...confirm } : form)
+                body: JSON.stringify(confirm ? { ...payload, ...confirm } : payload)
             });
         } catch (e) {
             throw new Error(toUserMessage(e));
@@ -107,17 +111,18 @@ const Inventory: React.FC = () => {
         setStockPin(false);
         setModalOpen(false);
         setEditingId(null);
-        setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0, entry_date: '', exit_date: '' });
+        setForm(EMPTY_FORM);
         refetch();
         refetchStats();
     };
 
     const handleSave = async () => {
-        if (!form.name || !form.sku) return;
         setSaveError('');
+        const problems = productFormProblems(form);
+        setFieldErrors(problems);
         const costProblem = productCostProblem(form.cost);
         setCostError(costProblem ?? '');
-        if (costProblem) return;
+        if (Object.keys(problems).length > 0 || costProblem) return;
         if (editingProduct && (stockChange !== 0 || minChanged)) { setStockPin(true); return; }
         setSaving(true);
         try {
@@ -130,6 +135,13 @@ const Inventory: React.FC = () => {
         }
     };
 
+    const clearFieldError = (key: keyof ProductFormProblems) => setFieldErrors((current) => {
+        if (!current[key]) return current;
+        const next = { ...current };
+        delete next[key];
+        return next;
+    });
+
     const handleEditClick = (p: Product) => {
         setForm({
             name: p.name,
@@ -139,12 +151,11 @@ const Inventory: React.FC = () => {
             min_stock: p.min_stock,
             cost: p.cost,
             price: p.price,
-            entry_date: p.entry_date || '',
-            exit_date: p.exit_date || ''
         });
         setEditingId(p.id);
         setSaveError('');
         setCostError('');
+        setFieldErrors({});
         setModalOpen(true);
     };
 
@@ -240,8 +251,8 @@ const Inventory: React.FC = () => {
                             return;
                         }
                         downloadCsv(file,
-                            ['SKU', 'Producto', 'Categoría', 'Existencias', 'Mínimo', 'Costo', 'Precio', 'Valor en inventario', 'Estado'],
-                            (products || []).map(p => [p.sku, p.name, p.category, p.stock, p.min_stock, p.cost, p.price, p.price * p.stock, label[p.status]]));
+                            ['SKU', 'Producto', 'Categoría', 'Existencias', 'Mínimo', 'Costo', 'Precio', 'Valor a costo', 'Valor a precio de venta', 'Estado'],
+                            (products || []).map(p => [p.sku, p.name, p.category, p.stock, p.min_stock, p.cost, p.price, p.cost * p.stock, p.price * p.stock, label[p.status]]));
                     }} className="min-h-[52px] flex items-center gap-2 px-5 border border-bos-border rounded-xl font-semibold text-bos-text hover:bg-bos-raised transition-colors">
                         <Download className="h-4 w-4" /> Exportar
                     </button>
@@ -249,7 +260,8 @@ const Inventory: React.FC = () => {
                         setEditingId(null);
                         setSaveError('');
                         setCostError('');
-                        setForm({ name: '', sku: '', category: 'Ceras', stock: 0, min_stock: 5, cost: 0, price: 0 });
+                        setFieldErrors({});
+                        setForm(EMPTY_FORM);
                         setModalOpen(true);
                     }} className="min-h-[52px] flex items-center gap-2 px-5 bg-bos-accent text-bos-on-accent rounded-xl font-bold hover:bg-bos-accent-strong transition-opacity">
                         <Plus className="h-5 w-5" /> Agregar producto
@@ -293,11 +305,17 @@ const Inventory: React.FC = () => {
                     <h3 className="text-[13px] font-medium text-bos-muted">Sin stock</h3>
                     <div className="mt-1 font-display text-3xl font-semibold tabular-nums">{stats?.outOfStock ?? '—'}</div>
                 </div>
-                <div className={`${card} p-5`}>
+                <div data-testid="inventory-value" className={`${card} p-5`}>
                     <h3 className="text-[13px] font-medium text-bos-muted">Valor del inventario</h3>
                     <div className="mt-1 font-display text-3xl font-semibold tabular-nums text-bos-accent-text">
                         {stats?.totalValue != null ? formatMoney(stats.totalValue, { cents: true }) : '—'}
                     </div>
+                    <p className="text-xs text-bos-muted mt-1">A precio de venta: lo que entraría si se vende todo.</p>
+                    {!frontDesk && stats?.totalCost != null && (
+                        <p data-testid="inventory-value-cost" className="text-xs text-bos-muted mt-1">
+                            A costo: <span className="font-semibold tabular-nums text-bos-text">{formatMoney(stats.totalCost, { cents: true })}</span> (lo que pagaste por él).
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -367,7 +385,7 @@ const Inventory: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <div className="font-semibold text-[15px]">{p.name}</div>
-                                                        <div className="text-xs text-bos-muted mt-0.5">SKU: {p.sku}</div>
+                                                        {p.sku && <div className="text-xs text-bos-muted mt-0.5">Código: {p.sku}</div>}
                                                         {isLow && (
                                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-bos-accent-soft text-bos-accent-text border border-bos-border mt-1">
                                                                 {p.status === 'empty' ? 'Sin stock' : 'Stock bajo'}
@@ -391,7 +409,7 @@ const Inventory: React.FC = () => {
                                                         <div className={`${getStockColor(p.status)} h-2 rounded-full`} style={{ width: `${pct}%` }}></div>
                                                     </div>
                                                     <div className={`text-xs ${isLow ? 'text-bos-danger font-medium' : 'text-bos-muted'}`}>
-                                                        {pct}% {isLow ? 'crítico' : 'capacidad'}
+                                                        {p.min_stock > 0 ? `Mínimo: ${p.min_stock}` : 'Sin mínimo definido'}{isLow ? (p.status === 'empty' ? ' · agotado' : ' · hay que surtir') : ''}
                                                     </div>
                                                 </div>
                                             </td>
@@ -436,40 +454,41 @@ const Inventory: React.FC = () => {
             {/* Ventana: agregar o editar producto */}
             {modalOpen && (
                 <Modal title={editingId ? 'Editar producto' : 'Agregar nuevo producto'} size="lg" onClose={() => setModalOpen(false)}>
-                    <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
+                    <form className="space-y-6" noValidate onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
                         <section>
                             <h3 className={sectionTitle}>Información básica</h3>
                             <div className="space-y-4">
                                 <div>
                                     <label htmlFor="p-name" className={label}>Nombre del producto *</label>
                                     <input id="p-name" type="text" required value={form.name}
-                                        onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+                                        aria-invalid={fieldErrors.name ? true : undefined} aria-describedby={fieldErrors.name ? 'p-name-error' : undefined}
+                                        onChange={(e) => { clearFieldError('name'); setForm(f => ({ ...f, name: e.target.value })); }}
                                         className={field} placeholder="Ej: Cera Premium" />
+                                    {fieldErrors.name && <p id="p-name-error" role="alert" className="text-xs text-bos-danger mt-1">{fieldErrors.name}</p>}
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="p-sku" className={label}>SKU (código) *</label>
-                                        <input id="p-sku" type="text" required value={form.sku}
-                                            onChange={(e) => setForm(f => ({ ...f, sku: e.target.value }))}
+                                        <label htmlFor="p-sku" className={label}>Código o SKU (opcional)</label>
+                                        <input id="p-sku" type="text" value={form.sku} maxLength={60}
+                                            aria-invalid={fieldErrors.sku ? true : undefined} aria-describedby={fieldErrors.sku ? 'p-sku-help p-sku-error' : 'p-sku-help'}
+                                            onChange={(e) => { clearFieldError('sku'); setForm(f => ({ ...f, sku: e.target.value })); }}
                                             className={field} placeholder="Ej: CER-001" />
+                                        <p id="p-sku-help" className="text-xs text-bos-muted mt-1.5">Si el producto no trae código, déjalo vacío.</p>
+                                        {fieldErrors.sku && <p id="p-sku-error" role="alert" className="text-xs text-bos-danger mt-1">{fieldErrors.sku}</p>}
                                     </div>
                                     <div>
-                                        <label htmlFor="p-category" className={label}>Categoría *</label>
+                                        <label htmlFor="p-category" className={label}>Categoría</label>
+                                        {/* La categoría guardada del producto siempre está en la lista: abrir y guardar no la cambia. */}
                                         <select id="p-category" value={form.category}
                                             onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))}
                                             className={field}>
-                                            <option>Ceras</option>
-                                            <option>Pomadas</option>
-                                            <option>Geles</option>
-                                            <option>Shampoos</option>
-                                            <option>Aceites</option>
-                                            <option>Accesorios</option>
+                                            {productCategoryOptions(form.category).map((c) => <option key={c} value={c}>{c}</option>)}
                                         </select>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="p-stock" className={label}>Stock inicial</label>
+                                        <label htmlFor="p-stock" className={label}>{editingId ? 'Existencias' : 'Existencias iniciales'}</label>
                                         <input id="p-stock" type="number" inputMode="numeric" min="0" value={form.stock}
                                             onChange={(e) => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className={field} />
                                     </div>
@@ -495,21 +514,10 @@ const Inventory: React.FC = () => {
                                 </div>
                                 <div>
                                     <label htmlFor="p-price" className={label}>Precio venta *</label>
-                                    <input id="p-price" type="number" inputMode="decimal" step="0.01" required value={form.price}
-                                        onChange={(e) => setForm(f => ({ ...f, price: Number(e.target.value) }))} className={`${field} font-semibold`} />
-                                </div>
-                            </div>
-                        </section>
-                        <section>
-                            <h3 className={sectionTitle}>Fechas</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="p-entry" className={label}>Fecha de ingreso</label>
-                                    <DatePicker id="p-entry" clearable value={form.entry_date || ''} onChange={(v) => setForm(f => ({ ...f, entry_date: v }))} className={field} />
-                                </div>
-                                <div>
-                                    <label htmlFor="p-exit" className={label}>Fecha de egreso (opcional)</label>
-                                    <DatePicker id="p-exit" clearable value={form.exit_date || ''} onChange={(v) => setForm(f => ({ ...f, exit_date: v }))} className={field} />
+                                    <input id="p-price" type="number" inputMode="decimal" step="0.01" min="0" required value={Number.isFinite(form.price) ? form.price : ''}
+                                        aria-invalid={fieldErrors.price ? true : undefined} aria-describedby={fieldErrors.price ? 'p-price-error' : undefined}
+                                        onChange={(e) => { clearFieldError('price'); setForm(f => ({ ...f, price: e.target.value === '' ? NaN : Number(e.target.value) })); }} className={`${field} font-semibold`} />
+                                    {fieldErrors.price && <p id="p-price-error" role="alert" className="text-xs text-bos-danger mt-1">{fieldErrors.price}</p>}
                                 </div>
                             </div>
                         </section>

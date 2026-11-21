@@ -48,13 +48,54 @@ export function toProductView(product: ProductRow, inventory: InventoryRow | und
     };
 }
 
-export function summarizeProducts(products: Product[]) {
+/**
+ * Resumen del inventario. `totalValue` es el valor a PRECIO DE VENTA (lo que entraría si se vende todo).
+ * Con `withCost` (solo cuando los productos traen su costo: dueño, gerencia, consulta) agrega `totalCost`,
+ * el valor a COSTO (lo que se pagó por lo que hay). Son dos cifras distintas y la pantalla rotula cada una.
+ */
+export function summarizeProducts(products: Product[], options: { withCost?: boolean } = {}) {
+    const round = (n: number) => Math.round(n * 100) / 100;
     return {
         total: products.length,
         lowStock: products.filter((p) => p.status === 'low' || p.status === 'critical').length,
         outOfStock: products.filter((p) => p.status === 'empty').length,
-        totalValue: Math.round(products.reduce((sum, p) => sum + p.price * p.stock, 0) * 100) / 100,
+        totalValue: round(products.reduce((sum, p) => sum + p.price * p.stock, 0)),
+        ...(options.withCost ? { totalCost: round(products.reduce((sum, p) => sum + p.cost * p.stock, 0)) } : {}),
     };
+}
+
+// ───────────── Formulario de producto (Inventario › Agregar / Editar)
+/** Categoría que muestra la pantalla cuando el producto no tiene una guardada (ver toProductView). */
+export const DEFAULT_PRODUCT_CATEGORY = 'General';
+/** Lista sugerida. La categoría es un texto libre en la base (products.description); esta lista no la limita. */
+export const PRODUCT_CATEGORIES = [DEFAULT_PRODUCT_CATEGORY, 'Ceras', 'Pomadas', 'Geles', 'Shampoos', 'Aceites', 'Accesorios'] as const;
+
+/** Opciones del selector: la lista sugerida más la categoría que ya tiene el producto, para que abrir y guardar no la cambie. */
+export function productCategoryOptions(current: string | null | undefined): string[] {
+    const value = current?.trim();
+    const base: string[] = [...PRODUCT_CATEGORIES];
+    return value && !base.includes(value) ? [...base, value] : base;
+}
+
+export const PRODUCT_SKU_MIN = 2;
+export const PRODUCT_SKU_MAX = 60;
+export type ProductFormProblems = { name?: string; sku?: string; price?: string };
+
+/**
+ * Problemas del formulario de producto, por campo y en español (la pantalla ya no depende del globo del navegador).
+ * El código (SKU) es OPCIONAL: vacío es válido. El costo se revisa aparte (productCostProblem).
+ */
+export function productFormProblems(form: { name: string; sku: string; price: number }): ProductFormProblems {
+    const problems: ProductFormProblems = {};
+    const name = form.name.trim();
+    if (name.length < 2) problems.name = 'Escribe el nombre del producto (al menos 2 letras).';
+    else if (name.length > 160) problems.name = 'El nombre es muy largo (máximo 160 letras).';
+    const sku = form.sku.trim();
+    if (sku.length > 0 && sku.length < PRODUCT_SKU_MIN) problems.sku = `El código debe tener al menos ${PRODUCT_SKU_MIN} caracteres, o déjalo vacío.`;
+    else if (sku.length > PRODUCT_SKU_MAX) problems.sku = `El código es muy largo (máximo ${PRODUCT_SKU_MAX} caracteres).`;
+    if (!Number.isFinite(form.price) || form.price < 0) problems.price = 'Escribe el precio de venta (en pesos).';
+    else if (form.price > 1_000_000) problems.price = 'El precio no puede pasar de $1,000,000.';
+    return problems;
 }
 
 /**
@@ -81,6 +122,14 @@ export async function loadProducts(supabase: SupabaseClient, businessId: string,
     const byProduct = new Map<string, InventoryRow>();
     for (const row of (inventory ?? []) as unknown as InventoryRow[]) byProduct.set(row.product_id, row);
     return ((products ?? []) as unknown as ProductRow[]).map((p) => toProductView({ ...p, cost_price: costByProduct.get(p.id) ?? null }, byProduct.get(p.id)));
+}
+
+/** Código de producto opcional para las rutas: vacío o ausente es válido; si viene, de 2 a 60 caracteres. */
+export function skuProblem(value: string): string | null {
+    const sku = value.trim();
+    if (sku.length > 0 && sku.length < PRODUCT_SKU_MIN) return `El código debe tener al menos ${PRODUCT_SKU_MIN} caracteres, o déjalo vacío.`;
+    if (sku.length > PRODUCT_SKU_MAX) return `El código es muy largo (máximo ${PRODUCT_SKU_MAX} caracteres).`;
+    return null;
 }
 
 // Costo obligatorio (20261120120000_products_require_cost): la base rechaza un producto activo sin costo mayor que

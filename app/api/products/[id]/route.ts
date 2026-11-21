@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { AuthorizationError, authErrorResponse, requireAuthContext } from '@/lib/auth/context';
-import { PRODUCT_COST_MAX, PRODUCT_COST_REQUIRED, loadProducts } from '@/lib/inventory/products-view';
+import { PRODUCT_COST_MAX, PRODUCT_COST_REQUIRED, loadProducts, skuProblem } from '@/lib/inventory/products-view';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { pinErrorResponse, runWithPin } from '@/lib/auth/pin-confirm';
 import { REASON_MAX, REASON_MIN } from '@/lib/cash/reasons';
@@ -13,7 +13,11 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 const IdSchema = z.string().uuid();
 const UpdateSchema = z.object({
     name: z.string().trim().min(2).max(160).optional(),
-    sku: z.string().trim().min(2).max(60).optional(),
+    // Opcional: vacío quita el código (la base guarda null). Los productos reales no lo traen.
+    sku: z.string().trim().superRefine((value, ctx) => {
+        const problem = skuProblem(value);
+        if (problem) ctx.addIssue({ code: 'custom', message: problem });
+    }).optional(),
     category: z.string().trim().min(2).max(160).optional(),
     stock: z.number().int().min(0).max(100_000).optional(),
     min_stock: z.number().int().min(0).max(100_000).optional(),
@@ -78,7 +82,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
         const changes: Record<string, unknown> = {};
         if (v.name !== undefined && v.name !== current.name) changes.name = v.name;
-        if (v.sku !== undefined && v.sku !== current.sku) changes.sku = v.sku;
+        // current.sku es '' cuando la base tiene null: vacío contra vacío no es un cambio.
+        if (v.sku !== undefined && v.sku !== current.sku) changes.sku = v.sku || null;
         if (v.category !== undefined && v.category !== current.category) changes.description = v.category;
         if (v.price !== undefined && v.price !== current.price) changes.sale_price = v.price;
         if (v.cost !== undefined && v.cost !== current.cost) changes.cost_price = v.cost;
