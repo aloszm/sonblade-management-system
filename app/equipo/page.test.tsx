@@ -145,3 +145,27 @@ describe('Equipo: errores, doble envío y confirmaciones', () => {
         await waitFor(() => expect(calls.filter((c) => c.url === '/api/barbers' && c.method === 'POST')).toHaveLength(1));
     });
 });
+
+describe('Equipo: horario de recepción', () => {
+    it('recepción también tiene botón Horario y al guardar se envía su horario', async () => {
+        const calls: { url: string; method: string; body?: string }[] = [];
+        vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+            const u = String(url);
+            calls.push({ url: u, method: init?.method ?? 'GET', body: init?.body as string | undefined });
+            if (u.includes('/api/auth/me')) return { ok: true, json: async () => ({ authenticated: true, user: { role: 'owner' } }) };
+            if (u.includes('/api/barbers?')) return { ok: true, json: async () => [{ id: 'r1', name: 'Emi', status: 'active', isBarber: false, hasAccount: true }] };
+            if (u.includes('/api/accounts')) return { ok: true, json: async () => ACCOUNTS };
+            if (u.includes('/api/schedule')) return { ok: true, json: async () => ({ timezone: 'America/Mexico_City', hours: null, barbers: {} }) };
+            return { ok: true, json: async () => ({}) };
+        }));
+        render(<TeamPage />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Horario de Emi' }));
+        const dialog = await screen.findByRole('dialog');
+        expect(dialog).not.toHaveTextContent('La agenda no acepta citas');
+        fireEvent.change(await within(dialog).findByLabelText('Domingo: tipo de horario'), { target: { value: 'off' } });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar horario' }));
+        await waitFor(() => expect(calls.some((c) => c.url === '/api/barbers/r1/schedule' && c.method === 'PUT')).toBe(true));
+        const put = calls.find((c) => c.method === 'PUT')!;
+        expect(JSON.parse(put.body!).days[0]).toEqual({ weekday: 0, off: true });
+    });
+});

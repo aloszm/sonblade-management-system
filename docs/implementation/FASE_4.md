@@ -391,6 +391,16 @@ Decisión del dueño: Sonia (puesto `admin`, además barbera) se lee "Gerente Ba
     from auth.users u where e.user_id = u.id and u.email = 'sonia@gallo-420.barberos.invalid';
   ```
 
+### B9 — Horario también para recepción (21 nov; solo código, sin cambio de base)
+
+Reporte del dueño: en producción no podía cambiar el horario de recepción (Dago, Emi). Causa: en Equipo el botón "Horario" solo se dibujaba si `isBarber !== false`; la base (`set_employee_schedule`) nunca distinguió el puesto.
+
+- `app/equipo/page.tsx`: el botón aparece para toda persona activa (con `aria-label="Horario de <nombre>"`).
+- `components/BarberScheduleModal.tsx`: con `isBarber: false` no dice "La agenda no acepta citas…" ni sugiere Ausencia, porque a recepción no se le asignan citas.
+- Sin efecto en reservas en línea ni en la agenda: la disponibilidad pública filtra `e.is_barber` y el disparador `appointments_within_hours` solo revisa a quien tiene la cita asignada. Para recepción el horario es solo informativo por ahora.
+- Prueba: `app/equipo/page.test.tsx` → "Equipo: horario de recepción" (falla con el código anterior, pasa con el nuevo).
+- **Pendiente de decidir (contradicción documentada):** este documento dice que horarios son "solo del dueño", pero la ruta y la función aceptan `owner` y `admin` (gerencia). No se cambió.
+
 ---
 
 ## 5. Procedimientos paso a paso (recetas)
