@@ -32,7 +32,9 @@ export function TimeOffFormModal({ barbers, initial, onClose, onSaved }: OffForm
         const now = nowParts();
         return {
             barber_id: initial.barberId, from_date: initial.date, from_time: '08:00', to_date: initial.date, to_time: '22:00', reason: '',
-            requested_date: now.date, requested_time: now.time, requested_via: 'whatsapp' as RequestedVia,
+            // Sin valor por omisión: antes venía «WhatsApp» ya marcado y quedaba registrado así aunque el aviso hubiera
+            // sido en persona o por llamada. Quien registra elige cómo avisó.
+            requested_date: now.date, requested_time: now.time, requested_via: '' as RequestedVia | '',
         };
     });
     const [error, setError] = useState('');
@@ -44,6 +46,7 @@ export function TimeOffFormModal({ barbers, initial, onClose, onSaved }: OffForm
         setError('');
         if (!form.barber_id) { setError('Elige al barbero.'); return; }
         if (form.reason.trim().length < 3) { setError('Escribe el motivo de la ausencia.'); return; }
+        if (!form.requested_via) { setError('Elige cómo avisó.'); return; }
         const startsAt = localDateTimeToIso(form.from_date, form.from_time);
         const endsAt = localDateTimeToIso(form.to_date, form.to_time);
         if (new Date(endsAt) <= new Date(startsAt)) { setError('La hora de fin debe ser después del inicio.'); return; }
@@ -114,7 +117,8 @@ export function TimeOffFormModal({ barbers, initial, onClose, onSaved }: OffForm
                     </div>
                     <Field label="Cómo avisó" id="off-via">
                         {(p) => (
-                            <select {...p} value={form.requested_via} onChange={(e) => setForm({ ...form, requested_via: e.target.value as RequestedVia })}>
+                            <select {...p} value={form.requested_via} onChange={(e) => setForm({ ...form, requested_via: e.target.value as RequestedVia | '' })}>
+                                <option value="">Elige cómo avisó</option>
                                 {REQUESTED_VIA.map((v) => <option key={v} value={v}>{VIA_LABELS[v]}</option>)}
                             </select>
                         )}
